@@ -1,4 +1,4 @@
-# 🐕 Fetch - Your Faithful Code Companion
+# Fetch - Your Faithful Code Companion
 
 A headless "ChatOps" development environment designed to run on a Raspberry Pi 5. Send natural language coding tasks via WhatsApp and let AI agents do the work.
 
