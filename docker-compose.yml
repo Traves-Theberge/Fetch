@@ -11,6 +11,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    ports:
+      # Status API for Go TUI
+      - "8765:8765"
     volumes:
       # Persistent data (WhatsApp auth, task database)
       - ./data:/app/data
@@ -33,10 +36,11 @@ services:
     volumes:
       # Shared workspace for code operations
       - ./workspace:/workspace
-      # GitHub CLI authentication (read-only)
-      - ./config/github:/root/.config/gh:ro
-      # Claude Code MCP configuration (read-only)
-      - ./config/claude:/root/.config/claude:ro
+      # CLI Authentication (mounted from host, read-only)
+      # Only mount directories that exist on host
+      - ~/.config/gh:/root/.config/gh:ro
+      - ~/.config/claude-code:/root/.config/claude-code:ro
+      - ~/.gemini:/root/.gemini:ro
     working_dir: /workspace
     # Keep container running for exec commands
     command: ["tail", "-f", "/dev/null"]

@@ -1,3 +1,4 @@
+// Package config provides a TUI-based configuration editor for Fetch.
 package config
 
 import (
@@ -7,9 +8,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-)
 
-const envPath = "/home/traves/Development/1. Personal/Fetch/.env"
+	"github.com/fetch/manager/internal/paths"
+)
 
 var (
 	labelStyle = lipgloss.NewStyle().
@@ -62,9 +63,9 @@ func NewEditor() *Editor {
 	return editor
 }
 
-// loadFromFile loads current values from .env file
+// loadFromFile loads current values from .env file.
 func (e *Editor) loadFromFile() {
-	file, err := os.Open(envPath)
+	file, err := os.Open(paths.EnvFile)
 	if err != nil {
 		// File doesn't exist, that's okay
 		return
@@ -91,9 +92,9 @@ func (e *Editor) loadFromFile() {
 	}
 }
 
-// saveToFile writes configuration to .env file
+// saveToFile writes configuration to .env file.
 func (e *Editor) saveToFile() error {
-	file, err := os.Create(envPath)
+	file, err := os.Create(paths.EnvFile)
 	if err != nil {
 		return err
 	}
@@ -193,11 +194,4 @@ func (e *Editor) View() string {
 	}
 
 	return s
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

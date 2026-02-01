@@ -1,7 +1,8 @@
 # Fetch Kennel - AI CLI Execution Sandbox
-# The Muscle: Contains Claude Code, Gemini CLI, and GitHub Copilot
+# The Muscle: Supports GitHub Copilot, Claude Code, and Gemini CLI
+# Toggle CLIs via ENABLE_COPILOT, ENABLE_CLAUDE, ENABLE_GEMINI in .env
 
-FROM ubuntu:22.04
+FROM node:20-slim
 
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,18 +16,11 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     gnupg \
     lsb-release \
-    python3 \
-    python3-pip \
-    nodejs \
-    npm \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade Node.js to latest LTS
-RUN npm install -g n && n lts && npm install -g npm@latest
-
 # ============================================
-# Install GitHub CLI
+# Install GitHub CLI + Copilot Extension
 # ============================================
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -35,7 +29,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Install GitHub Copilot CLI extension
 RUN gh extension install github/gh-copilot || true
 
 # ============================================
@@ -54,10 +47,12 @@ RUN npm install -g @google/gemini-cli
 RUN mkdir -p /workspace && chmod 777 /workspace
 
 # ============================================
-# Create config directories
+# Create config directories for CLI auth
 # ============================================
+# Mounted from host at runtime (read-only)
 RUN mkdir -p /root/.config/gh \
-    && mkdir -p /root/.config/claude
+    && mkdir -p /root/.config/claude-code \
+    && mkdir -p /root/.gemini
 
 # Set working directory
 WORKDIR /workspace

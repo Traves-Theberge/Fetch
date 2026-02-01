@@ -59,12 +59,7 @@ RUN npm ci --only=production
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
-# Create data directory
-RUN mkdir -p /app/data
-
-# Run as non-root user for security
-RUN useradd -m -s /bin/bash fetch
-RUN chown -R fetch:fetch /app
-USER fetch
+# Create data directory with proper permissions
+RUN mkdir -p /app/data && chmod 777 /app/data
 
 CMD ["node", "dist/index.js"]
