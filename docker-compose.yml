@@ -1,0 +1,54 @@
+# Fetch - Docker Compose Configuration
+# Dual-container architecture: Bridge (Brain) + Kennel (Muscle)
+
+services:
+  # The Bridge - WhatsApp orchestration layer
+  fetch-bridge:
+    build:
+      context: ./fetch-app
+      dockerfile: Dockerfile
+    container_name: fetch-bridge
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persistent data (WhatsApp auth, task database)
+      - ./data:/app/data
+      # Docker socket for controlling Kennel
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - fetch-kennel
+    networks:
+      - fetch-network
+
+  # The Kennel - AI CLI execution sandbox
+  fetch-kennel:
+    build:
+      context: ./kennel
+      dockerfile: Dockerfile
+    container_name: fetch-kennel
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Shared workspace for code operations
+      - ./workspace:/workspace
+      # GitHub CLI authentication (read-only)
+      - ./config/github:/root/.config/gh:ro
+      # Claude Code MCP configuration (read-only)
+      - ./config/claude:/root/.config/claude:ro
+    working_dir: /workspace
+    # Keep container running for exec commands
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - fetch-network
+    # Security: Limit resources
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2'
+
+networks:
+  fetch-network:
+    driver: bridge

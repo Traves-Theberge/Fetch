@@ -1,0 +1,8 @@
+# Fetch Data Directory
+#
+# This directory contains:
+# - WhatsApp session data (.wwebjs_auth/)
+# - Task database (tasks.json)
+#
+# This data persists across container restarts
+# Do not commit to version control (contains session secrets)

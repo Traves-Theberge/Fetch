@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+dist/
+
+# Environment files (contain secrets!)
+.env
+.env.local
+.env.*.local
+
+# WhatsApp session data
+data/.wwebjs_auth/
+data/.wwebjs_cache/
+
+# Task database (contains conversation history)
+data/tasks.json
+
+# Config directories (contain auth tokens!)
+config/github/
+config/claude/
+
+# Workspace contents (user code)
+workspace/
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.tgz
+
+# Go binaries
+manager/fetch-manager
