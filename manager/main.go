@@ -1,8 +1,13 @@
+// Fetch Manager - A TUI for managing Fetch services on Raspberry Pi.
+//
+// Provides Docker Compose control, configuration editing, log viewing,
+// and git-based updates through an interactive terminal interface.
 package main
 
 import (
 	"fmt"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -10,10 +15,11 @@ import (
 	"github.com/fetch/manager/internal/config"
 	"github.com/fetch/manager/internal/docker"
 	"github.com/fetch/manager/internal/logs"
+	"github.com/fetch/manager/internal/status"
 	"github.com/fetch/manager/internal/update"
 )
 
-// Screen types
+// Screen represents the current TUI screen.
 type screen int
 
 const (
@@ -21,6 +27,7 @@ const (
 	screenConfig
 	screenLogs
 	screenStatus
+	screenSetup
 )
 
 // Styles
@@ -64,6 +71,11 @@ var (
 
 	infoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#00bfff"))
+
+	qrBoxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#FF6B35")).
+			Padding(1, 2)
 )
 
 // Messages
@@ -82,6 +94,13 @@ type logMsg struct {
 	lines []string
 }
 
+type bridgeStatusMsg struct {
+	status *status.BridgeStatus
+	err    error
+}
+
+type tickMsg time.Time
+
 // Model
 type model struct {
 	screen        screen
@@ -97,12 +116,16 @@ type model struct {
 	configEditor  *config.Editor
 	width         int
 	height        int
+	bridgeStatus  *status.BridgeStatus
+	statusClient  *status.Client
 }
 
 func initialModel() model {
 	return model{
-		screen: screenMenu,
+		screen:       screenMenu,
+		statusClient: status.NewClient(),
 		choices: []string{
+			"📱 Setup WhatsApp",
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
@@ -128,6 +151,19 @@ func checkStatus() tea.Msg {
 	}
 }
 
+// Fetch bridge status from API
+func (m model) fetchBridgeStatus() tea.Msg {
+	status, err := m.statusClient.GetStatus()
+	return bridgeStatusMsg{status: status, err: err}
+}
+
+// Tick for polling bridge status
+func tickCmd() tea.Cmd {
+	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -150,6 +186,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.logLines = msg.lines
 		return m, nil
 
+	case bridgeStatusMsg:
+		if msg.err == nil {
+			m.bridgeStatus = msg.status
+		}
+		return m, nil
+
+	case tickMsg:
+		// Only poll if on setup screen
+		if m.screen == screenSetup {
+			return m, tea.Batch(m.fetchBridgeStatus, tickCmd())
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		// Clear action message on any key
 		m.actionMessage = ""
@@ -163,6 +212,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateLogs(msg)
 		case screenStatus:
 			return m.updateStatus(msg)
+		case screenSetup:
+			return m.updateSetup(msg)
 		}
 	}
 
@@ -187,26 +238,40 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "enter", " ":
 		switch m.cursor {
-		case 0: // Start
+		case 0: // Setup WhatsApp
+			m.screen = screenSetup
+			return m, tea.Batch(m.fetchBridgeStatus, tickCmd())
+		case 1: // Start
 			return m, startFetch
-		case 1: // Stop
+		case 2: // Stop
 			return m, stopFetch
-		case 2: // Configure
+		case 3: // Configure
 			m.screen = screenConfig
 			m.configEditor = config.NewEditor()
 			return m, nil
-		case 3: // Logs
+		case 4: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 4: // Update
+		case 5: // Update
 			return m, runUpdate
-		case 5: // Status
+		case 6: // Status
 			m.screen = screenStatus
 			return m, checkStatus
-		case 6: // Exit
+		case 7: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
+	}
+	return m, nil
+}
+
+func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenMenu
+		return m, nil
+	case "r":
+		return m, m.fetchBridgeStatus
 	}
 	return m, nil
 }
@@ -289,6 +354,8 @@ func (m model) View() string {
 		return m.viewLogs()
 	case screenStatus:
 		return m.viewStatus()
+	case screenSetup:
+		return m.viewSetup()
 	default:
 		return m.viewMenu()
 	}
@@ -308,8 +375,8 @@ func (m model) viewMenu() string {
   ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
   ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
   ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀
-  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    The Loyal Dev-Retriever
-  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Stay 'n Play with AI Agents
+  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion
+  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Always by your side, never leaves a task behind
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀`
@@ -399,6 +466,64 @@ func (m model) viewStatus() string {
 		kennelStatus = statusRunningStyle.Render("● Running")
 	}
 	s += fmt.Sprintf("   Kennel (AI Agents): %s\n", kennelStatus)
+
+	s += helpStyle.Render("\n   r Refresh • Esc Back")
+	return s
+}
+
+func (m model) viewSetup() string {
+	s := "\n"
+	s += titleStyle.Render("📱 WhatsApp Setup") + "\n\n"
+
+	if m.bridgeStatus == nil {
+		s += infoStyle.Render("   Connecting to Fetch Bridge...") + "\n"
+		s += subtitleStyle.Render("   Make sure Fetch is running (Start Fetch from menu)") + "\n"
+		s += helpStyle.Render("\n   r Refresh • Esc Back")
+		return s
+	}
+
+	// Show status
+	stateEmoji := m.bridgeStatus.StateEmoji()
+	stateDesc := m.bridgeStatus.StateDescription()
+	s += fmt.Sprintf("   Status: %s %s\n\n", stateEmoji, stateDesc)
+
+	switch m.bridgeStatus.State {
+	case "qr_pending":
+		s += infoStyle.Render("   Scan this QR code with WhatsApp:") + "\n\n"
+
+		if m.bridgeStatus.QRUrl != nil {
+			// Show URL since terminal QR might not render well in TUI
+			s += qrBoxStyle.Render(fmt.Sprintf(
+				"📱 Open this URL in your browser to see the QR code:\n\n%s",
+				*m.bridgeStatus.QRUrl,
+			)) + "\n\n"
+
+			s += subtitleStyle.Render("   Or check the docker logs: docker logs fetch-bridge") + "\n"
+		} else {
+			s += subtitleStyle.Render("   QR code not yet generated. Wait a moment...") + "\n"
+		}
+
+	case "authenticated":
+		s += successStyle.Render("   ✅ WhatsApp is connected and ready!") + "\n\n"
+		s += fmt.Sprintf("   Uptime: %s\n", m.bridgeStatus.FormatUptime())
+		s += fmt.Sprintf("   Messages: %d\n", m.bridgeStatus.MessageCount)
+
+	case "disconnected":
+		s += errorStyle.Render("   WhatsApp disconnected.") + "\n"
+		if m.bridgeStatus.LastError != nil {
+			s += subtitleStyle.Render(fmt.Sprintf("   Reason: %s", *m.bridgeStatus.LastError)) + "\n"
+		}
+		s += "\n   Try restarting Fetch to reconnect.\n"
+
+	case "error":
+		s += errorStyle.Render("   An error occurred.") + "\n"
+		if m.bridgeStatus.LastError != nil {
+			s += subtitleStyle.Render(fmt.Sprintf("   Error: %s", *m.bridgeStatus.LastError)) + "\n"
+		}
+
+	default:
+		s += subtitleStyle.Render("   Starting up...") + "\n"
+	}
 
 	s += helpStyle.Render("\n   r Refresh • Esc Back")
 	return s

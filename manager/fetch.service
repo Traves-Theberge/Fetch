@@ -1,5 +1,13 @@
+# Fetch Systemd Service
+#
+# Install: sudo cp fetch.service /etc/systemd/system/
+#          sudo systemctl enable fetch
+#          sudo systemctl start fetch
+#
+# Adjust WorkingDirectory to your Fetch installation path.
+
 [Unit]
-Description=Fetch - The Loyal Dev-Retriever
+Description=Fetch - Your Faithful Code Companion
 After=docker.service
 Requires=docker.service
 

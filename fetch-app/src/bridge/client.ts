@@ -7,14 +7,18 @@
  * Updated for agentic architecture - routes to handler module.
  */
 
-import { Client, LocalAuth, Message } from 'whatsapp-web.js';
+import pkg from 'whatsapp-web.js';
+const { Client, LocalAuth } = pkg;
+type Message = pkg.Message;
+type ClientType = InstanceType<typeof Client>;
 import qrcode from 'qrcode-terminal';
 import { logger } from '../utils/logger.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
+import { updateStatus, incrementMessageCount } from '../api/status.js';
 
 export class Bridge {
-  private client: Client;
+  private client: ClientType;
   private securityGate: SecurityGate;
   private rateLimiter: RateLimiter;
 
@@ -52,32 +56,52 @@ export class Bridge {
   private setupEventHandlers(): void {
     // QR Code for authentication
     this.client.on('qr', (qr: string) => {
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+      
+      // Update status API
+      updateStatus({
+        state: 'qr_pending',
+        qrCode: qr,
+        qrUrl: qrUrl
+      });
+      
+      // Console output
+      console.log('\n\n'); // Padding above
       logger.info('📱 Scan this QR code to authenticate:');
+      console.log(''); // Space before QR
       qrcode.generate(qr, { small: true });
+      console.log(''); // Space after QR
+      logger.info(`Or open: ${qrUrl}`);
+      console.log('\n'); // Padding below
     });
 
     // Ready event
     this.client.on('ready', () => {
+      updateStatus({ state: 'authenticated', qrCode: null, qrUrl: null });
       logger.info('🐕 Fetch is connected and ready!');
     });
 
     // Authentication success
     this.client.on('authenticated', () => {
+      updateStatus({ state: 'authenticated', qrCode: null, qrUrl: null });
       logger.info('✅ WhatsApp authentication successful');
     });
 
     // Authentication failure
     this.client.on('auth_failure', (msg: string) => {
+      updateStatus({ state: 'error', lastError: msg });
       logger.error('❌ WhatsApp authentication failed:', msg);
     });
 
     // Disconnected
     this.client.on('disconnected', (reason: string) => {
+      updateStatus({ state: 'disconnected', lastError: reason });
       logger.warn('📴 WhatsApp disconnected:', reason);
     });
 
     // Message handler with security gate
     this.client.on('message', async (message: Message) => {
+      incrementMessageCount();
       await this.handleIncomingMessage(message);
     });
   }

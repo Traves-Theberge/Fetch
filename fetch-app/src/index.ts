@@ -8,9 +8,13 @@
 import 'dotenv/config';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
+import { startStatusServer } from './api/status.js';
 
 async function main(): Promise<void> {
   logger.info('🐕 Fetch Bridge starting...');
+  
+  // Start status API server first
+  startStatusServer();
   
   // Validate critical environment variables
   const requiredEnvVars = [
@@ -31,7 +35,10 @@ async function main(): Promise<void> {
     
     logger.info('✅ Fetch Bridge is ready and listening!');
   } catch (error) {
-    logger.error('Failed to initialize Fetch Bridge:', error);
+    // Properly serialize error for logging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    logger.error('Failed to initialize Fetch Bridge:', { message: errorMessage, stack: errorStack });
     process.exit(1);
   }
 }
