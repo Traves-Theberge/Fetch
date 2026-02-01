@@ -1,6 +1,8 @@
 # Fetch - Your Faithful Code Companion
 
-A headless "ChatOps" development environment designed to run on a Raspberry Pi 5. Send natural language coding tasks via WhatsApp and let AI agents do the work.
+> ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
+
+A headless "ChatOps" development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work.
 
 ```
   ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
@@ -38,7 +40,7 @@ Fetch includes a **low-cost autonomous agent** powered by **GPT-4.1-nano via Ope
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     Raspberry Pi 5                          │
+│                        Host Machine                         │
 │  ┌─────────────────┐         ┌─────────────────────────┐   │
 │  │   Go Manager    │         │     Docker Compose      │   │
 │  │   (TUI)         │         │  ┌─────────┐ ┌───────┐  │   │
@@ -59,7 +61,7 @@ Fetch includes a **low-cost autonomous agent** powered by **GPT-4.1-nano via Ope
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Raspberry Pi 5 (8GB recommended)
+- Linux machine (any architecture)
 - Docker & Docker Compose
 - Go 1.21+ (for manager)
 - Node.js 20+ (for development)

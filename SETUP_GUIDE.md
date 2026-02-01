@@ -19,7 +19,7 @@ A step-by-step guide to setting up and using Fetch, your AI-powered WhatsApp cod
 ## Prerequisites
 
 ### Hardware
-- **Raspberry Pi 5** (8GB recommended) or any Linux machine
+- **Any Linux machine** (ARM64 or x86_64)
 - Internet connection
 
 ### Software

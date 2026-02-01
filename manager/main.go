@@ -1,4 +1,4 @@
-// Fetch Manager - A TUI for managing Fetch services on Raspberry Pi.
+// Fetch Manager - A TUI for managing Fetch services.
 //
 // Provides Docker Compose control, configuration editing, log viewing,
 // and git-based updates through an interactive terminal interface.
@@ -376,7 +376,7 @@ func (m model) viewMenu() string {
   ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
   ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀
   ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion
-  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Always by your side, never leaves a task behind
+  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀   
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀`
@@ -489,18 +489,18 @@ func (m model) viewSetup() string {
 
 	switch m.bridgeStatus.State {
 	case "qr_pending":
-		s += infoStyle.Render("   Scan this QR code with WhatsApp:") + "\n\n"
+		s += infoStyle.Render("   📱 Scan this QR code with WhatsApp") + "\n\n"
 
 		if m.bridgeStatus.QRUrl != nil {
 			// Show URL since terminal QR might not render well in TUI
-			s += qrBoxStyle.Render(fmt.Sprintf(
-				"📱 Open this URL in your browser to see the QR code:\n\n%s",
-				*m.bridgeStatus.QRUrl,
-			)) + "\n\n"
+			s += qrBoxStyle.Render(
+				"OPEN THIS URL IN YOUR BROWSER:\n\n"+*m.bridgeStatus.QRUrl,
+			) + "\n\n"
 
-			s += subtitleStyle.Render("   Or check the docker logs: docker logs fetch-bridge") + "\n"
+			s += successStyle.Render("   Tip: QR codes expire quickly - refresh if needed!") + "\n\n"
+			s += subtitleStyle.Render("   Alt: docker logs fetch-bridge (shows QR in terminal)") + "\n"
 		} else {
-			s += subtitleStyle.Render("   QR code not yet generated. Wait a moment...") + "\n"
+			s += subtitleStyle.Render("   QR code generating... wait a moment.") + "\n"
 		}
 
 	case "authenticated":

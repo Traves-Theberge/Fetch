@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Fetch is a well-architected, security-focused ChatOps platform designed for Raspberry Pi deployment. The codebase demonstrates strong software engineering practices with clear separation of concerns, robust security layers, and excellent TypeScript/Go code quality.
+Fetch is a well-architected, security-focused ChatOps platform. The codebase demonstrates strong software engineering practices with clear separation of concerns, robust security layers, and excellent TypeScript/Go code quality.
 
 **Overall Rating: ⭐⭐⭐⭐ (4/5)**
 

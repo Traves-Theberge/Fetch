@@ -1,10 +1,10 @@
 #!/bin/bash
-# Fetch - Raspberry Pi Installation Script
-# Run this on a fresh Raspberry Pi OS installation
+# Fetch - Linux Installation Script
+# Run this on a fresh Linux installation (Debian/Ubuntu based)
 
 set -e
 
-echo "🐕 Fetch - Raspberry Pi Installation"
+echo "🐕 Fetch - Linux Installation"
 echo "======================================"
 echo ""
 

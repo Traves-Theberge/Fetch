@@ -65,14 +65,18 @@ export class Bridge {
         qrUrl: qrUrl
       });
       
-      // Console output
-      console.log('\n\n'); // Padding above
+      // Console output - lots of padding to prevent cutoff
+      console.log('\n\n\n\n\n'); // 5 lines padding above
+      console.log('═'.repeat(50));
       logger.info('📱 Scan this QR code to authenticate:');
+      console.log('═'.repeat(50));
       console.log(''); // Space before QR
       qrcode.generate(qr, { small: true });
       console.log(''); // Space after QR
-      logger.info(`Or open: ${qrUrl}`);
-      console.log('\n'); // Padding below
+      console.log('═'.repeat(50));
+      logger.info(`Or open in browser:\n${qrUrl}`);
+      console.log('═'.repeat(50));
+      console.log('\n\n'); // Padding below
     });
 
     // Ready event
