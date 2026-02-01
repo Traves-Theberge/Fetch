@@ -4,7 +4,7 @@
 
 ## 1. Executive Summary
 
-**Fetch** is a headless, "ChatOps" development environment designed to run on a Raspberry Pi 5. It acts as a bridge between a user on WhatsApp and a suite of powerful AI coding agents (Claude Code, Gemini CLI, GitHub Copilot).
+**Fetch** is a headless, "ChatOps" development environment. It acts as a bridge between a user on WhatsApp and a suite of powerful AI coding agents (Claude Code, Gemini CLI, GitHub Copilot).
 
 The goal is to allow a user to "program on the go" by sending natural language tasks via WhatsApp. Fetch processes these requests, orchestrates the appropriate AI agent to execute the work in a secure Docker container, and reports the results back to the user.
 
@@ -24,7 +24,7 @@ The system uses a **"Dual-Core" Architecture** to separate system management fro
 
 * **Language:** Go (Golang)
 * **Libraries:** `bubbletea` (TUI), `lipgloss` (Styling).
-* **Function:** A lightweight Terminal User Interface (TUI) for the Raspberry Pi. It handles:
+* **Function:** A lightweight Terminal User Interface (TUI) for managing Fetch. It handles:
 * Installation & Updates (Git pull + Rebuild).
 * Configuration (Editing `.env` safely).
 * Service Control (Systemd Start/Stop).
@@ -134,8 +134,8 @@ Use this checklist to generate the codebase step-by-step.
 
 ## 5. Technical Constraints Summary
 
-* **Hardware:** Raspberry Pi 5 (8GB RAM).
-* **OS:** Raspberry Pi OS Lite (64-bit).
+* **Hardware:** Any Linux machine (ARM64 or x86_64).
+* **OS:** Ubuntu 22.04+, Debian 12+, or compatible.
 * **Container Runtime:** Docker Engine.
 * **External APIs:** OpenRouter (for Orchestration), Anthropic/Google (for Agents).
 * **Cost:** Must rely on free/existing API tiers where possible; No paid SaaS for the architecture itself.

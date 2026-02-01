@@ -19,7 +19,7 @@
 
 ### 1.1 What is Fetch?
 
-Fetch is a **headless ChatOps development environment** designed to run on a Raspberry Pi 5. It enables "programming on the go" by bridging WhatsApp messages to AI coding agents.
+Fetch is a **headless ChatOps development environment**. It enables "programming on the go" by bridging WhatsApp messages to AI coding agents.
 
 ### 1.2 Core Philosophy
 
@@ -46,7 +46,7 @@ Fetch is a **headless ChatOps development environment** designed to run on a Ras
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           RASPBERRY PI 5                                 │
+│                            HOST MACHINE                                  │
 │                                                                          │
 │  ┌──────────────────┐                                                   │
 │  │   Go Manager     │     ┌─────────────────────────────────────────┐   │
@@ -168,7 +168,7 @@ User (WhatsApp Response)
 | Factor | lowdb | SQLite | PostgreSQL | Vector DB |
 |--------|-------|--------|------------|-----------|
 | Single user | ✅ Perfect | Overkill | Overkill | Overkill |
-| Raspberry Pi | ✅ Minimal resources | ✅ OK | ❌ Heavy | ❌ Heavy |
+| Resource use | ✅ Minimal | ✅ OK | ❌ Heavy | ❌ Heavy |
 | Complexity | ✅ None | Medium | High | High |
 | Human-readable | ✅ Yes | ❌ No | ❌ No | ❌ No |
 | Query needs | ✅ Simple | Complex | Complex | Semantic |
@@ -291,18 +291,18 @@ await container.exec({
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| Raspberry Pi | Pi 4 (4GB) | Pi 5 (8GB) |
-| OS | Raspberry Pi OS Lite 64-bit | Same |
+| Platform | Any Linux (ARM64/x86_64) | Same |
+| OS | Ubuntu 22.04+ or Debian 12+ | Same |
 | Storage | 16GB SD | 32GB+ SSD |
 | Docker | 24.0+ | Latest |
 | Node.js | 20.0+ | 20 LTS |
 | Go | 1.21+ | Latest |
 
-### 4.2 Quick Install (Raspberry Pi)
+### 4.2 Quick Install
 
 ```bash
 # Download and run installer
-curl -fsSL https://raw.githubusercontent.com/yourusername/fetch/main/install-pi.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/yourusername/fetch/main/install.sh | sudo bash
 ```
 
 ### 4.3 Manual Installation
@@ -868,7 +868,7 @@ fetch/
 ├── DOCUMENTATION.md            # This file
 ├── deploy.sh                   # Production deployment
 ├── setup-dev.sh               # Development setup
-└── install-pi.sh              # Raspberry Pi installer
+└── install.sh                 # Linux installer
 ```
 
 ### 9.3 Adding a New AI Agent
