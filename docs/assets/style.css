@@ -19,12 +19,14 @@
   --radius-xl: 1rem;
   
   /* Spacing scale */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 0.75rem;
-  --spacing-lg: 1rem;
-  --spacing-xl: 1.5rem;
-  --spacing-2xl: 2rem;
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 0.75rem;   /* 12px */
+  --spacing-lg: 1rem;      /* 16px */
+  --spacing-xl: 1.5rem;    /* 24px */
+  --spacing-2xl: 2rem;     /* 32px */
+  --spacing-3xl: 3rem;     /* 48px */
+  --spacing-4xl: 4rem;     /* 64px */
   
   /* Shadow definitions */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
@@ -160,7 +162,7 @@ body {
 }
 
 .sidebar-header {
-  padding: var(--spacing-xl);
+  padding: var(--spacing-xl) var(--spacing-lg);
   border-bottom: 1px solid hsl(var(--border));
 }
 
@@ -192,11 +194,15 @@ body {
 .sidebar-nav {
   flex: 1;
   overflow-y: auto;
-  padding: var(--spacing-lg);
+  padding: var(--spacing-lg) var(--spacing-md);
 }
 
 .nav-section {
   margin-bottom: var(--spacing-xl);
+}
+
+.nav-section:last-child {
+  margin-bottom: 0;
 }
 
 .nav-section-title {
@@ -222,8 +228,8 @@ body {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--radius-md);
   text-decoration: none;
   color: hsl(var(--foreground));
@@ -277,8 +283,22 @@ body {
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  padding: var(--spacing-2xl);
-  max-width: 900px;
+  padding: var(--spacing-3xl) var(--spacing-3xl) var(--spacing-4xl);
+  max-width: 920px;
+  min-height: 100vh;
+  /* Center the content in the remaining space */
+  margin-right: auto;
+  margin-left: calc(var(--sidebar-width) + (100vw - var(--sidebar-width) - 920px) / 2);
+}
+
+/* When content area is smaller than max-width, just add padding */
+@media (max-width: 1200px) {
+  .main-content {
+    margin-left: var(--sidebar-width);
+    margin-right: 0;
+    padding-left: var(--spacing-3xl);
+    padding-right: var(--spacing-3xl);
+  }
 }
 
 /* ========================================
@@ -289,7 +309,9 @@ body {
   font-size: 2.25rem;
   font-weight: 700;
   line-height: 1.2;
-  margin: 0 0 var(--spacing-lg) 0;
+  margin: 0 0 var(--spacing-xl) 0;
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid hsl(var(--border));
   letter-spacing: -0.02em;
   color: hsl(var(--foreground));
 }
@@ -298,8 +320,8 @@ body {
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.3;
-  margin: var(--spacing-2xl) 0 var(--spacing-lg) 0;
-  padding-bottom: var(--spacing-sm);
+  margin: var(--spacing-3xl) 0 var(--spacing-xl) 0;
+  padding-bottom: var(--spacing-md);
   border-bottom: 1px solid hsl(var(--border));
   letter-spacing: -0.01em;
 }
@@ -308,18 +330,19 @@ body {
   font-size: 1.25rem;
   font-weight: 600;
   line-height: 1.4;
-  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
+  margin: var(--spacing-2xl) 0 var(--spacing-lg) 0;
 }
 
 .markdown-content h4 {
   font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.4;
-  margin: var(--spacing-lg) 0 var(--spacing-sm) 0;
+  margin: var(--spacing-xl) 0 var(--spacing-md) 0;
 }
 
 .markdown-content p {
-  margin: 0 0 var(--spacing-lg) 0;
+  margin: 0 0 var(--spacing-xl) 0;
+  line-height: 1.7;
 }
 
 .markdown-content a {
@@ -334,20 +357,27 @@ body {
 }
 
 .markdown-content ul, .markdown-content ol {
-  margin: 0 0 var(--spacing-lg) 0;
-  padding-left: var(--spacing-xl);
+  margin: 0 0 var(--spacing-xl) 0;
+  padding-left: var(--spacing-2xl);
 }
 
 .markdown-content li {
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+  line-height: 1.7;
+}
+
+.markdown-content li > ul,
+.markdown-content li > ol {
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .markdown-content blockquote {
-  margin: 0 0 var(--spacing-lg) 0;
-  padding: var(--spacing-md) var(--spacing-lg);
+  margin: var(--spacing-xl) 0;
+  padding: var(--spacing-lg) var(--spacing-xl);
   border-left: 4px solid hsl(var(--accent-green));
   background: hsl(var(--accent-green-dim));
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 }
 
 .markdown-content blockquote p:last-child {
@@ -365,8 +395,8 @@ body {
 }
 
 .markdown-content pre {
-  margin: 0 0 var(--spacing-lg) 0;
-  padding: var(--spacing-lg);
+  margin: var(--spacing-xl) 0;
+  padding: var(--spacing-xl);
   background: hsl(var(--card-elevated));
   border-radius: var(--radius-lg);
   border: 1px solid hsl(var(--border));
@@ -383,21 +413,23 @@ body {
 /* Tables */
 .markdown-content table {
   width: 100%;
-  margin: 0 0 var(--spacing-lg) 0;
+  margin: var(--spacing-xl) 0;
   border-collapse: collapse;
   font-size: 0.875rem;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .markdown-content th {
   text-align: left;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   background: hsl(var(--muted));
   border: 1px solid hsl(var(--border));
   font-weight: 600;
 }
 
 .markdown-content td {
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   border: 1px solid hsl(var(--border));
 }
 
@@ -407,7 +439,7 @@ body {
 
 /* Horizontal rule */
 .markdown-content hr {
-  margin: var(--spacing-2xl) 0;
+  margin: var(--spacing-3xl) 0;
   border: none;
   border-top: 1px solid hsl(var(--border));
 }
@@ -417,7 +449,7 @@ body {
    ======================================== */
 
 .search-container {
-  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-lg);
 }
 
 .search-input {
@@ -500,8 +532,8 @@ body {
   
   .main-content {
     margin-left: 0;
-    padding: var(--spacing-lg);
-    padding-top: 4rem;
+    padding: var(--spacing-xl);
+    padding-top: var(--spacing-4xl);
   }
   
   .mobile-menu-toggle {
@@ -569,6 +601,34 @@ body {
 }
 
 /* ========================================
+   D3 Diagram Containers
+   ======================================== */
+
+.diagram-container {
+  margin: var(--spacing-2xl) 0;
+  padding: var(--spacing-xl);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.diagram-container svg {
+  display: block;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+}
+
+.diagram-container svg text {
+  user-select: none;
+}
+
+/* Dark mode diagram adjustments */
+.dark .diagram-container {
+  background: hsl(var(--card-elevated));
+}
+
+/* ========================================
    Print Styles
    ======================================== */
 
@@ -582,5 +642,9 @@ body {
   .main-content {
     margin-left: 0;
     max-width: 100%;
+  }
+  
+  .diagram-container {
+    break-inside: avoid;
   }
 }

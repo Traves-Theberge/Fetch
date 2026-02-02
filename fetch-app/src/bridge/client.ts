@@ -104,7 +104,16 @@ export class Bridge {
     });
 
     // Message handler with security gate
-    this.client.on('message', async (message: Message) => {
+    // Use message_create to catch messages sent to yourself (self-chat)
+    this.client.on('message_create', async (message: Message) => {
+      // Skip messages sent by the bot itself (outgoing replies)
+      if (message.fromMe && !message.to.endsWith('@c.us')) {
+        return;
+      }
+      // For self-chat, fromMe is true but we still want to process @fetch triggers
+      if (message.fromMe && !message.body.toLowerCase().trim().startsWith('@fetch')) {
+        return;
+      }
       incrementMessageCount();
       await this.handleIncomingMessage(message);
     });
