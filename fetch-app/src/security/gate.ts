@@ -24,8 +24,10 @@ export class SecurityGate {
     // Store clean number for participant checking
     this.ownerNumberClean = ownerNumber.replace(/\D/g, '');
 
-    logger.info(`Security Gate initialized for owner: ${this.ownerNumberClean}`);
-    logger.info(`Trigger: ${FETCH_TRIGGER}`);
+    logger.section('🔒 Security Gate Initialized');
+    logger.info(`Owner: +${this.ownerNumberClean}`);
+    logger.info(`Trigger: ${FETCH_TRIGGER} (case-insensitive)`);
+    logger.divider();
   }
 
   /**
@@ -72,43 +74,48 @@ export class SecurityGate {
    */
   isAuthorized(senderId: string, participantId: string | undefined, messageBody: string): boolean {
     try {
-      // Reject broadcast messages
+      // Reject broadcast messages silently
       if (senderId.includes('broadcast')) {
         return false;
       }
 
+      const isGroup = senderId.endsWith('@g.us');
+      const chatType = isGroup ? 'group' : 'direct';
+      const preview = messageBody.substring(0, 30).replace(/\n/g, ' ');
+
       // Must have @fetch trigger
-      logger.debug(`Checking message: "${messageBody.substring(0, 50)}..." from ${senderId}`);
       if (!this.hasFetchTrigger(messageBody)) {
-        logger.debug(`No @fetch trigger in message from ${senderId}. Body starts with: "${messageBody.substring(0, 20)}"`);
+        // Only log if it looks like an attempted command (starts with @)
+        if (messageBody.trim().startsWith('@')) {
+          logger.debug(`Ignored ${chatType} message (no @fetch): "${preview}..."`);
+        }
         return false;
       }
 
       // Check if it's a group message
-      if (senderId.endsWith('@g.us')) {
-        // Group: check participant
+      if (isGroup) {
         if (!participantId) {
-          logger.debug(`Group message without participant ID`);
+          logger.warn('Group message missing participant ID');
           return false;
         }
         if (!this.isOwner(participantId)) {
-          logger.debug(`Group message from non-owner: ${participantId}`);
+          logger.warn(`Blocked: @fetch from non-owner in group`);
           return false;
         }
-        logger.info(`✅ Authorized group message from owner`);
+        logger.success(`Authorized from owner (group chat)`);
         return true;
       }
 
       // Direct message: check sender
       if (!this.isOwner(senderId)) {
-        logger.debug(`Direct message from non-owner: ${senderId}`);
+        logger.warn(`Blocked: @fetch from unknown number`);
         return false;
       }
 
-      logger.info(`✅ Authorized direct message from owner`);
+      logger.success(`Authorized from owner (direct message)`);
       return true;
     } catch (error) {
-      logger.error('Security gate validation error - denying access', error);
+      logger.error('Security gate error - denying access', error);
       return false;
     }
   }

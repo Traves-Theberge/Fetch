@@ -1,44 +1,121 @@
 /**
- * Simple structured logger for Fetch Bridge
+ * Fetch Bridge Logger
+ * Clean, human-readable logging with colors and icons
  */
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'success' | 'message';
 
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  message: string;
-  data?: unknown;
+// ANSI color codes
+const colors = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  bold: '\x1b[1m',
+  
+  // Text colors
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  
+  // Backgrounds
+  bgRed: '\x1b[41m',
+  bgGreen: '\x1b[42m',
+  bgYellow: '\x1b[43m',
+  bgBlue: '\x1b[44m',
+};
+
+const levelConfig: Record<LogLevel, { icon: string; color: string; label: string }> = {
+  debug:   { icon: '🔍', color: colors.gray,    label: 'DEBUG' },
+  info:    { icon: '📘', color: colors.blue,    label: 'INFO ' },
+  warn:    { icon: '⚠️ ', color: colors.yellow,  label: 'WARN ' },
+  error:   { icon: '❌', color: colors.red,     label: 'ERROR' },
+  success: { icon: '✅', color: colors.green,   label: 'OK   ' },
+  message: { icon: '💬', color: colors.cyan,    label: 'MSG  ' },
+};
+
+function formatTime(): string {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2, '0');
+  const m = now.getMinutes().toString().padStart(2, '0');
+  const s = now.getSeconds().toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
 }
 
-function formatLog(entry: LogEntry): string {
-  const base = `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}`;
-  if (entry.data !== undefined) {
-    return `${base} ${JSON.stringify(entry.data)}`;
+function formatData(data: unknown): string {
+  if (data === undefined || data === null) return '';
+  
+  if (typeof data === 'string') {
+    return data;
   }
-  return base;
+  
+  if (data instanceof Error) {
+    return data.message;
+  }
+  
+  try {
+    const str = JSON.stringify(data, null, 2);
+    // Keep it compact if short
+    if (str.length < 80) {
+      return JSON.stringify(data);
+    }
+    return '\n' + str;
+  } catch {
+    return String(data);
+  }
 }
 
 function log(level: LogLevel, message: string, data?: unknown): void {
-  const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    data
-  };
+  const config = levelConfig[level];
+  const time = formatTime();
+  const dataStr = formatData(data);
   
-  const formatted = formatLog(entry);
+  // Build the log line
+  const timePart = `${colors.dim}${time}${colors.reset}`;
+  const levelPart = `${config.color}${config.icon}${colors.reset}`;
+  const messagePart = message;
+  const dataPart = dataStr ? `${colors.dim}${dataStr}${colors.reset}` : '';
+  
+  const output = `${timePart} ${levelPart} ${messagePart}${dataPart ? ' ' + dataPart : ''}`;
   
   switch (level) {
     case 'error':
-      console.error(formatted);
+      console.error(output);
       break;
     case 'warn':
-      console.warn(formatted);
+      console.warn(output);
       break;
     default:
-      console.log(formatted);
+      console.log(output);
   }
+}
+
+// Utility: print a section header
+function section(title: string): void {
+  const line = '─'.repeat(48);
+  console.log(`\n${colors.cyan}┌${line}┐${colors.reset}`);
+  console.log(`${colors.cyan}│${colors.reset} ${colors.bold}${title.padEnd(46)}${colors.reset} ${colors.cyan}│${colors.reset}`);
+  console.log(`${colors.cyan}└${line}┘${colors.reset}`);
+}
+
+// Utility: print a divider
+function divider(): void {
+  console.log(`${colors.dim}${'─'.repeat(50)}${colors.reset}`);
+}
+
+// Utility: print a box around content
+function box(lines: string[]): void {
+  const maxLen = Math.max(...lines.map(l => l.length), 48);
+  const border = '═'.repeat(maxLen + 2);
+  
+  console.log(`${colors.cyan}╔${border}╗${colors.reset}`);
+  for (const line of lines) {
+    console.log(`${colors.cyan}║${colors.reset} ${line.padEnd(maxLen)} ${colors.cyan}║${colors.reset}`);
+  }
+  console.log(`${colors.cyan}╚${border}╝${colors.reset}`);
 }
 
 export const logger = {
@@ -46,4 +123,11 @@ export const logger = {
   info: (message: string, data?: unknown) => log('info', message, data),
   warn: (message: string, data?: unknown) => log('warn', message, data),
   error: (message: string, data?: unknown) => log('error', message, data),
+  success: (message: string, data?: unknown) => log('success', message, data),
+  message: (message: string, data?: unknown) => log('message', message, data),
+  
+  // Utilities
+  section,
+  divider,
+  box,
 };

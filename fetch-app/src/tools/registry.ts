@@ -176,10 +176,14 @@ export async function initializeToolRegistry(): Promise<ToolRegistry> {
   registry.registerAll(gitTools);
   registry.registerAll(controlTools);
   
-  logger.info('Tool registry initialized', { 
-    toolCount: registry.getAll().length,
-    summary: registry.getSummary()
-  });
+  const summary = registry.getSummary();
+  const categories = Object.keys(summary);
+  const total = registry.getAll().length;
+  
+  logger.info(`Loaded ${total} tools across ${categories.length} categories`);
+  for (const [cat, tools] of Object.entries(summary)) {
+    logger.debug(`  ${cat}: ${tools.join(', ')}`);
+  }
   
   return registry;
 }

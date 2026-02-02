@@ -133,7 +133,8 @@ func initialModel() model {
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
 			"📜 View Logs",
-			"🔄 Update",
+			"� Documentation",
+			"�🔄 Update",
 			"ℹ️  Status",
 			"❌ Exit",
 		},
@@ -255,12 +256,14 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 4: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 5: // Update
+		case 5: // Documentation
+			return m, openDocs
+		case 6: // Update
 			return m, runUpdate
-		case 6: // Status
+		case 7: // Status
 			m.screen = screenStatus
 			return m, checkStatus
-		case 7: // Exit
+		case 8: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -349,6 +352,15 @@ func runUpdate() tea.Msg {
 		return actionResultMsg{success: false, message: fmt.Sprintf("Update failed: %v", err)}
 	}
 	return actionResultMsg{success: true, message: "🔄 Update complete! Restart to apply."}
+}
+
+func openDocs() tea.Msg {
+	docsURL := "http://localhost:8765/docs"
+	err := exec.Command("xdg-open", docsURL).Start()
+	if err != nil {
+		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to open docs: %v", err)}
+	}
+	return actionResultMsg{success: true, message: "📚 Documentation opened in browser"}
 }
 
 func (m model) View() string {

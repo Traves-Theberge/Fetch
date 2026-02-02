@@ -7,14 +7,14 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY fetch-app/package*.json ./
 
 # Install all dependencies (including devDependencies for build)
 RUN npm ci
 
 # Copy source code
-COPY tsconfig.json ./
-COPY src ./src
+COPY fetch-app/tsconfig.json ./
+COPY fetch-app/src ./src
 
 # Build TypeScript
 RUN npm run build
@@ -51,13 +51,16 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY fetch-app/package*.json ./
 
 # Install production dependencies only
 RUN npm ci --only=production
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
+
+# Copy documentation
+COPY docs ./docs
 
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && chmod 777 /app/data
