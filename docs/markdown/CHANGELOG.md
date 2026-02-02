@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+#### 📚 Comprehensive JSDoc Documentation
+- **36 TypeScript files** with full `@fileoverview` documentation
+- Module-level documentation with `@module` identifiers
+- Cross-references with `@see` tags between related modules
+- ASCII architecture diagrams showing data flow and relationships
+- Quick-reference tables for functions, tools, and configurations
+- `@param`/`@returns` annotations for all public functions
+- `@example` code blocks demonstrating usage patterns
+- `@constant` documentation for configuration values
+- `@interface`/`@class` documentation for type definitions
+
+#### Files Documented
+- **agent/** - core.ts, intent.ts, conversation.ts, inquiry.ts, action.ts, prompts.ts, whatsapp-format.ts, format.ts, index.ts
+- **session/** - types.ts, manager.ts, store.ts, project.ts, index.ts
+- **tools/** - types.ts, registry.ts, file.ts, git.ts, shell.ts, code.ts, control.ts, index.ts
+- **security/** - gate.ts, rateLimiter.ts, validator.ts, index.ts
+- **executor/** - docker.ts
+- **handler/** - index.ts
+- **bridge/** - client.ts
+- **api/** - status.ts
+- **commands/** - parser.ts, index.ts
+- **utils/** - logger.ts, sanitize.ts
+- **types/** - qrcode-terminal.d.ts
+- **root** - index.ts
+
+---
+
+## [Unreleased - Previous]
+
+### Added
+
 #### 🧠 4-Mode Architecture
 - **Conversation Mode** - Quick chat without tools (greetings, thanks, general questions)
 - **Inquiry Mode** - Read-only code exploration (what's in X, show me Y, explain Z)
