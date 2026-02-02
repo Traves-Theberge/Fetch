@@ -1,0 +1,35 @@
+{
+  "sessions": [
+    {
+      "id": "iwtt7twt",
+      "userId": "15878896279@c.us",
+      "messages": [
+        {
+          "id": "73bu8rwz",
+          "role": "user",
+          "content": "hello",
+          "timestamp": "2026-02-02T02:05:26.951Z"
+        },
+        {
+          "id": "tdvvxsip",
+          "role": "user",
+          "content": "hello",
+          "timestamp": "2026-02-02T03:13:01.069Z"
+        }
+      ],
+      "activeFiles": [],
+      "repoMap": null,
+      "repoMapUpdatedAt": null,
+      "preferences": {
+        "autonomyLevel": "cautious",
+        "autoCommit": true,
+        "verboseMode": false,
+        "maxIterations": 25
+      },
+      "currentTask": null,
+      "gitStartCommit": null,
+      "createdAt": "2026-02-02T02:05:26.948Z",
+      "lastActivityAt": "2026-02-02T03:13:03.976Z"
+    }
+  ]
+}

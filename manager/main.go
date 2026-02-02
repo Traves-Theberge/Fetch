@@ -15,70 +15,44 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	qrcode "github.com/skip2/go-qrcode"
 
+	"github.com/fetch/manager/internal/components"
 	"github.com/fetch/manager/internal/config"
 	"github.com/fetch/manager/internal/docker"
+	"github.com/fetch/manager/internal/layout"
 	"github.com/fetch/manager/internal/logs"
+	"github.com/fetch/manager/internal/models"
 	"github.com/fetch/manager/internal/status"
+	"github.com/fetch/manager/internal/theme"
 	"github.com/fetch/manager/internal/update"
+)
+
+// Style aliases - mapping legacy names to theme package
+var (
+	titleStyle         = theme.Title
+	subtitleStyle      = theme.Subtitle
+	helpStyle          = theme.Help
+	infoStyle          = theme.StatusInfo
+	successStyle       = theme.StatusSuccess
+	errorStyle         = theme.StatusError
+	statusRunningStyle = theme.StatusRunning
+	statusStoppedStyle = theme.StatusStopped
+	itemStyle          = theme.MenuItem
+	selectedItemStyle  = theme.MenuItemSelected
+	qrBoxStyle         = theme.QRBox
 )
 
 // Screen represents the current TUI screen.
 type screen int
 
 const (
-	screenMenu screen = iota
+	screenSplash screen = iota
+	screenMenu
 	screenConfig
 	screenLogs
 	screenStatus
 	screenSetup
-)
-
-// Styles
-var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FF6B35")).
-			Background(lipgloss.Color("#1a1a2e")).
-			Padding(1, 2).
-			MarginBottom(1)
-
-	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888")).
-			Italic(true)
-
-	itemStyle = lipgloss.NewStyle().
-			PaddingLeft(4)
-
-	selectedItemStyle = lipgloss.NewStyle().
-				PaddingLeft(2).
-				Foreground(lipgloss.Color("#FF6B35")).
-				Bold(true)
-
-	statusRunningStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#00ff00")).
-				Bold(true)
-
-	statusStoppedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#ff0000")).
-				Bold(true)
-
-	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#626262")).
-			MarginTop(2)
-
-	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00"))
-
-	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#ff0000"))
-
-	infoStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00bfff"))
-
-	qrBoxStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#FF6B35")).
-			Padding(1, 2)
+	screenModels
+	screenVersion
 )
 
 // Messages
@@ -104,6 +78,9 @@ type bridgeStatusMsg struct {
 
 type tickMsg time.Time
 
+// splashDoneMsg signals splash screen timeout
+type splashDoneMsg struct{}
+
 // Model
 type model struct {
 	screen        screen
@@ -117,32 +94,41 @@ type model struct {
 	actionSuccess bool
 	logLines      []string
 	configEditor  *config.Editor
+	modelSelector *models.Selector
 	width         int
 	height        int
 	bridgeStatus  *status.BridgeStatus
 	statusClient  *status.Client
+	versionInfo   components.VersionInfo
 }
 
 func initialModel() model {
 	return model{
-		screen:       screenMenu,
+		screen:       screenSplash,
 		statusClient: status.NewClient(),
+		versionInfo:  components.DefaultVersionInfo(),
 		choices: []string{
 			"📱 Setup WhatsApp",
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
+			"🤖 Select Model",
 			"📜 View Logs",
-			"� Documentation",
-			"�🔄 Update",
-			"ℹ️  Status",
+			"📚 Documentation",
+			"ℹ️  Version",
 			"❌ Exit",
 		},
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return checkStatus
+	// Show splash for 2 seconds, then check status
+	return tea.Batch(
+		tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
+			return splashDoneMsg{}
+		}),
+		checkStatus,
+	)
 }
 
 // Check Docker container status
@@ -175,6 +161,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 
+	case splashDoneMsg:
+		m.screen = screenMenu
+		return m, nil
+
 	case statusMsg:
 		m.bridgeRunning = msg.bridgeRunning
 		m.kennelRunning = msg.kennelRunning
@@ -196,6 +186,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case models.ModelsLoadedMsg:
+		if m.modelSelector != nil {
+			m.modelSelector, _ = m.modelSelector.Update(msg)
+		}
+		return m, nil
+
+	case models.ModelSavedMsg:
+		if m.modelSelector != nil {
+			m.modelSelector, _ = m.modelSelector.Update(msg)
+		}
+		return m, nil
+
 	case tickMsg:
 		// Only poll if on setup screen
 		if m.screen == screenSetup {
@@ -204,6 +206,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// Allow skipping splash with any key
+		if m.screen == screenSplash {
+			m.screen = screenMenu
+			return m, nil
+		}
+
 		// Clear action message on any key
 		m.actionMessage = ""
 
@@ -218,6 +226,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateStatus(msg)
 		case screenSetup:
 			return m.updateSetup(msg)
+		case screenModels:
+			return m.updateModels(msg)
+		case screenVersion:
+			return m.updateVersion(msg)
 		}
 	}
 
@@ -253,16 +265,18 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenConfig
 			m.configEditor = config.NewEditor()
 			return m, nil
-		case 4: // Logs
+		case 4: // Select Model
+			m.screen = screenModels
+			m.modelSelector = models.NewSelector()
+			return m, models.FetchModelsCmd
+		case 5: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 5: // Documentation
+		case 6: // Documentation
 			return m, openDocs
-		case 6: // Update
-			return m, runUpdate
-		case 7: // Status
-			m.screen = screenStatus
-			return m, checkStatus
+		case 7: // Version
+			m.screen = screenVersion
+			return m, nil
 		case 8: // Exit
 			m.quitting = true
 			return m, tea.Quit
@@ -302,6 +316,22 @@ func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) updateModels(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenMenu
+		return m, nil
+	}
+
+	if m.modelSelector != nil {
+		var cmd tea.Cmd
+		m.modelSelector, cmd = m.modelSelector.Update(msg)
+		return m, cmd
+	}
+
+	return m, nil
+}
+
 func (m model) updateLogs(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "q":
@@ -320,6 +350,15 @@ func (m model) updateStatus(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m, checkStatus
+	}
+	return m, nil
+}
+
+func (m model) updateVersion(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenMenu
+		return m, nil
 	}
 	return m, nil
 }
@@ -369,6 +408,8 @@ func (m model) View() string {
 	}
 
 	switch m.screen {
+	case screenSplash:
+		return m.viewSplash()
 	case screenConfig:
 		return m.viewConfig()
 	case screenLogs:
@@ -377,178 +418,471 @@ func (m model) View() string {
 		return m.viewStatus()
 	case screenSetup:
 		return m.viewSetup()
+	case screenModels:
+		return m.viewModels()
+	case screenVersion:
+		return m.viewVersion()
 	default:
 		return m.viewMenu()
 	}
 }
 
 func (m model) viewMenu() string {
-	s := "\n"
-
-	// ASCII Art Dog Logo
-	dog := `
-  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀    ███████╗███████╗████████╗ ██████╗██╗  ██╗
-  ⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀    ██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
-  ⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀    █████╗  █████╗     ██║   ██║     ███████║
-  ⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿    ██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
-  ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
-  ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
-  ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀
-  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion
-  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀   
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀`
-
-	s += lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6B35")).Render(dog) + "\n\n"
-
-	// Status indicator
-	if m.statusLoaded {
-		statusText := "   Status: "
-		if m.bridgeRunning && m.kennelRunning {
-			statusText += statusRunningStyle.Render("● Running")
-		} else if m.bridgeRunning || m.kennelRunning {
-			statusText += lipgloss.NewStyle().Foreground(lipgloss.Color("#ffaa00")).Render("● Partial")
-		} else {
-			statusText += statusStoppedStyle.Render("● Stopped")
-		}
-		s += statusText + "\n\n"
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
 	}
 
-	// Action message
+	// Status bar at very bottom
+	statusBar := components.CombinedStatusBar(
+		components.StatusBarState{
+			BridgeRunning: m.bridgeRunning,
+			KennelRunning: m.kennelRunning,
+		},
+		[]string{"↑/↓ Navigate", "Enter Select", "q Quit"},
+		width,
+	)
+	statusBarHeight := lipgloss.Height(statusBar)
+
+	// Available height for main content (above status bar)
+	contentHeight := height - statusBarHeight
+
+	// Get ASCII dog art (left side)
+	dogArt := components.Header(width, contentHeight, m.getStatusString())
+
+	// Build menu panel (right side)
+	menuPanel := m.renderMenuPanel()
+
+	// Action message (show above menu if present)
+	var actionMsg string
 	if m.actionMessage != "" {
-		if m.actionSuccess {
-			s += successStyle.Render("   "+m.actionMessage) + "\n\n"
-		} else {
-			s += errorStyle.Render("   "+m.actionMessage) + "\n\n"
-		}
+		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
 	}
 
-	// Menu items
+	// Right side: FETCH title + menu
+	fetchTitle := lipgloss.NewStyle().
+		Foreground(theme.Primary).
+		Bold(true).
+		Render(`███████╗███████╗████████╗ ██████╗██╗  ██╗
+██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
+█████╗  █████╗     ██║   ██║     ███████║
+██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
+██║     ███████╗   ██║   ╚██████╗██║  ██║
+╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝`)
+
+	tagline := lipgloss.NewStyle().
+		Foreground(theme.TextSecondary).
+		Italic(true).
+		Render("Your Faithful Code Companion")
+
+	rightContent := lipgloss.JoinVertical(lipgloss.Left,
+		fetchTitle,
+		tagline,
+		"",
+		actionMsg+menuPanel,
+	)
+
+	// Join horizontally: dog on left, menu on right
+	mainContent := lipgloss.JoinHorizontal(lipgloss.Top,
+		dogArt,
+		"    ", // gap between dog and menu
+		rightContent,
+	)
+	mainContentHeight := lipgloss.Height(mainContent)
+
+	// Calculate spacer to push content to bottom
+	spacerHeight := contentHeight - mainContentHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	// Horizontal layout: dog left, content right - aligned to bottom
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		mainContent,
+		statusBar,
+	)
+}
+
+func (m model) getStatusString() string {
+	if m.bridgeRunning && m.kennelRunning {
+		return "running"
+	} else if m.bridgeRunning || m.kennelRunning {
+		return "partial"
+	}
+	return "stopped"
+}
+
+func (m model) renderMenuPanel() string {
+	var b strings.Builder
+
+	// Menu title with visible styling (aligned with status bar padding)
+	menuTitle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(theme.Secondary).
+		Background(theme.Surface).
+		Padding(0, 1).
+		Render("✨ Main Menu ✨")
+
+	b.WriteString("  " + menuTitle + "\n")
+
+	// Menu items (aligned with status bar's 2-space padding)
 	for i, choice := range m.choices {
-		cursor := "    "
 		if m.cursor == i {
-			cursor = "  ▶ "
-			s += selectedItemStyle.Render(cursor+choice) + "\n"
+			// Selected item
+			cursor := lipgloss.NewStyle().
+				Foreground(theme.Primary).
+				Bold(true).
+				Render("▸ ")
+			item := lipgloss.NewStyle().
+				Foreground(theme.Primary).
+				Bold(true).
+				Render(choice)
+			b.WriteString(" " + cursor + item + "\n")
 		} else {
-			s += itemStyle.Render(cursor+choice) + "\n"
+			// Normal item
+			item := lipgloss.NewStyle().
+				Foreground(theme.TextPrimary).
+				Render(choice)
+			b.WriteString("   " + item + "\n")
 		}
 	}
 
-	s += helpStyle.Render("\n   ↑/↓ Navigate • Enter Select • q Quit")
+	return b.String()
+}
 
-	return s
+func (m model) viewSplash() string {
+	width := m.width
+	height := m.height
+	if width == 0 {
+		width = 80
+	}
+	if height == 0 {
+		height = 24
+	}
+	return components.Splash(width, height)
+}
+
+func (m model) viewVersion() string {
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Version content
+	versionContent := components.Version(m.versionInfo, width)
+	versionHeight := lipgloss.Height(versionContent)
+
+	// Help bar
+	helpBar := components.HelpBar([]string{"Esc Back"}, width)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - versionHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		versionContent,
+		helpBar,
+	)
 }
 
 func (m model) viewConfig() string {
-	s := "\n"
-	s += titleStyle.Render("⚙️  Configuration") + "\n\n"
-
-	if m.configEditor != nil {
-		s += m.configEditor.View()
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
 	}
 
-	s += helpStyle.Render("\n   ↑/↓ Navigate • Enter Edit • s Save • Esc Back")
-	return s
+	// Title
+	title := layout.SectionHeader("⚙️  Configuration", width-4)
+
+	var content strings.Builder
+	if m.configEditor != nil {
+		content.WriteString(m.configEditor.View())
+	}
+
+	// Help bar
+	helpBar := components.HelpBar(
+		[]string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"},
+		width,
+	)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	configContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(configContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		configContent,
+		helpBar,
+	)
+}
+
+func (m model) viewModels() string {
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Title
+	title := layout.SectionHeader("🤖 AI Model Selection", width-4)
+
+	var content strings.Builder
+	if m.modelSelector != nil {
+		content.WriteString(m.modelSelector.View())
+	} else {
+		content.WriteString(theme.StatusInfo.Render("   Loading model selector...") + "\n")
+	}
+
+	// Help bar
+	helpBar := components.HelpBar(
+		[]string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"},
+		width,
+	)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	modelContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(modelContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		modelContent,
+		helpBar,
+	)
 }
 
 func (m model) viewLogs() string {
-	s := "\n"
-	s += titleStyle.Render("📜 Recent Logs") + "\n\n"
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
 
+	// Title
+	title := layout.SectionHeader("📜 Recent Logs", width-4)
+
+	var content strings.Builder
 	if len(m.logLines) == 0 {
-		s += infoStyle.Render("   No logs available. Is Fetch running?") + "\n"
+		content.WriteString(theme.StatusInfo.Render("No logs available. Is Fetch running?") + "\n")
 	} else {
 		for _, line := range m.logLines {
-			s += "   " + line + "\n"
+			content.WriteString(line + "\n")
 		}
 	}
 
-	s += helpStyle.Render("\n   r Refresh • Esc Back")
-	return s
+	// Help bar
+	helpBar := components.HelpBar(
+		[]string{"r Refresh", "Esc Back"},
+		width,
+	)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	logContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(logContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		logContent,
+		helpBar,
+	)
 }
 
 func (m model) viewStatus() string {
-	s := "\n"
-	s += titleStyle.Render("ℹ️  System Status") + "\n\n"
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Title
+	title := layout.SectionHeader("ℹ️  System Status", width-4)
+
+	var content strings.Builder
 
 	// Bridge status
-	bridgeStatus := statusStoppedStyle.Render("● Stopped")
+	bridgeIcon := "●"
+	bridgeLabel := "Stopped"
+	bridgeStyle := theme.StatusError
 	if m.bridgeRunning {
-		bridgeStatus = statusRunningStyle.Render("● Running")
+		bridgeLabel = "Running"
+		bridgeStyle = theme.StatusSuccess
 	}
-	s += fmt.Sprintf("   Bridge (WhatsApp):  %s\n", bridgeStatus)
+	content.WriteString(fmt.Sprintf("   Bridge (WhatsApp):  %s\n", bridgeStyle.Render(bridgeIcon+" "+bridgeLabel)))
 
 	// Kennel status
-	kennelStatus := statusStoppedStyle.Render("● Stopped")
+	kennelIcon := "●"
+	kennelLabel := "Stopped"
+	kennelStyle := theme.StatusError
 	if m.kennelRunning {
-		kennelStatus = statusRunningStyle.Render("● Running")
+		kennelLabel = "Running"
+		kennelStyle = theme.StatusSuccess
 	}
-	s += fmt.Sprintf("   Kennel (AI Agents): %s\n", kennelStatus)
+	content.WriteString(fmt.Sprintf("   Kennel (AI Agents): %s\n", kennelStyle.Render(kennelIcon+" "+kennelLabel)))
 
-	s += helpStyle.Render("\n   r Refresh • Esc Back")
-	return s
+	// Help bar
+	helpBar := components.HelpBar(
+		[]string{"r Refresh", "Esc Back"},
+		width,
+	)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	statusContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(statusContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		statusContent,
+		helpBar,
+	)
 }
 
 func (m model) viewSetup() string {
-	s := "\n"
-	s += titleStyle.Render("📱 WhatsApp Setup") + "\n\n"
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Title
+	title := layout.SectionHeader("📱 WhatsApp Setup", width-4)
+
+	var content strings.Builder
 
 	if m.bridgeStatus == nil {
-		s += infoStyle.Render("   Connecting to Fetch Bridge...") + "\n"
-		s += subtitleStyle.Render("   Make sure Fetch is running (Start Fetch from menu)") + "\n"
-		s += helpStyle.Render("\n   r Refresh • Esc Back")
-		return s
+		content.WriteString(theme.StatusInfo.Render("Connecting to Fetch Bridge...") + "\n")
+		content.WriteString(theme.Subtitle.Render("Make sure Fetch is running (Start Fetch from menu)") + "\n")
+	} else {
+		// Show status
+		stateEmoji := m.bridgeStatus.StateEmoji()
+		stateDesc := m.bridgeStatus.StateDescription()
+		content.WriteString(fmt.Sprintf("Status: %s %s\n\n", stateEmoji, stateDesc))
+
+		switch m.bridgeStatus.State {
+		case "qr_pending":
+			content.WriteString(theme.StatusInfo.Render("📱 Scan this QR code with WhatsApp:") + "\n\n")
+
+			if m.bridgeStatus.QRCode != nil {
+				// Render QR code in terminal
+				qrText := renderQRCode(*m.bridgeStatus.QRCode)
+				content.WriteString(qrText + "\n\n")
+				content.WriteString(theme.StatusSuccess.Render("Press 'o' to open QR in browser | 'r' to refresh") + "\n")
+			} else if m.bridgeStatus.QRUrl != nil {
+				content.WriteString(theme.QRBox.Render(
+					"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
+				) + "\n\n")
+			} else {
+				content.WriteString(theme.Subtitle.Render("QR code generating... wait a moment.") + "\n")
+			}
+
+		case "authenticated":
+			content.WriteString(theme.StatusSuccess.Render("✅ WhatsApp is connected and ready!") + "\n\n")
+			content.WriteString(fmt.Sprintf("Uptime: %s\n", m.bridgeStatus.FormatUptime()))
+			content.WriteString(fmt.Sprintf("Messages: %d\n", m.bridgeStatus.MessageCount))
+
+		case "disconnected":
+			content.WriteString(theme.StatusError.Render("WhatsApp disconnected.") + "\n")
+			if m.bridgeStatus.LastError != nil {
+				content.WriteString(theme.Subtitle.Render(fmt.Sprintf("Reason: %s", *m.bridgeStatus.LastError)) + "\n")
+			}
+			content.WriteString("\nTry restarting Fetch to reconnect.\n")
+
+		case "error":
+			content.WriteString(theme.StatusError.Render("An error occurred.") + "\n")
+			if m.bridgeStatus.LastError != nil {
+				content.WriteString(theme.Subtitle.Render(fmt.Sprintf("Error: %s", *m.bridgeStatus.LastError)) + "\n")
+			}
+
+		default:
+			content.WriteString(theme.Subtitle.Render("Starting up...") + "\n")
+		}
 	}
 
-	// Show status
-	stateEmoji := m.bridgeStatus.StateEmoji()
-	stateDesc := m.bridgeStatus.StateDescription()
-	s += fmt.Sprintf("   Status: %s %s\n\n", stateEmoji, stateDesc)
-
-	switch m.bridgeStatus.State {
-	case "qr_pending":
-		s += infoStyle.Render("   📱 Scan this QR code with WhatsApp:") + "\n\n"
-
-		if m.bridgeStatus.QRCode != nil {
-			// Render QR code in terminal
-			qrText := renderQRCode(*m.bridgeStatus.QRCode)
-			s += qrText + "\n\n"
-			s += successStyle.Render("   Press 'o' to open QR in browser | 'r' to refresh") + "\n"
-		} else if m.bridgeStatus.QRUrl != nil {
-			s += qrBoxStyle.Render(
-				"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
-			) + "\n\n"
-		} else {
-			s += subtitleStyle.Render("   QR code generating... wait a moment.") + "\n"
-		}
-
-	case "authenticated":
-		s += successStyle.Render("   ✅ WhatsApp is connected and ready!") + "\n\n"
-		s += fmt.Sprintf("   Uptime: %s\n", m.bridgeStatus.FormatUptime())
-		s += fmt.Sprintf("   Messages: %d\n", m.bridgeStatus.MessageCount)
-
-	case "disconnected":
-		s += errorStyle.Render("   WhatsApp disconnected.") + "\n"
-		if m.bridgeStatus.LastError != nil {
-			s += subtitleStyle.Render(fmt.Sprintf("   Reason: %s", *m.bridgeStatus.LastError)) + "\n"
-		}
-		s += "\n   Try restarting Fetch to reconnect.\n"
-
-	case "error":
-		s += errorStyle.Render("   An error occurred.") + "\n"
-		if m.bridgeStatus.LastError != nil {
-			s += subtitleStyle.Render(fmt.Sprintf("   Error: %s", *m.bridgeStatus.LastError)) + "\n"
-		}
-
-	default:
-		s += subtitleStyle.Render("   Starting up...") + "\n"
+	// Help bar
+	helpKeys := []string{"r Refresh", "Esc Back"}
+	if m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
+		helpKeys = []string{"o Open QR", "r Refresh", "Esc Back"}
 	}
+	helpBar := components.HelpBar(helpKeys, width)
+	helpHeight := lipgloss.Height(helpBar)
 
-	s += helpStyle.Render("\n   o Open QR • r Refresh • Esc Back")
-	return s
+	// Content area
+	setupContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(setupContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		setupContent,
+		helpBar,
+	)
 }
 
 // renderQRCode renders a QR code as ASCII art for the terminal

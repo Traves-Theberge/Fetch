@@ -14,8 +14,6 @@ import { logger } from '../utils/logger.js';
 const PORT = 8765;
 const DOCS_PATH = '/app/docs';
 
-const PORT = 8765;
-
 export interface BridgeStatus {
   state: 'initializing' | 'qr_pending' | 'authenticated' | 'disconnected' | 'error';
   qrCode: string | null;

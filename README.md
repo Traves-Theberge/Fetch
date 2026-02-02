@@ -30,7 +30,9 @@ Fetch acts as a bridge between your WhatsApp and powerful AI coding agents:
 
 ### 🤖 Agentic Framework
 
-Fetch includes a **low-cost autonomous agent** powered by **GPT-4.1-nano via OpenRouter**:
+Fetch includes a **flexible autonomous agent** powered by **OpenRouter** — switch between 100+ AI models:
+
+- **Model Flexibility** - GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
 - **ReAct Loop** - Reason + Act pattern for multi-step tasks
 - **24 Built-in Tools** - File, code, shell, git, and control operations
 - **Session Memory** - Persistent conversation context
@@ -98,11 +100,21 @@ cd manager
 go run .
 ```
 
-The TUI provides:
-- 🚀 Start/Stop services
-- ⚙️ Configure API keys
-- 📜 View logs
-- 🔄 Update from Git
+The TUI provides a beautiful terminal interface with:
+- 🎨 **Horizontal Layout** - ASCII dog mascot on the left, menu on the right
+- 📍 **Bottom-Aligned UI** - Content aligned to bottom with status bar
+- 🐕 **Neofetch-Style Version** - Press `v` for detailed system info
+
+**Menu Options:**
+- 🔧 Setup - First-time configuration wizard
+- ▶️  Start - Launch Bridge & Kennel containers
+- ⏹️  Stop - Stop running services
+- ⚙️  Configure - Edit environment variables
+- 🤖 Select Model - Choose AI model via OpenRouter
+- 📜 Logs - View container logs
+- 📚 Documentation - Open docs in browser
+- ℹ️  Version - System information
+- 🚪 Exit - Quit the TUI
 
 ## 📱 WhatsApp Commands
 

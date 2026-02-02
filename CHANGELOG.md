@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **TUI Redesign** - Complete visual overhaul using Charmbracelet ecosystem
+  - Horizontal layout with ASCII dog mascot on left, menu on right
+  - Bottom-aligned content across all views
+  - Neofetch-style version screen with build info
+  - Dynamic header sizing based on terminal height
+  - Theme package with consistent color palette (Primary orange, Teal accents)
+  - Layout package for responsive frame management
+  - Components package (header, splash, version, statusbar, menu)
+- **Model Selector** - Interactive OpenRouter model browser
+  - Real-time model search and filtering
+  - Category-based navigation (Free, Chat, Code, Vision, etc.)
+  - Pricing display and context length info
+  - Automatic .env configuration
 - **@fetch trigger system** - All messages must now start with `@fetch` prefix
   - Works in both direct messages and group chats
   - Case-insensitive matching
@@ -28,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accessible from TUI via 📚 Documentation menu
 
 ### Changed
+- **Manager Menu Streamlined** - Reduced from 11 to 9 items
+  - Removed "Status" (info now in header/statusbar)
+  - Removed "Update" (use git manually for more control)
+- **Kennel Description** - Changed from "Claude Computer Use Agents" to "Multi-Model AI Agent Orchestrator"
+- **Version Display** - Shows "development" and "local" instead of "unknown" for dev builds
 - Status API port changed from 3001 to **8765** (avoid conflicts with Next.js/Loki)
 - Security gate completely rewritten for @fetch trigger support
 - Bridge client updated to pass participant ID for group message verification

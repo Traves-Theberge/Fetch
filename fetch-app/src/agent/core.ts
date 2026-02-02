@@ -21,9 +21,9 @@ import { getCurrentCommit } from '../tools/git.js';
 import { logger } from '../utils/logger.js';
 import { formatApprovalRequest, formatTaskComplete, formatTaskFailed, formatProgress } from './format.js';
 
-// Environment - Using OpenRouter for GPT-4.1-nano (low-cost agent)
+// Environment - Using OpenRouter with configurable model
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4.1-nano';
+const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4o-mini';
 
 /**
  * Agent core implementing the agentic loop

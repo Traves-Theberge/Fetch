@@ -6,6 +6,7 @@
   <title>Fetch Documentation</title>
   <link rel="stylesheet" href="assets/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body class="dark">
   <!-- Mobile Menu Toggle -->
@@ -54,6 +55,12 @@
               </a>
             </li>
             <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="COMMANDS.md" onclick="loadDoc('COMMANDS.md'); return false;">
+                <span class="nav-link-icon">📱</span>
+                Command Reference
+              </a>
+            </li>
+            <li class="nav-item">
               <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
                 <span class="nav-link-icon">📝</span>
                 Changelog
@@ -81,18 +88,6 @@
               <a href="#" class="nav-link" data-doc="AGENTIC_PLAN.md" onclick="loadDoc('AGENTIC_PLAN.md'); return false;">
                 <span class="nav-link-icon">🤖</span>
                 Agentic Architecture
-              </a>
-            </li>
-          </ul>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Development</div>
-          <ul class="nav-list">
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CODE_REVIEW.md" onclick="loadDoc('CODE_REVIEW.md'); return false;">
-                <span class="nav-link-icon">🔍</span>
-                Code Review
               </a>
             </li>
           </ul>
@@ -137,8 +132,18 @@
         const response = await fetch(`markdown/${filename}`);
         if (!response.ok) throw new Error('Document not found');
         
-        const markdown = await response.text();
+        let markdown = await response.text();
+        
+        // Convert diagram placeholders to div containers
+        markdown = markdown.replace(
+          /<!-- DIAGRAM:(\w+) -->/g,
+          (match, type) => `<div class="diagram-container" id="diagram-${type}-${Date.now()}" data-diagram="${type}"></div>`
+        );
+        
         content.innerHTML = marked.parse(markdown);
+        
+        // Initialize D3 diagrams
+        setTimeout(() => FetchDiagrams.initAll(), 50);
         
         // Update active nav link
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -184,6 +189,9 @@
       
       // Persist preference
       localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
+      
+      // Refresh diagrams with new colors
+      FetchDiagrams.refresh();
     }
 
     // Toggle mobile sidebar
@@ -232,5 +240,6 @@
       }
     });
   </script>
+  <script src="assets/diagrams.js"></script>
 </body>
 </html>
