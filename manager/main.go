@@ -7,10 +7,13 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	qrcode "github.com/skip2/go-qrcode"
 
 	"github.com/fetch/manager/internal/config"
 	"github.com/fetch/manager/internal/docker"
@@ -272,6 +275,12 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "r":
 		return m, m.fetchBridgeStatus
+	case "o":
+		// Open QR URL in browser
+		if m.bridgeStatus != nil && m.bridgeStatus.QRUrl != nil {
+			exec.Command("xdg-open", *m.bridgeStatus.QRUrl).Start()
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -489,16 +498,17 @@ func (m model) viewSetup() string {
 
 	switch m.bridgeStatus.State {
 	case "qr_pending":
-		s += infoStyle.Render("   📱 Scan this QR code with WhatsApp") + "\n\n"
+		s += infoStyle.Render("   📱 Scan this QR code with WhatsApp:") + "\n\n"
 
-		if m.bridgeStatus.QRUrl != nil {
-			// Show URL since terminal QR might not render well in TUI
+		if m.bridgeStatus.QRCode != nil {
+			// Render QR code in terminal
+			qrText := renderQRCode(*m.bridgeStatus.QRCode)
+			s += qrText + "\n\n"
+			s += successStyle.Render("   Press 'o' to open QR in browser | 'r' to refresh") + "\n"
+		} else if m.bridgeStatus.QRUrl != nil {
 			s += qrBoxStyle.Render(
-				"OPEN THIS URL IN YOUR BROWSER:\n\n"+*m.bridgeStatus.QRUrl,
+				"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
 			) + "\n\n"
-
-			s += successStyle.Render("   Tip: QR codes expire quickly - refresh if needed!") + "\n\n"
-			s += subtitleStyle.Render("   Alt: docker logs fetch-bridge (shows QR in terminal)") + "\n"
 		} else {
 			s += subtitleStyle.Render("   QR code generating... wait a moment.") + "\n"
 		}
@@ -525,8 +535,46 @@ func (m model) viewSetup() string {
 		s += subtitleStyle.Render("   Starting up...") + "\n"
 	}
 
-	s += helpStyle.Render("\n   r Refresh • Esc Back")
+	s += helpStyle.Render("\n   o Open QR • r Refresh • Esc Back")
 	return s
+}
+
+// renderQRCode renders a QR code as ASCII art for the terminal
+func renderQRCode(data string) string {
+	qr, err := qrcode.New(data, qrcode.Medium)
+	if err != nil {
+		return "   Error generating QR code"
+	}
+
+	// Get the QR code as a bitmap
+	bitmap := qr.Bitmap()
+	var sb strings.Builder
+
+	// Use unicode block characters for compact display
+	for y := 0; y < len(bitmap)-1; y += 2 {
+		sb.WriteString("   ") // Left padding
+		for x := 0; x < len(bitmap[y]); x++ {
+			top := bitmap[y][x]
+			bottom := false
+			if y+1 < len(bitmap) {
+				bottom = bitmap[y+1][x]
+			}
+
+			// Use half-block characters for 2:1 aspect ratio
+			if top && bottom {
+				sb.WriteString("█")
+			} else if top {
+				sb.WriteString("▀")
+			} else if bottom {
+				sb.WriteString("▄")
+			} else {
+				sb.WriteString(" ")
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	return sb.String()
 }
 
 func main() {

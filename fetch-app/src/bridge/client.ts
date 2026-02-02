@@ -112,37 +112,42 @@ export class Bridge {
 
   /**
    * Handle incoming messages with strict security enforcement
-   * SECURITY: Non-whitelisted messages are silently dropped
+   * SECURITY: Requires @fetch trigger + owner verification
    */
   private async handleIncomingMessage(message: Message): Promise<void> {
     const senderId = message.from;
+    const participantId = (message as any).author; // Group message author
+    const messageBody = message.body;
     
-    // SECURITY GATE 1: Validate sender against whitelist
-    if (!this.securityGate.isAuthorized(senderId)) {
+    // SECURITY GATE 1: Validate @fetch trigger + owner
+    if (!this.securityGate.isAuthorized(senderId, participantId, messageBody)) {
       // Silent drop - do not acknowledge unauthorized messages
-      logger.debug(`Dropped message from unauthorized sender: ${senderId}`);
       return;
     }
 
+    // Strip the @fetch trigger from the message
+    const command = this.securityGate.stripTrigger(messageBody);
+
     // SECURITY GATE 2: Rate limiting
-    if (!this.rateLimiter.isAllowed(senderId)) {
+    const rateLimitId = participantId || senderId;
+    if (!this.rateLimiter.isAllowed(rateLimitId)) {
       await message.reply('⏳ Slow down! You\'re sending too many requests. Please wait a moment.');
       return;
     }
 
     // SECURITY GATE 3: Input validation
-    const validation = validateInput(message.body);
+    const validation = validateInput(command);
     if (!validation.valid) {
       logger.warn(`Invalid input from owner: ${validation.error}`);
       await message.reply(`❌ ${validation.error}`);
       return;
     }
 
-    logger.info(`📨 Received message from owner: ${validation.sanitized.substring(0, 50)}...`);
+    logger.info(`📨 Command: ${validation.sanitized.substring(0, 50)}...`);
 
     try {
       // Process through agentic handler
-      const responses = await handleMessage(senderId, validation.sanitized);
+      const responses = await handleMessage(rateLimitId, validation.sanitized);
       
       // Send all response messages
       for (const response of responses) {
