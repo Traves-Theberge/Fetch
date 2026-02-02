@@ -23,41 +23,70 @@ A headless "ChatOps" development environment. Send natural language coding tasks
 
 ## 🎯 Overview
 
-Fetch acts as a bridge between your WhatsApp and powerful AI coding agents:
-- **Claude Code** - Complex refactoring and code generation
-- **Gemini CLI** - Quick explanations and documentation
-- **GitHub Copilot** - Git operations and repository help
+Fetch is a **context-aware, multi-mode AI coding assistant** that understands what you need and responds appropriately—whether it's a quick chat, a code question, a single edit, or a complex multi-step task.
+
+### 🧠 4-Mode Architecture
+
+Fetch automatically detects your intent and routes to the appropriate mode:
+
+| Mode | When | Tools | Example |
+|------|------|-------|---------|
+| 💬 **Conversation** | Greetings, thanks, general chat | None | "Hey!", "Thanks!" |
+| 🔍 **Inquiry** | Questions about code | Read-only | "What's in auth.ts?" |
+| ⚡ **Action** | Single edits/changes | Full (1 cycle) | "Fix the typo on line 5" |
+| 📋 **Task** | Complex multi-step work | Full (multi-step) | "Build a login page" |
 
 ### 🤖 Agentic Framework
 
-Fetch includes a **flexible autonomous agent** powered by **OpenRouter** — switch between 100+ AI models:
+Powered by **OpenRouter** with access to **100+ AI models**:
 
 - **Model Flexibility** - GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
 - **ReAct Loop** - Reason + Act pattern for multi-step tasks
 - **24 Built-in Tools** - File, code, shell, git, and control operations
 - **Session Memory** - Persistent conversation context
+- **Project Awareness** - Knows your active project and git status
 - **Configurable Autonomy** - Supervised, semi-autonomous, or fully autonomous modes
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        Host Machine                         │
-│  ┌─────────────────┐         ┌─────────────────────────┐   │
-│  │   Go Manager    │         │     Docker Compose      │   │
-│  │   (TUI)         │         │  ┌─────────┐ ┌───────┐  │   │
-│  │                 │────────▶│  │ Bridge  │ │Kennel │  │   │
-│  │  • Start/Stop   │         │  │ (Node)  │ │(Ubuntu│  │   │
-│  │  • Configure    │         │  │         │ │ +CLIs)│  │   │
-│  │  • View Logs    │         │  └────┬────┘ └───┬───┘  │   │
-│  └─────────────────┘         │       │          │      │   │
-│                              └───────┼──────────┼──────┘   │
-│                                      │          │          │
-└──────────────────────────────────────┼──────────┼──────────┘
-                                       │          │
-                    WhatsApp ◀─────────┘          │
-                                                  ▼
-                                        /workspace (code)
+┌─────────────────────────────────────────────────────────────────┐
+│                          Host Machine                           │
+│  ┌─────────────────┐           ┌─────────────────────────┐     │
+│  │   Go Manager    │           │     Docker Compose      │     │
+│  │   (TUI)         │           │  ┌─────────┐ ┌───────┐  │     │
+│  │                 │──────────▶│  │ Bridge  │ │Kennel │  │     │
+│  │  • Start/Stop   │           │  │ (Node)  │ │(Ubuntu│  │     │
+│  │  • Configure    │           │  │         │ │ +CLIs)│  │     │
+│  │  • View Logs    │           │  └────┬────┘ └───┬───┘  │     │
+│  └─────────────────┘           │       │          │      │     │
+│                                └───────┼──────────┼──────┘     │
+│                                        │          │            │
+└────────────────────────────────────────┼──────────┼────────────┘
+                                         │          │
+                      WhatsApp ◀─────────┘          │
+                                                    ▼
+                                          /workspace (code)
+```
+
+### Intent Classification Flow
+
+```
+User Message
+     │
+     ▼
+┌────────────────┐
+│ Intent Classifier │
+└────────┬───────┘
+         │
+    ┌────┼────┬────────┐
+    ▼    ▼    ▼        ▼
+  💬    🔍   ⚡       📋
+ Chat  Inquiry Action  Task
+  │      │      │       │
+  ▼      ▼      ▼       ▼
+No     Read   Single  Multi
+Tools  Only   Cycle   Step
 ```
 
 ## 🚀 Quick Start
@@ -124,13 +153,28 @@ The TUI provides a beautiful terminal interface with:
 | `status` | Check system and task status |
 | `ping` | Test if Fetch is responsive |
 
-### Natural Language Tasks
+### Project Management
+
+| Command | Description |
+|---------|-------------|
+| `/projects` | List available projects in workspace |
+| `/project <name>` | Switch to a specific project |
+| `/clone <url>` | Clone a git repository |
+| `/init <name>` | Initialize a new project |
+| `/status` | Show git status |
+| `/diff` | Show current changes |
+| `/log [n]` | Show recent commits |
+
+### Natural Language Examples
 
 Just describe what you need:
 
-- *"Fix the authentication bug in auth.ts"* → Routes to Claude
-- *"Explain how useEffect works in React"* → Routes to Gemini
-- *"Why is my git push failing?"* → Routes to Copilot
+| You Say | Mode | What Happens |
+|---------|------|--------------|
+| "Hey Fetch!" | 💬 Conversation | Quick friendly response |
+| "What's in auth.ts?" | 🔍 Inquiry | Reads and explains the file |
+| "Fix the typo on line 42" | ⚡ Action | Shows diff, asks for approval |
+| "Build a REST API for users" | 📋 Task | Creates plan, executes step-by-step |
 
 ## 🔒 Security
 

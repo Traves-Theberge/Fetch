@@ -1,9 +1,52 @@
 /**
- * Status API Server
+ * @fileoverview Status API Server
  * 
- * Exposes bridge status, QR code, and auth state for the Go TUI.
- * Also serves the documentation site at /docs
- * Port 8765 (internal to Docker network)
+ * Exposes bridge status, QR code, and authentication state via HTTP.
+ * Used by the Go TUI manager to display connection status.
+ * Also serves the documentation site at /docs.
+ * 
+ * @module api/status
+ * @see {@link startStatusServer} - Start the HTTP server
+ * @see {@link updateStatus} - Update bridge status
+ * @see {@link getStatus} - Get current status
+ * 
+ * ## Endpoints
+ * 
+ * | Method | Path | Description |
+ * |--------|------|------------|
+ * | GET | /api/status | Current bridge status (JSON) |
+ * | GET | /docs/* | Documentation site (static) |
+ * 
+ * ## Status States
+ * 
+ * | State | Description |
+ * |-------|------------|
+ * | initializing | Bridge starting up |
+ * | qr_pending | QR code displayed, awaiting scan |
+ * | authenticated | WhatsApp connected |
+ * | disconnected | Connection lost |
+ * | error | Error occurred |
+ * 
+ * ## Status Response
+ * 
+ * ```json
+ * {
+ *   "state": "authenticated",
+ *   "qrCode": null,
+ *   "qrUrl": null,
+ *   "uptime": 3600,
+ *   "messageCount": 42,
+ *   "lastError": null
+ * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { startStatusServer, updateStatus } from './status.js';
+ * 
+ * startStatusServer(); // Starts on port 8765
+ * updateStatus({ state: 'authenticated' });
+ * ```
  */
 
 import http from 'http';
@@ -11,19 +54,44 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
 
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** HTTP server port (internal to Docker network) */
 const PORT = 8765;
+
+/** Path to documentation files */
 const DOCS_PATH = '/app/docs';
 
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Bridge status information.
+ * @interface
+ */
 export interface BridgeStatus {
+  /** Current connection state */
   state: 'initializing' | 'qr_pending' | 'authenticated' | 'disconnected' | 'error';
+  /** QR code data (when state is qr_pending) */
   qrCode: string | null;
+  /** URL to view QR code in browser */
   qrUrl: string | null;
+  /** Uptime in seconds */
   uptime: number;
+  /** Total messages processed */
   messageCount: number;
+  /** Last error message (if any) */
   lastError: string | null;
 }
 
-// Global status (updated by bridge events)
+// =============================================================================
+// GLOBAL STATE
+// =============================================================================
+
+/** Global status (updated by bridge events) */
 let status: BridgeStatus = {
   state: 'initializing',
   qrCode: null,
@@ -33,10 +101,18 @@ let status: BridgeStatus = {
   lastError: null
 };
 
+/** Server start time for uptime calculation */
 const startTime = Date.now();
 
+// =============================================================================
+// STATUS FUNCTIONS
+// =============================================================================
+
 /**
- * Update bridge status (called from bridge events)
+ * Updates the bridge status.
+ * Called by bridge event handlers when state changes.
+ * 
+ * @param {Partial<BridgeStatus>} update - Fields to update
  */
 export function updateStatus(update: Partial<BridgeStatus>): void {
   status = { ...status, ...update };
@@ -44,14 +120,17 @@ export function updateStatus(update: Partial<BridgeStatus>): void {
 }
 
 /**
- * Increment message count
+ * Increments the message counter.
+ * Called for each processed message.
  */
 export function incrementMessageCount(): void {
   status.messageCount++;
 }
 
 /**
- * Get current status
+ * Gets the current bridge status with calculated uptime.
+ * 
+ * @returns {BridgeStatus} Current status snapshot
  */
 export function getStatus(): BridgeStatus {
   return {
@@ -61,7 +140,8 @@ export function getStatus(): BridgeStatus {
 }
 
 /**
- * Start the status API server
+ * Starts the status API HTTP server.
+ * Listens on PORT (8765) for status requests and serves docs.
  */
 export function startStatusServer(): void {
   const server = http.createServer((req, res) => {

@@ -15,6 +15,36 @@
           "role": "user",
           "content": "hello",
           "timestamp": "2026-02-02T03:13:01.069Z"
+        },
+        {
+          "id": "vwog34xi",
+          "role": "user",
+          "content": "hello",
+          "timestamp": "2026-02-02T04:14:11.820Z"
+        },
+        {
+          "id": "gxdnnpev",
+          "role": "assistant",
+          "content": "❓ Hello! How can I assist you today with your coding or project needs?",
+          "timestamp": "2026-02-02T04:14:12.846Z"
+        },
+        {
+          "id": "2izskabm",
+          "role": "user",
+          "content": "help",
+          "timestamp": "2026-02-02T04:15:47.390Z"
+        },
+        {
+          "id": "lauxftfa",
+          "role": "user",
+          "content": "stop",
+          "timestamp": "2026-02-02T04:21:59.326Z"
+        },
+        {
+          "id": "aujv50hh",
+          "role": "user",
+          "content": "help",
+          "timestamp": "2026-02-02T04:22:14.554Z"
         }
       ],
       "activeFiles": [],
@@ -26,10 +56,24 @@
         "verboseMode": false,
         "maxIterations": 25
       },
-      "currentTask": null,
+      "currentTask": {
+        "id": "u8xt0fqs",
+        "goal": "hello",
+        "status": "paused",
+        "plan": [],
+        "currentStepIndex": 0,
+        "iterations": 1,
+        "maxIterations": 25,
+        "pendingApproval": null,
+        "filesModified": [],
+        "commitsCreated": [],
+        "output": "",
+        "startedAt": "2026-02-02T04:14:11.821Z",
+        "completedAt": null
+      },
       "gitStartCommit": null,
       "createdAt": "2026-02-02T02:05:26.948Z",
-      "lastActivityAt": "2026-02-02T03:13:03.976Z"
+      "lastActivityAt": "2026-02-02T04:22:14.554Z"
     }
   ]
 }

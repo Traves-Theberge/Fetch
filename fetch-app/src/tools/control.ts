@@ -1,13 +1,77 @@
 /**
- * Control Tools
+ * @fileoverview Control Tools Module
  * 
- * Tools for agent control flow and user interaction.
+ * Provides tools for agent control flow and user interaction. These tools
+ * allow the agent to communicate with users, track progress, and signal
+ * task completion or blocking issues.
+ * 
+ * @module tools/control
+ * @see {@link module:tools/types} For Tool and ToolResult types
+ * @see {@link module:agent/action} For action mode which uses these tools
+ * 
+ * ## Control Flow Tools
+ * 
+ * | Tool | Purpose | Auto-Approve |
+ * |------|---------|--------------|
+ * | ask_user | Request user clarification | ✅ Yes |
+ * | report_progress | Update on long tasks | ✅ Yes |
+ * | task_complete | Signal successful completion | ✅ Yes |
+ * | task_blocked | Signal unrecoverable error | ✅ Yes |
+ * | think | Reasoning without action | ✅ Yes |
+ * 
+ * ## Workflow Integration
+ * 
+ * ```
+ * ┌─────────────────────────────────────────┐
+ * │              Agent Loop                  │
+ * └──────────────┬──────────────────────────┘
+ *                │
+ *     ┌──────────┴──────────┐
+ *     │                     │
+ *     ▼                     ▼
+ * ┌────────┐          ┌──────────┐
+ * │ask_user│          │  think   │
+ * └────┬───┘          └────┬─────┘
+ *      │                   │
+ *      ▼                   ▼
+ * User Response      Continue Work
+ *      │                   │
+ *      └───────┬───────────┘
+ *              │
+ *     ┌────────┴────────┐
+ *     │                 │
+ *     ▼                 ▼
+ * ┌────────────┐  ┌─────────────┐
+ * │task_complete│  │task_blocked │
+ * └────────────┘  └─────────────┘
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { controlTools } from './control.js';
+ * import { ToolRegistry } from './registry.js';
+ * 
+ * const registry = new ToolRegistry();
+ * controlTools.forEach(tool => registry.register(tool));
+ * 
+ * // Execute ask_user tool
+ * const result = await registry.execute('ask_user', {
+ *   question: 'Which file should I update?',
+ *   options: ['config.ts', 'index.ts', 'Both']
+ * });
+ * ```
  */
 
 import { Tool, ToolResult } from './types.js';
 
 /**
- * Create a successful result
+ * Create a successful tool result.
+ * 
+ * @param {string} output - Result message
+ * @param {number} duration - Execution time in milliseconds
+ * @param {Record<string, unknown>} [metadata] - Optional metadata
+ * @returns {ToolResult} Success result object
+ * @private
  */
 function success(output: string, duration: number, metadata?: Record<string, unknown>): ToolResult {
   return { success: true, output, duration, metadata };
@@ -17,6 +81,15 @@ function success(output: string, duration: number, metadata?: Record<string, unk
 // Tool: ask_user
 // ============================================================================
 
+/**
+ * Ask User Tool
+ * 
+ * Requests clarification or additional information from the user.
+ * Supports optional multiple choice options for easier responses.
+ * Always auto-approved since asking doesn't modify anything.
+ * 
+ * @constant {Tool}
+ */
 const askUserTool: Tool = {
   name: 'ask_user',
   description: 'Ask the user a question or request clarification. Use when you need more information to proceed.',
@@ -71,6 +144,14 @@ const askUserTool: Tool = {
 // Tool: report_progress
 // ============================================================================
 
+/**
+ * Report Progress Tool
+ * 
+ * Reports progress updates to the user during long-running tasks.
+ * Can include percentage complete and current step description.
+ * 
+ * @constant {Tool}
+ */
 const reportProgressTool: Tool = {
   name: 'report_progress',
   description: 'Report progress to the user during a long-running task.',
@@ -129,6 +210,15 @@ const reportProgressTool: Tool = {
 // Tool: task_complete
 // ============================================================================
 
+/**
+ * Task Complete Tool
+ * 
+ * Signals that the task has been completed successfully. Should be
+ * called when the user's goal has been achieved. Includes summary,
+ * list of modified files, and optional next steps.
+ * 
+ * @constant {Tool}
+ */
 const taskCompleteTool: Tool = {
   name: 'task_complete',
   description: 'Signal that the task has been completed successfully. Use this when the user\'s goal has been achieved.',
@@ -191,6 +281,15 @@ const taskCompleteTool: Tool = {
 // Tool: task_blocked
 // ============================================================================
 
+/**
+ * Task Blocked Tool
+ * 
+ * Signals that the task cannot proceed due to an unrecoverable issue.
+ * Includes reason for blockage, optional suggestion for the user,
+ * and technical error details if applicable.
+ * 
+ * @constant {Tool}
+ */
 const taskBlockedTool: Tool = {
   name: 'task_blocked',
   description: 'Signal that you cannot proceed with the task. Use when you encounter an unrecoverable issue.',
@@ -248,6 +347,15 @@ const taskBlockedTool: Tool = {
 // Tool: think
 // ============================================================================
 
+/**
+ * Think Tool
+ * 
+ * Allows the agent to reason through a complex problem before taking
+ * action. Useful for planning multi-step tasks. The thought is recorded
+ * in conversation context but may not be shown to the user.
+ * 
+ * @constant {Tool}
+ */
 const thinkTool: Tool = {
   name: 'think',
   description: 'Use this to reason through a complex problem before taking action. Good for planning.',
@@ -280,6 +388,14 @@ const thinkTool: Tool = {
 // Export all control tools
 // ============================================================================
 
+/**
+ * Array of all control flow tools.
+ * 
+ * Register these tools with the ToolRegistry to enable agent
+ * control flow capabilities.
+ * 
+ * @constant {Tool[]}
+ */
 export const controlTools: Tool[] = [
   askUserTool,
   reportProgressTool,

@@ -1,16 +1,77 @@
 /**
- * Security Gate - Whitelist Enforcement
+ * @fileoverview Security Gate - Whitelist Enforcement
  * 
  * CRITICAL SECURITY COMPONENT
- * This module enforces strict phone number whitelist validation.
- * Only messages from OWNER_PHONE_NUMBER with @fetch trigger are allowed.
+ * 
+ * Enforces strict phone number whitelist validation. Only messages from
+ * OWNER_PHONE_NUMBER with @fetch trigger are processed. All other messages
+ * are silently dropped.
+ * 
+ * @module security/gate
+ * @see {@link SecurityGate} - Main gate class
+ * 
+ * ## Security Model
+ * 
+ * ```
+ * Incoming Message
+ *      ↓
+ * Has @fetch trigger?
+ *      │ No → DROP (silent)
+ *      ↓ Yes
+ * From owner (direct)?
+ *      │ Yes → ALLOW
+ *      ↓ No
+ * In group with owner participant?
+ *      │ Yes → ALLOW
+ *      ↓ No
+ * DROP (silent)
+ * ```
+ * 
+ * ## Configuration
+ * 
+ * - OWNER_PHONE_NUMBER: Required environment variable
+ * - Trigger prefix: `@fetch` (case-insensitive)
+ * 
+ * ## IMPORTANT
+ * 
+ * - Unauthorized messages are dropped WITHOUT response
+ * - This prevents information leakage about the bot's existence
+ * - Broadcast messages are always rejected
+ * 
+ * @example
+ * ```typescript
+ * const gate = new SecurityGate();
+ * 
+ * if (gate.isAuthorized(senderId, participantId, message)) {
+ *   const cleanMessage = gate.stripTrigger(message);
+ *   // Process message
+ * }
+ * // Silently ignore unauthorized
+ * ```
  */
 
 import { logger } from '../utils/logger.js';
 
-// The trigger prefix (case-insensitive)
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** The trigger prefix (case-insensitive) */
 const FETCH_TRIGGER = '@fetch';
 
+// =============================================================================
+// SECURITY GATE CLASS
+// =============================================================================
+
+/**
+ * Security gate enforcing phone number whitelist.
+ * 
+ * Only processes messages from OWNER_PHONE_NUMBER that start with @fetch.
+ * All other messages are silently dropped.
+ * 
+ * @class
+ * @throws {Error} If OWNER_PHONE_NUMBER is not set
+ */
 export class SecurityGate {
   private readonly ownerNumberClean: string;
 

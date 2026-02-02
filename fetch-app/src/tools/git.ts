@@ -1,7 +1,39 @@
 /**
- * Git Tools
+ * @fileoverview Git Version Control Tools
  * 
- * Tools for Git version control operations.
+ * Tools for git operations within the workspace repository.
+ * Provides status checking, diffing, committing, and history access.
+ * 
+ * @module tools/git
+ * @see {@link gitStatusTool} - Current repository status
+ * @see {@link gitDiffTool} - Show uncommitted changes
+ * @see {@link gitCommitTool} - Commit staged changes
+ * @see {@link gitLogTool} - View commit history
+ * 
+ * ## Tools
+ * 
+ * | Tool | Description | Approval |
+ * |------|-------------|----------|
+ * | git_status | Show status (branch, staged, modified) | Auto |
+ * | git_diff | Show uncommitted changes | Auto |
+ * | git_commit | Commit changes with message | Required |
+ * | git_log | View recent commits | Auto |
+ * 
+ * ## Environment
+ * 
+ * - WORKSPACE_ROOT: Git repository root
+ * - GIT_TERMINAL_PROMPT: Disabled to prevent interactive prompts
+ * 
+ * @example
+ * ```typescript
+ * import { gitTools, getCurrentCommit } from './git.js';
+ * 
+ * // Get current status
+ * const status = await gitStatusTool.execute({});
+ * 
+ * // Get current commit hash
+ * const hash = await getCurrentCommit();
+ * ```
  */
 
 import { exec } from 'child_process';
@@ -11,25 +43,39 @@ import { logger } from '../utils/logger.js';
 
 const execAsync = promisify(exec);
 
-// Workspace root
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Workspace root (git repository root) */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 /**
- * Create a successful result
+ * Creates a successful tool result.
+ * @private
  */
 function success(output: string, duration: number, metadata?: Record<string, unknown>): ToolResult {
   return { success: true, output, duration, metadata };
 }
 
 /**
- * Create a failed result
+ * Creates a failed tool result.
+ * @private
  */
 function failure(error: string, duration: number): ToolResult {
   return { success: false, output: '', error, duration };
 }
 
 /**
- * Execute a git command
+ * Executes a git command in the workspace.
+ * 
+ * @param {string} command - Git command (without 'git' prefix)
+ * @returns {Promise<{stdout: string, stderr: string}>} Command output
+ * @private
  */
 async function gitExec(command: string): Promise<{ stdout: string; stderr: string }> {
   return execAsync(`git ${command}`, {

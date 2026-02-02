@@ -1,13 +1,59 @@
 /**
- * Tool Types
+ * @fileoverview Tool Type Definitions
  * 
- * Type definitions for the tool registry system.
+ * Core type definitions for the tool registry system including
+ * parameter schemas, result types, and format converters.
+ * 
+ * @module tools/types
+ * @see {@link Tool} - Main tool interface
+ * @see {@link ToolResult} - Execution result type
+ * @see {@link ToolParameter} - Parameter definition
+ * 
+ * ## Type Hierarchy
+ * 
+ * ```
+ * Tool
+ * ├── name: string
+ * ├── description: string
+ * ├── category: ToolCategory
+ * ├── parameters: ToolParameter[]
+ * ├── autoApprove: boolean
+ * ├── modifiesWorkspace: boolean
+ * └── execute: (args) → ToolResult
+ * ```
+ * 
+ * ## Categories
+ * 
+ * - `file` - File system operations
+ * - `code` - Code intelligence (repo_map, search)
+ * - `shell` - Command execution
+ * - `git` - Version control
+ * - `control` - Task flow control
+ * 
+ * @example
+ * ```typescript
+ * import { Tool, ToolResult, ToolParameter } from './types.js';
+ * 
+ * const myTool: Tool = {
+ *   name: 'my_tool',
+ *   description: 'Does something useful',
+ *   category: 'code',
+ *   autoApprove: true,
+ *   modifiesWorkspace: false,
+ *   parameters: [{ name: 'input', type: 'string', ... }],
+ *   execute: async (args) => ({ success: true, output: '...', duration: 10 })
+ * };
+ * ```
  */
 
-// ============================================================================
-// Tool Parameter Schema (JSON Schema compatible)
-// ============================================================================
+// =============================================================================
+// PARAMETER TYPES
+// =============================================================================
 
+/**
+ * Supported parameter types (JSON Schema compatible).
+ * @typedef {string} ParameterType
+ */
 export type ParameterType = 'string' | 'number' | 'boolean' | 'array' | 'object';
 
 export interface ToolParameter {

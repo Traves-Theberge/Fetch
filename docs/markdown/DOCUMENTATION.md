@@ -32,9 +32,11 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 ### 1.3 Key Features
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
+- � **4-Mode Architecture** — Conversation, Inquiry, Action, and Task modes
 - 🤖 **Agentic Framework** — Flexible AI agent via OpenRouter (100+ models)
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
 - 🛠️ **24 Built-in Tools** — File, code, shell, git, and control operations
+- 📁 **Project Management** — Clone, init, switch between projects
 - 🔒 **Security-First** — 5 layers of protection
 - 🐳 **Docker Isolation** — All execution in sandboxed containers
 - 💾 **Session Persistence** — Survives reboots with lowdb
@@ -76,8 +78,13 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 - **Features:**
   - `@fetch` trigger gate
   - Security (whitelist, rate limiting, validation)
-  - Agentic ReAct loop with GPT-4.1-nano
+  - **4-Mode Intent Classification:**
+    - 💬 Conversation — Greetings, thanks, general chat (no tools)
+    - 🔍 Inquiry — Code questions (read-only tools)
+    - ⚡ Action — Single edits (one approval cycle)
+    - 📋 Task — Complex multi-step work (full ReAct loop)
   - 24 built-in tools
+  - Project management (clone, init, switch)
   - Session persistence (lowdb)
   - Status API and documentation server
 
@@ -283,15 +290,47 @@ interface Session {
   id: string;                    // WhatsApp JID
   messages: Message[];           // Conversation history (last 30)
   currentTask?: AgentTask;       // Active task state
+  currentProject?: ProjectContext; // Active project
+  availableProjects: string[];   // Projects in /workspace
   preferences: {
     autonomyLevel: 'supervised' | 'semi-autonomous' | 'autonomous';
     autoCommit: boolean;
     verboseMode: boolean;
   };
 }
+
+interface ProjectContext {
+  name: string;                  // Directory name
+  path: string;                  // Full path in /workspace
+  type?: string;                 // node, python, go, etc.
+  gitBranch?: string;            // Current git branch
+  gitStatus?: string;            // Clean/dirty indicator
+}
 ```
 
-### 6.3 Autonomy Levels
+### 6.3 Intent Classification
+
+Messages are routed based on detected intent:
+
+```typescript
+type IntentType = 'conversation' | 'inquiry' | 'action' | 'task';
+
+function classifyIntent(message: string): Intent {
+  // Greeting patterns → conversation
+  // "what's in", "show me", "explain" → inquiry
+  // "fix", "add", "change", "rename" → action
+  // "build", "create", "refactor" → task
+}
+```
+
+| Mode | Tools Available | Approval |
+|------|-----------------|----------|
+| Conversation | None | N/A |
+| Inquiry | read_file, list_directory, search_files, git_status, git_log, git_diff | Auto |
+| Action | All tools | One cycle |
+| Task | All tools | Per step (or autonomous) |
+
+### 6.4 Autonomy Levels
 
 | Level | Description |
 |-------|-------------|
@@ -301,7 +340,7 @@ interface Session {
 
 Change mode: `@fetch set mode autonomous`
 
-### 6.4 LLM Configuration
+### 6.5 LLM Configuration
 
 ```typescript
 // OpenRouter with GPT-4.1-nano
@@ -379,13 +418,30 @@ Fetch includes **24 built-in tools** organized into 5 categories:
 
 All commands require the `@fetch` prefix.
 
-#### Built-in Commands
+#### System Commands
 
 | Command | Description |
 |---------|-------------|
 | `@fetch help` | Show help message |
-| `@fetch status` | Show session status |
 | `@fetch ping` | Connectivity test |
+| `@fetch task` | Show task status |
+
+#### Project Commands
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /projects` | List available projects |
+| `@fetch /project <name>` | Switch to project |
+| `@fetch /clone <url>` | Clone a repository |
+| `@fetch /init <name>` | Initialize new project |
+| `@fetch /status` | Git status |
+| `@fetch /diff` | Show uncommitted changes |
+| `@fetch /log [n]` | Show recent commits |
+
+#### Control Commands
+
+| Command | Description |
+|---------|-------------|
 | `@fetch undo` | Undo last changes |
 | `@fetch auto` | Enable autonomous mode |
 | `@fetch supervised` | Return to supervised mode |
@@ -498,8 +554,21 @@ fetch/
 │   └── src/
 │       ├── bridge/             # WhatsApp client
 │       ├── security/           # Auth, rate limiting
-│       ├── agent/              # ReAct loop
+│       ├── agent/              # Core agent system
+│       │   ├── core.ts         # Main orchestrator
+│       │   ├── intent.ts       # Intent classification
+│       │   ├── conversation.ts # Chat mode handler
+│       │   ├── inquiry.ts      # Read-only mode
+│       │   ├── action.ts       # Single-edit mode
+│       │   ├── prompts.ts      # Centralized prompts
+│       │   ├── format.ts       # Message formatting
+│       │   └── whatsapp-format.ts # Mobile formatting
 │       ├── session/            # State management
+│       │   ├── types.ts        # TypeScript interfaces
+│       │   ├── store.ts        # lowdb persistence
+│       │   ├── manager.ts      # Session lifecycle
+│       │   └── project.ts      # Project scanner
+│       ├── commands/           # Command parser
 │       ├── tools/              # Tool registry
 │       ├── api/                # Status API
 │       └── utils/              # Logger, sanitizer
@@ -558,9 +627,10 @@ docker compose up -d --build
 
 | Version | Date | Notes |
 |---------|------|-------|
+| 0.2.0 | 2026-02-02 | 4-mode architecture, project management |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
 ---
 
-*Documentation for Fetch v0.1.0*
-*Last updated: February 1, 2026*
+*Documentation for Fetch v0.2.0*
+*Last updated: February 2, 2026*

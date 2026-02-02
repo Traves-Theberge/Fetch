@@ -1,14 +1,65 @@
 /**
- * Tool Registry
+ * @fileoverview Tool Registry - Central Tool Management
  * 
- * Central registry for all available tools.
+ * Provides a centralized registry for registering, organizing, and retrieving
+ * tools used by the agent. Supports conversion to OpenAI and Claude formats.
+ * 
+ * @module tools/registry
+ * @see {@link ToolRegistry} - Main registry class
+ * @see {@link getToolRegistry} - Get singleton instance
+ * 
+ * ## Usage
+ * 
+ * ```typescript
+ * import { ToolRegistry, getToolRegistry } from './registry.js';
+ * 
+ * // Get singleton
+ * const registry = getToolRegistry();
+ * 
+ * // Register a tool
+ * registry.register(myTool);
+ * 
+ * // Get tool by name
+ * const tool = registry.get('read_file');
+ * 
+ * // Convert for LLM
+ * const openaiTools = registry.toOpenAIFormat();
+ * ```
+ * 
+ * ## Tool Organization
+ * 
+ * | Category | Tools | Auto-Approve |
+ * |----------|-------|-------------|
+ * | file | read_file, write_file, edit_file | read only |
+ * | code | repo_map, search_code | yes |
+ * | shell | run_command | no |
+ * | git | git_status, git_commit | status only |
+ * | control | task_complete | yes |
  */
 
 import { Tool, ClaudeTool, toClaudeToolFormat, ToolCategory } from './types.js';
 import { logger } from '../utils/logger.js';
 
+// =============================================================================
+// TOOL REGISTRY CLASS
+// =============================================================================
+
 /**
- * Tool registry for managing available tools
+ * Central registry for managing agent tools.
+ * 
+ * Provides methods for registration, lookup, filtering by category,
+ * and format conversion for different LLM APIs.
+ * 
+ * @class
+ * @example
+ * ```typescript
+ * const registry = new ToolRegistry();
+ * registry.register(readFileTool);
+ * registry.registerAll([writeFileTool, editFileTool]);
+ * 
+ * const fileTool = registry.get('read_file');
+ * const fileTools = registry.getByCategory('file');
+ * ```
  */
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
@@ -108,7 +159,8 @@ export class ToolRegistry {
             acc[param.name] = {
               type: param.type,
               description: param.description,
-              ...(param.enum ? { enum: param.enum } : {})
+              ...(param.enum ? { enum: param.enum } : {}),
+              ...(param.items ? { items: { type: param.items.type } } : {})
             };
             return acc;
           }, {} as Record<string, unknown>),

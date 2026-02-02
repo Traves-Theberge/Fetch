@@ -1,7 +1,53 @@
 /**
- * Code Intelligence Tools
+ * @fileoverview Code Intelligence Tools
  * 
- * Tools for understanding codebase structure.
+ * Tools for understanding and navigating codebase structure.
+ * Provides repository mapping, code search, and symbol extraction.
+ * 
+ * @module tools/code
+ * @see {@link repoMapTool} - Generate repository structure map
+ * @see {@link searchCodeTool} - Search for text/patterns in code
+ * @see {@link findDefinitionTool} - Find symbol definitions
+ * @see {@link findReferencesTool} - Find symbol usages
+ * 
+ * ## Tools
+ * 
+ * | Tool | Description | Approval |
+ * |------|-------------|----------|
+ * | repo_map | Generate project structure with signatures | Auto |
+ * | search_code | Regex search across codebase | Auto |
+ * | find_definition | Find where symbol is defined | Auto |
+ * | find_references | Find all usages of symbol | Auto |
+ * 
+ * ## Supported Languages
+ * 
+ * Symbol extraction supports:
+ * - TypeScript/JavaScript (.ts, .tsx, .js, .jsx)
+ * - Python (.py)
+ * - Rust (.rs)
+ * - Go (.go)
+ * - And more...
+ * 
+ * ## File Filtering
+ * 
+ * Automatically skips:
+ * - node_modules, .git, dist, build
+ * - __pycache__, .venv, coverage
+ * - Other common build artifacts
+ * 
+ * @example
+ * ```typescript
+ * import { codeTools } from './code.js';
+ * 
+ * // Generate repo map
+ * const map = await repoMapTool.execute({ depth: 3 });
+ * 
+ * // Search for pattern
+ * const results = await searchCodeTool.execute({
+ *   pattern: 'TODO|FIXME',
+ *   regex: true
+ * });
+ * ```
  */
 
 import { readFile, readdir, stat } from 'fs/promises';
@@ -9,10 +55,14 @@ import { join, relative, extname } from 'path';
 import { Tool, ToolResult } from './types.js';
 import { logger } from '../utils/logger.js';
 
-// Workspace root
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Workspace root for code operations */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
 
-// File extensions to include in repo map
+/** File extensions to include in repo map */
 const CODE_EXTENSIONS = new Set([
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
   '.py', '.rb', '.go', '.rs', '.java', '.kt',
@@ -23,29 +73,39 @@ const CODE_EXTENSIONS = new Set([
   '.md', '.txt', '.sh', '.bash'
 ]);
 
-// Directories to skip
+/** Directories to skip when scanning */
 const SKIP_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', 'out',
   '__pycache__', '.venv', 'venv', '.env',
   'coverage', '.nyc_output', '.next', '.nuxt'
 ]);
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 /**
- * Create a successful result
+ * Creates a successful tool result.
+ * @private
  */
 function success(output: string, duration: number, metadata?: Record<string, unknown>): ToolResult {
   return { success: true, output, duration, metadata };
 }
 
 /**
- * Create a failed result
+ * Creates a failed tool result.
+ * @private
  */
 function failure(error: string, duration: number): ToolResult {
   return { success: false, output: '', error, duration };
 }
 
 /**
- * Extract symbol signatures from TypeScript/JavaScript
+ * Extracts function/class signatures from TypeScript/JavaScript.
+ * 
+ * @param {string} content - File content
+ * @returns {string[]} Array of signature strings
+ * @private
  */
 function extractTsSignatures(content: string): string[] {
   const signatures: string[] = [];

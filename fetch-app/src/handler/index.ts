@@ -1,8 +1,46 @@
 /**
- * Message Handler
+ * @fileoverview Message Handler - Main Processing Entry Point
  * 
- * Main entry point for processing incoming WhatsApp messages.
- * Orchestrates command parsing, session management, and agent execution.
+ * Orchestrates the flow of incoming WhatsApp messages through command
+ * parsing, session management, and agent execution.
+ * 
+ * @module handler
+ * @see {@link handleMessage} - Main message processing function
+ * @see {@link initializeHandler} - Component initialization
+ * 
+ * ## Processing Flow
+ * 
+ * ```
+ * Incoming Message
+ *      ↓
+ * initializeHandler() (if not initialized)
+ *      ↓
+ * Get/Create Session
+ *      ↓
+ * parseCommand() ──→ Command? → Execute & Return
+ *      ↓ No
+ * agent.processMessage()
+ *      ↓
+ * Return Responses
+ * ```
+ * 
+ * ## Components
+ * 
+ * | Component | Purpose |
+ * |-----------|--------|
+ * | SessionManager | User session persistence |
+ * | AgentCore | LLM-based message processing |
+ * | ToolRegistry | Available agent tools |
+ * | CommandParser | Slash command handling |
+ * 
+ * @example
+ * ```typescript
+ * import { handleMessage, initializeHandler } from './handler/index.js';
+ * 
+ * await initializeHandler();
+ * const responses = await handleMessage('user123', 'Hello!');
+ * // Send responses back to WhatsApp
+ * ```
  */
 
 // Session type used implicitly through SessionManager
@@ -12,13 +50,30 @@ import { getToolRegistry, initializeToolRegistry } from '../tools/registry.js';
 import { parseCommand } from '../commands/parser.js';
 import { logger } from '../utils/logger.js';
 
-// Singleton instances
+// =============================================================================
+// SINGLETON STATE
+// =============================================================================
+
+/** Session manager singleton */
 let sessionManager: SessionManager;
+
+/** Agent core singleton */
 let agent: AgentCore;
+
+/** Initialization flag */
 let initialized = false;
 
+// =============================================================================
+// INITIALIZATION
+// =============================================================================
+
 /**
- * Initialize the message handler
+ * Initializes the message handler components.
+ * 
+ * Sets up session manager, tool registry, and agent core.
+ * Safe to call multiple times (idempotent).
+ * 
+ * @returns {Promise<void>}
  */
 export async function initializeHandler(): Promise<void> {
   if (initialized) return;

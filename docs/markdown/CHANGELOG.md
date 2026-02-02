@@ -8,6 +8,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+#### 🧠 4-Mode Architecture
+- **Conversation Mode** - Quick chat without tools (greetings, thanks, general questions)
+- **Inquiry Mode** - Read-only code exploration (what's in X, show me Y, explain Z)
+- **Action Mode** - Single edit cycle with approval (fix typo, add button)
+- **Task Mode** - Full multi-step task execution (build feature, refactor module)
+
+#### 🎯 Intent Classification
+- Automatic intent detection based on message patterns
+- Routes to appropriate mode without user intervention
+- Pattern matching for greetings, inquiries, actions, and tasks
+
+#### 📁 Project Management
+- `/projects` - List all git repositories in workspace
+- `/project <name>` - Switch active project context
+- `/clone <url>` - Clone repositories into workspace
+- `/init <name>` - Initialize new projects
+- `/status` - Git status (moved from general status)
+- `/diff` - Show current changes
+- `/log [n]` - Show recent commits
+
+#### 📱 WhatsApp-Friendly Formatting
+- `formatForWhatsApp()` - Mobile-optimized output
+- Compact diff display with emoji indicators (🟢/🔴)
+- Truncation for long outputs
+- Error messages with suggested fixes
+
+#### 🏗️ New Source Files
+- `agent/intent.ts` - Intent classifier with pattern matching
+- `agent/conversation.ts` - Conversation mode handler
+- `agent/inquiry.ts` - Inquiry mode with read-only tools
+- `agent/action.ts` - Single-edit action handler
+- `agent/prompts.ts` - Centralized system prompt builders
+- `agent/whatsapp-format.ts` - Mobile formatting utilities
+- `session/project.ts` - Project scanner and context
+
+### Changed
+- **Mode Routing** - Messages now routed by intent instead of always creating tasks
+- **System Prompts** - Centralized in `prompts.ts` for consistency
+- **Help Text** - Updated with new commands and mode explanations
+- **Session Type** - Added `currentProject` and `availableProjects`
+- `/status` command now shows git status (use `/task` for task status)
+
+### Removed
+- Removed task-first approach for simple interactions
+- Removed redundant prompt building code from individual handlers
+
+---
+
+## [0.2.0] - 2026-02-02
+
+### Added
 - **TUI Redesign** - Complete visual overhaul using Charmbracelet ecosystem
   - Horizontal layout: ASCII dog mascot on left, menu on right
   - Bottom-aligned content across all views

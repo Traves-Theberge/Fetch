@@ -1,7 +1,47 @@
 /**
- * File Tools
+ * @fileoverview File System Tools
  * 
- * Tools for file system operations.
+ * Tools for file system operations within the workspace. All paths are
+ * validated to prevent access outside the workspace root.
+ * 
+ * @module tools/file
+ * @see {@link readFileTool} - Read file contents
+ * @see {@link writeFileTool} - Create/overwrite files
+ * @see {@link editFileTool} - Search/replace edits
+ * @see {@link listDirectoryTool} - List directory contents
+ * @see {@link searchFilesTool} - Find files by pattern
+ * 
+ * ## Security
+ * 
+ * All file operations are sandboxed to WORKSPACE_ROOT:
+ * - Paths are resolved relative to workspace
+ * - Path traversal (../) is blocked
+ * - Absolute paths outside workspace are rejected
+ * 
+ * ## Tools
+ * 
+ * | Tool | Description | Approval |
+ * |------|-------------|----------|
+ * | read_file | Read contents (with optional line range) | Auto |
+ * | write_file | Create or overwrite a file | Required |
+ * | edit_file | Search/replace in existing file | Required |
+ * | list_directory | List folder contents | Auto |
+ * | search_files | Find files by glob pattern | Auto |
+ * 
+ * @example
+ * ```typescript
+ * import { fileTools } from './file.js';
+ * 
+ * // Read a file
+ * const result = await fileTools[0].execute({ path: 'src/app.ts' });
+ * 
+ * // Edit a file
+ * await editFileTool.execute({
+ *   path: 'src/app.ts',
+ *   old_string: 'const x = 1',
+ *   new_string: 'const x = 2'
+ * });
+ * ```
  */
 
 import { readFile, writeFile, readdir } from 'fs/promises';
@@ -9,11 +49,23 @@ import { join, relative } from 'path';
 import { Tool, ToolResult } from './types.js';
 import { logger } from '../utils/logger.js';
 
-// Workspace root (mounted in Docker)
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Workspace root directory (mounted in Docker) */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 /**
- * Resolve a path relative to workspace root
+ * Resolves a path relative to workspace root.
+ * 
+ * @param {string} filePath - Path to resolve
+ * @returns {string} Absolute path within workspace
+ * @private
  */
 function resolvePath(filePath: string): string {
   // If already absolute and within workspace, use as-is
@@ -25,7 +77,11 @@ function resolvePath(filePath: string): string {
 }
 
 /**
- * Ensure path is within workspace (security)
+ * Validates that a path is within workspace bounds.
+ * 
+ * @param {string} filePath - Path to validate
+ * @returns {boolean} True if path is safe
+ * @private
  */
 function validatePath(filePath: string): boolean {
   const resolved = resolvePath(filePath);
@@ -34,14 +90,25 @@ function validatePath(filePath: string): boolean {
 }
 
 /**
- * Create a successful result
+ * Creates a successful tool result.
+ * 
+ * @param {string} output - Result output
+ * @param {number} duration - Execution time in ms
+ * @param {Record<string, unknown>} [metadata] - Optional metadata
+ * @returns {ToolResult} Success result
+ * @private
  */
 function success(output: string, duration: number, metadata?: Record<string, unknown>): ToolResult {
   return { success: true, output, duration, metadata };
 }
 
 /**
- * Create a failed result
+ * Creates a failed tool result.
+ * 
+ * @param {string} error - Error message
+ * @param {number} duration - Execution time in ms
+ * @returns {ToolResult} Failure result
+ * @private
  */
 function failure(error: string, duration: number): ToolResult {
   return { success: false, output: '', error, duration };

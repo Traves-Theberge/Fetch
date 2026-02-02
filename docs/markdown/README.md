@@ -8,20 +8,26 @@ A headless **ChatOps** development environment. Send natural language coding tas
 
 ## 🎯 Overview
 
-Fetch acts as a bridge between your **WhatsApp** and powerful AI coding agents. Just message `@fetch` followed by your request:
+Fetch is a **context-aware, multi-mode AI coding assistant** that understands what you need and responds appropriately—whether it's a quick chat, a code question, a single edit, or a complex multi-step task.
 
-- **Claude Code** — Complex refactoring and code generation
-- **Gemini CLI** — Quick explanations and documentation  
-- **GitHub Copilot** — Git operations and repository help
+### 🧠 4-Mode Architecture
+
+| Mode | When | Tools | Example |
+|------|------|-------|---------|
+| 💬 **Conversation** | Greetings, thanks, chat | None | "Hey!", "Thanks!" |
+| 🔍 **Inquiry** | Questions about code | Read-only | "What's in auth.ts?" |
+| ⚡ **Action** | Single edits/changes | Full (1 cycle) | "Fix the typo" |
+| 📋 **Task** | Complex multi-step work | Full (multi-step) | "Build a login page" |
 
 ### 🤖 Agentic Framework
 
-Fetch includes a **flexible autonomous agent** powered by **OpenRouter** — switch between 100+ AI models:
+Powered by **OpenRouter** with access to **100+ AI models**:
 
 - **Model Flexibility** — GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
 - **ReAct Loop** — Reason + Act pattern for multi-step tasks
 - **24 Built-in Tools** — File, code, shell, git, and control operations
 - **Session Memory** — Persistent conversation context
+- **Project Awareness** — Knows your active project and git status
 - **Configurable Autonomy** — Supervised, semi-autonomous, or fully autonomous modes
 
 ---
