@@ -1,7 +1,48 @@
 /**
- * Session Store
+ * @fileoverview Session Store - Persistent Storage
  * 
- * Persistent storage for sessions using lowdb.
+ * Provides persistent storage for sessions using lowdb (JSON file database).
+ * Handles session creation, retrieval, updates, and cleanup.
+ * 
+ * @module session/store
+ * @see {@link SessionStore} - Main store class
+ * @see {@link getSessionStore} - Get singleton instance
+ * 
+ * ## Storage
+ * 
+ * - File: `/app/data/sessions.json`
+ * - Format: JSON with array of Session objects
+ * - Expiry: Sessions expire after 7 days of inactivity
+ * 
+ * ## Database Schema
+ * 
+ * ```json
+ * {
+ *   "sessions": [
+ *     {
+ *       "id": "uuid",
+ *       "userId": "phone_number",
+ *       "createdAt": "ISO date",
+ *       "lastActivityAt": "ISO date",
+ *       "messages": [...],
+ *       "preferences": {...},
+ *       ...
+ *     }
+ *   ]
+ * }
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { SessionStore, getSessionStore } from './store.js';
+ * 
+ * const store = getSessionStore();
+ * await store.init();
+ * 
+ * const session = await store.getOrCreate('user123');
+ * session.messages.push(newMessage);
+ * await store.update(session);
+ * ```
  */
 
 import { Low } from 'lowdb';
@@ -15,14 +56,34 @@ import {
 } from './types.js';
 import { logger } from '../utils/logger.js';
 
-// Default database path
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Default database file path */
 const DEFAULT_DB_PATH = '/app/data/sessions.json';
 
-// Session expiry (7 days)
+/** Session expiry time (7 days in milliseconds) */
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
+// =============================================================================
+// SESSION STORE CLASS
+// =============================================================================
+
 /**
- * Session store using lowdb for persistence
+ * Persistent session storage using lowdb.
+ * 
+ * Provides CRUD operations for sessions with automatic initialization,
+ * activity tracking, and expiry cleanup.
+ * 
+ * @class
+ * @example
+ * ```typescript
+ * const store = new SessionStore('/path/to/sessions.json');
+ * await store.init();
+ * 
+ * const session = await store.getOrCreate('user@phone');
+ * ```
  */
 export class SessionStore {
   private db: Low<Database>;

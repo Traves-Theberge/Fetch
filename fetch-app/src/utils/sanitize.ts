@@ -1,25 +1,73 @@
 /**
- * Output Sanitization Utilities
+ * @fileoverview Output Sanitization Utilities
  * 
- * Cleans CLI output for safe display in WhatsApp.
- * Removes ANSI codes, progress bars, and other terminal artifacts.
+ * Cleans CLI output for safe display in WhatsApp. Removes ANSI codes,
+ * progress bars, spinners, and other terminal artifacts.
+ * 
+ * @module utils/sanitize
+ * @see {@link sanitizeOutput} - Main sanitization function
+ * @see {@link escapeWhatsAppMarkdown} - Escape markdown characters
+ * 
+ * ## Sanitization Steps
+ * 
+ * 1. Remove ANSI escape codes (colors, cursor)
+ * 2. Remove carriage returns (progress artifacts)
+ * 3. Remove spinner characters
+ * 4. Remove progress bar patterns
+ * 5. Collapse multiple blank lines
+ * 6. Trim whitespace from lines
+ * 7. Truncate if too long
+ * 
+ * ## Limits
+ * 
+ * - Max output: 4,000 characters (WhatsApp limit is 65,536)
+ * - Shorter limit ensures readability on mobile
+ * 
+ * @example
+ * ```typescript
+ * import { sanitizeOutput, escapeWhatsAppMarkdown } from './sanitize.js';
+ * 
+ * // Clean CLI output
+ * const clean = sanitizeOutput(rawOutput);
+ * 
+ * // Escape markdown in user content
+ * const safe = escapeWhatsAppMarkdown('*bold* text');
+ * // → '\\*bold\\* text'
+ * ```
  */
 
 import stripAnsi from 'strip-ansi';
 
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
 /**
- * Maximum output length for WhatsApp messages
- * WhatsApp has a 65536 character limit, but we keep it shorter for readability
+ * Maximum output length for WhatsApp messages.
+ * WhatsApp has a 65536 character limit, but we keep it shorter for readability.
+ * @constant {number}
  */
 const MAX_OUTPUT_LENGTH = 4000;
 
+// =============================================================================
+// SANITIZATION
+// =============================================================================
+
 /**
- * Sanitize CLI output for WhatsApp display
+ * Sanitizes CLI output for WhatsApp display.
  * 
- * - Removes ANSI escape codes (colors, cursor movement)
- * - Removes progress bar artifacts
- * - Truncates to safe length
- * - Removes excessive whitespace
+ * Removes ANSI escape codes, progress bar artifacts, and other
+ * terminal-specific formatting that doesn't render in WhatsApp.
+ * 
+ * @param {string} output - Raw CLI output
+ * @returns {string} Cleaned output safe for WhatsApp
+ * 
+ * @example
+ * ```typescript
+ * const raw = '\x1b[32m✓\x1b[0m Done [====] 100%';
+ * sanitizeOutput(raw);
+ * // → '✓ Done'
+ * ```
  */
 export function sanitizeOutput(output: string): string {
   if (!output) {

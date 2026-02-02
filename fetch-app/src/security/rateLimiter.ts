@@ -1,17 +1,67 @@
 /**
- * Rate Limiter
+ * @fileoverview Rate Limiter - Abuse Prevention
  * 
- * Prevents abuse by limiting the number of requests per time window.
- * Even though we have whitelist protection, rate limiting adds defense in depth.
+ * Prevents abuse by limiting requests per time window. Provides defense
+ * in depth even with whitelist protection.
+ * 
+ * @module security/rateLimiter
+ * @see {@link RateLimiter} - Main limiter class
+ * 
+ * ## Algorithm
+ * 
+ * Uses a sliding window counter approach:
+ * - Each key (user) has a window start time and count
+ * - Requests within the window increment the count
+ * - Once window expires, count resets
+ * 
+ * ## Default Limits
+ * 
+ * - 30 requests per 60 seconds
+ * - Configurable via constructor
+ * 
+ * @example
+ * ```typescript
+ * const limiter = new RateLimiter(30, 60000); // 30 req/min
+ * 
+ * if (limiter.isAllowed(userId)) {
+ *   // Process request
+ * } else {
+ *   // Reject: rate limited
+ * }
+ * 
+ * // Check remaining quota
+ * const remaining = limiter.getRemaining(userId);
+ * ```
  */
 
 import { logger } from '../utils/logger.js';
 
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Rate limit tracking entry for a single key.
+ * @interface
+ */
 interface RateLimitEntry {
+  /** Number of requests in current window */
   count: number;
+  /** Timestamp when window started */
   windowStart: number;
 }
 
+// =============================================================================
+// RATE LIMITER CLASS
+// =============================================================================
+
+/**
+ * Sliding window rate limiter.
+ * 
+ * Tracks request counts per key within configurable time windows.
+ * 
+ * @class
+ */
 export class RateLimiter {
   private limits: Map<string, RateLimitEntry> = new Map();
   private readonly maxRequests: number;

@@ -1,13 +1,71 @@
 /**
- * Agent Message Formatting
+ * @fileoverview Agent Message Formatting Module
  * 
- * Format agent outputs for WhatsApp display.
+ * This module provides formatting utilities to convert agent outputs into
+ * WhatsApp-friendly message formats. It handles approval requests, task
+ * completion/failure messages, progress updates, and help displays.
+ * 
+ * @module agent/format
+ * @see {@link module:agent/whatsapp-format} For low-level WhatsApp formatting utilities
+ * @see {@link module:session/types} For AgentTask and Session types
+ * 
+ * ## Message Types
+ * 
+ * | Function | Purpose | Use Case |
+ * |----------|---------|----------|
+ * | formatApprovalRequest | Tool approval prompt | User confirms action |
+ * | formatTaskComplete | Success summary | Task finished successfully |
+ * | formatTaskFailed | Failure report | Task encountered error |
+ * | formatProgress | Progress bar | Long-running operations |
+ * | formatQuestion | User query | Agent needs clarification |
+ * | formatStatus | Session info | Status command response |
+ * | formatHelp | Command reference | Help command response |
+ * 
+ * ## WhatsApp Formatting
+ * 
+ * Messages use WhatsApp markdown:
+ * - `*bold*` for emphasis
+ * - `_italic_` for subtle text
+ * - ``` `code` ``` for inline code
+ * - Code blocks with triple backticks
+ * 
+ * @example
+ * ```typescript
+ * import { formatApprovalRequest, formatTaskComplete } from './format.js';
+ * 
+ * // Format approval for file write
+ * const approval = formatApprovalRequest('write_file', { path: '/app.ts' }, 'Create new file');
+ * // Result: "📝 *Write File*\n\nCreate new file\n\nApply? (yes/no/skip/yesall)"
+ * 
+ * // Format task completion
+ * const complete = formatTaskComplete(task, session);
+ * ```
  */
 
 import { AgentTask, Session } from '../session/types.js';
 
 /**
- * Format an approval request for WhatsApp
+ * Format an approval request for WhatsApp display.
+ * 
+ * Creates a user-facing message asking for confirmation before
+ * executing a tool action. Includes tool emoji, name, description,
+ * and optional diff preview.
+ * 
+ * @param {string} tool - Tool name (e.g., 'write_file', 'run_command')
+ * @param {Record<string, unknown>} _args - Tool arguments (currently unused)
+ * @param {string} description - Human-readable description of the action
+ * @param {string} [diff] - Optional diff/preview to display in code block
+ * @returns {string} Formatted WhatsApp message with approval prompt
+ * 
+ * @example
+ * ```typescript
+ * const msg = formatApprovalRequest(
+ *   'write_file',
+ *   { path: 'src/app.ts' },
+ *   'Create new TypeScript file',
+ *   '+export function hello() {}'
+ * );
+ * ```
  */
 export function formatApprovalRequest(
   tool: string,
@@ -31,7 +89,14 @@ export function formatApprovalRequest(
 }
 
 /**
- * Format a task completion message
+ * Format a task completion message for WhatsApp.
+ * 
+ * Creates a success summary showing what was accomplished, files modified,
+ * commits created, and duration. Includes undo hint.
+ * 
+ * @param {AgentTask} task - The completed task with results
+ * @param {Session} _session - User session (currently unused)
+ * @returns {string} Formatted success message
  */
 export function formatTaskComplete(task: AgentTask, _session: Session): string {
   let message = `✅ *Task Complete*\n\n`;
@@ -66,7 +131,14 @@ export function formatTaskComplete(task: AgentTask, _session: Session): string {
 }
 
 /**
- * Format a task failure message
+ * Format a task failure message for WhatsApp.
+ * 
+ * Creates an error report showing what went wrong, with optional
+ * suggestion for fixing. Lists files modified before failure.
+ * 
+ * @param {AgentTask} task - The failed task with error info
+ * @param {string} [suggestion] - Optional suggestion for the user
+ * @returns {string} Formatted failure message
  */
 export function formatTaskFailed(task: AgentTask, suggestion?: string): string {
   let message = `❌ *Task Failed*\n\n`;
@@ -89,7 +161,14 @@ export function formatTaskFailed(task: AgentTask, suggestion?: string): string {
 }
 
 /**
- * Format a progress update
+ * Format a progress update for long-running tasks.
+ * 
+ * Creates a progress bar with percentage, iteration count,
+ * and current action description.
+ * 
+ * @param {AgentTask} task - The active task with progress info
+ * @param {string} currentAction - Description of current step
+ * @returns {string} Formatted progress message with bar
  */
 export function formatProgress(task: AgentTask, currentAction: string): string {
   const progress = Math.round((task.iterations / task.maxIterations) * 100);
@@ -104,7 +183,14 @@ export function formatProgress(task: AgentTask, currentAction: string): string {
 }
 
 /**
- * Format a question from the agent
+ * Format a question from the agent for user input.
+ * 
+ * Creates a question message with optional multiple choice options.
+ * Options are numbered for easy selection.
+ * 
+ * @param {string} question - The question to ask
+ * @param {string[]} [options] - Optional list of choices
+ * @returns {string} Formatted question message
  */
 export function formatQuestion(question: string, options?: string[]): string {
   let message = `❓ ${question}`;
@@ -121,14 +207,26 @@ export function formatQuestion(question: string, options?: string[]): string {
 }
 
 /**
- * Format agent thinking/reasoning (verbose mode)
+ * Format agent thinking/reasoning for verbose mode.
+ * 
+ * Wraps thought text with thinking emoji for display
+ * when verbose output is enabled.
+ * 
+ * @param {string} thought - The agent's reasoning text
+ * @returns {string} Formatted thought bubble message
  */
 export function formatThinking(thought: string): string {
   return `💭 ${thought}`;
 }
 
 /**
- * Format status display
+ * Format session status display.
+ * 
+ * Creates a comprehensive status message showing current task,
+ * user preferences, and active file context.
+ * 
+ * @param {Session} session - The user session to display
+ * @returns {string} Formatted status overview
  */
 export function formatStatus(session: Session): string {
   let message = `📊 *Fetch Status*\n\n`;
@@ -168,19 +266,37 @@ export function formatStatus(session: Session): string {
 }
 
 /**
- * Format help message
+ * Format the help message showing all available commands.
+ * 
+ * Creates a comprehensive command reference organized by category:
+ * projects, git, tasks, context, settings, and responses.
+ * 
+ * @returns {string} Formatted help message with all commands
  */
 export function formatHelp(): string {
   return `🐕 *Fetch Commands*
 
-📝 *Task Control:*
-• \`/stop\` - Cancel current task
-• \`/pause\` - Pause current task
-• \`/resume\` - Resume paused task
-• \`/status\` - Show current status
+� *Projects:*
+• \`/projects\` - List available projects
+• \`/project <name>\` - Switch to project
+• \`/clone <url>\` - Clone a repository
+• \`/init <name>\` - Create new project
+
+📊 *Git:*
+• \`/status\` - Git status
+• \`/diff\` - Show changes
+• \`/log [n]\` - Recent commits
+• \`/undo\` - Revert last change
+• \`/undo all\` - Revert session changes
+
+📝 *Tasks:*
+• \`/task\` - Show current task
+• \`/stop\` - Cancel task
+• \`/pause\` - Pause task
+• \`/resume\` - Resume task
 
 📁 *Context:*
-• \`/add <file>\` - Add file to context
+• \`/add <file>\` - Add to context
 • \`/drop <file>\` - Remove from context
 • \`/files\` - Show active files
 • \`/clear\` - Reset conversation
@@ -190,22 +306,25 @@ export function formatHelp(): string {
 • \`/mode\` - Show/set autonomy level
 • \`/verbose\` - Toggle verbose output
 
-🔄 *Git:*
-• \`/undo\` - Revert last change
-• \`/undo all\` - Revert all session changes
-
 💬 *Responses:*
-• \`yes\` / \`no\` - Approve/reject action
-• \`skip\` - Skip current action
-• \`yesall\` - Approve all (autonomous)
+• \`yes\` / \`no\` - Approve/reject
+• \`skip\` - Skip action
+• \`yesall\` - Autonomous mode
 
-Just type normally to start a task!`;
+Just type naturally to chat or work!`;
 }
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
 
+/**
+ * Get emoji icon for a tool.
+ * 
+ * @param {string} tool - Tool name
+ * @returns {string} Emoji character for the tool
+ * @private
+ */
 function getToolEmoji(tool: string): string {
   const emojis: Record<string, string> = {
     'read_file': '📖',
@@ -228,6 +347,13 @@ function getToolEmoji(tool: string): string {
   return emojis[tool] || '🔧';
 }
 
+/**
+ * Format tool name from snake_case to Title Case.
+ * 
+ * @param {string} tool - Tool name in snake_case
+ * @returns {string} Human-readable tool name
+ * @private
+ */
 function formatToolName(tool: string): string {
   return tool
     .split('_')
@@ -235,6 +361,13 @@ function formatToolName(tool: string): string {
     .join(' ');
 }
 
+/**
+ * Format task status to human-readable form with emoji.
+ * 
+ * @param {string} status - Task status code
+ * @returns {string} Human-readable status with emoji
+ * @private
+ */
 function formatTaskStatus(status: string): string {
   const statusMap: Record<string, string> = {
     'planning': '📋 Planning',
@@ -248,6 +381,13 @@ function formatTaskStatus(status: string): string {
   return statusMap[status] || status;
 }
 
+/**
+ * Format duration in seconds to human-readable string.
+ * 
+ * @param {number} seconds - Duration in seconds
+ * @returns {string} Formatted duration (e.g., "2m 30s")
+ * @private
+ */
 function formatDuration(seconds: number): string {
   if (seconds < 60) {
     return `${seconds}s`;
@@ -257,6 +397,13 @@ function formatDuration(seconds: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
+/**
+ * Create a visual progress bar using block characters.
+ * 
+ * @param {number} percent - Percentage complete (0-100)
+ * @returns {string} Progress bar string (e.g., "▓▓▓▓▓░░░░░")
+ * @private
+ */
 function createProgressBar(percent: number): string {
   const filled = Math.round(percent / 10);
   const empty = 10 - filled;

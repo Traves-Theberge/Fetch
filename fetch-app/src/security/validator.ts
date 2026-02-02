@@ -1,23 +1,72 @@
 /**
- * Input Validator
+ * @fileoverview Input Validator - Defense in Depth
  * 
- * Validates and sanitizes user input before processing.
- * Defense in depth - even with whitelist protection, we validate inputs.
+ * Validates and sanitizes user input before processing. Provides additional
+ * security layer beyond whitelist protection.
+ * 
+ * @module security/validator
+ * @see {@link validateInput} - Main validation function
+ * @see {@link sanitizePath} - Path traversal prevention
+ * 
+ * ## Validation Checks
+ * 
+ * 1. Null/undefined rejection
+ * 2. Length limits (1 - 10,000 characters)
+ * 3. Suspicious pattern detection
+ * 4. Control character removal
+ * 
+ * ## Suspicious Patterns
+ * 
+ * | Pattern | Risk |
+ * |---------|------|
+ * | `$(...)` | Command substitution |
+ * | `` `...` `` | Backtick execution |
+ * | `; rm -rf` | Command injection |
+ * | `\| sh` | Pipe to shell |
+ * | `eval(` | Code injection |
+ * | `__proto__` | Prototype pollution |
+ * 
+ * @example
+ * ```typescript
+ * import { validateInput, sanitizePath } from './validator.js';
+ * 
+ * const result = validateInput(userMessage);
+ * if (result.valid) {
+ *   processMessage(result.sanitized);
+ * } else {
+ *   console.log('Invalid:', result.error);
+ * }
+ * ```
  */
 
+// =============================================================================
+// TYPES
+// =============================================================================
+
+/**
+ * Result of input validation.
+ * @interface
+ */
 export interface ValidationResult {
+  /** Whether input passed validation */
   valid: boolean;
+  /** Sanitized input (if valid) */
   sanitized: string;
+  /** Error message (if invalid) */
   error?: string;
 }
 
-// Maximum message length we'll process
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Maximum message length to process */
 const MAX_MESSAGE_LENGTH = 10000;
 
-// Minimum message length (to filter empty/whitespace only)
+/** Minimum message length (filters empty/whitespace) */
 const MIN_MESSAGE_LENGTH = 1;
 
-// Patterns that might indicate malicious input
+/** Patterns indicating potential malicious input */
 const SUSPICIOUS_PATTERNS = [
   /\$\(.*\)/,           // Command substitution
   /`.*`/,               // Backtick command substitution
@@ -30,8 +79,24 @@ const SUSPICIOUS_PATTERNS = [
   /constructor\s*\[/,   // Prototype pollution attempt
 ];
 
+// =============================================================================
+// VALIDATION FUNCTIONS
+// =============================================================================
+
 /**
- * Validate and sanitize user input
+ * Validates and sanitizes user input.
+ * 
+ * @param {string} input - Raw user input
+ * @returns {ValidationResult} Validation result with sanitized input
+ * 
+ * @example
+ * ```typescript
+ * validateInput('Hello world');
+ * // → { valid: true, sanitized: 'Hello world' }
+ * 
+ * validateInput('$(rm -rf /)');
+ * // → { valid: false, sanitized: '', error: 'Input contains...' }
+ * ```
  */
 export function validateInput(input: string): ValidationResult {
   // Check for null/undefined

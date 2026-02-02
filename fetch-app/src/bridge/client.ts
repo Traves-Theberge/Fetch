@@ -1,10 +1,57 @@
 /**
- * WhatsApp Bridge Client
+ * @fileoverview WhatsApp Bridge Client
  * 
- * Handles WhatsApp connection with strict security whitelist enforcement.
- * SECURITY: All messages from non-whitelisted numbers are silently dropped.
+ * Handles WhatsApp Web connection, authentication, and message routing.
+ * Enforces strict security via whitelist and rate limiting.
  * 
- * Updated for agentic architecture - routes to handler module.
+ * @module bridge/client
+ * @see {@link Bridge} - Main bridge class
+ * @see {@link SecurityGate} - Number whitelist enforcement
+ * @see {@link RateLimiter} - Rate limiting
+ * 
+ * ## Security Model
+ * 
+ * - **Whitelist**: Only messages from WHITELIST_NUMBERS are processed
+ * - **Rate Limit**: 30 requests per minute per user
+ * - **Input Validation**: Messages are validated before processing
+ * - **Silent Drop**: Unauthorized messages are dropped without response
+ * 
+ * ## Connection Flow
+ * 
+ * ```
+ * initialize()
+ *      ↓
+ * QR Code Generated → Scan with WhatsApp
+ *      ↓
+ * Authenticated
+ *      ↓
+ * Ready (Listening)
+ * ```
+ * 
+ * ## Message Flow
+ * 
+ * ```
+ * Incoming Message
+ *      ↓
+ * Security Gate (whitelist check)
+ *      ↓
+ * Rate Limiter
+ *      ↓
+ * Input Validation
+ *      ↓
+ * Handler (agent processing)
+ *      ↓
+ * Reply sent
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { Bridge } from './client.js';
+ * 
+ * const bridge = new Bridge();
+ * await bridge.initialize();
+ * // QR code displayed, scan to connect
+ * ```
  */
 
 import pkg from 'whatsapp-web.js';
@@ -17,6 +64,19 @@ import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
 
+// =============================================================================
+// BRIDGE CLASS
+// =============================================================================
+
+/**
+ * WhatsApp Web bridge client.
+ * 
+ * Manages the WhatsApp Web connection using Puppeteer, handles
+ * authentication via QR code, and routes messages through security
+ * checks to the agent handler.
+ * 
+ * @class
+ */
 export class Bridge {
   private client: ClientType;
   private securityGate: SecurityGate;

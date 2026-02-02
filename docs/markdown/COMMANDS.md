@@ -18,6 +18,19 @@ Messages without `@fetch` are silently ignored for security.
 
 ---
 
+## 🧠 Understanding Modes
+
+Fetch automatically detects your intent and responds appropriately:
+
+| Mode | Trigger | Tools | Example |
+|------|---------|-------|---------|
+| 💬 **Conversation** | Greetings, thanks, general chat | None | `@fetch Hey!` |
+| 🔍 **Inquiry** | Questions about code | Read-only | `@fetch What's in auth.ts?` |
+| ⚡ **Action** | Single changes | Full (1 cycle) | `@fetch Fix the typo` |
+| 📋 **Task** | Complex multi-step work | Full (multi-step) | `@fetch Build a login page` |
+
+---
+
 ## Built-in Commands
 
 ### System Commands
@@ -25,8 +38,26 @@ Messages without `@fetch` are silently ignored for security.
 | Command | Aliases | Description |
 |---------|---------|-------------|
 | `@fetch help` | `@fetch ?` | Show available commands |
-| `@fetch status` | `@fetch s` | System and task status |
 | `@fetch ping` | — | Quick connectivity test |
+| `@fetch task` | — | Show current task status |
+
+### Project Management
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /projects` | List all projects in workspace |
+| `@fetch /project <name>` | Switch to a specific project |
+| `@fetch /clone <url>` | Clone a git repository |
+| `@fetch /init <name>` | Initialize a new project |
+
+### Git Commands
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /status` | Show git status of current project |
+| `@fetch /diff` | Show uncommitted changes |
+| `@fetch /log` | Show last 5 commits |
+| `@fetch /log 10` | Show last 10 commits |
 
 ### Task Control
 
@@ -86,57 +117,68 @@ When Fetch asks for approval, respond with:
 
 ---
 
-## Natural Language Tasks
+## Mode Examples
 
-Just describe what you need:
+### 💬 Conversation Mode
 
-### Code Tasks
-
-```
-@fetch Fix the bug in auth.ts where tokens expire too early
-```
+Simple greetings and thanks—no tools needed:
 
 ```
-@fetch Add error handling to the UserService class
+@fetch Hey there!
 ```
+→ *"Hey! 👋 How can I help you today?"*
 
 ```
-@fetch Refactor the login function to use async/await
+@fetch Thanks for the help!
 ```
+→ *"You're welcome! Let me know if you need anything else."*
 
-### Explanation Tasks
+### 🔍 Inquiry Mode
 
-```
-@fetch Explain how the useEffect hook works in React
-```
-
-```
-@fetch What does this regex do: /^[a-z]+$/
-```
-
-### Git Tasks
+Questions about code—read-only exploration:
 
 ```
-@fetch What's the git status?
+@fetch What's in src/auth.ts?
 ```
+→ Reads and summarizes the file
 
 ```
-@fetch Create a commit with message "fix: auth token expiry"
+@fetch How does the login function work?
 ```
+→ Searches codebase, explains the implementation
 
 ```
-@fetch Show me the diff for the last commit
+@fetch Show me the git history
 ```
+→ Shows recent commits
 
-### Testing Tasks
+### ⚡ Action Mode
+
+Single changes—one approval cycle:
 
 ```
-@fetch Run the tests for the auth module
+@fetch Fix the typo on line 42 of utils.ts
 ```
+→ Shows diff, asks for approval, applies change
 
 ```
-@fetch Write unit tests for the UserService class
+@fetch Add error handling to the fetch call
 ```
+→ Proposes change, one approval needed
+
+### 📋 Task Mode
+
+Complex multi-step work:
+
+```
+@fetch Build a user authentication system with JWT
+```
+→ Creates plan, executes step-by-step with checkpoints
+
+```
+@fetch Refactor the entire auth module to use async/await
+```
+→ Multi-file refactor with progress tracking
 
 ---
 
@@ -167,8 +209,8 @@ I'll analyze the code and fix the token expiry issue.
 📝 *Edit: src/auth.ts*
 ─────────────────────
 Line 45:
-- const expired = new Date(exp) < new Date();
-+ const expired = exp < Date.now() / 1000;
+🔴 - const expired = new Date(exp) < new Date();
+🟢 + const expired = exp < Date.now() / 1000;
 ─────────────────────
 Apply? (yes/no)
 ```
@@ -220,6 +262,14 @@ Reply with 1, 2, or 3
 ✅ @fetch explain the useEffect in components/Dashboard.tsx
 ```
 
+### Use Project Commands
+
+```
+@fetch /projects              # See available projects
+@fetch /project my-api        # Switch to my-api
+@fetch /status                # Check git status
+```
+
 ### Use Undo Freely
 
 If something goes wrong:
@@ -232,13 +282,6 @@ To revert everything from this session:
 @fetch undo all
 ```
 
-### Check Status
-
-Before starting a new task:
-```
-@fetch status
-```
-
 ---
 
-*Fetch Command Reference v0.1.0*
+*Fetch Command Reference v0.2.0*

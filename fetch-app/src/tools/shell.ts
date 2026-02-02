@@ -1,7 +1,46 @@
 /**
- * Shell Tools
+ * @fileoverview Shell Execution Tools
  * 
- * Tools for executing shell commands.
+ * Tools for executing shell commands within the workspace.
+ * Includes safety checks for dangerous commands and output truncation.
+ * 
+ * @module tools/shell
+ * @see {@link runCommandTool} - Execute shell commands
+ * @see {@link runTestsTool} - Run project test suite
+ * @see {@link runLintTool} - Run linter
+ * 
+ * ## Security
+ * 
+ * Dangerous commands are detected and blocked:
+ * - `rm -rf /` - Root filesystem deletion
+ * - `rm -rf ~` - Home directory deletion
+ * - Fork bombs
+ * - Piping downloads to shell (`curl | sh`)
+ * 
+ * ## Tools
+ * 
+ * | Tool | Description | Approval |
+ * |------|-------------|----------|
+ * | run_command | Execute arbitrary shell command | Required |
+ * | run_tests | Run test suite (npm test, etc) | Required |
+ * | run_lint | Run linter (eslint, etc) | Auto |
+ * 
+ * ## Output Handling
+ * 
+ * - Maximum output: 50,000 characters
+ * - Long output is truncated with indicator
+ * - ANSI codes preserved for formatting
+ * 
+ * @example
+ * ```typescript
+ * import { shellTools } from './shell.js';
+ * 
+ * // Run a command (requires approval)
+ * await runCommandTool.execute({
+ *   command: 'npm install lodash',
+ *   timeout: 120
+ * });
+ * ```
  */
 
 import { exec } from 'child_process';
@@ -11,28 +50,42 @@ import { logger } from '../utils/logger.js';
 
 const execAsync = promisify(exec);
 
-// Workspace root
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** Workspace root for command execution */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
 
-// Maximum output length
+/** Maximum output length before truncation */
 const MAX_OUTPUT_LENGTH = 50000;
 
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
 /**
- * Create a successful result
+ * Creates a successful tool result.
+ * @private
  */
 function success(output: string, duration: number, metadata?: Record<string, unknown>): ToolResult {
   return { success: true, output, duration, metadata };
 }
 
 /**
- * Create a failed result
+ * Creates a failed tool result.
+ * @private
  */
 function failure(error: string, duration: number): ToolResult {
   return { success: false, output: '', error, duration };
 }
 
 /**
- * Truncate output if too long
+ * Truncates output if it exceeds maximum length.
+ * 
+ * @param {string} output - Raw command output
+ * @returns {{text: string, truncated: boolean}} Processed output
+ * @private
  */
 function truncateOutput(output: string): { text: string; truncated: boolean } {
   if (output.length <= MAX_OUTPUT_LENGTH) {
@@ -45,7 +98,11 @@ function truncateOutput(output: string): { text: string; truncated: boolean } {
 }
 
 /**
- * Check if a command is potentially dangerous
+ * Checks if a command is potentially dangerous.
+ * 
+ * @param {string} command - Command to check
+ * @returns {string|null} Reason if dangerous, null if safe
+ * @private
  */
 function isDangerousCommand(command: string): string | null {
   const dangerous = [

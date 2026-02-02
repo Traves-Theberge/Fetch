@@ -1,8 +1,59 @@
 /**
- * Agent Core
+ * @fileoverview Agent Core - Main Orchestrator
  * 
- * Main agent loop implementing the ReAct (Reason + Act) pattern.
- * Uses OpenAI-compatible API (OpenRouter) with GPT-4.1-nano for low-cost operation.
+ * Implements the agentic loop with 4-mode architecture. Routes user messages
+ * through intent classification to appropriate handlers (conversation, inquiry,
+ * action, task) and manages the execution lifecycle.
+ * 
+ * @module agent/core
+ * @see {@link AgentCore} - Main agent class
+ * @see {@link processMessage} - Entry point for user messages
+ * @see {@link runAgentLoop} - Task mode execution loop
+ * 
+ * ## Architecture
+ * 
+ * ```
+ * User Message
+ *      │
+ *      ▼
+ * ┌─────────────┐
+ * │ Intent      │ ← Classify message type
+ * │ Classifier  │
+ * └─────┬───────┘
+ *       │
+ *       ├── conversation → handleConversation()
+ *       ├── inquiry     → handleInquiry()
+ *       ├── action      → handleAction()
+ *       └── task        → runAgentLoop()
+ * ```
+ * 
+ * ## Task Mode Loop (ReAct Pattern)
+ * 
+ * ```
+ * while (not complete and under iteration limit):
+ *   1. Think: LLM decides next action
+ *   2. Act: Execute tool(s)
+ *   3. Observe: Process results
+ *   4. Repeat or complete
+ * ```
+ * 
+ * ## Approval System
+ * 
+ * - **Suggest mode**: All write operations need approval
+ * - **Autonomous mode**: Only sensitive ops need approval
+ * - Approvals stored in session.currentTask.pendingApproval
+ * 
+ * @example
+ * ```typescript
+ * import { AgentCore } from './core.js';
+ * import { SessionManager } from '../session/manager.js';
+ * 
+ * const sessionManager = new SessionManager();
+ * const agent = new AgentCore(sessionManager);
+ * 
+ * const session = await sessionManager.getOrCreate('user123');
+ * const responses = await agent.processMessage(session, "What does this code do?");
+ * ```
  */
 
 import OpenAI from 'openai';
@@ -20,19 +71,51 @@ import { ToolRegistry, getToolRegistry } from '../tools/registry.js';
 import { getCurrentCommit } from '../tools/git.js';
 import { logger } from '../utils/logger.js';
 import { formatApprovalRequest, formatTaskComplete, formatTaskFailed, formatProgress } from './format.js';
+import { classifyIntent, shouldBypassConversation } from './intent.js';
+import { handleConversation } from './conversation.js';
+import { handleInquiry } from './inquiry.js';
+import { handleAction } from './action.js';
+import { buildTaskPrompt } from './prompts.js';
 
-// Environment - Using OpenRouter with configurable model
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+/** OpenRouter API key from environment */
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+/** LLM model (configurable via AGENT_MODEL env var, default gpt-4o-mini) */
 const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4o-mini';
 
+// =============================================================================
+// AGENT CORE CLASS
+// =============================================================================
+
 /**
- * Agent core implementing the agentic loop
+ * Main agent class implementing the 4-mode agentic loop.
+ * 
+ * Handles message routing, tool execution, approval workflows,
+ * and task lifecycle management.
+ * 
+ * @class
  */
 export class AgentCore {
+  /** OpenAI client configured for OpenRouter */
   private openai: OpenAI;
+  
+  /** Session manager for state persistence */
   private sessionManager: SessionManager;
+  
+  /** Registry of available tools */
   private toolRegistry: ToolRegistry;
 
+  /**
+   * Creates a new AgentCore instance.
+   * 
+   * @param {SessionManager} sessionManager - Session state manager
+   * @param {ToolRegistry} [toolRegistry] - Optional custom tool registry
+   * @throws {Error} If OPENROUTER_API_KEY is not set
+   */
   constructor(
     sessionManager: SessionManager,
     toolRegistry?: ToolRegistry
@@ -51,7 +134,14 @@ export class AgentCore {
   }
 
   /**
-   * Process a user message and return response(s)
+   * Main entry point - processes a user message and returns responses.
+   * 
+   * Routes through intent classification to appropriate handler.
+   * Handles pending approvals, paused tasks, and new messages.
+   * 
+   * @param {Session} session - Current user session
+   * @param {string} userMessage - The user's message
+   * @returns {Promise<string[]>} Array of response messages
    */
   async processMessage(session: Session, userMessage: string): Promise<string[]> {
     const responses: string[] = [];
@@ -70,13 +160,57 @@ export class AgentCore {
         await this.sessionManager.resumeTask(session);
         responses.push('▶️ Resuming task...');
         return [...responses, ...(await this.runAgentLoop(session))];
-      } else {
-        responses.push('Task is paused. Say "resume" to continue or "stop" to cancel.');
+      } else if (this.isStopIntent(userMessage)) {
+        // User wants to cancel
+        await this.sessionManager.abortTask(session);
+        responses.push('🛑 Task cancelled.');
         return responses;
+      } else {
+        // Treat as answer to the paused question - resume and continue with this message
+        await this.sessionManager.resumeTask(session);
+        return this.runAgentLoop(session);
       }
     }
 
-    // Start new task or continue
+    // 🐕 Classify intent and route to appropriate mode
+    const intent = classifyIntent(userMessage, session);
+    
+    // Don't reclassify if there's active work
+    if (!shouldBypassConversation(intent, session)) {
+      switch (intent.type) {
+        case 'conversation':
+          // Simple chat - no task, no tools
+          const chatReply = await handleConversation(session, userMessage, intent);
+          await this.sessionManager.addAssistantMessage(session, chatReply[0]);
+          return chatReply;
+          
+        case 'inquiry':
+          // Questions about code - read-only tools, no approval
+          return handleInquiry(
+            session, 
+            userMessage, 
+            intent, 
+            this.sessionManager, 
+            this.toolRegistry
+          );
+          
+        case 'action':
+          // Single change - one approval cycle
+          return handleAction(
+            session,
+            userMessage,
+            intent,
+            this.sessionManager,
+            this.toolRegistry
+          );
+          
+        case 'task':
+          // Complex work - full task system
+          break; // Fall through to runAgentLoop
+      }
+    }
+
+    // Start new task or continue existing
     return this.runAgentLoop(session);
   }
 
@@ -338,47 +472,8 @@ export class AgentCore {
    * Build system prompt with context
    */
   private buildSystemPrompt(session: Session): string {
-    const activeFiles = session.activeFiles.length > 0 
-      ? session.activeFiles.join(', ')
-      : 'None';
-    
-    const mode = session.preferences.autonomyLevel;
-    const autoCommit = session.preferences.autoCommit ? 'ON' : 'OFF';
-    const task = session.currentTask;
-
-    let prompt = `You are Fetch, an AI coding assistant communicating via WhatsApp.
-
-## Your Capabilities
-You can read files, edit code, run commands, and manage git - all within a sandboxed workspace.
-
-## Current Context
-- Active files: ${activeFiles}
-- Autonomy mode: ${mode}
-- Auto-commit: ${autoCommit}
-- Current task: ${task?.goal || 'None'}
-- Iteration: ${task?.iterations || 0}/${task?.maxIterations || 25}
-
-## Guidelines
-1. Be concise - responses appear on mobile phones
-2. Show diffs before making changes (handled by approval system)
-3. Run tests after code changes when possible
-4. Commit with clear, conventional messages
-5. Ask for clarification when requirements are ambiguous
-6. Break large tasks into smaller steps
-
-## Tool Usage
-- Use read_file to understand code before editing
-- Use edit_file for targeted changes (search/replace)
-- Use write_file only for new files or complete rewrites
-- Use repo_map when you need to understand project structure
-- Use ask_user when you need clarification
-- Use task_complete when the goal is achieved
-- Use task_blocked if you cannot proceed
-
-## Important
-- When editing files, the search string must match EXACTLY (including whitespace)
-- Always verify your changes work (run tests if available)
-- If something fails, try to understand why before retrying`;
+    // Use centralized task prompt
+    let prompt = buildTaskPrompt(session);
 
     // Add repo map if available
     if (session.repoMap) {
@@ -760,5 +855,13 @@ You can read files, edit code, run commands, and manage git - all within a sandb
   private isResumeIntent(message: string): boolean {
     const resumeWords = ['resume', 'continue', 'go', 'proceed', 'yes'];
     return resumeWords.includes(message.toLowerCase().trim());
+  }
+
+  /**
+   * Check if message is a stop intent
+   */
+  private isStopIntent(message: string): boolean {
+    const stopWords = ['stop', 'cancel', 'quit', 'abort', 'nevermind', 'never mind'];
+    return stopWords.includes(message.toLowerCase().trim());
   }
 }

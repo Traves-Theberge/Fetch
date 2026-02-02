@@ -1,13 +1,63 @@
 /**
- * Session Types
+ * @fileoverview Session Type Definitions
  * 
- * Data models for conversation persistence and agent state management.
+ * Core data models for user sessions, conversation persistence,
+ * task management, and agent state tracking.
+ * 
+ * @module session/types
+ * @see {@link Session} - Main session interface
+ * @see {@link AgentTask} - Task execution state
+ * @see {@link Message} - Conversation message
+ * 
+ * ## Session Structure
+ * 
+ * ```
+ * Session
+ * ├── id, userId, createdAt
+ * ├── preferences: UserPreferences
+ * ├── currentProject: ProjectContext | null
+ * ├── availableProjects: string[]
+ * ├── messages: Message[]
+ * ├── currentTask: AgentTask | null
+ * └── activeFiles: string[]
+ * ```
+ * 
+ * ## Task Lifecycle
+ * 
+ * ```
+ * planning → executing → awaiting_approval → completed
+ *                ↓              ↓
+ *             paused ←→ resumed
+ *                ↓
+ *           failed/aborted
+ * ```
+ * 
+ * ## Autonomy Levels
+ * 
+ * | Level | Description |
+ * |-------|-------------|
+ * | supervised | All actions need approval |
+ * | cautious | Only sensitive ops need approval |
+ * | autonomous | Minimal approvals (dangerous ops only) |
+ * 
+ * @example
+ * ```typescript
+ * import { Session, createSession, Message, AgentTask } from './types.js';
+ * 
+ * const session = createSession('user123');
+ * session.currentProject = { name: 'my-app', type: 'node', ... };
+ * ```
  */
 
-// ============================================================================
-// Autonomy & Preferences
-// ============================================================================
+// =============================================================================
+// AUTONOMY & PREFERENCES
+// =============================================================================
 
+/**
+ * User's autonomy preference level.
+ * Controls how much freedom the agent has for approvals.
+ * @typedef {string} AutonomyLevel
+ */
 export type AutonomyLevel = 'supervised' | 'cautious' | 'autonomous';
 
 export interface UserPreferences {
@@ -27,6 +77,31 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   verboseMode: false,
   maxIterations: 25
 };
+
+// ============================================================================
+// Project Context
+// ============================================================================
+
+export type ProjectType = 'node' | 'python' | 'rust' | 'go' | 'java' | 'unknown';
+
+export interface ProjectContext {
+  /** Project directory name */
+  name: string;
+  /** Full path to project */
+  path: string;
+  /** Detected project type */
+  type: ProjectType;
+  /** Main/entry files detected */
+  mainFiles: string[];
+  /** Current git branch */
+  gitBranch: string | null;
+  /** Last commit message (short) */
+  lastCommit: string | null;
+  /** Has uncommitted changes */
+  hasUncommitted: boolean;
+  /** When project info was last refreshed */
+  refreshedAt: string;
+}
 
 // ============================================================================
 // Messages
@@ -158,6 +233,12 @@ export interface Session {
   /** Full message history */
   messages: Message[];
   
+  // Project Context
+  /** Currently active project (null if none selected) */
+  currentProject: ProjectContext | null;
+  /** List of available project names in workspace */
+  availableProjects: string[];
+  
   // Context
   /** Files user is actively working with */
   activeFiles: string[];
@@ -218,6 +299,8 @@ export function createSession(userId: string): Session {
     id: generateId(),
     userId,
     messages: [],
+    currentProject: null,
+    availableProjects: [],
     activeFiles: [],
     repoMap: null,
     repoMapUpdatedAt: null,

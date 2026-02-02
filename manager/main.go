@@ -23,22 +23,6 @@ import (
 	"github.com/fetch/manager/internal/models"
 	"github.com/fetch/manager/internal/status"
 	"github.com/fetch/manager/internal/theme"
-	"github.com/fetch/manager/internal/update"
-)
-
-// Style aliases - mapping legacy names to theme package
-var (
-	titleStyle         = theme.Title
-	subtitleStyle      = theme.Subtitle
-	helpStyle          = theme.Help
-	infoStyle          = theme.StatusInfo
-	successStyle       = theme.StatusSuccess
-	errorStyle         = theme.StatusError
-	statusRunningStyle = theme.StatusRunning
-	statusStoppedStyle = theme.StatusStopped
-	itemStyle          = theme.MenuItem
-	selectedItemStyle  = theme.MenuItemSelected
-	qrBoxStyle         = theme.QRBox
 )
 
 // Screen represents the current TUI screen.
@@ -383,14 +367,6 @@ func stopFetch() tea.Msg {
 func fetchLogs() tea.Msg {
 	lines := logs.GetRecentLogs("fetch-bridge", 20)
 	return logMsg{lines: lines}
-}
-
-func runUpdate() tea.Msg {
-	err := update.PullAndRebuild()
-	if err != nil {
-		return actionResultMsg{success: false, message: fmt.Sprintf("Update failed: %v", err)}
-	}
-	return actionResultMsg{success: true, message: "🔄 Update complete! Restart to apply."}
 }
 
 func openDocs() tea.Msg {

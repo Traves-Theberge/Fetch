@@ -1,7 +1,42 @@
 /**
- * Session Manager
+ * @fileoverview Session Manager - High-Level Session API
  * 
- * High-level API for managing user sessions and conversation state.
+ * Provides the primary interface for managing user sessions, messages,
+ * tasks, approvals, and preferences. Acts as facade over SessionStore.
+ * 
+ * @module session/manager
+ * @see {@link SessionManager} - Main manager class
+ * @see {@link SessionStore} - Underlying persistence
+ * 
+ * ## Responsibilities
+ * 
+ * - Session lifecycle (create, get, update)
+ * - Message management (add, truncate, get recent)
+ * - Task lifecycle (start, pause, resume, complete, abort)
+ * - Approval workflow (set pending, clear)
+ * - Project management (set current, refresh)
+ * - Preferences management (set autonomy, toggle options)
+ * 
+ * ## Usage Pattern
+ * 
+ * ```typescript
+ * const manager = new SessionManager();
+ * await manager.init();
+ * 
+ * const session = await manager.getSession('user123');
+ * await manager.addUserMessage(session, 'Hello!');
+ * await manager.startTask(session, 'Build login form');
+ * ```
+ * 
+ * ## Message Flow
+ * 
+ * ```
+ * User Input → addUserMessage()
+ *      ↓
+ * Agent Processing
+ *      ↓
+ * addAssistantMessage() or addToolMessage()
+ * ```
  */
 
 import { 
@@ -17,8 +52,26 @@ import {
 import { SessionStore, getSessionStore } from './store.js';
 import { logger } from '../utils/logger.js';
 
+// =============================================================================
+// SESSION MANAGER CLASS
+// =============================================================================
+
 /**
- * Session manager for handling user conversations
+ * High-level manager for user sessions and conversation state.
+ * 
+ * Provides methods for all session operations including messages,
+ * tasks, approvals, projects, and preferences.
+ * 
+ * @class
+ * @example
+ * ```typescript
+ * const manager = new SessionManager();
+ * await manager.init();
+ * 
+ * const session = await manager.getSession('user123');
+ * await manager.addUserMessage(session, 'Fix the bug');
+ * await manager.startTask(session, 'Fix the bug in login.ts');
+ * ```
  */
 export class SessionManager {
   private store: SessionStore;
