@@ -5,14 +5,14 @@ services:
   # The Bridge - WhatsApp orchestration layer
   fetch-bridge:
     build:
-      context: ./fetch-app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: fetch-app/Dockerfile
     container_name: fetch-bridge
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      # Status API for Go TUI
+      # Status API for Go TUI (also serves docs)
       - "8765:8765"
     volumes:
       # Persistent data (WhatsApp auth, task database)

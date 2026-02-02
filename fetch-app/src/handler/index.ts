@@ -23,15 +23,20 @@ let initialized = false;
 export async function initializeHandler(): Promise<void> {
   if (initialized) return;
   
-  logger.info('Initializing message handler...');
+  logger.section('⚙️  Initializing Handler');
   
   // Initialize components
   sessionManager = await getSessionManager();
+  logger.success('Session manager ready');
+  
   await initializeToolRegistry();
+  logger.success('Tool registry loaded');
+  
   agent = new AgentCore(sessionManager, getToolRegistry());
+  logger.success('Agent core ready');
   
   initialized = true;
-  logger.info('Message handler ready');
+  logger.divider();
 }
 
 /**
@@ -51,7 +56,7 @@ export async function handleMessage(
   }
 
   const startTime = Date.now();
-  logger.info('Handling message', { userId, messageLength: message.length });
+  logger.info(`Processing message (${message.length} chars)`);
 
   try {
     // Get or create session
@@ -65,26 +70,21 @@ export async function handleMessage(
     const commandResult = await parseCommand(message, session, sessionManager, agent);
     
     if (commandResult.handled) {
-      logger.info('Command handled', { 
-        userId, 
-        duration: Date.now() - startTime 
-      });
+      const duration = Date.now() - startTime;
+      logger.success(`Command completed in ${duration}ms`);
       return commandResult.responses || [];
     }
 
     // Process with agent
     const responses = await agent.processMessage(session, message);
     
-    logger.info('Message processed', {
-      userId,
-      responseCount: responses.length,
-      duration: Date.now() - startTime
-    });
+    const duration = Date.now() - startTime;
+    logger.success(`Agent response ready (${responses.length} parts, ${duration}ms)`);
 
     return responses;
 
   } catch (error) {
-    logger.error('Message handling error', { userId, error });
+    logger.error('Message handling failed', error);
     
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return [`❌ Error: ${errorMessage}\n\nPlease try again or type /help.`];

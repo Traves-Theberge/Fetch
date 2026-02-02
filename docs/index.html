@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fetch Documentation</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body class="dark">
+  <!-- Mobile Menu Toggle -->
+  <button class="mobile-menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
+  
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a href="#" class="logo" onclick="loadDoc('README.md'); return false;">
+          <span class="logo-icon">🐕</span>
+          <div>
+            <div class="logo-text">Fetch</div>
+            <div class="logo-subtitle">Your Faithful Code Companion</div>
+          </div>
+        </a>
+      </div>
+      
+      <div class="search-container">
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Search docs..." 
+          id="searchInput"
+          onkeyup="filterNav()"
+        >
+      </div>
+      
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Getting Started</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#" class="nav-link active" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
+                <span class="nav-link-icon">📖</span>
+                Overview
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="SETUP_GUIDE.md" onclick="loadDoc('SETUP_GUIDE.md'); return false;">
+                <span class="nav-link-icon">🚀</span>
+                Setup Guide
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
+                <span class="nav-link-icon">📝</span>
+                Changelog
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="nav-section">
+          <div class="nav-section-title">Documentation</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md" onclick="loadDoc('DOCUMENTATION.md'); return false;">
+                <span class="nav-link-icon">📚</span>
+                Full Documentation
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="API_REFERENCE.md" onclick="loadDoc('API_REFERENCE.md'); return false;">
+                <span class="nav-link-icon">🔌</span>
+                API Reference
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="AGENTIC_PLAN.md" onclick="loadDoc('AGENTIC_PLAN.md'); return false;">
+                <span class="nav-link-icon">🤖</span>
+                Agentic Architecture
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="nav-section">
+          <div class="nav-section-title">Development</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="CODE_REVIEW.md" onclick="loadDoc('CODE_REVIEW.md'); return false;">
+                <span class="nav-link-icon">🔍</span>
+                Code Review
+              </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button class="theme-toggle" onclick="toggleTheme()">
+          <span id="themeLabel">🌙 Dark Mode</span>
+          <span id="themeIcon">☀️</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <article class="markdown-content" id="content">
+        <div class="loading">Loading documentation...</div>
+      </article>
+    </main>
+  </div>
+
+  <script>
+    // Configure marked
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: true,
+    });
+
+    // State
+    let currentDoc = 'README.md';
+    let isDark = true;
+
+    // Load a markdown document
+    async function loadDoc(filename) {
+      currentDoc = filename;
+      const content = document.getElementById('content');
+      content.innerHTML = '<div class="loading">Loading documentation...</div>';
+      
+      try {
+        const response = await fetch(`markdown/${filename}`);
+        if (!response.ok) throw new Error('Document not found');
+        
+        const markdown = await response.text();
+        content.innerHTML = marked.parse(markdown);
+        
+        // Update active nav link
+        document.querySelectorAll('.nav-link').forEach(link => {
+          link.classList.remove('active');
+          if (link.dataset.doc === filename) {
+            link.classList.add('active');
+          }
+        });
+        
+        // Close mobile sidebar
+        document.querySelector('.sidebar').classList.remove('open');
+        document.querySelector('.sidebar-overlay').classList.remove('open');
+        
+        // Scroll to top
+        window.scrollTo(0, 0);
+        
+        // Update URL hash
+        window.location.hash = filename.replace('.md', '');
+      } catch (error) {
+        content.innerHTML = `
+          <h1>Document Not Found</h1>
+          <p>Sorry, the requested document could not be loaded.</p>
+          <p><a href="#" onclick="loadDoc('README.md'); return false;">Return to Overview</a></p>
+        `;
+      }
+    }
+
+    // Toggle theme
+    function toggleTheme() {
+      isDark = !isDark;
+      document.body.classList.toggle('dark', isDark);
+      
+      const label = document.getElementById('themeLabel');
+      const icon = document.getElementById('themeIcon');
+      
+      if (isDark) {
+        label.textContent = '🌙 Dark Mode';
+        icon.textContent = '☀️';
+      } else {
+        label.textContent = '☀️ Light Mode';
+        icon.textContent = '🌙';
+      }
+      
+      // Persist preference
+      localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
+    }
+
+    // Toggle mobile sidebar
+    function toggleSidebar() {
+      document.querySelector('.sidebar').classList.toggle('open');
+      document.querySelector('.sidebar-overlay').classList.toggle('open');
+    }
+
+    // Filter navigation
+    function filterNav() {
+      const query = document.getElementById('searchInput').value.toLowerCase();
+      const links = document.querySelectorAll('.nav-link');
+      
+      links.forEach(link => {
+        const text = link.textContent.toLowerCase();
+        const item = link.closest('.nav-item');
+        item.style.display = text.includes(query) ? 'block' : 'none';
+      });
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load theme preference
+      const savedTheme = localStorage.getItem('fetch-docs-theme');
+      if (savedTheme === 'light') {
+        isDark = false;
+        document.body.classList.remove('dark');
+        document.getElementById('themeLabel').textContent = '☀️ Light Mode';
+        document.getElementById('themeIcon').textContent = '🌙';
+      }
+      
+      // Check URL hash for initial doc
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        loadDoc(hash + '.md');
+      } else {
+        loadDoc('README.md');
+      }
+    });
+
+    // Handle browser back/forward
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.slice(1);
+      if (hash && hash + '.md' !== currentDoc) {
+        loadDoc(hash + '.md');
+      }
+    });
+  </script>
+</body>
+</html>

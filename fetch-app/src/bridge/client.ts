@@ -65,42 +65,42 @@ export class Bridge {
         qrUrl: qrUrl
       });
       
-      // Console output - lots of padding to prevent cutoff
-      console.log('\n\n\n\n\n'); // 5 lines padding above
-      console.log('═'.repeat(50));
-      logger.info('📱 Scan this QR code to authenticate:');
-      console.log('═'.repeat(50));
-      console.log(''); // Space before QR
+      // Console output with nice formatting
+      logger.section('📱 WhatsApp Authentication Required');
+      console.log('');
       qrcode.generate(qr, { small: true });
-      console.log(''); // Space after QR
-      console.log('═'.repeat(50));
-      logger.info(`Or open in browser:\n${qrUrl}`);
-      console.log('═'.repeat(50));
-      console.log('\n\n'); // Padding below
+      console.log('');
+      logger.info('Scan the QR code above with WhatsApp');
+      logger.info('Or open this URL in browser:');
+      console.log(`   ${qrUrl.substring(0, 60)}...`);
+      logger.divider();
     });
 
     // Ready event
     this.client.on('ready', () => {
       updateStatus({ state: 'authenticated', qrCode: null, qrUrl: null });
-      logger.info('🐕 Fetch is connected and ready!');
+      logger.section('🐕 Fetch is Ready!');
+      logger.success('WhatsApp connected and listening for commands');
+      logger.info('Send a message starting with @fetch to interact');
+      logger.divider();
     });
 
     // Authentication success
     this.client.on('authenticated', () => {
       updateStatus({ state: 'authenticated', qrCode: null, qrUrl: null });
-      logger.info('✅ WhatsApp authentication successful');
+      logger.success('WhatsApp authentication successful');
     });
 
     // Authentication failure
     this.client.on('auth_failure', (msg: string) => {
       updateStatus({ state: 'error', lastError: msg });
-      logger.error('❌ WhatsApp authentication failed:', msg);
+      logger.error('WhatsApp authentication failed', msg);
     });
 
     // Disconnected
     this.client.on('disconnected', (reason: string) => {
       updateStatus({ state: 'disconnected', lastError: reason });
-      logger.warn('📴 WhatsApp disconnected:', reason);
+      logger.warn('WhatsApp disconnected', reason);
     });
 
     // Message handler with security gate
@@ -143,7 +143,7 @@ export class Bridge {
       return;
     }
 
-    logger.info(`📨 Command: ${validation.sanitized.substring(0, 50)}...`);
+    logger.message(`Received: "${validation.sanitized.substring(0, 40)}${validation.sanitized.length > 40 ? '...' : ''}"`);
 
     try {
       // Process through agentic handler
@@ -152,6 +152,7 @@ export class Bridge {
       // Send all response messages
       for (const response of responses) {
         await message.reply(response);
+        logger.success(`Reply sent (${response.length} chars)`);
         
         // Small delay between messages to avoid rate limiting
         if (responses.length > 1) {
@@ -159,7 +160,7 @@ export class Bridge {
         }
       }
     } catch (error) {
-      logger.error('Error processing message:', error);
+      logger.error('Failed to process message', error);
       await message.reply('❌ Sorry, I encountered an error processing your request.');
     }
   }
