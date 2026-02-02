@@ -20,9 +20,9 @@
  * | Pattern | Risk |
  * |---------|------|
  * | `$(...)` | Command substitution |
- * | `` `...` `` | Backtick execution |
+ * | Backticks | Backtick execution |
  * | `; rm -rf` | Command injection |
- * | `\| sh` | Pipe to shell |
+ * | Pipe to sh | Pipe to shell |
  * | `eval(` | Code injection |
  * | `__proto__` | Prototype pollution |
  * 
