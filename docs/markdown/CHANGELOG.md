@@ -8,7 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+#### 🎯 V2 Orchestrator Architecture
+- **3-Intent Classification System** replacing 4-mode architecture:
+  - 💬 **Conversation** — Direct LLM response for greetings, thanks, chat
+  - 📁 **Workspace** — 8 orchestrator tools for project management
+  - 🚀 **Task** — Delegated to harnesses (Claude, Gemini, Copilot)
+- **Harness System** — Plug-in adapters for AI CLIs:
+  - `harness/claude.ts` — Claude CLI adapter
+  - `harness/gemini.ts` — Gemini CLI adapter  
+  - `harness/copilot.ts` — GitHub Copilot CLI adapter
+  - `harness/registry.ts` — Central harness registry
+- **8 Orchestrator Tools** (reduced from 24):
+  - `list_workspaces`, `get_workspace_info`, `switch_workspace`
+  - `create_workspace`, `clone_repository`
+  - `get_git_status`, `get_git_diff`, `get_git_log`
+- **Full Test Suite** with Vitest:
+  - Unit tests for intent classification, harness adapters
+  - E2E tests for task flow, conversation, workspace
+  - 63 tests passing
 
+### Changed
+- Removed legacy 4-mode system (conversation, inquiry, action, task)
+- Removed 24 tool system in favor of 8 orchestrator tools + harness delegation
+- Complex coding tasks now delegated to AI CLIs instead of internal ReAct loop
+
+### Removed
+- `agent/legacy/` — Old 4-mode agent files
+- `tools/legacy/` — Old 24-tool system
+- `handler/legacy-index.ts` — Legacy request handler
+
+---
 #### �️ Zod Runtime Validation
 - **Tool argument validation** using Zod schemas for all 24 tools
 - **Type-safe schemas** with runtime constraint checking:

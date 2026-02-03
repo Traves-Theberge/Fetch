@@ -67,7 +67,6 @@ import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 type Message = pkg.Message;
 type ClientType = InstanceType<typeof Client>;
-import qrcode from 'qrcode-terminal';
 import { logger } from '../utils/logger.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
@@ -96,6 +95,8 @@ export class Bridge {
       authStrategy: new LocalAuth({
         dataPath: '/app/data/.wwebjs_auth'
       }),
+      // QR code settings - refresh every 20 seconds (default is 45)
+      qrMaxRetries: 10,
       puppeteer: {
         headless: true,
         args: [
@@ -125,7 +126,7 @@ export class Bridge {
   private setupEventHandlers(): void {
     // QR Code for authentication
     this.client.on('qr', (qr: string) => {
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr)}`;
       
       // Update status API
       updateStatus({
@@ -134,15 +135,17 @@ export class Bridge {
         qrUrl: qrUrl
       });
       
-      // Console output with nice formatting
-      logger.section('📱 WhatsApp Authentication Required');
+      // Console output - show URL only (QR too large for terminal)
       console.log('');
-      qrcode.generate(qr, { small: true });
+      console.log('╔══════════════════════════════════════════════════╗');
+      console.log('║  📱 WhatsApp Authentication Required              ║');
+      console.log('╚══════════════════════════════════════════════════╝');
       console.log('');
-      logger.info('Scan the QR code above with WhatsApp');
-      logger.info('Or open this URL in browser:');
-      console.log(`   ${qrUrl.substring(0, 60)}...`);
-      logger.divider();
+      console.log('  Open this URL to see QR code:');
+      console.log(`  ${qrUrl}`);
+      console.log('');
+      console.log('  📲 WhatsApp → Settings → Linked Devices → Link');
+      console.log('');
     });
 
     // Ready event

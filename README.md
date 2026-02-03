@@ -23,30 +23,35 @@ A headless "ChatOps" development environment. Send natural language coding tasks
 
 ## 🎯 Overview
 
-Fetch is a **context-aware, multi-mode AI coding assistant** that understands what you need and responds appropriately—whether it's a quick chat, a code question, a single edit, or a complex multi-step task.
+Fetch is a **lightweight orchestrator** that delegates coding tasks to specialized AI harnesses (Claude Code, Gemini CLI, GitHub Copilot CLI) while managing conversation state and user interaction via WhatsApp.
 
-### 🧠 4-Mode Architecture
+### 🏗️ V2 Orchestrator Architecture
 
-Fetch automatically detects your intent and routes to the appropriate mode:
+Fetch automatically classifies your intent and routes to the appropriate handler:
 
-| Mode | When | Tools | Example |
-|------|------|-------|---------|
-| 💬 **Conversation** | Greetings, thanks, general chat | None | "Hey!", "Thanks!" |
-| 🔍 **Inquiry** | Questions about code | Read-only | "What's in auth.ts?" |
-| ⚡ **Action** | Single edits/changes | Full (1 cycle) | "Fix the typo on line 5" |
-| 📋 **Task** | Complex multi-step work | Full (multi-step) | "Build a login page" |
+| Intent | When | Action | Example |
+|--------|------|--------|---------|
+| 💬 **Conversation** | Greetings, thanks, chat | Direct response | "Hey!", "Thanks!" |
+| 📁 **Workspace** | Project management | Tool calls | "List projects", "Switch to api" |
+| 🚀 **Task** | Coding work | Delegate to harness | "Add dark mode", "Fix the bug" |
 
-### 🤖 Agentic Framework
+### 🤖 Harness System
 
-Powered by **OpenRouter** with access to **100+ AI models**:
+Fetch delegates actual coding work to specialized CLI tools:
 
-- **Model Flexibility** - GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
-- **ReAct Loop** - Reason + Act pattern for multi-step tasks
-- **24 Built-in Tools** - File, code, shell, git, and control operations
-- **Zod Validation** - Runtime type-safe tool argument validation
-- **Session Memory** - Persistent conversation context
-- **Project Awareness** - Knows your active project and git status
-- **Configurable Autonomy** - Supervised, semi-autonomous, or fully autonomous modes
+| Harness | CLI | Best For |
+|---------|-----|----------|
+| **Claude Code** | `claude` | Complex refactoring, multi-file changes |
+| **Gemini CLI** | `gemini` | Quick edits, explanations |
+| **Copilot CLI** | `gh copilot` | Suggestions, command help |
+
+### 🛠️ 8 Orchestrator Tools
+
+| Category | Tools | Purpose |
+|----------|-------|---------|
+| **Workspace** | `workspace_list`, `workspace_select`, `workspace_status` | Project management |
+| **Task** | `task_create`, `task_status`, `task_cancel`, `task_respond` | Task lifecycle |
+| **Interaction** | `ask_user`, `report_progress` | User communication |
 
 ## 🏗️ Architecture
 
@@ -70,24 +75,29 @@ Powered by **OpenRouter** with access to **100+ AI models**:
                                           /workspace (code)
 ```
 
-### Intent Classification Flow
+### Message Flow
 
 ```
-User Message
-     │
-     ▼
-┌────────────────┐
+WhatsApp Message
+       │
+       ▼
+┌──────────────────┐
 │ Intent Classifier │
-└────────┬───────┘
+└────────┬─────────┘
          │
-    ┌────┼────┬────────┐
-    ▼    ▼    ▼        ▼
-  💬    🔍   ⚡       📋
- Chat  Inquiry Action  Task
-  │      │      │       │
-  ▼      ▼      ▼       ▼
-No     Read   Single  Multi
-Tools  Only   Cycle   Step
+    ┌────┴────┬──────────┐
+    ▼         ▼          ▼
+   💬        📁         🚀
+Conversation Workspace   Task
+    │         │          │
+    ▼         ▼          ▼
+  Direct    Tool      Harness
+ Response   Calls    Execution
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+           Claude     Gemini    Copilot
+            CLI        CLI       CLI
 ```
 
 ## 🚀 Quick Start
@@ -170,12 +180,13 @@ The TUI provides a beautiful terminal interface with:
 
 Just describe what you need:
 
-| You Say | Mode | What Happens |
-|---------|------|--------------|
-| "Hey Fetch!" | 💬 Conversation | Quick friendly response |
-| "What's in auth.ts?" | 🔍 Inquiry | Reads and explains the file |
-| "Fix the typo on line 42" | ⚡ Action | Shows diff, asks for approval |
-| "Build a REST API for users" | 📋 Task | Creates plan, executes step-by-step |
+| You Say | Intent | What Happens |
+|---------|--------|--------------|
+| "Hey Fetch!" | 💬 Conversation | Direct response, no tools |
+| "What projects are open?" | 📁 Workspace | Lists workspaces via tools |
+| "Build a REST API for users" | 🚀 Task | Delegates to harness (Claude/Gemini/Copilot) |
+| "Create a login form component" | 🚀 Task | AI plans & executes multi-step work |
+| "Help me debug this error" | 🚀 Task | AI analyzes code, proposes fixes |
 
 ## 🔒 Security
 
@@ -206,13 +217,17 @@ fetch/
 │   └── src/
 │       ├── bridge/         # WhatsApp client
 │       ├── security/       # Auth, rate limiting, validation
-│       ├── orchestrator/   # OpenRouter intent parsing
-│       ├── agent/          # Agentic core (ReAct loop)
+│       ├── agent/          # V2 Orchestrator (core, intent, prompts)
+│       ├── harness/        # CLI adapters (Claude, Gemini, Copilot)
 │       ├── session/        # Session management
-│       ├── tools/          # Tool registry + Zod schemas
+│       ├── tools/          # 8 orchestrator tools + Zod schemas
 │       ├── executor/       # Docker exec wrapper
 │       ├── tasks/          # Task persistence
 │       └── utils/          # Logger, sanitizer
+│   └── tests/              # Vitest test suite
+│       ├── unit/           # Unit tests
+│       ├── integration/    # Integration tests
+│       └── e2e/            # End-to-end tests
 ├── kennel/                 # AI CLI container
 │   └── Dockerfile
 ├── config/                 # Auth token mounts

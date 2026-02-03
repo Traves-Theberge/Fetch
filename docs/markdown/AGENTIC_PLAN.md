@@ -138,23 +138,21 @@ interface ProjectContext {
 }
 ```
 
-### Intent Classification
+### Intent Classification (V2)
 
 ```typescript
-interface Intent {
-  type: IntentType;
+interface IntentClassification {
+  intent: IntentType;
   confidence: number;
-  keywords: string[];
+  reasoning: string;
 }
 
-type IntentType = 'conversation' | 'inquiry' | 'action' | 'task';
+type IntentType = 'conversation' | 'workspace' | 'task';
 
 // Pattern matching for each type:
-const GREETING_PATTERNS = ['hello', 'hi', 'hey', 'good morning'];
-const THANKS_PATTERNS = ['thanks', 'thank you', 'appreciate'];
-const INQUIRY_PATTERNS = ['what is', 'show me', 'explain', 'how does'];
-const ACTION_PATTERNS = ['fix', 'add', 'change', 'update', 'rename'];
-const TASK_PATTERNS = ['build', 'create', 'implement', 'refactor'];
+const CONVERSATION_PATTERNS = ['hello', 'hi', 'hey', 'thanks', 'thank you'];
+const WORKSPACE_PATTERNS = ['list', 'show', 'projects', 'status', 'switch', 'workspace'];
+const TASK_PATTERNS = ['build', 'create', 'implement', 'refactor', 'fix', 'add'];
 ```
 
 ### Task State

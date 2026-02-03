@@ -61,7 +61,7 @@
 import 'dotenv/config';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
-import { startStatusServer } from './api/status.js';
+import { startStatusServer, setLogoutCallback } from './api/status.js';
 
 /**
  * Main application entry point.
@@ -95,6 +95,13 @@ async function main(): Promise<void> {
   try {
     const bridge = new Bridge();
     await bridge.initialize();
+    
+    // Register logout callback for the status API
+    setLogoutCallback(async () => {
+      logger.info('🔌 Logout requested via API, destroying bridge...');
+      await bridge.destroy();
+      logger.info('✅ Bridge destroyed, WhatsApp disconnected');
+    });
     
     logger.info('✅ Fetch Bridge is ready and listening!');
   } catch (error) {

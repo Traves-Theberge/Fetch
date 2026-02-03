@@ -18,16 +18,15 @@ Messages without `@fetch` are silently ignored for security.
 
 ---
 
-## 🧠 Understanding Modes
+## 🧠 Understanding Intents (V2)
 
-Fetch automatically detects your intent and responds appropriately:
+Fetch automatically detects your intent and routes appropriately:
 
-| Mode | Trigger | Tools | Example |
-|------|---------|-------|---------|
-| 💬 **Conversation** | Greetings, thanks, general chat | None | `@fetch Hey!` |
-| 🔍 **Inquiry** | Questions about code | Read-only | `@fetch What's in auth.ts?` |
-| ⚡ **Action** | Single changes | Full (1 cycle) | `@fetch Fix the typo` |
-| 📋 **Task** | Complex multi-step work | Full (multi-step) | `@fetch Build a login page` |
+| Intent | Description | Handler | Example |
+|--------|-------------|---------|--------|
+| 💬 **Conversation** | Greetings, thanks, general chat | Direct response | `@fetch Hey!` |
+| 📁 **Workspace** | Project management, git operations | 8 orchestrator tools | `@fetch list projects` |
+| 🚀 **Task** | Complex coding work | Harness (Claude/Gemini/Copilot) | `@fetch Build a login page` |
 
 ---
 
@@ -133,52 +132,38 @@ Simple greetings and thanks—no tools needed:
 ```
 → *"You're welcome! Let me know if you need anything else."*
 
-### 🔍 Inquiry Mode
+### � Workspace Intent
 
-Questions about code—read-only exploration:
-
-```
-@fetch What's in src/auth.ts?
-```
-→ Reads and summarizes the file
+Project management and git operations:
 
 ```
-@fetch How does the login function work?
+@fetch list projects
 ```
-→ Searches codebase, explains the implementation
+→ Lists all projects in workspace
 
 ```
-@fetch Show me the git history
+@fetch show status
 ```
-→ Shows recent commits
-
-### ⚡ Action Mode
-
-Single changes—one approval cycle:
+→ Shows git status of current project
 
 ```
-@fetch Fix the typo on line 42 of utils.ts
+@fetch switch to my-app
 ```
-→ Shows diff, asks for approval, applies change
+→ Changes active workspace
 
-```
-@fetch Add error handling to the fetch call
-```
-→ Proposes change, one approval needed
+### 🚀 Task Intent
 
-### 📋 Task Mode
-
-Complex multi-step work:
+Complex coding work—delegated to AI harness:
 
 ```
 @fetch Build a user authentication system with JWT
 ```
-→ Creates plan, executes step-by-step with checkpoints
+→ Delegates to Claude/Gemini/Copilot CLI for multi-step execution
 
 ```
 @fetch Refactor the entire auth module to use async/await
 ```
-→ Multi-file refactor with progress tracking
+→ AI CLI handles planning and implementation
 
 ---
 

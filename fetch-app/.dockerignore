@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build outputs
+dist
+*.js.map
+
+# Test files
+tests
+coverage
+.nyc_output
+
+# Development
+*.test.ts
+vitest.config.ts
+.env.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo

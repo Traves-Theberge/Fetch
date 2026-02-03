@@ -104,6 +104,34 @@ let status: BridgeStatus = {
 /** Server start time for uptime calculation */
 const startTime = Date.now();
 
+/** Callback for logout action */
+let logoutCallback: (() => Promise<void>) | null = null;
+
+/**
+ * Registers a logout callback function.
+ * Called by the bridge to provide logout functionality.
+ */
+export function setLogoutCallback(callback: () => Promise<void>): void {
+  logoutCallback = callback;
+}
+
+/**
+ * Triggers logout/disconnect from WhatsApp.
+ * Returns true if successful.
+ */
+export async function triggerLogout(): Promise<boolean> {
+  if (logoutCallback) {
+    try {
+      await logoutCallback();
+      return true;
+    } catch (error) {
+      logger.error('Logout failed:', error);
+      return false;
+    }
+  }
+  return false;
+}
+
 // =============================================================================
 // STATUS FUNCTIONS
 // =============================================================================
@@ -144,7 +172,7 @@ export function getStatus(): BridgeStatus {
  * Listens on PORT (8765) for status requests and serves docs.
  */
 export function startStatusServer(): void {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = req.url || '/';
     
     // CORS headers for local development
@@ -162,6 +190,20 @@ export function startStatusServer(): void {
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       res.end(JSON.stringify({ healthy: true }));
+      return;
+    }
+    
+    // Logout/Disconnect endpoint
+    if (req.method === 'POST' && url === '/api/logout') {
+      res.setHeader('Content-Type', 'application/json');
+      const success = await triggerLogout();
+      if (success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: 'Logged out successfully' }));
+      } else {
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Logout failed or not available' }));
+      }
       return;
     }
     

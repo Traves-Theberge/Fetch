@@ -93,6 +93,7 @@ func initialModel() model {
 		versionInfo:  components.DefaultVersionInfo(),
 		choices: []string{
 			"📱 Setup WhatsApp",
+			"� Disconnect WhatsApp",
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
@@ -241,27 +242,29 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 0: // Setup WhatsApp
 			m.screen = screenSetup
 			return m, tea.Batch(m.fetchBridgeStatus, tickCmd())
-		case 1: // Start
+		case 1: // Disconnect WhatsApp
+			return m, disconnectWhatsApp(m.statusClient)
+		case 2: // Start
 			return m, startFetch
-		case 2: // Stop
+		case 3: // Stop
 			return m, stopFetch
-		case 3: // Configure
+		case 4: // Configure
 			m.screen = screenConfig
 			m.configEditor = config.NewEditor()
 			return m, nil
-		case 4: // Select Model
+		case 5: // Select Model
 			m.screen = screenModels
 			m.modelSelector = models.NewSelector()
 			return m, models.FetchModelsCmd
-		case 5: // Logs
+		case 6: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 6: // Documentation
+		case 7: // Documentation
 			return m, openDocs
-		case 7: // Version
+		case 8: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 8: // Exit
+		case 9: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -275,7 +278,11 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.screen = screenMenu
 		return m, nil
 	case "r":
+		// Refresh status from API
 		return m, m.fetchBridgeStatus
+	case "R":
+		// Restart bridge to get new QR code
+		return m, restartBridge
 	case "o":
 		// Open QR URL in browser
 		if m.bridgeStatus != nil && m.bridgeStatus.QRUrl != nil {
@@ -376,6 +383,30 @@ func openDocs() tea.Msg {
 		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to open docs: %v", err)}
 	}
 	return actionResultMsg{success: true, message: "📚 Documentation opened in browser"}
+}
+
+func disconnectWhatsApp(client *status.Client) tea.Cmd {
+	return func() tea.Msg {
+		result, err := client.Logout()
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to disconnect: %v", err)}
+		}
+		if result.Success {
+			return actionResultMsg{success: true, message: "🔌 WhatsApp disconnected. Restart Fetch to reconnect."}
+		}
+		return actionResultMsg{success: false, message: fmt.Sprintf("Disconnect failed: %s", result.Message)}
+	}
+}
+
+func restartBridge() tea.Msg {
+	// Stop then start to get fresh QR code
+	docker.StopServices()
+	time.Sleep(2 * time.Second)
+	err := docker.StartServices()
+	if err != nil {
+		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to restart: %v", err)}
+	}
+	return actionResultMsg{success: true, message: "🔄 Bridge restarted - new QR code will be generated"}
 }
 
 func (m model) View() string {
@@ -803,7 +834,7 @@ func (m model) viewSetup() string {
 				// Render QR code in terminal
 				qrText := renderQRCode(*m.bridgeStatus.QRCode)
 				content.WriteString(qrText + "\n\n")
-				content.WriteString(theme.StatusSuccess.Render("Press 'o' to open QR in browser | 'r' to refresh") + "\n")
+				content.WriteString(theme.StatusSuccess.Render("'o' open in browser | 'r' refresh status | 'R' new QR code") + "\n")
 			} else if m.bridgeStatus.QRUrl != nil {
 				content.WriteString(theme.QRBox.Render(
 					"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
@@ -836,9 +867,9 @@ func (m model) viewSetup() string {
 	}
 
 	// Help bar
-	helpKeys := []string{"r Refresh", "Esc Back"}
+	helpKeys := []string{"r Refresh", "R New QR", "Esc Back"}
 	if m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
-		helpKeys = []string{"o Open QR", "r Refresh", "Esc Back"}
+		helpKeys = []string{"o Open QR", "r Refresh", "R New QR", "Esc Back"}
 	}
 	helpBar := components.HelpBar(helpKeys, width)
 	helpHeight := lipgloss.Height(helpBar)
