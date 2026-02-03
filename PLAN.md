@@ -21,8 +21,9 @@
 11. [Implementation Phases](#11-implementation-phases)
 12. [Interaction Diagrams](#12-interaction-diagrams)
 13. [Assumption Validation](#13-assumption-validation)
-14. [Risk Assessment](#14-risk-assessment)
-15. [Open Questions](#15-open-questions)
+14. [Phase 6 Detailed Implementation](#14-phase-6-detailed-implementation)
+15. [Risk Assessment](#15-risk-assessment)
+16. [Open Questions](#16-open-questions)
 
 ---
 
@@ -2289,6 +2290,507 @@ Fetch/
 | ⬜ | Documentation updates | Docs | 4 |
 
 **Deliverable:** v2.0 release candidate
+
+---
+
+## 14. Phase 6 Detailed Implementation
+
+### 14.1 Additional Harnesses
+
+#### 14.1.1 Gemini CLI Harness (`harness/gemini.ts`)
+
+**CLI Reference:**
+```bash
+# Gemini CLI invocation patterns
+gemini -p "Add dark mode to settings"           # Basic prompt
+gemini --model gemini-2.0-flash -p "..."        # With model selection
+gemini --sandbox=none -p "..."                  # Full file access
+```
+
+**Implementation Tasks:**
+| # | Task | Description |
+|---|------|-------------|
+| 1 | Research Gemini CLI | Document CLI flags, output patterns, behaviors |
+| 2 | Define constants | Command, default args, patterns |
+| 3 | Implement `GeminiAdapter` class | Following `HarnessAdapter` interface |
+| 4 | Parse output patterns | Progress, questions, completion, file ops |
+| 5 | Handle Gemini-specific quirks | Model selection, tool permissions |
+| 6 | Unit tests | Test config building, output parsing |
+
+**Output Patterns to Detect:**
+```typescript
+// Gemini CLI output patterns (to be validated)
+const GEMINI_PATTERNS = {
+  question: /^>\s*(.+\?)\s*$/m,           // "> Should I continue?"
+  fileOp: /^\[(Created|Modified|Deleted)\]\s+(.+)$/m,
+  progress: /^(Analyzing|Working|Generating)\.\.\./m,
+  complete: /^(Done|Complete|Finished)[.!]?\s*$/im,
+  error: /^Error:\s+(.+)$/m,
+};
+```
+
+**Class Structure:**
+```typescript
+// harness/gemini.ts
+export class GeminiAdapter implements HarnessAdapter {
+  readonly agent: AgentType = 'gemini';
+  
+  buildConfig(goal: string, workspacePath: string, timeoutMs: number): HarnessConfig;
+  parseOutputLine(line: string): HarnessOutputEventType | null;
+  detectQuestion(output: string): string | null;
+  formatResponse(response: string): string;
+  extractFileOperations(output: string): FileOperations;
+  extractSummary(output: string): string;
+}
+
+export const geminiAdapter = new GeminiAdapter();
+```
+
+#### 14.1.2 GitHub Copilot CLI Harness (`harness/copilot.ts`)
+
+**CLI Reference:**
+```bash
+# Copilot CLI invocation patterns (gh extension)
+gh copilot suggest "Add dark mode"              # Suggestion mode
+gh copilot explain "What does this do?"         # Explanation mode
+```
+
+**Implementation Tasks:**
+| # | Task | Description |
+|---|------|-------------|
+| 1 | Research Copilot CLI | Document `gh copilot` flags and behaviors |
+| 2 | Determine viability | Can Copilot CLI do file edits? Or suggestions only? |
+| 3 | Define constants | Command (`gh copilot`), args, patterns |
+| 4 | Implement `CopilotAdapter` class | Following `HarnessAdapter` interface |
+| 5 | Handle auth flow | GitHub CLI must be authenticated |
+| 6 | Unit tests | Test config building, output parsing |
+
+**Output Patterns to Detect:**
+```typescript
+// Copilot CLI output patterns (to be validated)
+const COPILOT_PATTERNS = {
+  suggestion: /^Suggestion:\s*(.+)$/m,
+  explanation: /^Explanation:\s*(.+)$/m,
+  command: /^\$\s+(.+)$/m,                // Suggested shell command
+  complete: /^(Done|Suggestion complete)/im,
+};
+```
+
+**Class Structure:**
+```typescript
+// harness/copilot.ts
+export class CopilotAdapter implements HarnessAdapter {
+  readonly agent: AgentType = 'copilot';
+  
+  buildConfig(goal: string, workspacePath: string, timeoutMs: number): HarnessConfig;
+  parseOutputLine(line: string): HarnessOutputEventType | null;
+  detectQuestion(output: string): string | null;
+  formatResponse(response: string): string;
+  extractSuggestion(output: string): string;  // Copilot-specific
+}
+
+export const copilotAdapter = new CopilotAdapter();
+```
+
+#### 14.1.3 Harness Registry Updates
+
+```typescript
+// harness/registry.ts (new file)
+import { claudeAdapter } from './claude.js';
+import { geminiAdapter } from './gemini.js';
+import { copilotAdapter } from './copilot.js';
+import type { HarnessAdapter } from './types.js';
+import type { AgentType } from '../task/types.js';
+
+const adapters: Map<AgentType, HarnessAdapter> = new Map([
+  ['claude', claudeAdapter],
+  ['gemini', geminiAdapter],
+  ['copilot', copilotAdapter],
+]);
+
+export function getAdapter(agent: AgentType): HarnessAdapter {
+  const adapter = adapters.get(agent);
+  if (!adapter) {
+    throw new Error(`No adapter for agent: ${agent}`);
+  }
+  return adapter;
+}
+
+export function listAdapters(): AgentType[] {
+  return Array.from(adapters.keys());
+}
+```
+
+---
+
+### 14.2 End-to-End Tests
+
+#### 14.2.1 Test Structure
+
+```
+fetch-app/
+├── src/
+└── tests/
+    ├── e2e/
+    │   ├── task-flow.test.ts      # Full task lifecycle
+    │   ├── conversation.test.ts   # Conversation routing
+    │   ├── workspace.test.ts      # Workspace management
+    │   ├── error-recovery.test.ts # Error scenarios
+    │   └── harness-mock.ts        # Mock harness for testing
+    ├── integration/
+    │   ├── handler-v2.test.ts     # HTTP handler tests
+    │   ├── orchestrator.test.ts   # Core V2 routing
+    │   └── tools.test.ts          # Tool execution
+    └── unit/
+        ├── intent-v2.test.ts      # Intent classification
+        ├── task-queue.test.ts     # Queue operations
+        └── harness-adapters.test.ts
+```
+
+#### 14.2.2 E2E Test Scenarios
+
+| # | Scenario | Description | Expected Outcome |
+|---|----------|-------------|------------------|
+| 1 | Happy path task | User requests coding task | Task created, executed, completed |
+| 2 | Conversation fallback | User asks casual question | No task created, conversational response |
+| 3 | Workspace selection | User switches workspace | Workspace updated in session |
+| 4 | Task cancellation | User sends "stop" during task | Task cancelled, harness killed |
+| 5 | Harness question | Harness asks user question | Question relayed, answer forwarded |
+| 6 | Task timeout | Harness exceeds timeout | Task failed, user notified |
+| 7 | Circuit breaker | 3 consecutive API errors | Requests blocked, user informed |
+| 8 | Graceful degradation | Harness unavailable | Fallback message, no crash |
+
+#### 14.2.3 Test Implementation Example
+
+```typescript
+// tests/e2e/task-flow.test.ts
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { processMessageV2 } from '../../src/agent/core-v2.js';
+import { createMockSession } from '../helpers/session.js';
+import { MockHarnessExecutor } from '../helpers/harness-mock.js';
+
+describe('E2E: Task Flow', () => {
+  let mockExecutor: MockHarnessExecutor;
+  
+  beforeEach(() => {
+    mockExecutor = new MockHarnessExecutor();
+  });
+  
+  afterEach(() => {
+    mockExecutor.cleanup();
+  });
+  
+  it('should complete a coding task successfully', async () => {
+    const session = createMockSession({
+      workspace: { path: '/workspace/test-project', name: 'test-project' }
+    });
+    
+    // Mock harness to return success after "working"
+    mockExecutor.queueResponse({
+      status: 'completed',
+      output: 'Created src/dark-mode.ts\nDone.',
+      exitCode: 0,
+    });
+    
+    const response = await processMessageV2(
+      'Add dark mode toggle',
+      session
+    );
+    
+    expect(response.text).toContain('Done');
+    expect(mockExecutor.calls).toHaveLength(1);
+    expect(mockExecutor.calls[0].goal).toBe('Add dark mode toggle');
+  });
+  
+  it('should handle circuit breaker activation', async () => {
+    const session = createMockSession();
+    
+    // Cause 3 consecutive errors
+    for (let i = 0; i < 3; i++) {
+      mockExecutor.queueError(new Error('API Error'));
+      await processMessageV2('Do something', session);
+    }
+    
+    // 4th request should be blocked
+    const response = await processMessageV2('Another request', session);
+    expect(response.text).toContain('taking a short break');
+  });
+});
+```
+
+#### 14.2.4 Mock Harness Implementation
+
+```typescript
+// tests/helpers/harness-mock.ts
+import type { HarnessResult } from '../../src/harness/types.js';
+
+interface MockResponse {
+  status: 'completed' | 'failed';
+  output: string;
+  exitCode: number;
+  delay?: number;
+}
+
+export class MockHarnessExecutor {
+  public calls: Array<{ goal: string; workspace: string }> = [];
+  private responseQueue: Array<MockResponse | Error> = [];
+  
+  queueResponse(response: MockResponse): void {
+    this.responseQueue.push(response);
+  }
+  
+  queueError(error: Error): void {
+    this.responseQueue.push(error);
+  }
+  
+  async execute(goal: string, workspace: string): Promise<HarnessResult> {
+    this.calls.push({ goal, workspace });
+    
+    const response = this.responseQueue.shift();
+    if (!response) {
+      throw new Error('No mock response queued');
+    }
+    
+    if (response instanceof Error) {
+      throw response;
+    }
+    
+    if (response.delay) {
+      await new Promise(r => setTimeout(r, response.delay));
+    }
+    
+    return {
+      status: response.status,
+      output: response.output,
+      exitCode: response.exitCode,
+      duration: 1000,
+    };
+  }
+  
+  cleanup(): void {
+    this.calls = [];
+    this.responseQueue = [];
+  }
+}
+```
+
+---
+
+### 14.3 Documentation Updates
+
+#### 14.3.1 Files to Update
+
+| Priority | File | Updates Needed |
+|----------|------|----------------|
+| P0 | `README.md` | V2 overview, new architecture, feature flags |
+| P0 | `docs/markdown/API_REFERENCE.md` | All 8 V2 tools with schemas |
+| P1 | `docs/markdown/DOCUMENTATION.md` | V2 concepts, task lifecycle |
+| P1 | `docs/markdown/COMMANDS.md` | V2 command patterns |
+| P2 | `docs/markdown/SETUP_GUIDE.md` | V2 configuration |
+| P2 | `docs/markdown/AGENTIC_PLAN.md` | Update or deprecate |
+
+#### 14.3.2 README.md Updates
+
+**New Sections to Add:**
+```markdown
+## V2 Architecture
+
+Fetch v2 introduces a new orchestration architecture:
+
+### Key Concepts
+
+- **Intent Classification**: Messages are classified as `task`, `workspace`, or `conversation`
+- **Task Delegation**: Coding tasks are delegated to external harnesses (Claude Code, Gemini CLI)
+- **Feature Flags**: V2 can be enabled gradually via environment variables
+
+### Enabling V2
+
+```bash
+# In .env
+FETCH_V2_ENABLED=true
+FETCH_V2_ROLLOUT_PERCENT=100  # % of users on V2
+```
+
+### V2 Tools
+
+| Tool | Purpose |
+|------|---------|
+| workspace_status | Get current workspace info |
+| workspace_list | List available workspaces |
+| workspace_select | Switch active workspace |
+| task_create | Create a new coding task |
+| task_status | Check task progress |
+| task_cancel | Cancel running task |
+| harness_answer | Answer harness questions |
+| search_code | Search codebase (future) |
+```
+
+#### 14.3.3 API_REFERENCE.md Updates
+
+Each tool needs:
+```markdown
+### workspace_status
+
+Get information about the currently selected workspace.
+
+**Input Schema:**
+```json
+{
+  "type": "object",
+  "properties": {},
+  "required": []
+}
+```
+
+**Output Schema:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": { "type": "string" },
+    "path": { "type": "string" },
+    "gitBranch": { "type": "string" },
+    "lastModified": { "type": "string", "format": "date-time" }
+  }
+}
+```
+
+**Example:**
+```typescript
+// Request
+{}
+
+// Response
+{
+  "name": "fetch",
+  "path": "/workspace/fetch",
+  "gitBranch": "main",
+  "lastModified": "2026-02-03T10:30:00Z"
+}
+```
+
+**Error Codes:**
+| Code | Message | Cause |
+|------|---------|-------|
+| NO_WORKSPACE | No workspace selected | User hasn't selected a workspace |
+```
+
+---
+
+### 14.4 Performance Optimization
+
+#### 14.4.1 Token Usage Optimization
+
+**Current Issues:**
+- System prompts may be too long
+- Conversation history grows unbounded
+- Tool descriptions repeated each call
+
+**Optimizations:**
+| # | Optimization | Expected Savings |
+|---|--------------|------------------|
+| 1 | Truncate conversation history to last 10 messages | 40-60% tokens |
+| 2 | Use `messages.slice(-10)` in OpenAI calls | N/A (implementation) |
+| 3 | Compress system prompt for simple intents | 30% for conversation |
+| 4 | Cache tool definitions | Reduces parsing overhead |
+| 5 | Lazy-load tools only when needed | Reduces initial payload |
+
+**Implementation:**
+```typescript
+// agent/core-v2.ts - Add conversation truncation
+function truncateHistory(messages: Message[], maxMessages = 10): Message[] {
+  if (messages.length <= maxMessages) {
+    return messages;
+  }
+  
+  // Always keep system message
+  const systemMsg = messages.find(m => m.role === 'system');
+  const recentMsgs = messages.slice(-maxMessages);
+  
+  if (systemMsg && recentMsgs[0].role !== 'system') {
+    return [systemMsg, ...recentMsgs.slice(1)];
+  }
+  
+  return recentMsgs;
+}
+```
+
+#### 14.4.2 Response Time Optimization
+
+**Current Flow:**
+```
+User message → Intent classification → Tool selection → Tool execution → Response
+              ~500ms                  ~300ms          ~varies         ~100ms
+```
+
+**Optimizations:**
+| # | Optimization | Target Improvement |
+|---|--------------|-------------------|
+| 1 | Cache intent classification results | Skip classification for known patterns |
+| 2 | Pre-warm OpenAI connection | Reduce cold start by 200ms |
+| 3 | Parallel tool calls where safe | 30-50% faster for multi-tool |
+| 4 | Stream responses for long tasks | Better perceived performance |
+| 5 | Use faster model for simple intents | gpt-4o-mini for conversation |
+
+**Model Selection by Intent:**
+```typescript
+function getModelForIntent(intent: IntentType): string {
+  switch (intent) {
+    case 'conversation':
+      return 'gpt-4o-mini';  // Faster, cheaper for chat
+    case 'task':
+    case 'workspace':
+      return 'gpt-4o';       // Full power for tool use
+    default:
+      return 'gpt-4o';
+  }
+}
+```
+
+#### 14.4.3 Metrics to Track
+
+```typescript
+// utils/metrics.ts
+interface PerformanceMetrics {
+  intentClassificationMs: number;
+  toolExecutionMs: number;
+  totalResponseMs: number;
+  tokensInput: number;
+  tokensOutput: number;
+  model: string;
+}
+
+function logMetrics(metrics: PerformanceMetrics): void {
+  logger.info('Performance metrics', {
+    ...metrics,
+    timestamp: new Date().toISOString(),
+  });
+}
+```
+
+---
+
+### 14.5 Phase 6 Timeline
+
+| Week | Focus | Deliverables |
+|------|-------|--------------|
+| 1 | Gemini Harness | `harness/gemini.ts`, unit tests |
+| 1 | Copilot Harness | `harness/copilot.ts`, unit tests |
+| 2 | E2E Test Setup | Test infrastructure, mock harness |
+| 2 | E2E Tests | 8 core scenarios |
+| 3 | Documentation | README, API_REFERENCE, COMMANDS |
+| 3 | Performance | Token optimization, response time |
+| 4 | Polish | Bug fixes, edge cases, release prep |
+
+### 14.6 Success Criteria
+
+| Metric | Target |
+|--------|--------|
+| E2E test coverage | >80% of core flows |
+| Average response time | <2s for routing decisions |
+| Token usage reduction | 30% vs current |
+| Documentation completeness | All 8 tools documented |
+| Harness adapters | 3 (Claude, Gemini, Copilot) |
 
 ---
 
