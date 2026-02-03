@@ -1,53 +1,19 @@
 /**
- * @fileoverview Message Handler - Main Processing Entry Point
- * 
- * Orchestrates the flow of incoming WhatsApp messages through command
- * parsing, session management, and agent execution.
- * 
+ * @fileoverview Message Handler - Orchestrator Architecture
+ *
+ * Handles incoming WhatsApp messages using the orchestrator
+ * architecture that delegates to harnesses.
+ *
  * @module handler
- * @see {@link handleMessage} - Main message processing function
- * @see {@link initializeHandler} - Component initialization
- * 
- * ## Processing Flow
- * 
- * ```
- * Incoming Message
- *      ↓
- * initializeHandler() (if not initialized)
- *      ↓
- * Get/Create Session
- *      ↓
- * parseCommand() ──→ Command? → Execute & Return
- *      ↓ No
- * agent.processMessage()
- *      ↓
- * Return Responses
- * ```
- * 
- * ## Components
- * 
- * | Component | Purpose |
- * |-----------|--------|
- * | SessionManager | User session persistence |
- * | AgentCore | LLM-based message processing |
- * | ToolRegistry | Available agent tools |
- * | CommandParser | Slash command handling |
- * 
- * @example
- * ```typescript
- * import { handleMessage, initializeHandler } from './handler/index.js';
- * 
- * await initializeHandler();
- * const responses = await handleMessage('user123', 'Hello!');
- * // Send responses back to WhatsApp
- * ```
+ * @see {@link processMessage} - Agent entry point
+ * @see {@link handleMessage} - Main message handler
  */
 
-// Session type used implicitly through SessionManager
+import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
-import { AgentCore } from '../agent/core.js';
-import { getToolRegistry, initializeToolRegistry } from '../tools/registry.js';
-import { parseCommand } from '../commands/parser.js';
+import { processMessage, type AgentResponse } from '../agent/core.js';
+import { initializeToolRegistry } from '../tools/registry.js';
+import { TaskManager } from '../task/manager.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -57,8 +23,8 @@ import { logger } from '../utils/logger.js';
 /** Session manager singleton */
 let sessionManager: SessionManager;
 
-/** Agent core singleton */
-let agent: AgentCore;
+/** Task manager singleton */
+let taskManager: TaskManager;
 
 /** Initialization flag */
 let initialized = false;
@@ -68,35 +34,39 @@ let initialized = false;
 // =============================================================================
 
 /**
- * Initializes the message handler components.
- * 
- * Sets up session manager, tool registry, and agent core.
- * Safe to call multiple times (idempotent).
- * 
- * @returns {Promise<void>}
+ * Initialize handler components
  */
 export async function initializeHandler(): Promise<void> {
   if (initialized) return;
-  
+
   logger.section('⚙️  Initializing Handler');
-  
+
   // Initialize components
   sessionManager = await getSessionManager();
   logger.success('Session manager ready');
-  
+
   await initializeToolRegistry();
   logger.success('Tool registry loaded');
-  
-  agent = new AgentCore(sessionManager, getToolRegistry());
-  logger.success('Agent core ready');
-  
+
+  taskManager = new TaskManager();
+  logger.success('Task manager ready');
+
+  // Initialize task-harness integration
+  const { initializeTaskIntegration } = await import('../task/integration.js');
+  await initializeTaskIntegration();
+  logger.success('Task-harness integration ready');
+
   initialized = true;
   logger.divider();
 }
 
+// =============================================================================
+// MAIN HANDLER
+// =============================================================================
+
 /**
  * Process an incoming WhatsApp message
- * 
+ *
  * @param userId - WhatsApp JID (phone number)
  * @param message - Incoming message text
  * @returns Array of response messages to send
@@ -116,89 +86,154 @@ export async function handleMessage(
   try {
     // Get or create session
     const session = await sessionManager.getOrCreateSession(userId);
-    
+
     // Update last activity
     session.lastActivityAt = new Date().toISOString();
     await sessionManager.updateSession(session);
 
-    // Check for commands
-    const commandResult = await parseCommand(message, session, sessionManager, agent);
-    
-    if (commandResult.handled) {
-      const duration = Date.now() - startTime;
-      logger.success(`Command completed in ${duration}ms`);
-      return commandResult.responses || [];
+    // Check for slash commands (these bypass the agent)
+    if (message.startsWith('/')) {
+      return handleSlashCommand(message, userId);
     }
 
     // Process with agent
-    const responses = await agent.processMessage(session, message);
-    
+    const response = await processMessage(message, session);
+
+    // Build response array
+    const responses = buildResponses(response);
+
     const duration = Date.now() - startTime;
-    logger.success(`Agent response ready (${responses.length} parts, ${duration}ms)`);
+    logger.success(
+      `Response ready (${responses.length} parts, ${duration}ms)`
+    );
+
+    // Update session message history
+    session.messages = session.messages || [];
+    session.messages.push(
+      { id: nanoid(), role: 'user', content: message, timestamp: new Date().toISOString() },
+      {
+        id: nanoid(),
+        role: 'assistant',
+        content: response.text,
+        timestamp: new Date().toISOString(),
+      }
+    );
+    await sessionManager.updateSession(session);
 
     return responses;
-
   } catch (error) {
-    logger.error('Message handling failed', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return [`❌ Error: ${errorMessage}\n\nPlease try again or type /help.`];
+    logger.error('[V2] Message handling failed', error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error';
+    return [
+      `🐕 Oops! Something went wrong: ${errorMessage}\n\nTry again or type /help.`,
+    ];
   }
 }
 
-/**
- * Handle a quick response (yes/no/etc.)
- * This is optimized for approval responses.
- */
-export async function handleQuickResponse(
-  userId: string,
-  response: 'yes' | 'no' | 'skip' | 'yesall'
-): Promise<string[]> {
-  return handleMessage(userId, response);
-}
+// =============================================================================
+// SLASH COMMANDS
+// =============================================================================
 
 /**
- * Get session status for a user
+ * Handle slash commands (bypass agent)
  */
-export async function getSessionStatus(userId: string): Promise<{
-  hasActiveTask: boolean;
-  taskStatus?: string;
-  awaitingApproval: boolean;
-  autonomyLevel: string;
-}> {
-  if (!initialized) {
-    await initializeHandler();
+function handleSlashCommand(message: string, _userId: string): string[] {
+  const cmd = message.toLowerCase().split(' ')[0];
+
+  switch (cmd) {
+    case '/help':
+      return [
+        `🐕 *Fetch Commands*
+
+*Workspace*
+/projects - List available projects
+/select <name> - Select a project
+/status - Current project status
+
+*Tasks*
+/task <description> - Start a coding task
+/tasks - List active tasks
+/cancel - Cancel current task
+
+*Settings*
+/auto [full|guided|manual] - Set autonomy level
+/reset - Reset session
+
+*Info*
+/help - Show this help
+/version - Show version info`,
+      ];
+
+    case '/version':
+      return [`🐕 Fetch v2.0.0 (Orchestrator Architecture)`];
+
+    case '/reset':
+      return [`🐕 Session reset! Fresh start.`];
+
+    default:
+      return [`🐕 Unknown command: ${cmd}\n\nType /help for available commands.`];
+  }
+}
+
+// =============================================================================
+// RESPONSE BUILDING
+// =============================================================================
+
+/**
+ * Build WhatsApp response array from agent response
+ */
+function buildResponses(response: AgentResponse): string[] {
+  const responses: string[] = [];
+
+  // Main text response
+  if (response.text) {
+    responses.push(response.text);
   }
 
-  const session = await sessionManager.getOrCreateSession(userId);
-  
-  return {
-    hasActiveTask: !!session.currentTask,
-    taskStatus: session.currentTask?.status,
-    awaitingApproval: !!session.currentTask?.pendingApproval,
-    autonomyLevel: session.preferences.autonomyLevel
-  };
+  // Task started notification
+  if (response.taskStarted && response.taskId) {
+    responses.push(
+      `\n📋 *Task Started*: ${response.taskId}\nI'll update you on progress!`
+    );
+  }
+
+  return responses;
 }
 
+// =============================================================================
+// TASK MANAGEMENT
+// =============================================================================
+
 /**
- * Force stop any active task for a user
+ * Get task manager instance
  */
-export async function forceStop(userId: string): Promise<string[]> {
-  return handleMessage(userId, '/stop');
+export function getTaskManager(): TaskManager {
+  if (!taskManager) {
+    throw new Error('V2 Handler not initialized');
+  }
+  return taskManager;
 }
 
 /**
- * Clean up resources
+ * Get session manager instance
+ */
+export function getSessionManagerV2(): SessionManager {
+  if (!sessionManager) {
+    throw new Error('V2 Handler not initialized');
+  }
+  return sessionManager;
+}
+
+// =============================================================================
+// CLEANUP
+// =============================================================================
+
+/**
+ * Shutdown handler
  */
 export async function shutdown(): Promise<void> {
-  logger.info('Shutting down message handler...');
+  logger.info('Shutting down handler...');
   initialized = false;
-}
-
-// Export singleton accessor
-export function getAgent(): AgentCore {
-  if (!agent) {
-    throw new Error('Handler not initialized');
-  }
-  return agent;
 }

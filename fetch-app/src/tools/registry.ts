@@ -1,211 +1,409 @@
 /**
- * @fileoverview Tool Registry (Legacy)
+ * @fileoverview Tool Registry
  * @module tools/registry
- * @deprecated Use V2ToolRegistry from './v2/registry.js' for new code
+ * 
+ * The registry contains the 8 orchestrator tools that delegate
+ * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
+ *
+ * ## Tools (8 total)
+ *
+ * ### Workspace (3)
+ * - `workspace_list` - List available workspaces
+ * - `workspace_select` - Select active workspace
+ * - `workspace_status` - Get workspace status
+ *
+ * ### Task (4)
+ * - `task_create` - Create a new task
+ * - `task_status` - Get task status
+ * - `task_cancel` - Cancel a task
+ * - `task_respond` - Respond to task question
+ *
+ * ### Interaction (2)
+ * - `ask_user` - Ask user a question
+ * - `report_progress` - Report task progress
  */
 
-import { Tool, ClaudeTool, toClaudeToolFormat, ToolCategory, ToolResult } from './types.js';
-import { validateToolArgs } from './legacy/schemas.js';
+import { z } from 'zod';
+import { ToolResult } from './types.js';
 import { logger } from '../utils/logger.js';
+import { ToolInputSchemas, type ToolName } from '../validation/tools.js';
+
+// Import tool handlers
+import {
+  handleWorkspaceList,
+  handleWorkspaceSelect,
+  handleWorkspaceStatus,
+  workspaceTools,
+} from './workspace.js';
+
+import {
+  handleTaskCreate,
+  handleTaskStatus,
+  handleTaskCancel,
+  handleTaskRespond,
+  taskTools,
+} from './task.js';
+
+import {
+  handleAskUser,
+  handleReportProgress,
+  interactionTools,
+} from './interaction.js';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/**
+ * Tool definition
+ */
+export interface OrchestratorTool {
+  /** Tool name */
+  name: ToolName;
+  /** Tool description */
+  description: string;
+  /** Handler function */
+  handler: (input: unknown) => Promise<ToolResult>;
+  /** Zod schema for validation */
+  schema: z.ZodSchema;
+}
+
+/**
+ * Tool handler signature
+ */
+export type ToolHandler = (input: unknown) => Promise<ToolResult>;
+
+// ============================================================================
+// Tool Definitions
+// ============================================================================
+
+/**
+ * All orchestrator tools
+ */
+export const orchestratorTools: Record<ToolName, OrchestratorTool> = {
+  // Workspace tools
+  workspace_list: {
+    name: 'workspace_list',
+    description: workspaceTools.workspace_list.description,
+    handler: handleWorkspaceList,
+    schema: ToolInputSchemas.workspace_list,
+  },
+  workspace_select: {
+    name: 'workspace_select',
+    description: workspaceTools.workspace_select.description,
+    handler: handleWorkspaceSelect,
+    schema: ToolInputSchemas.workspace_select,
+  },
+  workspace_status: {
+    name: 'workspace_status',
+    description: workspaceTools.workspace_status.description,
+    handler: handleWorkspaceStatus,
+    schema: ToolInputSchemas.workspace_status,
+  },
+
+  // Task tools
+  task_create: {
+    name: 'task_create',
+    description: taskTools.task_create.description,
+    handler: handleTaskCreate,
+    schema: ToolInputSchemas.task_create,
+  },
+  task_status: {
+    name: 'task_status',
+    description: taskTools.task_status.description,
+    handler: handleTaskStatus,
+    schema: ToolInputSchemas.task_status,
+  },
+  task_cancel: {
+    name: 'task_cancel',
+    description: taskTools.task_cancel.description,
+    handler: handleTaskCancel,
+    schema: ToolInputSchemas.task_cancel,
+  },
+  task_respond: {
+    name: 'task_respond',
+    description: taskTools.task_respond.description,
+    handler: handleTaskRespond,
+    schema: ToolInputSchemas.task_respond,
+  },
+
+  // Interaction tools
+  ask_user: {
+    name: 'ask_user',
+    description: interactionTools.ask_user.description,
+    handler: handleAskUser,
+    schema: ToolInputSchemas.ask_user,
+  },
+  report_progress: {
+    name: 'report_progress',
+    description: interactionTools.report_progress.description,
+    handler: handleReportProgress,
+    schema: ToolInputSchemas.report_progress,
+  },
+};
 
 // =============================================================================
-// TOOL REGISTRY CLASS
+// ORCHESTRATOR TOOL REGISTRY CLASS
 // =============================================================================
 
 /**
- * Central registry for managing agent tools.
+ * Orchestrator Tool Registry
+ *
+ * Manages the 8 orchestrator tools for the architecture.
+ *
+ * @example
+ * ```typescript
+ * const registry = getToolRegistry();
+ *
+ * // Execute a tool
+ * const result = await registry.execute('workspace_list', {});
+ *
+ * // Get tool for LLM
+ * const tools = registry.toOpenAIFormat();
+ * ```
  */
 export class ToolRegistry {
-  private tools: Map<string, Tool> = new Map();
+  private tools: Map<ToolName, OrchestratorTool> = new Map();
 
-  /** Register a tool */
-  register(tool: Tool): void {
-    if (this.tools.has(tool.name)) {
-      logger.warn(`Tool already registered, overwriting: ${tool.name}`);
+  constructor() {
+    // Register all orchestrator tools
+    for (const [name, tool] of Object.entries(orchestratorTools)) {
+      this.tools.set(name as ToolName, tool);
     }
-    this.tools.set(tool.name, tool);
-    logger.debug(`Registered tool: ${tool.name}`);
-  }
-
-  /** Register multiple tools */
-  registerAll(tools: Tool[]): void {
-    for (const tool of tools) {
-      this.register(tool);
-    }
-  }
-
-  /** Get a tool by name */
-  get(name: string): Tool | undefined {
-    return this.tools.get(name);
-  }
-
-  /** Check if a tool exists */
-  has(name: string): boolean {
-    return this.tools.has(name);
+    logger.debug(`Registry initialized with ${this.tools.size} tools`);
   }
 
   /**
-   * Get all registered tools
+   * Get a tool by name
    */
-  getAll(): Tool[] {
+  get(name: string): OrchestratorTool | undefined {
+    return this.tools.get(name as ToolName);
+  }
+
+  /**
+   * Check if a tool exists
+   */
+  has(name: string): boolean {
+    return this.tools.has(name as ToolName);
+  }
+
+  /**
+   * Get all tool names
+   */
+  getToolNames(): ToolName[] {
+    return Array.from(this.tools.keys());
+  }
+
+  /**
+   * Get all tools
+   */
+  getAll(): OrchestratorTool[] {
     return Array.from(this.tools.values());
   }
 
   /**
-   * Get tools by category
+   * Execute a tool with validation
+   *
+   * @param name - Tool name
+   * @param input - Tool input (validated against schema)
+   * @returns Tool result
    */
-  getByCategory(category: ToolCategory): Tool[] {
-    return this.getAll().filter(t => t.category === category);
+  async execute(name: string, input: unknown): Promise<ToolResult> {
+    const start = Date.now();
+
+    // Get tool
+    const tool = this.get(name);
+    if (!tool) {
+      return {
+        success: false,
+        output: '',
+        error: `Unknown tool: ${name}`,
+        duration: Date.now() - start,
+      };
+    }
+
+    // Validate input
+    const parseResult = tool.schema.safeParse(input);
+    if (!parseResult.success) {
+      logger.warn(`Tool validation failed: ${name}`, {
+        error: parseResult.error.message,
+      });
+      return {
+        success: false,
+        output: '',
+        error: `Invalid input: ${parseResult.error.message}`,
+        duration: Date.now() - start,
+      };
+    }
+
+    // Execute
+    try {
+      logger.debug(`Executing tool: ${name}`);
+      return await tool.handler(parseResult.data);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(`Tool execution failed: ${name}`, { error: message });
+      return {
+        success: false,
+        output: '',
+        error: message,
+        duration: Date.now() - start,
+      };
+    }
   }
 
   /**
-   * Get tools that can be auto-approved
-   */
-  getAutoApprovable(): Tool[] {
-    return this.getAll().filter(t => t.autoApprove);
-  }
-
-  /**
-   * Get tools that modify the workspace
-   */
-  getModifyingTools(): Tool[] {
-    return this.getAll().filter(t => t.modifiesWorkspace);
-  }
-
-  /**
-   * Convert all tools to Claude format (legacy)
-   */
-  toClaudeFormat(): ClaudeTool[] {
-    return this.getAll().map(toClaudeToolFormat);
-  }
-
-  /**
-   * Convert all tools to OpenAI format
+   * Convert tools to OpenAI function format
    */
   toOpenAIFormat(): Array<{
     type: 'function';
     function: {
       name: string;
       description: string;
-      parameters: {
-        type: 'object';
-        properties: Record<string, unknown>;
-        required: string[];
-      };
+      parameters: Record<string, unknown>;
     };
   }> {
-    return this.getAll().map(tool => ({
-      type: 'function' as const,
-      function: {
+    return this.getAll().map((tool) => {
+      // Convert Zod schema to JSON Schema
+      const jsonSchema = zodToJsonSchema(tool.schema);
+
+      return {
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: jsonSchema,
+        },
+      };
+    });
+  }
+
+  /**
+   * Convert tools to Claude format
+   */
+  toClaudeFormat(): Array<{
+    name: string;
+    description: string;
+    input_schema: Record<string, unknown>;
+  }> {
+    return this.getAll().map((tool) => {
+      const jsonSchema = zodToJsonSchema(tool.schema);
+
+      return {
         name: tool.name,
         description: tool.description,
-        parameters: {
-          type: 'object' as const,
-          properties: tool.parameters.reduce((acc, param) => {
-            acc[param.name] = {
-              type: param.type,
-              description: param.description,
-              ...(param.enum ? { enum: param.enum } : {}),
-              ...(param.items ? { items: { type: param.items.type } } : {})
-            };
-            return acc;
-          }, {} as Record<string, unknown>),
-          required: tool.parameters
-            .filter(p => p.required)
-            .map(p => p.name)
-        }
-      }
-    }));
+        input_schema: jsonSchema,
+      };
+    });
   }
 
   /**
-   * Get tool names
+   * Get summary for logging
    */
-  getToolNames(): string[] {
-    return Array.from(this.tools.keys());
-  }
-
-  /**
-   * Get registry summary for logging
-   */
-  getSummary(): Record<ToolCategory, string[]> {
-    const summary: Record<string, string[]> = {};
-    
-    for (const tool of this.getAll()) {
-      if (!summary[tool.category]) {
-        summary[tool.category] = [];
-      }
-      summary[tool.category].push(tool.name);
-    }
-    
-    return summary as Record<ToolCategory, string[]>;
-  }
-
-  /**
-   * Execute a tool with Zod validation.
-   * 
-   * Validates arguments before execution, returning early with a validation
-   * error if the arguments don't match the schema.
-   * 
-   * @param {string} toolName - Name of the tool to execute
-   * @param {Record<string, unknown>} args - Arguments to pass to the tool
-   * @returns {Promise<ToolResult>} Tool execution result or validation error
-   * 
-   * @example
-   * ```typescript
-   * const result = await registry.executeValidated('read_file', { path: 'src/app.ts' });
-   * if (result.success) {
-   *   console.log(result.output);
-   * }
-   * ```
-   */
-  async executeValidated(
-    toolName: string,
-    args: Record<string, unknown>
-  ): Promise<ToolResult> {
-    const startTime = Date.now();
-
-    // Check tool exists
-    const tool = this.get(toolName);
-    if (!tool) {
-      return {
-        success: false,
-        output: '',
-        error: `Unknown tool: ${toolName}`,
-        duration: Date.now() - startTime
-      };
-    }
-
-    // Validate arguments with Zod
-    const validation = validateToolArgs(toolName, args);
-    if (!validation.success) {
-      logger.warn(`Tool validation failed: ${toolName}`, { error: validation.error });
-      return {
-        success: false,
-        output: '',
-        error: validation.error || 'Validation failed',
-        duration: Date.now() - startTime
-      };
-    }
-
-    // Execute with validated (and coerced) arguments
-    try {
-      logger.debug(`Executing validated tool: ${toolName}`, { args: validation.data });
-      return await tool.execute(validation.data as Record<string, unknown>);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Tool execution failed', { tool: toolName, error: message });
-      return {
-        success: false,
-        output: '',
-        error: message,
-        duration: Date.now() - startTime
-      };
-    }
+  getSummary(): { workspace: string[]; task: string[]; interaction: string[] } {
+    return {
+      workspace: ['workspace_list', 'workspace_select', 'workspace_status'],
+      task: ['task_create', 'task_status', 'task_cancel', 'task_respond'],
+      interaction: ['ask_user', 'report_progress'],
+    };
   }
 }
 
-// Singleton instance
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Convert Zod schema to JSON Schema
+ */
+function zodToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
+  const def = schema._def as {
+    typeName?: string;
+    shape?: () => Record<string, z.ZodSchema>;
+  };
+
+  if (def.typeName === 'ZodObject' && def.shape) {
+    const shape = def.shape();
+    const properties: Record<string, unknown> = {};
+    const required: string[] = [];
+
+    for (const [key, value] of Object.entries(shape)) {
+      const propDef = value._def as {
+        typeName?: string;
+        innerType?: z.ZodSchema;
+        description?: string;
+      };
+
+      const isOptional = propDef.typeName === 'ZodOptional';
+      const innerSchema = isOptional ? propDef.innerType : value;
+
+      properties[key] = zodTypeToJsonSchema(innerSchema as z.ZodSchema);
+
+      if (!isOptional) {
+        required.push(key);
+      }
+    }
+
+    return {
+      type: 'object',
+      properties,
+      required,
+    };
+  }
+
+  return { type: 'object', properties: {} };
+}
+
+/**
+ * Convert Zod type to JSON Schema type
+ */
+function zodTypeToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
+  const def = schema._def as {
+    typeName?: string;
+    description?: string;
+    values?: string[];
+    type?: z.ZodSchema;
+    minValue?: number;
+    maxValue?: number;
+  };
+
+  const base: Record<string, unknown> = {};
+
+  if (def.description) {
+    base.description = def.description;
+  }
+
+  switch (def.typeName) {
+    case 'ZodString':
+      return { ...base, type: 'string' };
+    case 'ZodNumber':
+      return {
+        ...base,
+        type: 'number',
+        ...(def.minValue !== undefined ? { minimum: def.minValue } : {}),
+        ...(def.maxValue !== undefined ? { maximum: def.maxValue } : {}),
+      };
+    case 'ZodBoolean':
+      return { ...base, type: 'boolean' };
+    case 'ZodEnum':
+      return { ...base, type: 'string', enum: def.values };
+    case 'ZodArray':
+      return {
+        ...base,
+        type: 'array',
+        items: def.type ? zodTypeToJsonSchema(def.type) : { type: 'string' },
+      };
+    case 'ZodOptional':
+      return zodTypeToJsonSchema((def as { innerType: z.ZodSchema }).innerType);
+    default:
+      return { ...base, type: 'string' };
+  }
+}
+
+// ============================================================================
+// Singleton Instance
+// ============================================================================
+
 let registryInstance: ToolRegistry | null = null;
 
 /**
@@ -219,33 +417,18 @@ export function getToolRegistry(): ToolRegistry {
 }
 
 /**
- * Initialize the tool registry with all tools
- * @deprecated Use V2ToolRegistry from './v2/registry.js' instead
+ * Initialize the tool registry
  */
-export async function initializeToolRegistry(): Promise<ToolRegistry> {
+export function initializeToolRegistry(): ToolRegistry {
   const registry = getToolRegistry();
-  
-  // Import and register all legacy tool modules
-  const { fileTools } = await import('./legacy/file.js');
-  const { codeTools } = await import('./legacy/code.js');
-  const { shellTools } = await import('./legacy/shell.js');
-  const { gitTools } = await import('./legacy/git.js');
-  const { controlTools } = await import('./legacy/control.js');
-  
-  registry.registerAll(fileTools);
-  registry.registerAll(codeTools);
-  registry.registerAll(shellTools);
-  registry.registerAll(gitTools);
-  registry.registerAll(controlTools);
-  
+
   const summary = registry.getSummary();
-  const categories = Object.keys(summary);
-  const total = registry.getAll().length;
-  
-  logger.info(`Loaded ${total} legacy tools across ${categories.length} categories`);
-  for (const [cat, tools] of Object.entries(summary)) {
-    logger.debug(`  ${cat}: ${tools.join(', ')}`);
-  }
-  
+  const total = registry.getToolNames().length;
+
+  logger.info(`Registry initialized with ${total} orchestrator tools`);
+  logger.debug('Workspace tools:', summary.workspace);
+  logger.debug('Task tools:', summary.task);
+  logger.debug('Interaction tools:', summary.interaction);
+
   return registry;
 }

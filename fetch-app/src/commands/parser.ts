@@ -44,7 +44,7 @@
  * ```typescript
  * import { parseCommand } from './parser.js';
  * 
- * const result = await parseCommand('/help', session, manager, agent);
+ * const result = await parseCommand('/help', session, manager);
  * if (result.handled) {
  *   return result.responses;
  * }
@@ -54,9 +54,7 @@
 
 import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
-import { AgentCore } from '../agent/core.js';
 import { formatHelp, formatStatus } from '../agent/format.js';
-import { resetToCommit } from '../tools/index.js';
 import { scanProjects, getProject, formatProjectList, formatProjectInfo } from '../session/project.js';
 import { logger } from '../utils/logger.js';
 import { exec } from 'child_process';
@@ -65,6 +63,19 @@ import { mkdir } from 'fs/promises';
 import { join } from 'path';
 
 const execAsync = promisify(exec);
+
+/**
+ * Reset to a specific git commit
+ */
+async function resetToCommit(commitSha: string): Promise<boolean> {
+  try {
+    await execAsync(`git reset --hard ${commitSha}`);
+    return true;
+  } catch (error) {
+    logger.error('Git reset failed', { error, commitSha });
+    return false;
+  }
+}
 
 /** Workspace root for project operations */
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
@@ -96,12 +107,11 @@ export type CommandResult = {
  * @param {string} message - User message to parse
  * @param {Session} session - Current session
  * @param {SessionManager} sessionManager - Session manager
- * @param {AgentCore} agent - Agent core (for some commands)
  * @returns {Promise<CommandResult>} Parse result
  * 
  * @example
  * ```typescript
- * const result = await parseCommand('/status', session, manager, agent);
+ * const result = await parseCommand('/status', session, manager);
  * // result.handled = true
  * // result.responses = ['Session status...']
  * ```
@@ -109,8 +119,7 @@ export type CommandResult = {
 export async function parseCommand(
   message: string,
   session: Session,
-  sessionManager: SessionManager,
-  agent: AgentCore
+  sessionManager: SessionManager
 ): Promise<CommandResult> {
   const trimmed = message.trim();
   
@@ -159,7 +168,7 @@ export async function parseCommand(
 
     case 'resume':
     case 'continue':
-      return handleResume(session, sessionManager, agent);
+      return handleResume(session, sessionManager);
 
     case 'task':
       return {
@@ -305,8 +314,7 @@ async function handlePause(
 
 async function handleResume(
   session: Session, 
-  sessionManager: SessionManager,
-  agent: AgentCore
+  sessionManager: SessionManager
 ): Promise<CommandResult> {
   if (!session.currentTask) {
     return {
@@ -323,11 +331,10 @@ async function handleResume(
   }
 
   await sessionManager.resumeTask(session);
-  const responses = await agent.processMessage(session, 'resume');
   
   return {
     handled: true,
-    responses: ['▶️ Resuming...', ...responses]
+    responses: ['▶️ Task resumed. Send a message to continue.']
   };
 }
 

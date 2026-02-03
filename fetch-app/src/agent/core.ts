@@ -1,883 +1,479 @@
 /**
- * @fileoverview Agent Core - Main Orchestrator
- * 
- * Implements the agentic loop with 4-mode architecture. Routes user messages
- * through intent classification to appropriate handlers (conversation, inquiry,
- * action, task) and manages the execution lifecycle.
- * 
+ * @fileoverview Agent Core - Orchestrator Architecture
+ *
+ * The agent is a lightweight orchestrator that:
+ * 1. Classifies user intent
+ * 2. Routes to appropriate tools
+ * 3. Delegates coding work to harnesses
+ *
  * @module agent/core
- * @see {@link AgentCore} - Main agent class
- * @see {@link processMessage} - Entry point for user messages
- * @see {@link runAgentLoop} - Task mode execution loop
- * 
- * ## Architecture
- * 
- * ```
- * User Message
- *      │
- *      ▼
- * ┌─────────────┐
- * │ Intent      │ ← Classify message type
- * │ Classifier  │
- * └─────┬───────┘
- *       │
- *       ├── conversation → handleConversation()
- *       ├── inquiry     → handleInquiry()
- *       ├── action      → handleAction()
- *       └── task        → runAgentLoop()
- * ```
- * 
- * ## Task Mode Loop (ReAct Pattern)
- * 
- * ```
- * while (not complete and under iteration limit):
- *   1. Think: LLM decides next action
- *   2. Act: Execute tool(s)
- *   3. Observe: Process results
- *   4. Repeat or complete
- * ```
- * 
- * ## Approval System
- * 
- * - **Suggest mode**: All write operations need approval
- * - **Autonomous mode**: Only sensitive ops need approval
- * - Approvals stored in session.currentTask.pendingApproval
- * 
- * @example
- * ```typescript
- * import { AgentCore } from './core.js';
- * import { SessionManager } from '../session/manager.js';
- * 
- * const sessionManager = new SessionManager();
- * const agent = new AgentCore(sessionManager);
- * 
- * const session = await sessionManager.getOrCreate('user123');
- * const responses = await agent.processMessage(session, "What does this code do?");
- * ```
+ * @see {@link classifyIntent} - Intent classification
+ * @see {@link ToolRegistry} - Tool registry
+ * @see {@link buildOrchestratorPrompt} - System prompt
  */
 
 import OpenAI from 'openai';
-import { 
-  Session, 
-  ToolCall
-} from '../session/types.js';
-import { SessionManager } from '../session/manager.js';
-import { 
-  Tool, 
-  ToolResult, 
-  Decision
-} from '../tools/types.js';
-import { ToolRegistry, getToolRegistry } from '../tools/registry.js';
-import { getCurrentCommit } from '../tools/index.js';
+import { Session, Message } from '../session/types.js';
 import { logger } from '../utils/logger.js';
-import { formatApprovalRequest, formatTaskComplete, formatTaskFailed, formatProgress } from './format.js';
-import { classifyIntent, shouldBypassConversation } from './intent.js';
-import { handleConversation } from './conversation.js';
-import { handleInquiry } from './inquiry.js';
-import { handleAction } from './action.js';
-import { buildTaskPrompt } from './prompts.js';
+import { classifyIntent, type IntentType } from './intent.js';
+import {
+  buildOrchestratorPrompt,
+  buildTaskFramePrompt,
+} from './prompts.js';
+import { getToolRegistry } from '../tools/registry.js';
+import { formatForWhatsApp } from './whatsapp-format.js';
 
 // =============================================================================
-// CONFIGURATION
-// =============================================================================
-
-/** OpenRouter API key from environment */
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-
-/** LLM model (configurable via AGENT_MODEL env var, default gpt-4o-mini) */
-const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4o-mini';
-
-// =============================================================================
-// AGENT CORE CLASS
+// TYPES
 // =============================================================================
 
 /**
- * Main agent class implementing the 4-mode agentic loop.
- * 
- * Handles message routing, tool execution, approval workflows,
- * and task lifecycle management.
- * 
- * @class
+ * Agent response
  */
-export class AgentCore {
-  /** OpenAI client configured for OpenRouter */
-  private openai: OpenAI;
+export interface AgentResponse {
+  /** Text response to user */
+  text: string;
+  /** Tool calls made (for logging) */
+  toolCalls?: ToolCallRecord[];
+  /** Whether a task was started */
+  taskStarted?: boolean;
+  /** Task ID if started */
+  taskId?: string;
+}
+
+/**
+ * Tool call record
+ */
+export interface ToolCallRecord {
+  name: string;
+  args: Record<string, unknown>;
+  result: unknown;
+}
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const MAX_TOOL_CALLS = 5;
+const MAX_CONSECUTIVE_ERRORS = 3;
+const ERROR_BACKOFF_MS = [1000, 5000, 30000];
+
+// =============================================================================
+// ERROR TRACKING (Circuit Breaker)
+// =============================================================================
+
+const errorTracker = new Map<string, { count: number; lastError: number }>();
+
+/**
+ * Track an error for a session
+ * @returns true if should continue, false if circuit breaker triggered
+ */
+function trackError(sessionId: string): boolean {
+  const now = Date.now();
+  const tracker = errorTracker.get(sessionId) ?? { count: 0, lastError: 0 };
   
-  /** Session manager for state persistence */
-  private sessionManager: SessionManager;
+  // Reset if last error was more than 5 minutes ago
+  if (now - tracker.lastError > 5 * 60 * 1000) {
+    tracker.count = 0;
+  }
   
-  /** Registry of available tools */
-  private toolRegistry: ToolRegistry;
-
-  /**
-   * Creates a new AgentCore instance.
-   * 
-   * @param {SessionManager} sessionManager - Session state manager
-   * @param {ToolRegistry} [toolRegistry] - Optional custom tool registry
-   * @throws {Error} If OPENROUTER_API_KEY is not set
-   */
-  constructor(
-    sessionManager: SessionManager,
-    toolRegistry?: ToolRegistry
-  ) {
-    if (!OPENROUTER_API_KEY) {
-      throw new Error('OPENROUTER_API_KEY required for agent');
-    }
-
-    this.openai = new OpenAI({
-      apiKey: OPENROUTER_API_KEY,
-      baseURL: 'https://openrouter.ai/api/v1'
+  tracker.count++;
+  tracker.lastError = now;
+  errorTracker.set(sessionId, tracker);
+  
+  if (tracker.count >= MAX_CONSECUTIVE_ERRORS) {
+    logger.warn(`Circuit breaker triggered for session ${sessionId}`, {
+      errorCount: tracker.count,
     });
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Reset error count for a session (on success)
+ */
+function resetErrorCount(sessionId: string): void {
+  errorTracker.delete(sessionId);
+}
+
+/**
+ * Get backoff time for current error count
+ */
+function getBackoffTime(sessionId: string): number {
+  const tracker = errorTracker.get(sessionId);
+  if (!tracker) return 0;
+  const index = Math.min(tracker.count - 1, ERROR_BACKOFF_MS.length - 1);
+  return ERROR_BACKOFF_MS[index] ?? 0;
+}
+
+/**
+ * Determine if an error is retriable
+ * 400-level errors (except 429) are generally not retriable
+ * 500-level errors and network errors are retriable
+ */
+function isRetriableError(error: unknown): boolean {
+  if (error instanceof Error) {
+    // Check for HTTP status codes in error message or properties
+    const errorAny = error as Error & { status?: number; statusCode?: number; code?: string };
+    const status = errorAny.status ?? errorAny.statusCode;
     
-    this.sessionManager = sessionManager;
-    this.toolRegistry = toolRegistry || getToolRegistry();
-  }
-
-  /**
-   * Main entry point - processes a user message and returns responses.
-   * 
-   * Routes through intent classification to appropriate handler.
-   * Handles pending approvals, paused tasks, and new messages.
-   * 
-   * @param {Session} session - Current user session
-   * @param {string} userMessage - The user's message
-   * @returns {Promise<string[]>} Array of response messages
-   */
-  async processMessage(session: Session, userMessage: string): Promise<string[]> {
-    const responses: string[] = [];
-
-    // Add user message to history
-    await this.sessionManager.addUserMessage(session, userMessage);
-
-    // Check if there's a pending approval
-    if (session.currentTask?.pendingApproval) {
-      return this.handleApprovalResponse(session, userMessage);
-    }
-
-    // Check if task is paused
-    if (session.currentTask?.status === 'paused') {
-      if (this.isResumeIntent(userMessage)) {
-        await this.sessionManager.resumeTask(session);
-        responses.push('▶️ Resuming task...');
-        return [...responses, ...(await this.runAgentLoop(session))];
-      } else if (this.isStopIntent(userMessage)) {
-        // User wants to cancel
-        await this.sessionManager.abortTask(session);
-        responses.push('🛑 Task cancelled.');
-        return responses;
-      } else {
-        // Treat as answer to the paused question - resume and continue with this message
-        await this.sessionManager.resumeTask(session);
-        return this.runAgentLoop(session);
-      }
-    }
-
-    // 🐕 Classify intent and route to appropriate mode
-    const intent = classifyIntent(userMessage, session);
+    // 429 (rate limit) is retriable
+    if (status === 429) return true;
     
-    // Don't reclassify if there's active work
-    if (!shouldBypassConversation(intent, session)) {
-      switch (intent.type) {
-        case 'conversation':
-          // Simple chat - no task, no tools
-          const chatReply = await handleConversation(session, userMessage, intent);
-          await this.sessionManager.addAssistantMessage(session, chatReply[0]);
-          return chatReply;
-          
-        case 'inquiry':
-          // Questions about code - read-only tools, no approval
-          return handleInquiry(
-            session, 
-            userMessage, 
-            intent, 
-            this.sessionManager, 
-            this.toolRegistry
-          );
-          
-        case 'action':
-          // Single change - one approval cycle
-          return handleAction(
-            session,
-            userMessage,
-            intent,
-            this.sessionManager,
-            this.toolRegistry
-          );
-          
-        case 'task':
-          // Complex work - full task system
-          break; // Fall through to runAgentLoop
-      }
-    }
-
-    // Start new task or continue existing
-    return this.runAgentLoop(session);
-  }
-
-  /**
-   * Handle approval response (yes/no/edit)
-   */
-  private async handleApprovalResponse(session: Session, response: string): Promise<string[]> {
-    const task = session.currentTask!;
-    const approval = task.pendingApproval!;
-    const normalizedResponse = response.toLowerCase().trim();
-    const toolCallId = approval.toolCallId;
-
-    // Check for approval
-    const isApproved = ['yes', 'y', 'ok', 'approve', '👍', 'yep', 'sure'].includes(normalizedResponse);
-    const isRejected = ['no', 'n', 'nope', 'reject', '👎', 'cancel'].includes(normalizedResponse);
-    const isSkip = ['skip', 's'].includes(normalizedResponse);
-    const isYesAll = ['yesall', 'ya', 'yes all', 'approve all'].includes(normalizedResponse);
-
-    if (isYesAll) {
-      // Switch to autonomous mode
-      await this.sessionManager.setAutonomyLevel(session, 'autonomous');
-      await this.sessionManager.clearPendingApproval(session, true);
-      
-      // Execute the pending tool
-      const result = await this.executeTool(approval.tool, approval.args);
-      await this.recordToolResult(session, approval.tool, approval.args, result, true, toolCallId);
-      
-      if (result.success && (approval.tool === 'write_file' || approval.tool === 'edit_file')) {
-        task.filesModified.push(approval.args.path as string);
-        await this.autoCommitIfEnabled(session, approval.tool, approval.args);
-      }
-
-      return ['🤖 Autonomous mode enabled. Continuing...', ...(await this.runAgentLoop(session))];
-    }
-
-    if (isApproved) {
-      await this.sessionManager.clearPendingApproval(session, true);
-      
-      // Execute the approved tool
-      const result = await this.executeTool(approval.tool, approval.args);
-      await this.recordToolResult(session, approval.tool, approval.args, result, true, toolCallId);
-      
-      if (result.success && (approval.tool === 'write_file' || approval.tool === 'edit_file')) {
-        task.filesModified.push(approval.args.path as string);
-        await this.autoCommitIfEnabled(session, approval.tool, approval.args);
-      }
-
-      // Continue the agent loop
-      return this.runAgentLoop(session);
-    }
-
-    if (isRejected) {
-      await this.sessionManager.clearPendingApproval(session, false);
-      
-      // Record rejection
-      await this.recordToolResult(session, approval.tool, approval.args, {
-        success: false,
-        output: '',
-        error: 'User rejected this action',
-        duration: 0
-      }, false, toolCallId);
-
-      // Continue - agent will adapt
-      return this.runAgentLoop(session);
-    }
-
-    if (isSkip) {
-      await this.sessionManager.clearPendingApproval(session, false);
-      
-      // Record skip
-      await this.recordToolResult(session, approval.tool, approval.args, {
-        success: true,
-        output: 'Skipped by user',
-        duration: 0
-      }, false, toolCallId);
-
-      return ['⏭️ Skipped. Continuing...', ...(await this.runAgentLoop(session))];
-    }
-
-    // Unknown response
-    return ['Please respond with yes/no/skip/yesall'];
-  }
-
-  /**
-   * Main agent loop
-   */
-  private async runAgentLoop(session: Session): Promise<string[]> {
-    const responses: string[] = [];
-
-    // Create task if none exists
-    if (!session.currentTask) {
-      const lastUserMessage = this.getLastUserMessage(session);
-      if (!lastUserMessage) {
-        return ['How can I help you?'];
-      }
-
-      await this.sessionManager.startTask(session, lastUserMessage);
-      
-      // Record git state for undo-all
-      const gitCommit = await getCurrentCommit();
-      if (gitCommit && !session.gitStartCommit) {
-        await this.sessionManager.setGitStartCommit(session, gitCommit);
-      }
-    }
-
-    const task = session.currentTask!;
-
-    // Safety: check iteration limit
-    if (task.iterations >= task.maxIterations) {
-      const failedTask = await this.sessionManager.failTask(
-        session, 
-        `Reached maximum iterations (${task.maxIterations})`
-      );
-      responses.push(formatTaskFailed(failedTask));
-      return responses;
-    }
-
-    // Increment iteration
-    task.iterations++;
-    await this.sessionManager.updateTask(session, { iterations: task.iterations });
-
-    try {
-      // Get decision from LLM
-      const decision = await this.decide(session);
-
-      // Handle decision
-      switch (decision.type) {
-        case 'use_tool': {
-          const tool = decision.tool;
-          const toolCallId = decision.toolCallId;
-          
-          // Record assistant message with tool_calls BEFORE executing
-          // This is required by OpenAI API - tool responses must follow assistant messages with tool_calls
-          await this.sessionManager.addAssistantToolCallMessage(
-            session,
-            decision.reasoning,
-            [{ id: toolCallId, name: tool.name, arguments: JSON.stringify(decision.args) }]
-          );
-          
-          // Check if approval needed
-          if (this.needsApproval(session, tool, decision.args)) {
-            // Generate diff for file operations
-            let diff: string | undefined;
-            if (tool.name === 'write_file' || tool.name === 'edit_file') {
-              diff = await this.generateDiff(tool.name, decision.args);
-            }
-
-            // Set pending approval (with toolCallId for later message pairing)
-            await this.sessionManager.setPendingApproval(
-              session,
-              tool.name,
-              decision.args,
-              decision.reasoning,
-              diff,
-              toolCallId
-            );
-
-            responses.push(formatApprovalRequest(
-              tool.name,
-              decision.args,
-              decision.reasoning,
-              diff
-            ));
-            return responses;
-          }
-
-          // Execute tool directly
-          const result = await this.executeTool(tool.name, decision.args);
-          await this.recordToolResult(session, tool.name, decision.args, result, true, toolCallId);
-
-          if (result.success && tool.modifiesWorkspace) {
-            if (tool.name === 'write_file' || tool.name === 'edit_file') {
-              task.filesModified.push(decision.args.path as string);
-            }
-            await this.autoCommitIfEnabled(session, tool.name, decision.args);
-          }
-
-          // Progress update in verbose mode
-          if (session.preferences.verboseMode) {
-            responses.push(formatProgress(task, `Executed ${tool.name}`));
-          }
-
-          // Continue loop
-          return [...responses, ...(await this.runAgentLoop(session))];
-        }
-
-        case 'ask_user': {
-          // Format question and wait for response
-          let question = `*Question:* ${decision.question}`;
-          if (decision.options) {
-            question += '\n\n' + decision.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
-          }
-          
-          // Add to messages
-          await this.sessionManager.addAssistantMessage(session, question);
-          
-          // Pause task
-          await this.sessionManager.pauseTask(session);
-          
-          responses.push(question);
-          return responses;
-        }
-
-        case 'report_progress': {
-          if (session.preferences.verboseMode) {
-            responses.push(formatProgress(task, decision.message));
-          }
-          // Continue loop
-          return [...responses, ...(await this.runAgentLoop(session))];
-        }
-
-        case 'complete': {
-          const completedTask = await this.sessionManager.completeTask(session, decision.summary);
-          responses.push(formatTaskComplete(completedTask, session));
-          return responses;
-        }
-
-        case 'blocked': {
-          const failedTask = await this.sessionManager.failTask(session, decision.reason);
-          responses.push(formatTaskFailed(failedTask, decision.suggestion));
-          return responses;
-        }
-      }
-    } catch (error) {
-      logger.error('Agent loop error', { error, taskId: task.id });
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      
-      if (task.iterations < 3) {
-        // Retry a few times
-        return this.runAgentLoop(session);
-      }
-      
-      const failedTask = await this.sessionManager.failTask(session, message);
-      responses.push(formatTaskFailed(failedTask));
-      return responses;
-    }
-
-    return responses;
-  }
-
-  /**
-   * Get decision from LLM
-   */
-  private async decide(session: Session): Promise<Decision> {
-    const systemPrompt = this.buildSystemPrompt(session);
-    const messages = this.buildMessages(session);
-    const tools = this.toolRegistry.toOpenAIFormat();
-
-    logger.debug('Calling LLM', { 
-      model: MODEL,
-      messageCount: messages.length,
-      toolCount: tools.length 
-    });
-
-    const response = await this.openai.chat.completions.create({
-      model: MODEL,
-      max_tokens: 4096,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages as OpenAI.ChatCompletionMessageParam[]
-      ],
-      tools: tools.length > 0 ? tools as OpenAI.ChatCompletionTool[] : undefined,
-      tool_choice: tools.length > 0 ? 'auto' : undefined
-    });
-
-    return this.parseDecision(response);
-  }
-
-  /**
-   * Build system prompt with context
-   */
-  private buildSystemPrompt(session: Session): string {
-    // Use centralized task prompt
-    let prompt = buildTaskPrompt(session);
-
-    // Add repo map if available
-    if (session.repoMap) {
-      prompt += `\n\n## Repository Structure\n${session.repoMap}`;
-    }
-
-    return prompt;
-  }
-
-  /**
-   * Build messages array for LLM (OpenAI format)
-   * 
-   * OpenAI requires that tool messages must follow an assistant message
-   * containing the tool_calls array. The message flow is:
-   * 1. User: "do something"
-   * 2. Assistant: (with tool_calls array)
-   * 3. Tool: (with tool_call_id matching step 2)
-   * 4. Assistant: "here's what happened"
-   */
-  private buildMessages(session: Session): Array<OpenAI.ChatCompletionMessageParam> {
-    const messages: Array<OpenAI.ChatCompletionMessageParam> = [];
+    // Other 4xx errors are not retriable
+    if (status && status >= 400 && status < 500) return false;
     
-    // Get recent messages (limit context window)
-    const recentMessages = session.messages.slice(-30);
+    // Network errors are retriable
+    if (errorAny.code === 'ECONNRESET' || errorAny.code === 'ETIMEDOUT') return true;
     
-    for (const msg of recentMessages) {
-      if (msg.role === 'user') {
-        messages.push({ role: 'user', content: msg.content });
-      } else if (msg.role === 'assistant') {
-        // Check if this assistant message has tool_calls (requesting a tool)
-        if (msg.toolCalls && msg.toolCalls.length > 0) {
-          messages.push({
-            role: 'assistant',
-            content: msg.content || null,
-            tool_calls: msg.toolCalls.map(tc => ({
-              id: tc.id,
-              type: 'function' as const,
-              function: {
-                name: tc.name,
-                arguments: tc.arguments
-              }
-            }))
-          });
-        } else {
-          // Regular assistant message
-          messages.push({ role: 'assistant', content: msg.content });
-        }
-      } else if (msg.role === 'tool' && msg.toolCall) {
-        // Tool result message - use the message ID as tool_call_id
-        messages.push({
-          role: 'tool',
-          tool_call_id: msg.id,
-          content: msg.toolCall.result || msg.content
+    // 5xx errors are retriable
+    if (status && status >= 500) return true;
+  }
+  
+  // Default to retriable for unknown errors
+  return true;
+}
+
+// =============================================================================
+// OPENAI CLIENT
+// =============================================================================
+
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI(): OpenAI {
+  if (!openaiClient) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY not set');
+    }
+    openaiClient = new OpenAI({ apiKey });
+  }
+  return openaiClient;
+}
+
+// =============================================================================
+// MAIN AGENT FUNCTION
+// =============================================================================
+
+/**
+ * Process a user message through the agent
+ *
+ * @param message - User message
+ * @param session - Current session
+ * @returns Agent response
+ */
+export async function processMessage(
+  message: string,
+  session: Session
+): Promise<AgentResponse> {
+  const startTime = Date.now();
+
+  try {
+    // Check circuit breaker
+    const tracker = errorTracker.get(session.id);
+    if (tracker && tracker.count >= MAX_CONSECUTIVE_ERRORS) {
+      const timeSinceError = Date.now() - tracker.lastError;
+      const backoff = getBackoffTime(session.id);
+      
+      if (timeSinceError < backoff) {
+        logger.warn('Circuit breaker active, rejecting request', {
+          sessionId: session.id,
+          errorCount: tracker.count,
+          backoffRemaining: backoff - timeSinceError,
         });
+        return {
+          text: "🐕 I'm taking a short break after some hiccups. Try again in a moment!",
+        };
       }
     }
 
-    return messages;
-  }
+    // 1. Classify intent
+    const intent = classifyIntent(message, session);
+    logger.info('Intent classified', {
+      type: intent.type,
+      confidence: intent.confidence,
+      reason: intent.reason,
+    });
 
-  /**
-   * Parse LLM response into a Decision (OpenAI format)
-   */
-  private parseDecision(response: OpenAI.ChatCompletion): Decision {
-    const choice = response.choices[0];
+    // 2. Route based on intent
+    let response: AgentResponse;
+    switch (intent.type) {
+      case 'conversation':
+        response = await handleConversation(message, session);
+        break;
+
+      case 'workspace':
+      case 'task':
+        response = await handleWithTools(message, session, intent.type);
+        break;
+
+      default:
+        response = await handleConversation(message, session);
+    }
+
+    // Success - reset error count
+    resetErrorCount(session.id);
+    return response;
+
+  } catch (error) {
+    logger.error('Agent error', { error, sessionId: session.id });
     
-    if (!choice) {
+    // Track error for circuit breaker
+    const shouldContinue = trackError(session.id);
+    
+    // Check if it's a retriable error
+    const isRetriable = isRetriableError(error);
+    
+    if (!shouldContinue) {
       return {
-        type: 'blocked',
-        reason: 'No response from LLM'
+        text: "🐕 I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
       };
     }
-
-    const message = choice.message;
     
-    // Check for tool calls
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0]; // Handle first tool call
-      
-      // Type guard for function tool calls
-      if (toolCall.type !== 'function') {
-        return {
-          type: 'blocked',
-          reason: 'Unsupported tool call type'
-        };
-      }
-      
-      const functionCall = toolCall.function;
-      const tool = this.toolRegistry.get(functionCall.name);
-      
-      if (!tool) {
-        return {
-          type: 'blocked',
-          reason: `Unknown tool: ${functionCall.name}`
-        };
-      }
-
-      // Parse arguments
-      let args: Record<string, unknown>;
-      try {
-        args = JSON.parse(functionCall.arguments);
-      } catch {
-        args = {};
-      }
-
-      // Check for control tools
-      if (functionCall.name === 'ask_user') {
-        return {
-          type: 'ask_user',
-          question: (args as { question: string }).question,
-          options: (args as { options?: string[] }).options
-        };
-      }
-
-      if (functionCall.name === 'report_progress') {
-        return {
-          type: 'report_progress',
-          message: (args as { message: string }).message,
-          percentComplete: (args as { percent_complete?: number }).percent_complete
-        };
-      }
-
-      if (functionCall.name === 'task_complete') {
-        return {
-          type: 'complete',
-          summary: (args as { summary: string }).summary,
-          filesModified: (args as { files_modified?: string[] }).files_modified
-        };
-      }
-
-      if (functionCall.name === 'task_blocked') {
-        return {
-          type: 'blocked',
-          reason: (args as { reason: string }).reason,
-          suggestion: (args as { suggestion?: string }).suggestion
-        };
-      }
-
-      // Regular tool use - include the toolCallId for message pairing
+    if (!isRetriable) {
+      // Non-retriable errors (400, 401, 404) - don't suggest retry
       return {
-        type: 'use_tool',
-        tool,
-        args,
-        reasoning: message.content || '',
-        toolCallId: toolCall.id
+        text: `🐕 Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
-
-    // No tool use - check text for completion signals
-    const text = message.content || '';
     
-    if (text.toLowerCase().includes('task complete') || 
-        text.toLowerCase().includes('i have completed')) {
-      return {
-        type: 'complete',
-        summary: text
-      };
-    }
-
-    // Default: treat as a question/response to user
     return {
-      type: 'ask_user',
-      question: text
+      text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
     };
-  }
-
-  /**
-   * Check if tool needs approval
-   */
-  private needsApproval(
-    session: Session, 
-    tool: Tool, 
-    args: Record<string, unknown>
-  ): boolean {
-    const mode = session.preferences.autonomyLevel;
-
-    // Autonomous mode - no approvals needed
-    if (mode === 'autonomous') {
-      return false;
-    }
-
-    // Supervised mode - everything needs approval except auto-approve tools
-    if (mode === 'supervised') {
-      return !tool.autoApprove;
-    }
-
-    // Cautious mode - approve writes and commands
-    if (mode === 'cautious') {
-      // Auto-approve read operations
-      if (tool.autoApprove && !tool.modifiesWorkspace) {
-        return false;
-      }
-
-      // Approve anything that modifies workspace
-      if (tool.modifiesWorkspace) {
-        return true;
-      }
-
-      // Special case: lint with fix needs approval
-      if (tool.name === 'run_lint' && args.fix) {
-        return true;
-      }
-
-      return false;
-    }
-
-    return !tool.autoApprove;
-  }
-
-  /**
-   * Execute a tool with Zod validation
-   */
-  private async executeTool(
-    toolName: string, 
-    args: Record<string, unknown>
-  ): Promise<ToolResult> {
-    logger.info('Executing tool', { tool: toolName, args });
-    
-    // Use validated execution from registry
-    return await this.toolRegistry.executeValidated(toolName, args);
-  }
-
-  /**
-   * Record tool result in session
-   */
-  private async recordToolResult(
-    session: Session,
-    toolName: string,
-    args: Record<string, unknown>,
-    result: ToolResult,
-    approved: boolean,
-    toolCallId?: string
-  ): Promise<void> {
-    const toolCall: ToolCall = {
-      name: toolName,
-      args,
-      result: result.success ? result.output : result.error,
-      approved,
-      duration: result.duration
-    };
-
-    await this.sessionManager.addToolMessage(
-      session,
-      toolCall,
-      result.success ? result.output : `Error: ${result.error}`,
-      toolCallId
-    );
-  }
-
-  /**
-   * Generate diff preview for file operations
-   */
-  private async generateDiff(
-    toolName: string, 
-    args: Record<string, unknown>
-  ): Promise<string> {
-    const filePath = args.path as string;
-    
-    try {
-      // Read current file content
-      const readTool = this.toolRegistry.get('read_file');
-      if (!readTool) return '';
-      
-      const result = await readTool.execute({ path: filePath });
-      const oldContent = result.success ? result.output : '';
-
-      if (toolName === 'write_file') {
-        const newContent = args.content as string;
-        return this.createDiffString(oldContent, newContent, filePath);
-      }
-
-      if (toolName === 'edit_file') {
-        const search = args.search as string;
-        const replace = args.replace as string;
-        
-        // Find the line numbers
-        const lines = oldContent.split('\n');
-        let startLine = -1;
-        
-        for (let i = 0; i < lines.length; i++) {
-          if (oldContent.substring(
-            lines.slice(0, i).join('\n').length
-          ).startsWith(search)) {
-            startLine = i + 1;
-            break;
-          }
-        }
-
-        return `File: ${filePath}${startLine > 0 ? ` (around line ${startLine})` : ''}\n` +
-               `─────────────────────\n` +
-               `- ${search.split('\n').join('\n- ')}\n` +
-               `+ ${replace.split('\n').join('\n+ ')}\n` +
-               `─────────────────────`;
-      }
-    } catch {
-      // File doesn't exist (new file)
-      if (toolName === 'write_file') {
-        return `New file: ${filePath}`;
-      }
-    }
-
-    return '';
-  }
-
-  /**
-   * Create a simple diff string
-   */
-  private createDiffString(oldContent: string, newContent: string, filePath: string): string {
-    if (!oldContent) {
-      return `New file: ${filePath}\n(${newContent.split('\n').length} lines)`;
-    }
-
-    const oldLines = oldContent.split('\n');
-    const newLines = newContent.split('\n');
-    
-    // Simple diff - show first few changes
-    const changes: string[] = [];
-    const maxChanges = 10;
-
-    for (let i = 0; i < Math.max(oldLines.length, newLines.length) && changes.length < maxChanges; i++) {
-      if (oldLines[i] !== newLines[i]) {
-        if (oldLines[i]) changes.push(`- ${oldLines[i]}`);
-        if (newLines[i]) changes.push(`+ ${newLines[i]}`);
-      }
-    }
-
-    if (changes.length === 0) {
-      return 'No changes detected';
-    }
-
-    return `File: ${filePath}\n─────────────────────\n${changes.join('\n')}\n─────────────────────`;
-  }
-
-  /**
-   * Auto-commit if enabled
-   */
-  private async autoCommitIfEnabled(
-    session: Session,
-    toolName: string,
-    args: Record<string, unknown>
-  ): Promise<void> {
-    if (!session.preferences.autoCommit) return;
-
-    const commitTool = this.toolRegistry.get('git_commit');
-    if (!commitTool) return;
-
-    // Generate commit message
-    const filePath = args.path as string;
-    const action = toolName === 'write_file' ? 'update' : 'edit';
-    const message = `${action}: ${filePath.split('/').pop()}`;
-
-    try {
-      const result = await commitTool.execute({ 
-        message,
-        files: [filePath]
-      });
-
-      if (result.success && result.metadata?.hash) {
-        session.currentTask?.commitsCreated.push(result.metadata.hash as string);
-        await this.sessionManager.updateTask(session, {
-          commitsCreated: session.currentTask?.commitsCreated || []
-        });
-      }
-    } catch (error) {
-      logger.warn('Auto-commit failed', { error });
-    }
-  }
-
-  /**
-   * Get last user message
-   */
-  private getLastUserMessage(session: Session): string | null {
-    for (let i = session.messages.length - 1; i >= 0; i--) {
-      if (session.messages[i].role === 'user') {
-        return session.messages[i].content;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Check if message is a resume intent
-   */
-  private isResumeIntent(message: string): boolean {
-    const resumeWords = ['resume', 'continue', 'go', 'proceed', 'yes'];
-    return resumeWords.includes(message.toLowerCase().trim());
-  }
-
-  /**
-   * Check if message is a stop intent
-   */
-  private isStopIntent(message: string): boolean {
-    const stopWords = ['stop', 'cancel', 'quit', 'abort', 'nevermind', 'never mind'];
-    return stopWords.includes(message.toLowerCase().trim());
+  } finally {
+    const duration = Date.now() - startTime;
+    logger.debug('Agent response time', { duration });
   }
 }
+
+// =============================================================================
+// CONVERSATION HANDLER
+// =============================================================================
+
+/**
+ * Handle conversation intent (no tools needed)
+ */
+async function handleConversation(
+  message: string,
+  session: Session
+): Promise<AgentResponse> {
+  const openai = getOpenAI();
+
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    messages: [
+      {
+        role: 'system',
+        content: buildConversationPrompt(session),
+      },
+      ...buildMessageHistory(session),
+      { role: 'user', content: message },
+    ],
+    max_tokens: 300,
+    temperature: 0.7,
+  });
+
+  const text = response.choices[0]?.message?.content ?? "Hey! 🐕";
+
+  return {
+    text: formatForWhatsApp(text),
+  };
+}
+
+/**
+ * Build conversation-only prompt
+ */
+function buildConversationPrompt(session: Session): string {
+  const hasProject = !!session.currentProject;
+  const projectInfo = hasProject
+    ? `📂 Working on: ${session.currentProject?.name}`
+    : '📂 No project selected';
+
+  return `You are Fetch 🐕, a friendly coding assistant on WhatsApp.
+
+${projectInfo}
+
+This is casual chat - no coding work needed.
+
+Guidelines:
+- Keep responses to 2-3 sentences
+- Be warm and friendly
+- If they need help with code, suggest what you can do
+- ${hasProject ? 'You can help with their project' : 'Suggest they select a project first'}`;
+}
+
+// =============================================================================
+// TOOL HANDLER
+// =============================================================================
+
+/**
+ * Handle workspace/task intent (with tools)
+ */
+async function handleWithTools(
+  message: string,
+  session: Session,
+  _intent: IntentType
+): Promise<AgentResponse> {
+  const openai = getOpenAI();
+  const registry = getToolRegistry();
+  const tools = registry.toOpenAIFormat();
+  const toolCalls: ToolCallRecord[] = [];
+
+  // Build messages
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: 'system', content: buildOrchestratorPrompt(session) },
+    ...buildMessageHistory(session),
+    { role: 'user', content: message },
+  ];
+
+  let response = await openai.chat.completions.create({
+    model: MODEL,
+    messages,
+    tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
+    tool_choice: 'auto',
+    max_tokens: 500,
+    temperature: 0.3,
+  });
+
+  let callCount = 0;
+
+  // Process tool calls
+  while (
+    response.choices[0]?.message?.tool_calls &&
+    response.choices[0].message.tool_calls.length > 0 &&
+    callCount < MAX_TOOL_CALLS
+  ) {
+    const assistantMessage = response.choices[0].message;
+    const currentToolCalls = assistantMessage.tool_calls!;
+    messages.push(assistantMessage);
+
+    // Execute each tool call
+    for (const toolCall of currentToolCalls) {
+      callCount++;
+
+      // Handle both standard and custom tool call formats
+      const fn = 'function' in toolCall ? toolCall.function : null;
+      if (!fn) continue;
+      
+      const toolName = fn.name;
+      const toolArgs = JSON.parse(fn.arguments);
+
+      logger.debug('Executing tool', { tool: toolName, args: toolArgs });
+
+      // Execute via registry
+      const result = await registry.execute(toolName, toolArgs);
+
+      toolCalls.push({
+        name: toolName,
+        args: toolArgs,
+        result,
+      });
+
+      // Add tool result to messages
+      messages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result),
+      });
+    }
+
+    // Get next response
+    response = await openai.chat.completions.create({
+      model: MODEL,
+      messages,
+      tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
+      tool_choice: 'auto',
+      max_tokens: 500,
+      temperature: 0.3,
+    });
+  }
+
+  // Get final text response
+  const text =
+    response.choices[0]?.message?.content ??
+    "Done! 🐕 Let me know if you need anything else.";
+
+  // Check if a task was started
+  const taskCall = toolCalls.find((tc) => tc.name === 'task_create');
+  const taskId = taskCall?.result &&
+    typeof taskCall.result === 'object' &&
+    'metadata' in (taskCall.result as Record<string, unknown>)
+      ? ((taskCall.result as Record<string, unknown>).metadata as Record<string, unknown>)?.taskId as string
+      : undefined;
+
+  return {
+    text: formatForWhatsApp(text),
+    toolCalls,
+    taskStarted: !!taskCall,
+    taskId,
+  };
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Build message history for context
+ */
+function buildMessageHistory(
+  session: Session,
+  maxMessages = 10
+): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+  if (!session.messages) {
+    return [];
+  }
+
+  return session.messages
+    .slice(-maxMessages)
+    .map((msg: Message) => ({
+      role: msg.role as 'user' | 'assistant',
+      content: msg.content,
+    }));
+}
+
+// =============================================================================
+// TASK FRAMING (for complex requests)
+// =============================================================================
+
+/**
+ * Frame a user request as a task goal
+ *
+ * Used when the user's request needs to be transformed into
+ * a clear goal for the harness.
+ *
+ * @param message - Original user message
+ * @param session - Current session
+ * @returns Framed task goal
+ */
+export async function frameTaskGoal(
+  message: string,
+  session: Session
+): Promise<string> {
+  const openai = getOpenAI();
+
+  const response = await openai.chat.completions.create({
+    model: MODEL,
+    messages: [
+      {
+        role: 'system',
+        content: buildTaskFramePrompt(session, message),
+      },
+    ],
+    max_tokens: 200,
+    temperature: 0.3,
+  });
+
+  return (
+    response.choices[0]?.message?.content ?? message
+  );
+}
+
+// =============================================================================
+// EXPORTS
+// =============================================================================
+
+export { classifyIntent };
