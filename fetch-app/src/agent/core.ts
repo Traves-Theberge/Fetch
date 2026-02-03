@@ -485,26 +485,26 @@ export class AgentCore {
 
   /**
    * Build messages array for LLM (OpenAI format)
+   * Note: Tool messages require a preceding assistant message with tool_calls.
+   * Since we don't store tool_calls in assistant messages, we convert tool
+   * results to assistant messages summarizing what happened.
    */
-  private buildMessages(session: Session): Array<{ role: string; content: string; tool_call_id?: string; name?: string }> {
-    const messages: Array<{ role: string; content: string; tool_call_id?: string; name?: string }> = [];
-    
+  private buildMessages(session: Session): Array<{ role: string; content: string }> {
+    const messages: Array<{ role: string; content: string }> = [];
+
     // Get recent messages (limit context window)
     const recentMessages = session.messages.slice(-30);
-    
+
     for (const msg of recentMessages) {
       if (msg.role === 'user') {
         messages.push({ role: 'user', content: msg.content });
       } else if (msg.role === 'assistant') {
         messages.push({ role: 'assistant', content: msg.content });
       } else if (msg.role === 'tool' && msg.toolCall) {
-        // OpenAI format for tool results
-        messages.push({
-          role: 'tool',
-          tool_call_id: msg.id,
-          name: msg.toolCall.name,
-          content: msg.toolCall.result || msg.content
-        });
+        // Convert tool results to assistant message format to avoid OpenAI API issues
+        // (tool role requires preceding assistant with tool_calls which we don't store)
+        const toolSummary = `[Tool: ${msg.toolCall.name}]\n${msg.toolCall.result || msg.content}`;
+        messages.push({ role: 'assistant', content: toolSummary });
       }
     }
 

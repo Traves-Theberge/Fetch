@@ -166,13 +166,16 @@ export class Bridge {
     // Message handler with security gate
     // Use message_create to catch messages sent to yourself (self-chat)
     this.client.on('message_create', async (message: Message) => {
-      // Skip messages sent by the bot itself (outgoing replies)
-      if (message.fromMe && !message.to.endsWith('@c.us')) {
-        return;
-      }
-      // For self-chat, fromMe is true but we still want to process @fetch triggers
-      if (message.fromMe && !message.body.toLowerCase().trim().startsWith('@fetch')) {
-        return;
+      // For messages we sent ourselves (fromMe=true):
+      // - Allow if it starts with @fetch (self-chat command)
+      // - Allow if there's an active conversation (within 10 min)
+      // - Skip all other outgoing messages (our replies, status updates, etc.)
+      if (message.fromMe) {
+        const hasTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
+        const hasActiveConvo = this.securityGate.hasActiveConversation(message.from);
+        if (!hasTrigger && !hasActiveConvo) {
+          return;
+        }
       }
       incrementMessageCount();
       await this.handleIncomingMessage(message);
@@ -181,20 +184,20 @@ export class Bridge {
 
   /**
    * Handle incoming messages with strict security enforcement
-   * SECURITY: Requires @fetch trigger + owner verification
+   * SECURITY: Requires @fetch trigger OR active conversation + owner
    */
   private async handleIncomingMessage(message: Message): Promise<void> {
     const senderId = message.from;
     const participantId = (message as any).author; // Group message author
     const messageBody = message.body;
-    
-    // SECURITY GATE 1: Validate @fetch trigger + owner
+
+    // SECURITY GATE 1: Validate owner (with @fetch trigger OR active conversation)
     if (!this.securityGate.isAuthorized(senderId, participantId, messageBody)) {
       // Silent drop - do not acknowledge unauthorized messages
       return;
     }
 
-    // Strip the @fetch trigger from the message
+    // Strip the @fetch trigger from the message (if present)
     const command = this.securityGate.stripTrigger(messageBody);
 
     // SECURITY GATE 2: Rate limiting
@@ -217,12 +220,15 @@ export class Bridge {
     try {
       // Process through agentic handler
       const responses = await handleMessage(rateLimitId, validation.sanitized);
-      
+
+      // Mark conversation as active after successful processing
+      this.securityGate.touchConversation(senderId);
+
       // Send all response messages
       for (const response of responses) {
         await message.reply(response);
         logger.success(`Reply sent (${response.length} chars)`);
-        
+
         // Small delay between messages to avoid rate limiting
         if (responses.length > 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
