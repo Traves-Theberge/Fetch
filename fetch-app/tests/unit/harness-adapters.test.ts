@@ -159,7 +159,8 @@ describe('Copilot Adapter', () => {
     });
 
     it('should detect commands', () => {
-      expect(adapter.parseOutputLine('$ npm install lodash')).toBe('progress');
+      // Shell commands in output are not special events
+      expect(adapter.parseOutputLine('$ npm install lodash')).toBe(null);
     });
 
     it('should detect completion', () => {
