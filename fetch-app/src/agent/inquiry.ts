@@ -272,7 +272,9 @@ async function executeInquiryTools(
     
     try {
       const args = JSON.parse(call.function.arguments || '{}');
-      const result = await tool.execute(args);
+      
+      // Use validated execution from registry
+      const result = await toolRegistry.executeValidated(toolName, args);
       
       // Truncate long results for mobile
       const output = result.output.length > 2000 

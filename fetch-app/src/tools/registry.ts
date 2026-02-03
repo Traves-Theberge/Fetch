@@ -1,43 +1,11 @@
 /**
- * @fileoverview Tool Registry - Central Tool Management
- * 
- * Provides a centralized registry for registering, organizing, and retrieving
- * tools used by the agent. Supports conversion to OpenAI and Claude formats.
- * 
+ * @fileoverview Tool Registry (Legacy)
  * @module tools/registry
- * @see {@link ToolRegistry} - Main registry class
- * @see {@link getToolRegistry} - Get singleton instance
- * 
- * ## Usage
- * 
- * ```typescript
- * import { ToolRegistry, getToolRegistry } from './registry.js';
- * 
- * // Get singleton
- * const registry = getToolRegistry();
- * 
- * // Register a tool
- * registry.register(myTool);
- * 
- * // Get tool by name
- * const tool = registry.get('read_file');
- * 
- * // Convert for LLM
- * const openaiTools = registry.toOpenAIFormat();
- * ```
- * 
- * ## Tool Organization
- * 
- * | Category | Tools | Auto-Approve |
- * |----------|-------|-------------|
- * | file | read_file, write_file, edit_file | read only |
- * | code | repo_map, search_code | yes |
- * | shell | run_command | no |
- * | git | git_status, git_commit | status only |
- * | control | task_complete | yes |
+ * @deprecated Use V2ToolRegistry from './v2/registry.js' for new code
  */
 
-import { Tool, ClaudeTool, toClaudeToolFormat, ToolCategory } from './types.js';
+import { Tool, ClaudeTool, toClaudeToolFormat, ToolCategory, ToolResult } from './types.js';
+import { validateToolArgs } from './legacy/schemas.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -46,27 +14,11 @@ import { logger } from '../utils/logger.js';
 
 /**
  * Central registry for managing agent tools.
- * 
- * Provides methods for registration, lookup, filtering by category,
- * and format conversion for different LLM APIs.
- * 
- * @class
- * @example
- * ```typescript
- * const registry = new ToolRegistry();
- * registry.register(readFileTool);
- * registry.registerAll([writeFileTool, editFileTool]);
- * 
- * const fileTool = registry.get('read_file');
- * const fileTools = registry.getByCategory('file');
- * ```
  */
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
 
-  /**
-   * Register a tool
-   */
+  /** Register a tool */
   register(tool: Tool): void {
     if (this.tools.has(tool.name)) {
       logger.warn(`Tool already registered, overwriting: ${tool.name}`);
@@ -75,25 +27,19 @@ export class ToolRegistry {
     logger.debug(`Registered tool: ${tool.name}`);
   }
 
-  /**
-   * Register multiple tools
-   */
+  /** Register multiple tools */
   registerAll(tools: Tool[]): void {
     for (const tool of tools) {
       this.register(tool);
     }
   }
 
-  /**
-   * Get a tool by name
-   */
+  /** Get a tool by name */
   get(name: string): Tool | undefined {
     return this.tools.get(name);
   }
 
-  /**
-   * Check if a tool exists
-   */
+  /** Check if a tool exists */
   has(name: string): boolean {
     return this.tools.has(name);
   }
@@ -194,6 +140,69 @@ export class ToolRegistry {
     
     return summary as Record<ToolCategory, string[]>;
   }
+
+  /**
+   * Execute a tool with Zod validation.
+   * 
+   * Validates arguments before execution, returning early with a validation
+   * error if the arguments don't match the schema.
+   * 
+   * @param {string} toolName - Name of the tool to execute
+   * @param {Record<string, unknown>} args - Arguments to pass to the tool
+   * @returns {Promise<ToolResult>} Tool execution result or validation error
+   * 
+   * @example
+   * ```typescript
+   * const result = await registry.executeValidated('read_file', { path: 'src/app.ts' });
+   * if (result.success) {
+   *   console.log(result.output);
+   * }
+   * ```
+   */
+  async executeValidated(
+    toolName: string,
+    args: Record<string, unknown>
+  ): Promise<ToolResult> {
+    const startTime = Date.now();
+
+    // Check tool exists
+    const tool = this.get(toolName);
+    if (!tool) {
+      return {
+        success: false,
+        output: '',
+        error: `Unknown tool: ${toolName}`,
+        duration: Date.now() - startTime
+      };
+    }
+
+    // Validate arguments with Zod
+    const validation = validateToolArgs(toolName, args);
+    if (!validation.success) {
+      logger.warn(`Tool validation failed: ${toolName}`, { error: validation.error });
+      return {
+        success: false,
+        output: '',
+        error: validation.error || 'Validation failed',
+        duration: Date.now() - startTime
+      };
+    }
+
+    // Execute with validated (and coerced) arguments
+    try {
+      logger.debug(`Executing validated tool: ${toolName}`, { args: validation.data });
+      return await tool.execute(validation.data as Record<string, unknown>);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Tool execution failed', { tool: toolName, error: message });
+      return {
+        success: false,
+        output: '',
+        error: message,
+        duration: Date.now() - startTime
+      };
+    }
+  }
 }
 
 // Singleton instance
@@ -211,16 +220,17 @@ export function getToolRegistry(): ToolRegistry {
 
 /**
  * Initialize the tool registry with all tools
+ * @deprecated Use V2ToolRegistry from './v2/registry.js' instead
  */
 export async function initializeToolRegistry(): Promise<ToolRegistry> {
   const registry = getToolRegistry();
   
-  // Import and register all tool modules
-  const { fileTools } = await import('./file.js');
-  const { codeTools } = await import('./code.js');
-  const { shellTools } = await import('./shell.js');
-  const { gitTools } = await import('./git.js');
-  const { controlTools } = await import('./control.js');
+  // Import and register all legacy tool modules
+  const { fileTools } = await import('./legacy/file.js');
+  const { codeTools } = await import('./legacy/code.js');
+  const { shellTools } = await import('./legacy/shell.js');
+  const { gitTools } = await import('./legacy/git.js');
+  const { controlTools } = await import('./legacy/control.js');
   
   registry.registerAll(fileTools);
   registry.registerAll(codeTools);
@@ -232,7 +242,7 @@ export async function initializeToolRegistry(): Promise<ToolRegistry> {
   const categories = Object.keys(summary);
   const total = registry.getAll().length;
   
-  logger.info(`Loaded ${total} tools across ${categories.length} categories`);
+  logger.info(`Loaded ${total} legacy tools across ${categories.length} categories`);
   for (const [cat, tools] of Object.entries(summary)) {
     logger.debug(`  ${cat}: ${tools.join(', ')}`);
   }

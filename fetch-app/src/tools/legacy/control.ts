@@ -62,7 +62,7 @@
  * ```
  */
 
-import { Tool, ToolResult } from './types.js';
+import { Tool, ToolResult } from '../types.js';
 
 /**
  * Create a successful tool result.

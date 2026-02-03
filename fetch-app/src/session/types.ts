@@ -1,52 +1,6 @@
 /**
- * @fileoverview Session Type Definitions
- * 
- * Core data models for user sessions, conversation persistence,
- * task management, and agent state tracking.
- * 
+ * @fileoverview Session and Task Type Definitions
  * @module session/types
- * @see {@link Session} - Main session interface
- * @see {@link AgentTask} - Task execution state
- * @see {@link Message} - Conversation message
- * 
- * ## Session Structure
- * 
- * ```
- * Session
- * ├── id, userId, createdAt
- * ├── preferences: UserPreferences
- * ├── currentProject: ProjectContext | null
- * ├── availableProjects: string[]
- * ├── messages: Message[]
- * ├── currentTask: AgentTask | null
- * └── activeFiles: string[]
- * ```
- * 
- * ## Task Lifecycle
- * 
- * ```
- * planning → executing → awaiting_approval → completed
- *                ↓              ↓
- *             paused ←→ resumed
- *                ↓
- *           failed/aborted
- * ```
- * 
- * ## Autonomy Levels
- * 
- * | Level | Description |
- * |-------|-------------|
- * | supervised | All actions need approval |
- * | cautious | Only sensitive ops need approval |
- * | autonomous | Minimal approvals (dangerous ops only) |
- * 
- * @example
- * ```typescript
- * import { Session, createSession, Message, AgentTask } from './types.js';
- * 
- * const session = createSession('user123');
- * session.currentProject = { name: 'my-app', type: 'node', ... };
- * ```
  */
 
 // =============================================================================
@@ -55,8 +9,6 @@
 
 /**
  * User's autonomy preference level.
- * Controls how much freedom the agent has for approvals.
- * @typedef {string} AutonomyLevel
  */
 export type AutonomyLevel = 'supervised' | 'cautious' | 'autonomous';
 
@@ -122,6 +74,18 @@ export interface ToolCall {
   duration?: number;
 }
 
+/**
+ * Tool call request (in assistant message)
+ */
+export interface ToolCallRequest {
+  /** Unique ID for this tool call (used to match with response) */
+  id: string;
+  /** Tool name */
+  name: string;
+  /** Arguments as JSON string */
+  arguments: string;
+}
+
 export interface Message {
   /** Unique message ID */
   id: string;
@@ -129,8 +93,10 @@ export interface Message {
   role: MessageRole;
   /** Message content */
   content: string;
-  /** Tool call details (for tool messages) */
+  /** Tool call details (for tool messages - the response) */
   toolCall?: ToolCall;
+  /** Tool calls requested (for assistant messages requesting tools) */
+  toolCalls?: ToolCallRequest[];
   /** ISO timestamp */
   timestamp: string;
 }
@@ -174,6 +140,8 @@ export interface ApprovalRequest {
   description: string;
   /** Diff preview for file edits */
   diff?: string;
+  /** Tool call ID for message pairing */
+  toolCallId?: string;
   /** When approval was requested */
   createdAt: string;
 }
@@ -318,13 +286,15 @@ export function createSession(userId: string): Session {
 export function createMessage(
   role: MessageRole,
   content: string,
-  toolCall?: ToolCall
+  toolCall?: ToolCall,
+  toolCalls?: ToolCallRequest[]
 ): Message {
   return {
     id: generateId(),
     role,
     content,
     toolCall,
+    toolCalls,
     timestamp: new Date().toISOString()
   };
 }

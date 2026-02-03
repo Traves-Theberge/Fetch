@@ -126,6 +126,33 @@ export class SecurityGate {
   }
 
   /**
+   * Check if message is from the owner (without @fetch requirement)
+   * Used for thread replies where @fetch trigger is not needed
+   * 
+   * @param senderId - WhatsApp chat ID
+   * @param participantId - For groups, the actual sender's ID
+   */
+  isOwnerMessage(senderId: string, participantId: string | undefined): boolean {
+    try {
+      // Reject broadcast messages
+      if (senderId.includes('broadcast')) {
+        return false;
+      }
+
+      const isGroup = senderId.endsWith('@g.us');
+
+      if (isGroup) {
+        if (!participantId) return false;
+        return this.isOwner(participantId);
+      }
+
+      return this.isOwner(senderId);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Check if a message is authorized
    * Requires: @fetch trigger + owner (direct or group participant)
    * 

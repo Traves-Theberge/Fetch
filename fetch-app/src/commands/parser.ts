@@ -56,7 +56,7 @@ import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
 import { AgentCore } from '../agent/core.js';
 import { formatHelp, formatStatus } from '../agent/format.js';
-import { resetToCommit } from '../tools/git.js';
+import { resetToCommit } from '../tools/index.js';
 import { scanProjects, getProject, formatProjectList, formatProjectInfo } from '../session/project.js';
 import { logger } from '../utils/logger.js';
 import { exec } from 'child_process';

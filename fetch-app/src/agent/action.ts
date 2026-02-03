@@ -80,7 +80,7 @@ import { SessionManager } from '../session/manager.js';
 import { ToolRegistry } from '../tools/registry.js';
 import { logger } from '../utils/logger.js';
 import { ClassifiedIntent } from './intent.js';
-import { getCurrentCommit } from '../tools/git.js';
+import { getCurrentCommit } from '../tools/index.js';
 import { buildActionPrompt, buildMessageHistory } from './prompts.js';
 
 // =============================================================================
@@ -325,7 +325,9 @@ async function executeAndRespond(
   }
 
   const args = JSON.parse(toolCall.function.arguments || '{}');
-  const result = await tool.execute(args);
+  
+  // Use validated execution from registry
+  const result = await toolRegistry.executeValidated(toolCall.function.name, args);
 
   // Generate response with the information
   const response = await openai.chat.completions.create({

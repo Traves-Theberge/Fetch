@@ -16,10 +16,12 @@
     "dockerode": "^4.0.9",
     "dotenv": "^17.2.3",
     "lowdb": "^7.0.1",
+    "nanoid": "^5.1.6",
     "openai": "^6.17.0",
     "qrcode-terminal": "^0.12.0",
     "strip-ansi": "^7.1.2",
-    "whatsapp-web.js": "^1.34.6"
+    "whatsapp-web.js": "^1.34.6",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.1",

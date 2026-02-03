@@ -193,7 +193,7 @@ export function formatProgress(task: AgentTask, currentAction: string): string {
  * @returns {string} Formatted question message
  */
 export function formatQuestion(question: string, options?: string[]): string {
-  let message = `❓ ${question}`;
+  let message = `*Question:* ${question}`;
   
   if (options && options.length > 0) {
     message += '\n\n';
@@ -274,49 +274,90 @@ export function formatStatus(session: Session): string {
  * @returns {string} Formatted help message with all commands
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch Commands*
+  return `🐕 *Fetch - Your AI Coding Assistant*
 
-� *Projects:*
+I'm Fetch! I can help you with coding tasks directly from WhatsApp. Just describe what you need and I'll help you build it.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 *What I Can Do:*
+
+*Chat & Questions*
+Just ask me anything! No commands needed.
+• "What does this function do?"
+• "How do I use React hooks?"
+• "Explain this error message"
+
+*Code Exploration*
+• "Show me the contents of src/app.ts"
+• "What files are in this project?"
+• "Find where login is defined"
+• "Search for TODO comments"
+
+*Code Changes*
+• "Fix the typo in line 42"
+• "Add a loading spinner to the button"
+• "Refactor this function to use async/await"
+• "Create a new component called Header"
+
+*Full Tasks*
+• "Build a login form with validation"
+• "Add dark mode to the app"
+• "Write tests for the auth module"
+• "Set up ESLint configuration"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📂 *Project Commands:*
 • \`/projects\` - List available projects
 • \`/project <name>\` - Switch to project
 • \`/clone <url>\` - Clone a repository
 • \`/init <name>\` - Create new project
 
-📊 *Git:*
-• \`/status\` - Git status
-• \`/diff\` - Show changes
-• \`/log [n]\` - Recent commits
+📊 *Git Commands:*
+• \`/status\` - Show git status
+• \`/diff\` - Show uncommitted changes
+• \`/log [n]\` - Show recent commits
 • \`/undo\` - Revert last change
-• \`/undo all\` - Revert session changes
+• \`/undo all\` - Revert all session changes
 
-📝 *Tasks:*
-• \`/task\` - Show current task
-• \`/stop\` - Cancel task
+📝 *Task Control:*
+• \`/task\` - Show current task status
+• \`/stop\` - Cancel current task
 • \`/pause\` - Pause task
-• \`/resume\` - Resume task
+• \`/resume\` - Resume paused task
 
 📁 *Context:*
-• \`/add <file>\` - Add to context
+• \`/add <file>\` - Add file to context
 • \`/drop <file>\` - Remove from context
 • \`/files\` - Show active files
 • \`/clear\` - Reset conversation
 
 ⚙️ *Settings:*
 • \`/auto\` - Toggle autonomous mode
-• \`/mode\` - Show/set autonomy level
-• \`/verbose\` - Toggle verbose output
+• \`/mode\` - Show/change autonomy level
+• \`/verbose\` - Toggle detailed output
 
-💬 *Responses:*
-• \`yes\` / \`no\` - Approve/reject
-• \`skip\` - Skip action
-• \`yesall\` - Autonomous mode
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Just type naturally to chat or work!`;
+🔐 *Approval Responses:*
+When I ask for permission:
+• \`yes\` - Approve this action
+• \`no\` - Reject this action
+• \`skip\` - Skip and continue
+• \`yesall\` - Approve all remaining
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 *Tips:*
+• Start messages with \`@fetch\` in groups
+• I remember our conversation context
+• Describe what you want, not how to do it
+• I'll ask if I need clarification
+
+Just type what you need - I'm here to help! 🐕`;
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
 
 /**
  * Get emoji icon for a tool.
