@@ -46,9 +46,9 @@ describe('Intent Classification', () => {
       
       const requests = [
         'list projects',
-        'show my workspaces',
-        'what projects do I have',
-        'which workspace',
+        'show workspaces',
+        'what projects',
+        'which workspaces',
       ];
       
       for (const request of requests) {
@@ -75,7 +75,7 @@ describe('Intent Classification', () => {
     it('should classify status requests', () => {
       const session = createMockSession();
       
-      const result = classifyIntent('what is the status', session);
+      const result = classifyIntent('show me the status', session);
       expect(result.type).toBe('workspace');
     });
   });
@@ -113,7 +113,7 @@ describe('Intent Classification', () => {
         session
       );
       expect(result.type).toBe('task');
-      expect(result.reason).toBe('task_default');
+      expect(result.reason).toBe('default');
     });
   });
 

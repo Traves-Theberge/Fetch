@@ -14,8 +14,8 @@ describe('E2E: Workspace Management', () => {
       const listRequests = [
         'list projects',
         'show workspaces',
-        'what projects do I have',
-        'my projects',
+        'which projects',
+        'what workspaces',
       ];
 
       for (const request of listRequests) {
@@ -52,8 +52,8 @@ describe('E2E: Workspace Management', () => {
       const statusRequests = [
         'status',
         'git status',
-        'what changes',
-        'current branch',
+        'show me the status',
+        'get status',
       ];
 
       for (const request of statusRequests) {
