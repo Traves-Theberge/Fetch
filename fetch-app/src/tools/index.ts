@@ -2,9 +2,9 @@
  * @fileoverview Tools Module Exports
  * @module tools
  *
- * ## V2 Tools (Orchestrator Mode)
+ * ## Orchestrator Tools
  *
- * The v2 architecture uses 8 high-level tools that delegate
+ * The architecture uses 8 high-level tools that delegate
  * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  *
  * ### Workspace (3)
@@ -26,16 +26,11 @@
 // Core types
 export * from './types.js';
 
-// V2 Registry (new 8-tool set)
-export * from './v2/registry.js';
+// Tool Registry
+export { ToolRegistry, getToolRegistry, initializeToolRegistry, orchestratorTools } from './registry.js';
+export type { OrchestratorTool, ToolHandler } from './registry.js';
 
-// V2 Tool handlers
+// Tool handlers
 export { workspaceTools, handleWorkspaceList, handleWorkspaceSelect, handleWorkspaceStatus } from './workspace.js';
 export { taskTools, handleTaskCreate, handleTaskStatus, handleTaskCancel, handleTaskRespond } from './task.js';
 export { interactionTools, handleAskUser, handleReportProgress } from './interaction.js';
-
-// Legacy registry (for backward compatibility during transition)
-export { getToolRegistry, initializeToolRegistry } from './registry.js';
-
-// Legacy git utilities (used by agent/action.ts, agent/core.ts, commands/parser.ts)
-export { getCurrentCommit, resetToCommit } from './legacy/git.js';
