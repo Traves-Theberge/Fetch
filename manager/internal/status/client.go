@@ -124,3 +124,30 @@ func (s *BridgeStatus) FormatUptime() string {
 	}
 	return fmt.Sprintf("%ds", seconds)
 }
+
+// LogoutResponse represents the response from the logout API
+type LogoutResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// Logout disconnects WhatsApp by calling the logout API
+func (c *Client) Logout() (*LogoutResponse, error) {
+	req, err := http.NewRequest("POST", "http://localhost:8765/api/logout", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result LogoutResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}

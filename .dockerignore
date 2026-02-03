@@ -1,0 +1,26 @@
+# Data directory (has session files with restricted permissions)
+data/.wwebjs_auth
+data/sessions.json
+
+# Git
+.git
+.gitignore
+
+# Manager (Go TUI - not needed in Docker)
+manager
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+**/*.test.ts
+**/tests
+**/coverage
+
+# Build artifacts
+**/.nyc_output

@@ -54,7 +54,7 @@ export interface ToolCallRecord {
 // CONSTANTS
 // =============================================================================
 
-const MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
+const MODEL = process.env.AGENT_MODEL ?? 'openai/gpt-4o-mini';
 const MAX_TOOL_CALLS = 5;
 const MAX_CONSECUTIVE_ERRORS = 3;
 const ERROR_BACKOFF_MS = [1000, 5000, 30000];
@@ -145,11 +145,14 @@ let openaiClient: OpenAI | null = null;
 
 function getOpenAI(): OpenAI {
   if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      throw new Error('OPENAI_API_KEY not set');
+      throw new Error('OPENROUTER_API_KEY not set');
     }
-    openaiClient = new OpenAI({ apiKey });
+    openaiClient = new OpenAI({ 
+      apiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+    });
   }
   return openaiClient;
 }

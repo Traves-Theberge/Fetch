@@ -127,9 +127,33 @@ function validateInput(input: string): ValidationResult
 
 ---
 
-## 3. Agent API
+## 3. Agent API (V2 Orchestrator)
 
-### 3.1 Agent Core
+### 3.1 Intent Classification
+
+**File:** `fetch-app/src/agent/intent.ts`
+
+```typescript
+type IntentType = 'conversation' | 'workspace' | 'task';
+
+interface IntentClassification {
+  intent: IntentType;
+  confidence: number;
+  reasoning: string;
+}
+
+function classifyIntent(message: string): IntentClassification
+```
+
+**Intent Types:**
+
+| Intent | Description | Examples |
+|--------|-------------|----------|
+| `conversation` | Casual chat, greetings | "Hello!", "Thanks Fetch" |
+| `workspace` | File/project management | "List projects", "Show status" |
+| `task` | Complex work delegation | "Build a REST API", "Fix this bug" |
+
+### 3.2 Agent Core (Orchestrator)
 
 **File:** `fetch-app/src/agent/core.ts`
 
@@ -138,54 +162,77 @@ class AgentCore {
   constructor(session: Session, toolRegistry: ToolRegistry)
   
   /**
-   * Process a user message through the ReAct loop
+   * Process a user message through intent classification
+   * Routes to conversation, workspace, or task handling
    * @param message - User's message (with @fetch stripped)
    * @returns Array of response messages
    */
   async processMessage(message: string): Promise<string[]>
   
   /**
-   * Handle approval response
-   * @param response - User's yes/no/skip response
-   * @returns Array of response messages
+   * Handle conversation intent - direct response
    */
-  async handleApproval(response: string): Promise<string[]>
+  private handleConversation(message: string): Promise<string[]>
   
   /**
-   * Cancel current task
+   * Handle workspace intent - orchestrator tools
    */
-  cancelTask(): void
+  private handleWorkspace(message: string): Promise<string[]>
+  
+  /**
+   * Handle task intent - delegate to harness
+   */
+  private handleTask(message: string): Promise<string[]>
 }
 ```
 
-### 3.2 ReAct Loop
+### 3.3 Harness System
+
+**File:** `fetch-app/src/harness/`
 
 ```typescript
-// Simplified loop structure
-while (iterations < maxIterations) {
-  const decision = await llm.decide(context);
+interface HarnessAdapter {
+  name: string;
+  executable: string;
   
-  switch (decision.type) {
-    case 'use_tool':
-      if (needsApproval(decision.tool)) {
-        return askForApproval(decision);
-      }
-      await executeTool(decision);
-      break;
-      
-    case 'ask_user':
-      return formatQuestion(decision.question);
-      
-    case 'task_complete':
-      return formatSuccess(decision.summary);
-      
-    case 'task_blocked':
-      return formatBlocked(decision.reason);
-  }
+  buildConfig(task: TaskConfig): HarnessConfig;
+  parseOutputLine(line: string): ParsedOutput;
+  detectQuestion(line: string): boolean;
+  extractSummary(output: string): string;
+}
+
+// Registry
+class HarnessRegistry {
+  get(name: string): HarnessAdapter | undefined;
+  execute(name: string, config: HarnessConfig): Promise<HarnessResult>;
+  listAdapters(): HarnessAdapter[];
 }
 ```
 
-### 3.3 LLM Integration
+**Available Harnesses:**
+
+| Harness | CLI | Description |
+|---------|-----|-------------|
+| `claude` | `claude` | Anthropic Claude CLI |
+| `gemini` | `gemini` | Google Gemini CLI |
+| `copilot` | `gh copilot suggest` | GitHub Copilot CLI |
+
+### 3.4 Orchestrator Tools (8 Tools)
+
+The orchestrator has 8 focused tools for workspace management:
+
+| Tool | Description | Auto-Approve |
+|------|-------------|--------------|
+| `list_workspaces` | List available projects | ✅ |
+| `get_workspace_info` | Get project details | ✅ |
+| `switch_workspace` | Change active project | ✅ |
+| `create_workspace` | Initialize new project | ❌ |
+| `clone_repository` | Clone from git URL | ❌ |
+| `get_git_status` | Show git status | ✅ |
+| `get_git_diff` | Show file changes | ✅ |
+| `get_git_log` | Show commit history | ✅ |
+
+### 3.5 LLM Integration
 
 ```typescript
 // OpenRouter configuration
@@ -258,102 +305,26 @@ import { z } from 'zod';
 import { validateToolArgs, type ToolValidationResult } from './schemas.js';
 
 // Validate before execution
-const validation = validateToolArgs('read_file', { path: '../etc/passwd' });
+const validation = validateToolArgs('list_workspaces', { path: '/workspace' });
 if (!validation.success) {
   console.error(validation.error);
-  // "Invalid arguments for read_file: path: Path cannot contain ".." (directory traversal not allowed)"
 }
 ```
 
-#### Schema Registry
+### 4.4 Orchestrator Tools (V2)
 
-```typescript
-export const toolSchemas: Record<string, z.ZodSchema> = {
-  read_file: ReadFileSchema,
-  write_file: WriteFileSchema,
-  edit_file: EditFileSchema,
-  // ... all 24 tools
-};
-```
+The V2 orchestrator uses 8 focused tools for workspace management. Complex tasks are delegated to harnesses (Claude, Gemini, Copilot).
 
-#### Common Schemas
-
-| Schema | Description | Constraints |
-|--------|-------------|-------------|
-| `SafePath` | File paths | No `..`, must be in `/workspace` |
-| `PositiveInt` | Positive numbers | `> 0`, auto-coerced |
-| `NonNegativeInt` | Non-negative | `>= 0`, auto-coerced |
-
-#### Inferred Types
-
-TypeScript types are inferred from Zod schemas:
-
-```typescript
-export type ReadFileArgs = z.infer<typeof ReadFileSchema>;
-// { path: string; start_line?: number; end_line?: number }
-
-export type WriteFileArgs = z.infer<typeof WriteFileSchema>;
-// { path: string; content: string }
-```
-
-Available inferred types:
-- `ReadFileArgs`, `WriteFileArgs`, `EditFileArgs`
-- `ListDirectoryArgs`, `SearchFilesArgs`
-- `RunCommandArgs`, `GitCommitArgs`
-- `AskUserArgs`, `TaskCompleteArgs`
-
-### 4.4 Tool Categories
-
-<!-- DIAGRAM:tools -->
-
-#### File Tools
-
-| Tool | Parameters | Validation | Auto-Approve |
-|------|------------|------------|--------------|
-| `read_file` | `path`, `start_line?`, `end_line?` | SafePath, line range | ✅ |
-| `write_file` | `path`, `content` | SafePath required | ❌ |
-| `edit_file` | `path`, `old_string`, `new_string` | Non-empty old_string | ❌ |
-| `search_files` | `pattern`, `path?`, `include_content?` | Non-empty pattern | ✅ |
-| `list_directory` | `path?`, `recursive?`, `max_depth?` | SafePath, depth limit | ✅ |
-
-#### Code Tools
-
-| Tool | Parameters | Auto-Approve |
-|------|------------|--------------|
-| `repo_map` | `path?`, `max_depth?` | ✅ |
-| `find_definition` | `symbol`, `file_hint?` | ✅ |
-| `find_references` | `symbol` | ✅ |
-| `get_diagnostics` | `path?` | ✅ |
-
-#### Shell Tools
-
-| Tool | Parameters | Auto-Approve |
-|------|------------|--------------|
-| `run_command` | `command`, `timeout?` | ❌ |
-| `run_tests` | `pattern?`, `coverage?` | ✅ |
-| `run_lint` | `path?`, `fix?` | ✅ (unless fix) |
-
-#### Git Tools
-
-| Tool | Parameters | Auto-Approve |
-|------|------------|--------------|
-| `git_status` | — | ✅ |
-| `git_diff` | `path?`, `staged?` | ✅ |
-| `git_commit` | `message`, `files?` | ❌ |
-| `git_undo` | `hard?`, `count?` | ❌ |
-| `git_branch` | `name?`, `checkout?` | ❌ |
-| `git_log` | `count?` | ✅ |
-| `git_stash` | `action`, `message?` | ❌ |
-
-#### Control Tools
-
-| Tool | Parameters | Auto-Approve |
-|------|------------|--------------|
-| `ask_user` | `question`, `options?` | ✅ |
-| `report_progress` | `message`, `percent?` | ✅ |
-| `task_complete` | `summary`, `files_modified?` | ✅ |
-| `task_blocked` | `reason`, `suggestion?` | ✅ |
-| `think` | `thought` | ✅ |
+| Tool | Description | Parameters | Auto-Approve |
+|------|-------------|------------|--------------|
+| `list_workspaces` | List available projects | `path?` | ✅ |
+| `get_workspace_info` | Get project details | `name` | ✅ |
+| `switch_workspace` | Change active project | `name` | ✅ |
+| `create_workspace` | Initialize new project | `name`, `template?` | ❌ |
+| `clone_repository` | Clone from git URL | `url`, `name?` | ❌ |
+| `get_git_status` | Show git status | — | ✅ |
+| `get_git_diff` | Show file changes | `path?`, `staged?` | ✅ |
+| `get_git_log` | Show commit history | `count?` | ✅ |
 
 ---
 

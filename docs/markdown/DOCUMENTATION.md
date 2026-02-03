@@ -32,10 +32,10 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 ### 1.3 Key Features
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
-- 🧠 **4-Mode Architecture** — Conversation, Inquiry, Action, and Task modes
-- 🤖 **Agentic Framework** — Flexible AI agent via OpenRouter (100+ models)
+- 🧠 **V2 Orchestrator Architecture** — 3-intent system (Conversation, Workspace, Task)
+- 🤖 **Harness System** — Plug-in adapters for Claude, Gemini, Copilot CLIs
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
-- 🛠️ **24 Built-in Tools** — File, code, shell, git, and control operations
+- 🛠️ **8 Orchestrator Tools** — Focused workspace management tools
 - 🛡️ **Zod Validation** — Runtime type-safe tool argument validation
 - 📁 **Project Management** — Clone, init, switch between projects
 - 🔒 **Security-First** — 6 layers of protection
@@ -75,16 +75,19 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 - **Language:** TypeScript/Node.js 20+
 - **Framework:** whatsapp-web.js
 - **Port:** 8765 (Status API + Documentation)
-- **Purpose:** WhatsApp connection and agentic orchestration
+- **Purpose:** WhatsApp connection and V2 orchestration
 - **Features:**
   - `@fetch` trigger gate
   - Security (whitelist, rate limiting, validation)
-  - **4-Mode Intent Classification:**
-    - 💬 Conversation — Greetings, thanks, general chat (no tools)
-    - 🔍 Inquiry — Code questions (read-only tools)
-    - ⚡ Action — Single edits (one approval cycle)
-    - 📋 Task — Complex multi-step work (full ReAct loop)
-  - 24 built-in tools
+  - **3-Intent Classification (V2):**
+    - 💬 Conversation — Greetings, thanks, general chat (direct response)
+    - 📁 Workspace — Project management (8 orchestrator tools)
+    - 🚀 Task — Complex work (delegated to harness)
+  - **Harness System:**
+    - Claude CLI adapter
+    - Gemini CLI adapter
+    - Copilot CLI adapter
+  - 8 orchestrator tools
   - Project management (clone, init, switch)
   - Session persistence (lowdb)
   - Status API and documentation server
@@ -328,29 +331,51 @@ interface ProjectContext {
 }
 ```
 
-### 6.3 Intent Classification
+### 6.3 Intent Classification (V2)
 
 Messages are routed based on detected intent:
 
 ```typescript
-type IntentType = 'conversation' | 'inquiry' | 'action' | 'task';
+type IntentType = 'conversation' | 'workspace' | 'task';
 
-function classifyIntent(message: string): Intent {
-  // Greeting patterns → conversation
-  // "what's in", "show me", "explain" → inquiry
-  // "fix", "add", "change", "rename" → action
-  // "build", "create", "refactor" → task
+function classifyIntent(message: string): IntentClassification {
+  // Greeting patterns → conversation (direct response)
+  // "list projects", "show status", "switch to" → workspace (orchestrator tools)
+  // "build", "create", "fix", "refactor" → task (delegated to harness)
 }
 ```
 
-| Mode | Tools Available | Approval |
-|------|-----------------|----------|
-| Conversation | None | N/A |
-| Inquiry | read_file, list_directory, search_files, git_status, git_log, git_diff | Auto |
-| Action | All tools | One cycle |
-| Task | All tools | Per step (or autonomous) |
+| Intent | Description | Handling |
+|--------|-------------|----------|
+| 💬 Conversation | Greetings, thanks, chat | Direct LLM response, no tools |
+| 📁 Workspace | Project management | 8 orchestrator tools |
+| 🚀 Task | Complex coding work | Delegate to harness (Claude/Gemini/Copilot) |
 
-### 6.4 Autonomy Levels
+### 6.4 Harness System (V2)
+
+Tasks are delegated to AI CLI tools via the harness system:
+
+```typescript
+interface HarnessAdapter {
+  name: string;           // 'claude', 'gemini', 'copilot'
+  executable: string;     // CLI command
+  
+  buildConfig(task: TaskConfig): HarnessConfig;
+  parseOutputLine(line: string): ParsedOutput;
+  detectQuestion(line: string): boolean;
+  extractSummary(output: string): string;
+}
+```
+
+**Available Harnesses:**
+
+| Harness | CLI | Best For |
+|---------|-----|----------|
+| `claude` | `claude` | Complex coding, refactoring |
+| `gemini` | `gemini` | Code analysis, explanations |
+| `copilot` | `gh copilot suggest` | Quick suggestions, commands |
+
+### 6.5 Autonomy Levels
 
 | Level | Description |
 |-------|-------------|
@@ -360,7 +385,7 @@ function classifyIntent(message: string): Intent {
 
 Change mode: `@fetch set mode autonomous`
 
-### 6.5 LLM Configuration
+### 6.6 LLM Configuration
 
 ```typescript
 // OpenRouter with GPT-4.1-nano
@@ -377,11 +402,37 @@ const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4.1-nano';
 
 ## 7. Tool Reference
 
-Fetch includes **24 built-in tools** organized into 5 categories:
+The V2 orchestrator uses **8 focused tools** for workspace management. Complex tasks are delegated to harnesses.
 
-<!-- DIAGRAM:tools -->
+### 7.1 Orchestrator Tools (8)
 
-### 7.1 File Tools (5)
+| Tool | Description | Auto-Approve |
+|------|-------------|--------------|
+| `list_workspaces` | List available projects | ✅ |
+| `get_workspace_info` | Get project details | ✅ |
+| `switch_workspace` | Change active project | ✅ |
+| `create_workspace` | Initialize new project | ❌ |
+| `clone_repository` | Clone from git URL | ❌ |
+| `get_git_status` | Show git status | ✅ |
+| `get_git_diff` | Show file changes | ✅ |
+| `get_git_log` | Show commit history | ✅ |
+
+### 7.2 Harness Capabilities
+
+When tasks are delegated to harnesses (Claude, Gemini, Copilot), they have full access to:
+- File reading and writing
+- Code analysis and refactoring
+- Shell command execution
+- Git operations
+- Test running and debugging
+
+The harness system provides:
+- **Output Parsing** — Structured extraction of results
+- **Question Detection** — Identifies when AI needs input
+- **Progress Tracking** — Monitors task completion
+- **Error Handling** — Circuit breaker for failures
+
+### 7.3 File Tools (Legacy Reference)
 
 | Tool | Description | Auto-Approve |
 |------|-------------|--------------|

@@ -227,12 +227,22 @@ docker compose up -d
 **All messages must start with `@fetch`** (case-insensitive):
 
 ```
-@fetch fix the bug in auth.ts
-@Fetch explain this code
+@fetch list projects
+@Fetch build a login form
 @FETCH what's the status?
 ```
 
 Messages without `@fetch` are silently ignored for security.
+
+### V2 Intent System
+
+Fetch uses a 3-intent classification system:
+
+| Intent | Description | Example |
+|--------|-------------|---------|
+| 💬 **Conversation** | Greetings, thanks, chat | `@fetch Hello!` |
+| 📁 **Workspace** | Project management | `@fetch list projects` |
+| 🚀 **Task** | Complex coding work | `@fetch Build a REST API` |
 
 ### Built-in Commands
 
@@ -241,13 +251,12 @@ Messages without `@fetch` are silently ignored for security.
 | `@fetch help` | Show available commands |
 | `@fetch status` | System status and uptime |
 | `@fetch ping` | Quick connectivity test |
-| `@fetch undo` | Revert last file changes |
-| `@fetch auto` | Enable autonomous mode |
-| `@fetch supervised` | Return to supervised mode |
+| `@fetch list projects` | List available workspaces |
+| `@fetch switch to <name>` | Change active workspace |
 
 ### Coding Tasks
 
-Send natural language requests:
+Tasks are delegated to AI harnesses (Claude, Gemini, or Copilot CLI):
 
 ```
 @fetch Create a Python script that sorts a list of numbers
@@ -259,19 +268,6 @@ Send natural language requests:
 
 ```
 @fetch Write unit tests for the UserService class
-```
-
-### Agent Autonomy Modes
-
-| Mode | Behavior |
-|------|----------|
-| **Supervised** | Asks before each action |
-| **Semi-Auto** | Asks for dangerous operations only |
-| **Autonomous** | Executes full tasks independently |
-
-Change mode:
-```
-@fetch set mode autonomous
 ```
 
 ---
