@@ -5,86 +5,170 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-02-03 (Fetch-v2-demo)
+
+### 🚀 Major Architecture Change: Orchestrator Model
+
+Fetch V2 transforms from a **24-tool coding assistant** to an **8-tool orchestrator** that delegates work to specialized harnesses (Claude Code, Gemini CLI, Copilot CLI).
 
 ### Added
+
+#### 🎯 V2 Orchestrator Architecture
+
+**Core Components:**
+- `agent/core-v2.ts` - V2 agent with 3-intent classification and tool execution loop
+- `agent/intent-v2.ts` - Simplified intent classifier (conversation, workspace, task)
+- `agent/prompts-v2.ts` - Orchestrator prompts for routing, framing, summarizing, error recovery
+- `handler/v2.ts` - V2 message handler with feature flags for gradual rollout
+
+**Task Management:**
+- `task/types.ts` - Complete task domain types (Task, TaskStatus, TaskResult, TaskProgress)
+- `task/manager.ts` - Task lifecycle management with state machine
+- `task/queue.ts` - Single-task queue with capacity management
+- `task/integration.ts` - Task-harness integration layer with event routing
+
+**Harness Execution:**
+- `harness/types.ts` - Harness types (HarnessConfig, HarnessExecution, HarnessResult, HarnessEvent)
+- `harness/executor.ts` - Process spawning, output streaming, question detection
+- `harness/claude.ts` - Claude Code adapter with `--print` mode
+- `harness/output-parser.ts` - Output parsing for questions, errors, and completion
+
+**Workspace Management:**
+- `workspace/types.ts` - Workspace and project context types
+- `workspace/manager.ts` - Workspace discovery, selection, git status
+
+**Validation:**
+- `validation/common.ts` - Common Zod schemas (SafePath, PositiveInt, etc.)
+- `validation/tools.ts` - Tool-specific input/output schemas for all 8 V2 tools
+
+**Utilities:**
+- `utils/id.ts` - ID generators with prefixes (tsk_, hrn_, ses_, prg_)
+- `utils/docker.ts` - Docker utilities for container operations
+- `utils/stream.ts` - Stream utilities for output handling
+
+#### 🛠️ New V2 Tools (8 total)
+
+**Workspace Tools:**
+| Tool | Description |
+|------|-------------|
+| `workspace_list` | List available workspaces in /workspace |
+| `workspace_select` | Select active workspace |
+| `workspace_status` | Get workspace git status and info |
+
+**Task Tools:**
+| Tool | Description |
+|------|-------------|
+| `task_create` | Create a coding task for harness execution |
+| `task_status` | Get task status, progress, and pending questions |
+| `task_cancel` | Cancel a running task |
+| `task_respond` | Respond to a task's pending question |
+
+**Interaction Tools:**
+| Tool | Description |
+|------|-------------|
+| `ask_user` | Ask user a question during task execution |
+| `report_progress` | Report task progress with percentage and files |
+
+#### 🔧 Feature Flags
+
+```bash
+# Enable V2 orchestrator (default: false)
+FETCH_V2_ENABLED=true
+
+# Gradual rollout percentage (0-100)
+FETCH_V2_ROLLOUT_PERCENT=100
+```
+
+#### 📦 New Dependencies
+
+- `dockerode@4.0.9` - Docker API for container operations
+- `nanoid@5.1.5` - ID generation
+
+### Changed
+
+#### 🏗️ Architecture Transformation
+
+| Aspect | V1 | V2 |
+|--------|----|----|
+| Tools | 24 direct file/git/shell tools | 8 orchestrator tools |
+| Execution | Fetch executes directly | Delegates to harnesses |
+| Intent | 4 modes (conversation/inquiry/action/task) | 3 intents (conversation/workspace/task) |
+| File operations | Fetch reads/writes files | Harness reads/writes files |
+| Git operations | Fetch commits directly | Harness commits directly |
+| Code analysis | Fetch analyzes code | Harness analyzes code |
+
+#### 📁 Legacy Tool Migration
+
+- Moved legacy tools to `tools/legacy/`:
+  - `file.ts`, `code.ts`, `shell.ts`, `git.ts`, `control.ts`, `schemas.ts`
+- Updated imports across codebase to use legacy paths
+- Re-exported git utilities (`getCurrentCommit`, `resetToCommit`) for backward compatibility
+
+#### 🔄 Updated Modules
+
+- `agent/index.ts` - Exports both V1 and V2 agent APIs
+- `tools/index.ts` - Exports V2 tools and legacy utilities
+- `tools/registry.ts` - Updated to import from legacy folder
+- `commands/parser.ts` - Updated git utility imports
+
+### Fixed
+
+#### 🛡️ Error Handling
+
+- Added error tracking to prevent runaway responses on repeated failures
+- Implemented circuit breaker pattern (MAX_CONSECUTIVE_ERRORS = 3)
+- Added exponential backoff for retriable errors
+- Proper handling of 400/401/404 errors (no retry)
+
+#### 🏷️ Type Safety
+
+- Fixed OpenAI tool call type handling for custom tool formats
+- Fixed Session.messages vs conversationHistory field usage
+- Fixed Message type requiring id field
+- Added task:paused and task:resumed events to TaskEventType
+
+### Security
+
+- Feature flags allow controlled V2 rollout
+- User ID hashing for consistent rollout bucketing
+- Maintained whitelist authentication
+- Rate limiting preserved
+
+---
+
+## [1.1.0] - 2026-02-02
+
+### Added
+
+#### 🛠️ Zod Runtime Validation
+- **Tool argument validation** using Zod schemas for all 24 tools
+- **Type-safe schemas** with runtime constraint checking
+- **Validation function** `validateToolArgs()` with detailed error messages
+- **Schema registry** `toolSchemas` mapping tool names to Zod schemas
 
 #### 📚 Comprehensive JSDoc Documentation
 - **36 TypeScript files** with full `@fileoverview` documentation
 - Module-level documentation with `@module` identifiers
 - Cross-references with `@see` tags between related modules
-- ASCII architecture diagrams showing data flow and relationships
-- Quick-reference tables for functions, tools, and configurations
-- `@param`/`@returns` annotations for all public functions
-- `@example` code blocks demonstrating usage patterns
-- `@constant` documentation for configuration values
-- `@interface`/`@class` documentation for type definitions
-
-#### Files Documented
-- **agent/** - core.ts, intent.ts, conversation.ts, inquiry.ts, action.ts, prompts.ts, whatsapp-format.ts, format.ts, index.ts
-- **session/** - types.ts, manager.ts, store.ts, project.ts, index.ts
-- **tools/** - types.ts, registry.ts, file.ts, git.ts, shell.ts, code.ts, control.ts, index.ts
-- **security/** - gate.ts, rateLimiter.ts, validator.ts, index.ts
-- **executor/** - docker.ts
-- **handler/** - index.ts
-- **bridge/** - client.ts
-- **api/** - status.ts
-- **commands/** - parser.ts, index.ts
-- **utils/** - logger.ts, sanitize.ts
-- **types/** - qrcode-terminal.d.ts
-- **root** - index.ts
-
----
-
-## [Unreleased - Previous]
-
-### Added
 
 #### 🧠 4-Mode Architecture
-- **Conversation Mode** - Quick chat without tools (greetings, thanks, general questions)
-- **Inquiry Mode** - Read-only code exploration (what's in X, show me Y, explain Z)
-- **Action Mode** - Single edit cycle with approval (fix typo, add button)
-- **Task Mode** - Full multi-step task execution (build feature, refactor module)
+- **Conversation Mode** - Quick chat without tools
+- **Inquiry Mode** - Read-only code exploration
+- **Action Mode** - Single edit cycle with approval
+- **Task Mode** - Full multi-step task execution
 
 #### 🎯 Intent Classification
 - Automatic intent detection based on message patterns
 - Routes to appropriate mode without user intervention
-- Pattern matching for greetings, inquiries, actions, and tasks
 
 #### 📁 Project Management
 - `/projects` - List all git repositories in workspace
 - `/project <name>` - Switch active project context
 - `/clone <url>` - Clone repositories into workspace
-- `/init <name>` - Initialize new projects
-- `/status` - Git status (moved from general status)
-- `/diff` - Show current changes
-- `/log [n]` - Show recent commits
 
-#### 📱 WhatsApp-Friendly Formatting
-- `formatForWhatsApp()` - Mobile-optimized output
-- Compact diff display with emoji indicators (🟢/🔴)
-- Truncation for long outputs
-- Error messages with suggested fixes
-
-#### 🏗️ New Source Files
-- `agent/intent.ts` - Intent classifier with pattern matching
-- `agent/conversation.ts` - Conversation mode handler
-- `agent/inquiry.ts` - Inquiry mode with read-only tools
-- `agent/action.ts` - Single-edit action handler
-- `agent/prompts.ts` - Centralized system prompt builders
-- `agent/whatsapp-format.ts` - Mobile formatting utilities
-- `session/project.ts` - Project scanner and context
-
-### Changed
-- **Mode Routing** - Messages now routed by intent instead of always creating tasks
-- **System Prompts** - Centralized in `prompts.ts` for consistency
-- **Help Text** - Updated with new commands and mode explanations
-- **Session Type** - Added `currentProject` and `availableProjects`
-- `/status` command now shows git status (use `/task` for task status)
-
-### Removed
-- Removed task-first approach for simple interactions
-- Removed redundant prompt building code from individual handlers
+### Fixed
+- **WhatsApp Self-Chat Message Handling** - Messages sent to yourself now properly processed
+- **Naming Convention Cleanup** - Renamed `ValidationResult` → `ToolValidationResult`
 
 ---
 
@@ -92,51 +176,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **TUI Redesign** - Complete visual overhaul using Charmbracelet ecosystem
-  - Horizontal layout with ASCII dog mascot on left, menu on right
-  - Bottom-aligned content across all views
-  - Neofetch-style version screen with build info
-  - Dynamic header sizing based on terminal height
-  - Theme package with consistent color palette (Primary orange, Teal accents)
-  - Layout package for responsive frame management
-  - Components package (header, splash, version, statusbar, menu)
 - **Model Selector** - Interactive OpenRouter model browser
-  - Real-time model search and filtering
-  - Category-based navigation (Free, Chat, Code, Vision, etc.)
-  - Pricing display and context length info
-  - Automatic .env configuration
 - **@fetch trigger system** - All messages must now start with `@fetch` prefix
-  - Works in both direct messages and group chats
-  - Case-insensitive matching
-  - Owner verification for group messages via participant ID
-- **Enhanced logging system** - Beautiful, human-readable logs with:
-  - Colored output with ANSI codes (timestamps, icons, levels)
-  - Section headers with box drawing characters
-  - Log levels: debug 🔍, info 📘, warn ⚠️, error ❌, success ✅, message 💬
-  - Utility functions: `logger.section()`, `logger.divider()`, `logger.box()`
+- **Enhanced logging system** - Beautiful, human-readable logs
 - **QR code in TUI** - ASCII QR code rendering directly in terminal
-  - Added `github.com/skip2/go-qrcode` library
-  - Press 'o' to open QR URL in browser
-  - Press 'r' to refresh status
 - **Documentation site** - Beautiful HTML docs with HLLM design system
-  - Dark/light theme support
-  - Sidebar navigation with all docs
-  - Served from bridge container at `/docs`
-  - Accessible from TUI via 📚 Documentation menu
 
 ### Changed
 - **Manager Menu Streamlined** - Reduced from 11 to 9 items
-  - Removed "Status" (info now in header/statusbar)
-  - Removed "Update" (use git manually for more control)
-- **Kennel Description** - Changed from "Claude Computer Use Agents" to "Multi-Model AI Agent Orchestrator"
-- **Version Display** - Shows "development" and "local" instead of "unknown" for dev builds
-- Status API port changed from 3001 to **8765** (avoid conflicts with Next.js/Loki)
+- Status API port changed from 3001 to **8765**
 - Security gate completely rewritten for @fetch trigger support
-- Bridge client updated to pass participant ID for group message verification
-- Improved startup logging with clear initialization sections
 
 ### Fixed
 - Group messages now properly supported with owner verification
-- Chromium profile lock handling improved with clearer error messages
+
+---
 
 ## [0.1.0] - 2026-02-01
 
@@ -148,27 +202,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 24 built-in tools for file, code, shell, git, and control operations
 - ReAct (Reason + Act) loop for multi-step autonomous tasks
 - Session memory with persistent conversation context
-- Configurable autonomy modes: Supervised, Semi-autonomous, Fully autonomous
 - Docker-based architecture with Bridge and Kennel containers
 - Multi-agent support: Claude Code, Gemini CLI, GitHub Copilot
-- Security features:
-  - Whitelist-only authentication (OWNER_PHONE_NUMBER)
-  - Rate limiting (30 requests/minute)
-  - Input validation and sanitization
-  - Docker isolation for command execution
-  - Output sanitization (ANSI stripping, length truncation)
-
-### Changed
-- Generalized platform support from Raspberry Pi-specific to any Linux machine (ARM64/x86_64)
-- Renamed `install-pi.sh` to `install.sh` for broader compatibility
-- Updated all documentation to remove Raspberry Pi-specific references
-- Improved QR code display in TUI and bridge client with better formatting
 
 ### Security
-- Added beta warning to README emphasizing experimental nature
-- All CLI commands use array-based argument passing (no shell injection possible)
-- Read-only config mounts for authentication tokens
-- Silent drop of unauthorized messages (no acknowledgment)
+- Whitelist-only authentication (OWNER_PHONE_NUMBER)
+- Rate limiting (30 requests/minute)
+- Input validation and sanitization
+- Docker isolation for command execution
 
 ---
 
@@ -176,7 +217,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 2.0.0 | 2026-02-03 | V2 Orchestrator Architecture |
+| 1.1.0 | 2026-02-02 | 4-Mode Architecture & Zod Validation |
+| 0.2.0 | 2026-02-02 | TUI Redesign |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
-[Unreleased]: https://github.com/Traves-Theberge/Fetch/compare/v0.1.0...HEAD
+[2.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v1.1.0...v2.0.0
+[1.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.2.0...v1.1.0
+[0.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Traves-Theberge/Fetch/releases/tag/v0.1.0

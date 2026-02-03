@@ -133,18 +133,42 @@ export class SessionManager {
   }
 
   /**
+   * Add an assistant message with tool calls (when LLM requests tools)
+   */
+  async addAssistantToolCallMessage(
+    session: Session,
+    content: string | null,
+    toolCalls: Array<{ id: string; name: string; arguments: string }>
+  ): Promise<Message> {
+    const message = createMessage(
+      'assistant',
+      content || '',
+      undefined,
+      toolCalls.map(tc => ({ id: tc.id, name: tc.name, arguments: tc.arguments }))
+    );
+    session.messages.push(message);
+    await this.store.update(session);
+    return message;
+  }
+
+  /**
    * Add a tool call message to the session
    */
   async addToolMessage(
     session: Session, 
     toolCall: ToolCall,
-    content?: string
+    content?: string,
+    toolCallId?: string
   ): Promise<Message> {
     const message = createMessage(
       'tool', 
       content || `Tool: ${toolCall.name}`,
       toolCall
     );
+    // Override the auto-generated ID with the tool_call_id for proper pairing
+    if (toolCallId) {
+      message.id = toolCallId;
+    }
     session.messages.push(message);
     await this.store.update(session);
     return message;
@@ -454,7 +478,8 @@ export class SessionManager {
     tool: string,
     args: Record<string, unknown>,
     description: string,
-    diff?: string
+    diff?: string,
+    toolCallId?: string
   ): Promise<void> {
     if (!session.currentTask) {
       throw new Error('No active task');
@@ -466,6 +491,7 @@ export class SessionManager {
       args,
       description,
       diff,
+      toolCallId,
       createdAt: new Date().toISOString()
     };
     
@@ -475,22 +501,15 @@ export class SessionManager {
   /**
    * Clear pending approval
    */
-  async clearPendingApproval(session: Session, approved: boolean): Promise<void> {
+  async clearPendingApproval(session: Session, _approved: boolean): Promise<void> {
     if (!session.currentTask?.pendingApproval) {
       return;
     }
 
-    const approval = session.currentTask.pendingApproval;
     session.currentTask.pendingApproval = null;
     session.currentTask.status = 'executing';
     
-    // Record the approval decision in messages
-    await this.addToolMessage(session, {
-      name: approval.tool,
-      args: approval.args,
-      approved
-    }, approved ? 'Approved' : 'Rejected');
-    
+    // Note: Don't record tool message here - caller will do it with proper toolCallId
     await this.store.update(session);
   }
 

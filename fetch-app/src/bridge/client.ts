@@ -9,31 +9,34 @@
  * @see {@link SecurityGate} - Number whitelist enforcement
  * @see {@link RateLimiter} - Rate limiting
  * 
+ * ## Supported Interactions
+ * 
+ * | Type | Trigger | Notes |
+ * |------|---------|-------|
+ * | Direct message | `@fetch ...` | Standard command |
+ * | Self-chat | `@fetch ...` | Message yourself |
+ * | Thread reply | Reply to Fetch msg | No @fetch needed |
+ * | Emoji reaction | 👍/👎 on Fetch msg | Approve/reject (WIP) |
+ * 
  * ## Security Model
  * 
- * - **Whitelist**: Only messages from WHITELIST_NUMBERS are processed
+ * - **Whitelist**: Only messages from OWNER_PHONE_NUMBER are processed
  * - **Rate Limit**: 30 requests per minute per user
  * - **Input Validation**: Messages are validated before processing
  * - **Silent Drop**: Unauthorized messages are dropped without response
  * 
- * ## Connection Flow
- * 
- * ```
- * initialize()
- *      ↓
- * QR Code Generated → Scan with WhatsApp
- *      ↓
- * Authenticated
- *      ↓
- * Ready (Listening)
- * ```
- * 
  * ## Message Flow
  * 
  * ```
- * Incoming Message
+ * Incoming Message/Reaction
  *      ↓
- * Security Gate (whitelist check)
+ * Empty body check
+ *      ↓
+ * Thread reply check (skip @fetch if replying to Fetch)
+ *      ↓
+ * @fetch trigger check
+ *      ↓
+ * Security Gate (owner verification)
  *      ↓
  * Rate Limiter
  *      ↓
@@ -43,6 +46,12 @@
  *      ↓
  * Reply sent
  * ```
+ * 
+ * ## Self-Chat Support
+ * 
+ * WhatsApp routes self-chat messages with `to` field ending in `@lid`
+ * instead of `@c.us`. This module handles this by using `message_create`
+ * event and checking for `fromMe=true` with `@fetch` prefix.
  * 
  * @example
  * ```typescript
@@ -163,38 +172,147 @@ export class Bridge {
       logger.warn('WhatsApp disconnected', reason);
     });
 
-    // Message handler with security gate
-    // Use message_create to catch messages sent to yourself (self-chat)
+    // ==========================================================================
+    // MESSAGE REACTION HANDLER
+    // Emoji reactions like 👍, ❤️, etc. on messages
+    // ==========================================================================
+    this.client.on('message_reaction', async (reaction: any) => {
+      try {
+        // Only process reactions from owner
+        const senderId = reaction.senderId;
+        if (!senderId || !this.securityGate.isOwnerMessage(senderId, undefined)) {
+          logger.debug(`Skipped reaction from non-owner: ${senderId}`);
+          return;
+        }
+
+        // Only process reactions on our messages (fromMe)
+        const msgId = reaction.msgId;
+        if (!msgId) {
+          logger.debug('Reaction missing msgId');
+          return;
+        }
+
+        const emoji = reaction.reaction;
+        logger.info(`Reaction received: ${emoji} on message ${msgId._serialized || msgId}`);
+
+        // Map reactions to actions
+        // 👍 = approve/continue, 👎 = cancel/reject, ❌ = cancel
+        const approveEmojis = ['👍', '✅', '👌', '🙌', '💯'];
+        const rejectEmojis = ['👎', '❌', '🚫', '⛔'];
+        const cancelEmojis = ['🛑', '⏹️', '❌'];
+
+        if (approveEmojis.includes(emoji)) {
+          logger.info('Processing approval via reaction');
+          // TODO: Handle approval - send "yes" to handler
+          // await handleMessage(senderId, 'yes');
+        } else if (rejectEmojis.includes(emoji) || cancelEmojis.includes(emoji)) {
+          logger.info('Processing rejection/cancel via reaction');
+          // TODO: Handle rejection - send "no" to handler
+          // await handleMessage(senderId, 'no');
+        }
+        // Other emojis are ignored (just acknowledgements)
+      } catch (error) {
+        logger.error('Failed to process reaction', error);
+      }
+    });
+
+    // ==========================================================================
+    // MESSAGE HANDLERS
+    // ==========================================================================
+    
+    // Use message_create to catch ALL messages including self-chat
     this.client.on('message_create', async (message: Message) => {
-      // Skip messages sent by the bot itself (outgoing replies)
-      if (message.fromMe && !message.to.endsWith('@c.us')) {
+      logger.debug(`message_create: from=${message.from}, to=${message.to}, fromMe=${message.fromMe}, body="${message.body.substring(0, 50)}"`);
+      
+      // Skip empty messages (media without caption, etc.)
+      if (!message.body || message.body.trim() === '') {
+        logger.debug('Skipped: empty message body');
         return;
       }
-      // For self-chat, fromMe is true but we still want to process @fetch triggers
-      if (message.fromMe && !message.body.toLowerCase().trim().startsWith('@fetch')) {
-        return;
+      
+      // Check if this is a reply to a Fetch message (thread continuation)
+      const isReplyToFetch = await this.isReplyToFetchMessage(message);
+      const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
+      
+      // For self-chat messages (fromMe=true), process if @fetch OR reply to Fetch
+      if (message.fromMe) {
+        if (!hasFetchTrigger && !isReplyToFetch) {
+          logger.debug('Skipped: fromMe without @fetch trigger or thread reply');
+          return;
+        }
+        logger.info(`Processing self-chat message${isReplyToFetch ? ' (thread reply)' : ''}`);
       }
+      
       incrementMessageCount();
-      await this.handleIncomingMessage(message);
+      await this.handleIncomingMessage(message, isReplyToFetch);
+    });
+
+    // Also listen to regular message event for incoming messages from others
+    this.client.on('message', async (message: Message) => {
+      logger.debug(`message: from=${message.from}, body="${message.body.substring(0, 50)}"`);
+      
+      // Skip empty messages
+      if (!message.body || message.body.trim() === '') {
+        return;
+      }
+      
+      // Check if this is a reply to a Fetch message (thread continuation)
+      const isReplyToFetch = await this.isReplyToFetchMessage(message);
+      const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
+      
+      // Only process if starts with @fetch OR is reply to Fetch
+      if (!hasFetchTrigger && !isReplyToFetch) {
+        return;
+      }
+      logger.info(`Incoming message from ${message.from}${isReplyToFetch ? ' (thread reply)' : ''}`);
+      incrementMessageCount();
+      await this.handleIncomingMessage(message, isReplyToFetch);
     });
   }
 
   /**
-   * Handle incoming messages with strict security enforcement
-   * SECURITY: Requires @fetch trigger + owner verification
+   * Check if message is a reply to a Fetch bot message
    */
-  private async handleIncomingMessage(message: Message): Promise<void> {
+  private async isReplyToFetchMessage(message: Message): Promise<boolean> {
+    try {
+      const quotedMsg = await message.getQuotedMessage();
+      if (!quotedMsg) return false;
+      
+      // Check if the quoted message is from us (fromMe)
+      if (quotedMsg.fromMe) {
+        logger.debug('Message is reply to Fetch response');
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Handle incoming messages with strict security enforcement
+   * SECURITY: Requires @fetch trigger + owner verification (unless thread reply)
+   */
+  private async handleIncomingMessage(message: Message, isThreadReply: boolean = false): Promise<void> {
     const senderId = message.from;
     const participantId = (message as any).author; // Group message author
     const messageBody = message.body;
     
-    // SECURITY GATE 1: Validate @fetch trigger + owner
-    if (!this.securityGate.isAuthorized(senderId, participantId, messageBody)) {
-      // Silent drop - do not acknowledge unauthorized messages
-      return;
+    // SECURITY GATE 1: Validate authorization
+    // For thread replies, we skip the @fetch trigger check but still verify owner
+    if (isThreadReply) {
+      // For thread replies, just verify owner (no @fetch required)
+      if (!this.securityGate.isOwnerMessage(senderId, participantId)) {
+        return;
+      }
+    } else {
+      // Normal flow: require @fetch trigger + owner
+      if (!this.securityGate.isAuthorized(senderId, participantId, messageBody)) {
+        return;
+      }
     }
 
-    // Strip the @fetch trigger from the message
+    // Strip the @fetch trigger from the message (if present)
     const command = this.securityGate.stripTrigger(messageBody);
 
     // SECURITY GATE 2: Rate limiting

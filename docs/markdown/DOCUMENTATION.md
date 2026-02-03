@@ -32,12 +32,13 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 ### 1.3 Key Features
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
-- � **4-Mode Architecture** — Conversation, Inquiry, Action, and Task modes
+- 🧠 **4-Mode Architecture** — Conversation, Inquiry, Action, and Task modes
 - 🤖 **Agentic Framework** — Flexible AI agent via OpenRouter (100+ models)
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
 - 🛠️ **24 Built-in Tools** — File, code, shell, git, and control operations
+- 🛡️ **Zod Validation** — Runtime type-safe tool argument validation
 - 📁 **Project Management** — Clone, init, switch between projects
-- 🔒 **Security-First** — 5 layers of protection
+- 🔒 **Security-First** — 6 layers of protection
 - 🐳 **Docker Isolation** — All execution in sandboxed containers
 - 💾 **Session Persistence** — Survives reboots with lowdb
 - 🖥️ **TUI Manager** — Beautiful terminal interface
@@ -115,7 +116,7 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 ## 3. Security Model
 
-Fetch implements **5 layers of security** to protect your system:
+Fetch implements **6 layers of security** to protect your system:
 
 <!-- DIAGRAM:security -->
 
@@ -157,7 +158,26 @@ fix the bug in auth.ts          ❌ Ignored
 **Limits:**
 - Max length: 10,000 characters
 
-#### Layer 5: Docker Isolation
+#### Layer 5: Tool Argument Validation (Zod)
+
+```typescript
+// All tool arguments validated with Zod schemas
+import { validateToolArgs } from './tools/schemas.js';
+
+const validation = validateToolArgs('read_file', args);
+if (!validation.success) {
+  return { error: validation.error };  // Returns detailed validation message
+}
+```
+
+**Validation Rules:**
+- **SafePath** - No `..`, must be in `/workspace`
+- **Numeric coercion** - Strings auto-converted to numbers
+- **Required fields** - Missing fields caught early
+- **Range validation** - `start_line <= end_line`
+- **Length limits** - Commands max 10,000 chars
+
+#### Layer 6: Docker Isolation
 
 ```typescript
 // Commands use array-based argument passing (SAFE)

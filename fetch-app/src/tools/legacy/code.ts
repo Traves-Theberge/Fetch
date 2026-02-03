@@ -52,8 +52,8 @@
 
 import { readFile, readdir, stat } from 'fs/promises';
 import { join, relative, extname } from 'path';
-import { Tool, ToolResult } from './types.js';
-import { logger } from '../utils/logger.js';
+import { Tool, ToolResult } from '../types.js';
+import { logger } from '../../utils/logger.js';
 
 // =============================================================================
 // CONFIGURATION

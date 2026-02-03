@@ -123,13 +123,13 @@ export function buildContextSection(session: Session): string {
     }
   } else {
     parts.push('📂 No project selected');
-    if (session.availableProjects.length > 0) {
+    if (session.availableProjects && session.availableProjects.length > 0) {
       parts.push(`Available: ${session.availableProjects.slice(0, 3).join(', ')}`);
     }
   }
   
   // Active files
-  if (session.activeFiles.length > 0) {
+  if (session.activeFiles && session.activeFiles.length > 0) {
     const files = session.activeFiles.slice(0, 5);
     parts.push(`📄 Active: ${files.map(f => f.split('/').pop()).join(', ')}`);
     if (session.activeFiles.length > 5) {

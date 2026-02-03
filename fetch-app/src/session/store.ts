@@ -149,6 +149,27 @@ export class SessionStore {
       await this.db.write();
       logger.info('Created new session', { sessionId: session.id, userId });
     } else {
+      // Migrate old sessions to have new fields
+      let needsUpdate = false;
+      
+      if (session.availableProjects === undefined) {
+        session.availableProjects = [];
+        needsUpdate = true;
+      }
+      if (session.currentProject === undefined) {
+        session.currentProject = null;
+        needsUpdate = true;
+      }
+      if (session.activeFiles === undefined) {
+        session.activeFiles = [];
+        needsUpdate = true;
+      }
+      
+      if (needsUpdate) {
+        await this.db.write();
+        logger.info('Migrated session to new schema', { sessionId: session.id });
+      }
+      
       // Update last activity
       session.lastActivityAt = new Date().toISOString();
       await this.db.write();

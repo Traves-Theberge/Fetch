@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-#### 📚 Comprehensive JSDoc Documentation
+#### �️ Zod Runtime Validation
+- **Tool argument validation** using Zod schemas for all 24 tools
+- **Type-safe schemas** with runtime constraint checking:
+  - `SafePath` - Path traversal protection (`..` blocked, must be in `/workspace`)
+  - `PositiveInt` / `NonNegativeInt` - Numeric coercion and constraints
+  - Per-tool schemas with field-level validation and descriptions
+- **Inferred TypeScript types** from Zod schemas:
+  - `ReadFileArgs`, `WriteFileArgs`, `EditFileArgs`, `ListDirectoryArgs`
+  - `SearchFilesArgs`, `RunCommandArgs`, `GitCommitArgs`, `AskUserArgs`, `TaskCompleteArgs`
+- **Validation function** `validateToolArgs()` with detailed error messages
+- **Schema registry** `toolSchemas` mapping tool names to Zod schemas
+- **Integrated into tool execution** via `executeValidated()` method
+
+#### �📚 Comprehensive JSDoc Documentation
 - **36 TypeScript files** with full `@fileoverview` documentation
 - Module-level documentation with `@module` identifiers
 - Cross-references with `@see` tags between related modules
@@ -33,6 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **utils/** - logger.ts, sanitize.ts
 - **types/** - qrcode-terminal.d.ts
 - **root** - index.ts
+
+### Fixed
+
+#### 🔧 WhatsApp Self-Chat Message Handling
+- **Fixed self-chat routing** - Messages sent to yourself now properly processed
+- **Root cause**: WhatsApp routes self-chat messages with `to` field ending in `@lid` instead of `@c.us`
+- **Solution**: For `fromMe=true` messages, only check for `@fetch` prefix (skip `@c.us` validation)
+
+#### 🏷️ Naming Convention Cleanup
+- Renamed `ValidationResult` → `ToolValidationResult` to avoid collision with `security/validator.ts`
+- Simplified verbose JSDoc comments across multiple files
+- Removed unused `validateWithSchema` function
 
 ---
 
@@ -92,31 +117,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **TUI Redesign** - Complete visual overhaul using Charmbracelet ecosystem
-  - Horizontal layout: ASCII dog mascot on left, menu on right
+  - Horizontal layout with ASCII dog mascot on left, menu on right
   - Bottom-aligned content across all views
-  - Neofetch-style version screen (`v` key or menu)
+  - Neofetch-style version screen with build info
   - Dynamic header sizing based on terminal height
   - Theme package with consistent color palette (Primary orange, Teal accents)
   - Layout package for responsive frame management
   - Components package (header, splash, version, statusbar, menu)
-- **Model Selector in TUI** - Select AI model directly from the manager
-  - Fetches available models from OpenRouter API
-  - Shows recommended models (GPT-4o, Claude, Gemini, Llama, etc.)
-  - Tab to toggle between recommended and all models
-  - Saves selection to `AGENT_MODEL` in `.env`
-  - Price display per model
-- **Self-chat support** - Send messages to yourself for testing
-  - Uses `message_create` event instead of `message`
-  - Properly handles `fromMe` messages with @fetch trigger
-- **D3.js diagram system** - Beautiful interactive diagrams throughout documentation
-  - 6 diagram types: architecture, security, react, tools, dataflow, session
-  - Dark/light theme aware with automatic color adaptation
-  - Responsive sizing for all screen sizes
-  - Print-friendly styles
-- **Command Reference page** - New `COMMANDS.md` with complete WhatsApp command documentation
-  - All built-in commands with aliases
-  - Approval responses and natural language examples
-  - Response format examples
+- **Model Selector** - Interactive OpenRouter model browser
+  - Real-time model search and filtering
+  - Category-based navigation (Free, Chat, Code, Vision, etc.)
+  - Pricing display and context length info
+  - Automatic .env configuration
 - **@fetch trigger system** - All messages must now start with `@fetch` prefix
   - Works in both direct messages and group chats
   - Case-insensitive matching
@@ -141,13 +153,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed "Status" (info now in header/statusbar)
   - Removed "Update" (use git manually for more control)
 - **Kennel Description** - Changed from "Claude Computer Use Agents" to "Multi-Model AI Agent Orchestrator"
-- **Version Display** - Shows "development"/"local" instead of "unknown" for dev builds
-- **Documentation overhaul** - All docs rewritten and condensed
-  - Replaced ASCII art with D3.js interactive diagrams
-  - Removed outdated CODE_REVIEW.md
-  - Updated all docs to reflect current @fetch trigger system
-  - Added security diagram to SETUP_GUIDE.md
-- **Default model changed** - Now uses `openai/gpt-4o-mini` (was invalid `gpt-4.1-nano`)
+- **Version Display** - Shows "development" and "local" instead of "unknown" for dev builds
 - Status API port changed from 3001 to **8765** (avoid conflicts with Next.js/Loki)
 - Security gate completely rewritten for @fetch trigger support
 - Bridge client updated to pass participant ID for group message verification
@@ -155,7 +161,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Group messages now properly supported with owner verification
-- **Self-chat messages** - Now properly received when messaging yourself
 - Chromium profile lock handling improved with clearer error messages
 
 ## [0.1.0] - 2026-02-01

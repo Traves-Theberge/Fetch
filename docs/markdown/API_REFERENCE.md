@@ -236,22 +236,85 @@ class ToolRegistry {
   get(name: string): Tool | undefined
   getAll(): Tool[]
   toOpenAIFormat(): OpenAITool[]
+  
+  /**
+   * Execute tool with Zod validation
+   * @param toolName - Tool name
+   * @param args - Tool arguments (validated at runtime)
+   * @returns ToolResult with validation errors if invalid
+   */
+  executeValidated(toolName: string, args: unknown): Promise<ToolResult>
 }
 ```
 
-### 4.3 Tool Categories
+### 4.3 Tool Validation with Zod
+
+**File:** `fetch-app/src/tools/schemas.ts`
+
+All tool arguments are validated at runtime using [Zod](https://zod.dev) schemas.
+
+```typescript
+import { z } from 'zod';
+import { validateToolArgs, type ToolValidationResult } from './schemas.js';
+
+// Validate before execution
+const validation = validateToolArgs('read_file', { path: '../etc/passwd' });
+if (!validation.success) {
+  console.error(validation.error);
+  // "Invalid arguments for read_file: path: Path cannot contain ".." (directory traversal not allowed)"
+}
+```
+
+#### Schema Registry
+
+```typescript
+export const toolSchemas: Record<string, z.ZodSchema> = {
+  read_file: ReadFileSchema,
+  write_file: WriteFileSchema,
+  edit_file: EditFileSchema,
+  // ... all 24 tools
+};
+```
+
+#### Common Schemas
+
+| Schema | Description | Constraints |
+|--------|-------------|-------------|
+| `SafePath` | File paths | No `..`, must be in `/workspace` |
+| `PositiveInt` | Positive numbers | `> 0`, auto-coerced |
+| `NonNegativeInt` | Non-negative | `>= 0`, auto-coerced |
+
+#### Inferred Types
+
+TypeScript types are inferred from Zod schemas:
+
+```typescript
+export type ReadFileArgs = z.infer<typeof ReadFileSchema>;
+// { path: string; start_line?: number; end_line?: number }
+
+export type WriteFileArgs = z.infer<typeof WriteFileSchema>;
+// { path: string; content: string }
+```
+
+Available inferred types:
+- `ReadFileArgs`, `WriteFileArgs`, `EditFileArgs`
+- `ListDirectoryArgs`, `SearchFilesArgs`
+- `RunCommandArgs`, `GitCommitArgs`
+- `AskUserArgs`, `TaskCompleteArgs`
+
+### 4.4 Tool Categories
 
 <!-- DIAGRAM:tools -->
 
 #### File Tools
 
-| Tool | Parameters | Auto-Approve |
-|------|------------|--------------|
-| `read_file` | `path`, `start_line?`, `end_line?` | ✅ |
-| `write_file` | `path`, `content` | ❌ |
-| `edit_file` | `path`, `search`, `replace` | ❌ |
-| `search_files` | `query`, `path?`, `regex?` | ✅ |
-| `list_directory` | `path?`, `recursive?` | ✅ |
+| Tool | Parameters | Validation | Auto-Approve |
+|------|------------|------------|--------------|
+| `read_file` | `path`, `start_line?`, `end_line?` | SafePath, line range | ✅ |
+| `write_file` | `path`, `content` | SafePath required | ❌ |
+| `edit_file` | `path`, `old_string`, `new_string` | Non-empty old_string | ❌ |
+| `search_files` | `pattern`, `path?`, `include_content?` | Non-empty pattern | ✅ |
+| `list_directory` | `path?`, `recursive?`, `max_depth?` | SafePath, depth limit | ✅ |
 
 #### Code Tools
 
@@ -413,10 +476,11 @@ open http://localhost:8765/docs
 | `AUTH_FAILED` | Whitelist check failed |
 | `RATE_LIMITED` | Too many requests |
 | `INVALID_INPUT` | Blocked pattern detected |
+| `VALIDATION_ERROR` | Zod schema validation failed |
 | `TOOL_FAILED` | Tool execution error |
 | `TIMEOUT` | Execution timeout |
 | `LLM_ERROR` | OpenRouter API error |
 
 ---
 
-*API Reference for Fetch v0.1.0*
+*API Reference for Fetch v0.2.0*

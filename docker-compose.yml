@@ -19,6 +19,8 @@ services:
       - ./data:/app/data
       # Docker socket for controlling Kennel
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Shared workspace for file operations
+      - ./workspace:/workspace
     depends_on:
       - fetch-kennel
     networks:

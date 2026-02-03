@@ -43,6 +43,7 @@ Powered by **OpenRouter** with access to **100+ AI models**:
 - **Model Flexibility** - GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
 - **ReAct Loop** - Reason + Act pattern for multi-step tasks
 - **24 Built-in Tools** - File, code, shell, git, and control operations
+- **Zod Validation** - Runtime type-safe tool argument validation
 - **Session Memory** - Persistent conversation context
 - **Project Awareness** - Knows your active project and git status
 - **Configurable Autonomy** - Supervised, semi-autonomous, or fully autonomous modes
@@ -181,9 +182,12 @@ Just describe what you need:
 Fetch is designed with security as a top priority:
 
 - **Whitelist Only**: Only responds to `OWNER_PHONE_NUMBER`
+- **@fetch Trigger**: All messages must start with `@fetch` prefix
+- **Zod Validation**: Runtime type checking for all tool arguments
 - **No Shell Injection**: Commands use array-based argument passing
 - **Rate Limiting**: 30 requests per minute maximum
 - **Input Validation**: Sanitizes all user input
+- **Path Traversal Protection**: Blocks `..` in file paths
 - **Docker Isolation**: AI agents run in sandboxed containers
 - **Read-Only Configs**: Auth tokens mounted as read-only
 
@@ -201,11 +205,11 @@ fetch/
 ├── fetch-app/              # Node.js Bridge
 │   └── src/
 │       ├── bridge/         # WhatsApp client
-│       ├── security/       # Auth, rate limiting
+│       ├── security/       # Auth, rate limiting, validation
 │       ├── orchestrator/   # OpenRouter intent parsing
 │       ├── agent/          # Agentic core (ReAct loop)
 │       ├── session/        # Session management
-│       ├── tools/          # Tool registry (24 tools)
+│       ├── tools/          # Tool registry + Zod schemas
 │       ├── executor/       # Docker exec wrapper
 │       ├── tasks/          # Task persistence
 │       └── utils/          # Logger, sanitizer

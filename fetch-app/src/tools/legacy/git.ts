@@ -38,8 +38,8 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { Tool, ToolResult } from './types.js';
-import { logger } from '../utils/logger.js';
+import { Tool, ToolResult } from '../types.js';
+import { logger } from '../../utils/logger.js';
 
 const execAsync = promisify(exec);
 

@@ -68,7 +68,7 @@ import {
   Decision
 } from '../tools/types.js';
 import { ToolRegistry, getToolRegistry } from '../tools/registry.js';
-import { getCurrentCommit } from '../tools/git.js';
+import { getCurrentCommit } from '../tools/index.js';
 import { logger } from '../utils/logger.js';
 import { formatApprovalRequest, formatTaskComplete, formatTaskFailed, formatProgress } from './format.js';
 import { classifyIntent, shouldBypassConversation } from './intent.js';
@@ -221,6 +221,7 @@ export class AgentCore {
     const task = session.currentTask!;
     const approval = task.pendingApproval!;
     const normalizedResponse = response.toLowerCase().trim();
+    const toolCallId = approval.toolCallId;
 
     // Check for approval
     const isApproved = ['yes', 'y', 'ok', 'approve', '👍', 'yep', 'sure'].includes(normalizedResponse);
@@ -235,7 +236,7 @@ export class AgentCore {
       
       // Execute the pending tool
       const result = await this.executeTool(approval.tool, approval.args);
-      await this.recordToolResult(session, approval.tool, approval.args, result, true);
+      await this.recordToolResult(session, approval.tool, approval.args, result, true, toolCallId);
       
       if (result.success && (approval.tool === 'write_file' || approval.tool === 'edit_file')) {
         task.filesModified.push(approval.args.path as string);
@@ -250,7 +251,7 @@ export class AgentCore {
       
       // Execute the approved tool
       const result = await this.executeTool(approval.tool, approval.args);
-      await this.recordToolResult(session, approval.tool, approval.args, result, true);
+      await this.recordToolResult(session, approval.tool, approval.args, result, true, toolCallId);
       
       if (result.success && (approval.tool === 'write_file' || approval.tool === 'edit_file')) {
         task.filesModified.push(approval.args.path as string);
@@ -270,7 +271,7 @@ export class AgentCore {
         output: '',
         error: 'User rejected this action',
         duration: 0
-      }, false);
+      }, false, toolCallId);
 
       // Continue - agent will adapt
       return this.runAgentLoop(session);
@@ -284,7 +285,7 @@ export class AgentCore {
         success: true,
         output: 'Skipped by user',
         duration: 0
-      }, false);
+      }, false, toolCallId);
 
       return ['⏭️ Skipped. Continuing...', ...(await this.runAgentLoop(session))];
     }
@@ -339,6 +340,15 @@ export class AgentCore {
       switch (decision.type) {
         case 'use_tool': {
           const tool = decision.tool;
+          const toolCallId = decision.toolCallId;
+          
+          // Record assistant message with tool_calls BEFORE executing
+          // This is required by OpenAI API - tool responses must follow assistant messages with tool_calls
+          await this.sessionManager.addAssistantToolCallMessage(
+            session,
+            decision.reasoning,
+            [{ id: toolCallId, name: tool.name, arguments: JSON.stringify(decision.args) }]
+          );
           
           // Check if approval needed
           if (this.needsApproval(session, tool, decision.args)) {
@@ -348,13 +358,14 @@ export class AgentCore {
               diff = await this.generateDiff(tool.name, decision.args);
             }
 
-            // Set pending approval
+            // Set pending approval (with toolCallId for later message pairing)
             await this.sessionManager.setPendingApproval(
               session,
               tool.name,
               decision.args,
               decision.reasoning,
-              diff
+              diff,
+              toolCallId
             );
 
             responses.push(formatApprovalRequest(
@@ -368,7 +379,7 @@ export class AgentCore {
 
           // Execute tool directly
           const result = await this.executeTool(tool.name, decision.args);
-          await this.recordToolResult(session, tool.name, decision.args, result, true);
+          await this.recordToolResult(session, tool.name, decision.args, result, true, toolCallId);
 
           if (result.success && tool.modifiesWorkspace) {
             if (tool.name === 'write_file' || tool.name === 'edit_file') {
@@ -388,7 +399,7 @@ export class AgentCore {
 
         case 'ask_user': {
           // Format question and wait for response
-          let question = `❓ ${decision.question}`;
+          let question = `*Question:* ${decision.question}`;
           if (decision.options) {
             question += '\n\n' + decision.options.map((o, i) => `${i + 1}. ${o}`).join('\n');
           }
@@ -485,9 +496,16 @@ export class AgentCore {
 
   /**
    * Build messages array for LLM (OpenAI format)
+   * 
+   * OpenAI requires that tool messages must follow an assistant message
+   * containing the tool_calls array. The message flow is:
+   * 1. User: "do something"
+   * 2. Assistant: (with tool_calls array)
+   * 3. Tool: (with tool_call_id matching step 2)
+   * 4. Assistant: "here's what happened"
    */
-  private buildMessages(session: Session): Array<{ role: string; content: string; tool_call_id?: string; name?: string }> {
-    const messages: Array<{ role: string; content: string; tool_call_id?: string; name?: string }> = [];
+  private buildMessages(session: Session): Array<OpenAI.ChatCompletionMessageParam> {
+    const messages: Array<OpenAI.ChatCompletionMessageParam> = [];
     
     // Get recent messages (limit context window)
     const recentMessages = session.messages.slice(-30);
@@ -496,13 +514,29 @@ export class AgentCore {
       if (msg.role === 'user') {
         messages.push({ role: 'user', content: msg.content });
       } else if (msg.role === 'assistant') {
-        messages.push({ role: 'assistant', content: msg.content });
+        // Check if this assistant message has tool_calls (requesting a tool)
+        if (msg.toolCalls && msg.toolCalls.length > 0) {
+          messages.push({
+            role: 'assistant',
+            content: msg.content || null,
+            tool_calls: msg.toolCalls.map(tc => ({
+              id: tc.id,
+              type: 'function' as const,
+              function: {
+                name: tc.name,
+                arguments: tc.arguments
+              }
+            }))
+          });
+        } else {
+          // Regular assistant message
+          messages.push({ role: 'assistant', content: msg.content });
+        }
       } else if (msg.role === 'tool' && msg.toolCall) {
-        // OpenAI format for tool results
+        // Tool result message - use the message ID as tool_call_id
         messages.push({
           role: 'tool',
           tool_call_id: msg.id,
-          name: msg.toolCall.name,
           content: msg.toolCall.result || msg.content
         });
       }
@@ -589,12 +623,13 @@ export class AgentCore {
         };
       }
 
-      // Regular tool use
+      // Regular tool use - include the toolCallId for message pairing
       return {
         type: 'use_tool',
         tool,
         args,
-        reasoning: message.content || ''
+        reasoning: message.content || '',
+        toolCallId: toolCall.id
       };
     }
 
@@ -660,37 +695,16 @@ export class AgentCore {
   }
 
   /**
-   * Execute a tool
+   * Execute a tool with Zod validation
    */
   private async executeTool(
     toolName: string, 
     args: Record<string, unknown>
   ): Promise<ToolResult> {
-    const tool = this.toolRegistry.get(toolName);
-    
-    if (!tool) {
-      return {
-        success: false,
-        output: '',
-        error: `Unknown tool: ${toolName}`,
-        duration: 0
-      };
-    }
-
     logger.info('Executing tool', { tool: toolName, args });
-
-    try {
-      return await tool.execute(args);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('Tool execution failed', { tool: toolName, error });
-      return {
-        success: false,
-        output: '',
-        error: message,
-        duration: 0
-      };
-    }
+    
+    // Use validated execution from registry
+    return await this.toolRegistry.executeValidated(toolName, args);
   }
 
   /**
@@ -701,7 +715,8 @@ export class AgentCore {
     toolName: string,
     args: Record<string, unknown>,
     result: ToolResult,
-    approved: boolean
+    approved: boolean,
+    toolCallId?: string
   ): Promise<void> {
     const toolCall: ToolCall = {
       name: toolName,
@@ -714,7 +729,8 @@ export class AgentCore {
     await this.sessionManager.addToolMessage(
       session,
       toolCall,
-      result.success ? result.output : `Error: ${result.error}`
+      result.success ? result.output : `Error: ${result.error}`,
+      toolCallId
     );
   }
 
