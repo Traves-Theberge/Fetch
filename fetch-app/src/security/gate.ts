@@ -59,25 +59,30 @@ import { logger } from '../utils/logger.js';
 /** The trigger prefix (case-insensitive) */
 const FETCH_TRIGGER = '@fetch';
 
+/** How long a conversation stays active without @fetch (10 minutes) */
+const CONVERSATION_TIMEOUT_MS = 10 * 60 * 1000;
+
 // =============================================================================
 // SECURITY GATE CLASS
 // =============================================================================
 
 /**
  * Security gate enforcing phone number whitelist.
- * 
- * Only processes messages from OWNER_PHONE_NUMBER that start with @fetch.
- * All other messages are silently dropped.
- * 
+ *
+ * First message requires @fetch trigger from owner.
+ * Follow-up messages within 10 minutes don't need @fetch.
+ *
  * @class
  * @throws {Error} If OWNER_PHONE_NUMBER is not set
  */
 export class SecurityGate {
   private readonly ownerNumberClean: string;
+  /** Track last interaction time per chat for conversation mode */
+  private activeConversations: Map<string, number> = new Map();
 
   constructor() {
     const ownerNumber = process.env.OWNER_PHONE_NUMBER;
-    
+
     if (!ownerNumber) {
       throw new Error('CRITICAL: OWNER_PHONE_NUMBER environment variable is not set');
     }
@@ -87,8 +92,30 @@ export class SecurityGate {
 
     logger.section('🔒 Security Gate Initialized');
     logger.info(`Owner: +${this.ownerNumberClean}`);
-    logger.info(`Trigger: ${FETCH_TRIGGER} (case-insensitive)`);
+    logger.info(`Trigger: ${FETCH_TRIGGER} (or reply within 10min)`);
     logger.divider();
+  }
+
+  /**
+   * Check if there's an active conversation with this chat
+   */
+  hasActiveConversation(chatId: string): boolean {
+    const lastActivity = this.activeConversations.get(chatId);
+    if (!lastActivity) return false;
+
+    const elapsed = Date.now() - lastActivity;
+    if (elapsed > CONVERSATION_TIMEOUT_MS) {
+      this.activeConversations.delete(chatId);
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Mark a conversation as active (called after processing a message)
+   */
+  touchConversation(chatId: string): void {
+    this.activeConversations.set(chatId, Date.now());
   }
 
   /**
@@ -127,11 +154,12 @@ export class SecurityGate {
 
   /**
    * Check if a message is authorized
-   * Requires: @fetch trigger + owner (direct or group participant)
-   * 
+   * Requires: @fetch trigger OR active conversation + owner
+   *
    * @param senderId - WhatsApp chat ID (can be @c.us or @g.us)
    * @param participantId - For groups, the actual sender's ID
    * @param messageBody - The message content
+   * @returns Object with authorized status and whether trigger was used
    */
   isAuthorized(senderId: string, participantId: string | undefined, messageBody: string): boolean {
     try {
@@ -141,15 +169,11 @@ export class SecurityGate {
       }
 
       const isGroup = senderId.endsWith('@g.us');
-      const chatType = isGroup ? 'group' : 'direct';
-      const preview = messageBody.substring(0, 30).replace(/\n/g, ' ');
+      const hasTrigger = this.hasFetchTrigger(messageBody);
+      const hasActiveConvo = this.hasActiveConversation(senderId);
 
-      // Must have @fetch trigger
-      if (!this.hasFetchTrigger(messageBody)) {
-        // Only log if it looks like an attempted command (starts with @)
-        if (messageBody.trim().startsWith('@')) {
-          logger.debug(`Ignored ${chatType} message (no @fetch): "${preview}..."`);
-        }
+      // Need either @fetch trigger OR active conversation
+      if (!hasTrigger && !hasActiveConvo) {
         return false;
       }
 
@@ -160,20 +184,24 @@ export class SecurityGate {
           return false;
         }
         if (!this.isOwner(participantId)) {
-          logger.warn(`Blocked: @fetch from non-owner in group`);
+          if (hasTrigger) {
+            logger.warn(`Blocked: @fetch from non-owner in group`);
+          }
           return false;
         }
-        logger.success(`Authorized from owner (group chat)`);
+        logger.success(`Authorized from owner (group chat${hasActiveConvo && !hasTrigger ? ', conversation mode' : ''})`);
         return true;
       }
 
       // Direct message: check sender
       if (!this.isOwner(senderId)) {
-        logger.warn(`Blocked: @fetch from unknown number`);
+        if (hasTrigger) {
+          logger.warn(`Blocked: @fetch from unknown number`);
+        }
         return false;
       }
 
-      logger.success(`Authorized from owner (direct message)`);
+      logger.success(`Authorized from owner (${hasActiveConvo && !hasTrigger ? 'conversation mode' : 'direct message'})`);
       return true;
     } catch (error) {
       logger.error('Security gate error - denying access', error);
