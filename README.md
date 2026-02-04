@@ -205,7 +205,8 @@ Just describe what you need:
 
 Fetch is designed with security as a top priority:
 
-- **Whitelist Only**: Only responds to `OWNER_PHONE_NUMBER`
+- **Zero Trust Bonding**: Only owner + explicitly whitelisted numbers can use @fetch
+- **Whitelist Only**: Owner always trusted, others must be added via `/trust` commands
 - **@fetch Trigger**: All messages must start with `@fetch` prefix
 - **Zod Validation**: Runtime type checking for all tool arguments
 - **No Shell Injection**: Commands use array-based argument passing
@@ -214,6 +215,14 @@ Fetch is designed with security as a top priority:
 - **Path Traversal Protection**: Blocks `..` in file paths
 - **Docker Isolation**: AI agents run in sandboxed containers
 - **Read-Only Configs**: Auth tokens mounted as read-only
+
+### Whitelist Management (Owner Only)
+
+```
+/trust add 15551234567     # Add trusted number
+/trust remove 15551234567  # Remove trusted number
+/trust list                # Show all trusted numbers
+```
 
 ## 📁 Project Structure
 
@@ -262,6 +271,7 @@ fetch/
 | `AGENT_MODEL` | Agent model (default: `openai/gpt-4.1-nano`) |
 | `ANTHROPIC_API_KEY` | API key for Claude |
 | `GEMINI_API_KEY` | API key for Gemini |
+| `TRUSTED_PHONE_NUMBERS` | Comma-separated trusted numbers (optional) |
 
 ### GitHub Copilot Authentication
 

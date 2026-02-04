@@ -164,47 +164,6 @@ export async function parseCommand(
         responses: [formatStatus(session)]
       };
 
-    // =========================================================================
-    // General Info
-    // =========================================================================
-    case 'help':
-    case 'h':
-    case '?':
-      return {
-        handled: true,
-        responses: [
-          `🐕 *Fetch Commands*
-
-*Workspace*
-/projects - List available projects
-/select <name> - Select a project
-/status - Current project status
-
-*Tasks*
-/task <description> - Start a coding task
-/tasks - List active tasks
-/cancel - Cancel current task
-
-*Context*
-/add <file> - Add file to context
-/drop <file> - Remove file from context
-/files - Show active context
-
-*Settings*
-/auto [full|guided|manual] - Set autonomy level
-/reset - Reset session
-
-*Security*
-/trust add <number> - Add trusted number
-/trust remove <number> - Remove number
-/trust list - Show trusted numbers
-
-*Info*
-/help - Show this help
-/version - Show version info`
-        ]
-      };
-
     case 'version':
     case 'v':
       return {
