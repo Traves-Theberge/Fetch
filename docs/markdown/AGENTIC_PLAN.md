@@ -172,15 +172,7 @@ interface AgentTask {
 
 ### Persistence
 
-**Why SQLite?**
-
-| Factor | SQLite | lowdb | Vector DB |
-|--------|--------|-------|----------|
-| Single user | ✅ Perfect | OK | Overkill |
-| Crash safety | ✅ ACID | No | Yes |
-| Resource use | ✅ Minimal | Minimal | Heavy |
-| Concurrency | ✅ WAL mode | No | Yes |
-| Complexity | ✅ Low | None | High |
+Sessions are stored in SQLite (`/app/data/sessions.db`) using `better-sqlite3` with WAL mode for optimal single-user performance and crash safety.
 
 ---
 
