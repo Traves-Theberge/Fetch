@@ -38,3 +38,6 @@ logs/
 
 # Go binaries
 manager/fetch-manager
+*.db
+*.db-shm
+*.db-wal
