@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-02-03 (Documentation & Diagrams Update 📊)
+
+### 📊 Architecture Visualization Improvements
+
+Enhanced documentation with better diagrams and clearer intent classification.
+
+### Changed
+
+**README.md:**
+- Redesigned architecture diagram with emoji icons and better visual hierarchy
+- Updated message flow diagram to show 4-mode intent classification (Chat, Inquiry, Action, Task)
+- Added interactive diagrams link pointing to docs server
+- Improved ASCII art formatting for better readability
+
+**Documentation:**
+- Updated DOCUMENTATION.md with 4-mode intent classification system:
+  - 💬 Conversation — Greetings, thanks, general chat (direct response)
+  - 🔍 Inquiry — Questions about code (read-only tools)
+  - ⚡ Action — Single edits/changes (full tools, 1 cycle)
+  - 📋 Task — Complex multi-step work (full tools, ReAct loop)
+- Corrected tool count to 11 tools
+- Added diagram placeholders for message flow, harness system, and tools
+
+**Styling:**
+- Enhanced diagram container styles with better spacing and shadows
+- Added responsive SVG support with max-width and auto height
+- Improved dark mode diagram appearance with elevated card background
+
+---
+
 ## [2.1.0] - 2026-02-03 (Good Boy Update 🐕)
 
 ### 🐕 "Good Boy" Personality Enhancement

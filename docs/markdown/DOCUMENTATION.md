@@ -79,10 +79,11 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 - **Features:**
   - `@fetch` trigger gate
   - Security (whitelist, rate limiting, validation)
-  - **3-Intent Classification (V2):**
+  - **4-Mode Intent Classification:**
     - 💬 Conversation — Greetings, thanks, general chat (direct response)
-    - 📁 Workspace — Project management (11 orchestrator tools)
-    - 🚀 Task — Complex work (delegated to harness)
+    - 🔍 Inquiry — Questions about code (read-only tools)
+    - ⚡ Action — Single edits/changes (full tools, 1 cycle)
+    - 📋 Task — Complex multi-step work (full tools, ReAct loop)
   - **Harness System:**
     - Claude CLI adapter
     - Gemini CLI adapter
@@ -92,6 +93,8 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
   - Session persistence (SQLite)
   - Status API and documentation server
 
+<!-- DIAGRAM:messageflow -->
+
 #### The Kennel (Docker) - "The Muscle"
 - **Base:** Ubuntu 22.04
 - **Purpose:** Multi-Model AI Agent Orchestrator
@@ -100,6 +103,8 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
   - Gemini CLI
   - GitHub CLI + Copilot extension
 - **Role:** Sandboxed execution environment for AI coding agents
+
+<!-- DIAGRAM:harness -->
 
 ### 2.3 Data Flow
 
@@ -403,9 +408,11 @@ const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4.1-nano';
 
 ## 7. Tool Reference
 
-The V2 orchestrator uses **8 focused tools** for workspace management. Complex tasks are delegated to harnesses.
+The V2 orchestrator uses **11 focused tools** for workspace management. Complex tasks are delegated to harnesses.
 
-### 7.1 Orchestrator Tools (8)
+<!-- DIAGRAM:tools -->
+
+### 7.1 Orchestrator Tools (11)
 
 | Tool | Description | Auto-Approve |
 |------|-------------|--------------|
