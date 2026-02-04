@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-02-04 (Auto-scaffold Templates 🛠️)
+
+### 🛠️ Workspace Scaffolding Improvements
+
+Auto-scaffolding for new workspaces using popular project templates.
+
+### Added
+
+**Templates:**
+- `empty`: Basic directory with README and .gitignore
+- `node`: Scaffolds with `npm init -y` and creates a sample `index.js`
+- `python`: Creates basic structure and initializes a virtual environment (`venv`)
+- `rust`: Scaffolds using `cargo init`
+- `go`: Scaffolds using `go mod init` and creates a sample `main.go`
+- `react`: Scaffolds a React app using Vite (`npm create vite@latest`)
+- `next`: Scaffolds a Next.js app using `create-next-app` (non-interactive)
+
+**Features:**
+- Real-time progress events for workspace scaffolding
+- Generous timeouts for heavy scaffolders (Next.js, Vite)
+- Automatic git initialization for all scaffolded projects
+
+### Changed
+
+**Kennel Container:**
+- Updated `kennel/Dockerfile` to include essential runtimes:
+  - Python 3 + venv
+  - Go 1.21+
+  - Rust (cargo + rustc)
+
+**Workspace Manager:**
+- Refactored `WorkspaceManager.createWorkspace` to use actual CLI scaffolders instead of manual file creation where possible
+- Added `workspace:scaffolding` events to track process lifecycle
+
+### Technical Notes
+
+- Uses non-interactive flags for all scaffolders (e.g., `npm init -y`, `npx create-next-app --use-npm`)
+- Cleans directory before scaffolding for Next.js and React to prevent conflicts
+- Addresses GitHub Issue #3: Auto-scaffold workspace_create templates
+
+---
+
 ## [2.2.0] - 2026-02-04 (Test Harness Integration 🧪)
 
 ### 🧪 Harness Integration Testing
