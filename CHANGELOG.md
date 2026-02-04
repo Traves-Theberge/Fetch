@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.3] - 2026-02-04 (Zero Trust Bonding 🔐)
+
+### 🔐 Phone Number Whitelist (Issue #13)
+- Implemented **Zero Trust Bonding** security model for group chat access control.
+- Created `WhitelistStore` class for managing trusted phone numbers with file persistence.
+- Added `/trust` commands for owner to manage whitelist via WhatsApp:
+  - `/trust add <number>` - Add a phone number to the whitelist
+  - `/trust remove <number>` - Remove a phone number from the whitelist
+  - `/trust list` - Show all trusted numbers
+  - `/trust clear` - Clear all trusted numbers (dangerous!)
+- Added `TRUSTED_PHONE_NUMBERS` environment variable for startup configuration.
+- Updated TUI config editor to include trusted numbers field.
+- Owner is always exempt from whitelist checks (cannot be locked out).
+- Unauthorized `@fetch` messages are silently dropped (no information leakage).
+
+### 🛡️ Security Flow
+```
+Incoming @fetch message
+    ↓
+Is sender the owner? → Yes → ALLOW
+    ↓ No
+Is sender in whitelist? → Yes → ALLOW
+    ↓ No
+DROP (silent)
+```
+
+## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
+
+### 🗺️ Smart Repo Maps (Issue #9)
+- Implemented **Repository Mapping** to give the agent architectural awareness of large projects.
+- Added `repo-map.ts` to generate a tree-based summary of the workspace, including symbols (classes, functions, exports).
+- Added `symbols.ts` for regex-based symbol extraction for TypeScript, Python, and Go.
+- Maps are automatically cached in session storage and refreshed if older than 5 minutes.
+- The agent now understands project structure *before* taking action, reducing "blind" file searches.
+
+### 🎙️ Voice & Vision (Issues #6 & #7)
+- **Voice Notes:** Built-in Whisper integration automatically transcribes voice notes and PTT into text commands.
+- **Image Intelligence:** Send screenshots or diagrams! Fetch now uses OpenAI Vision to analyze images and provide context (e.g., "Fix this error" + screenshot).
+- Added multimedia support to the WhatsApp Bridge, allowing seamlessly mixing voice, text, and images.
+
+### 🌊 Live Progress Streaming (Issue #8)
+- Added real-time feedback for long-running tasks.
+- Fetch now streams progress updates (e.g., "📝 Editing file...", "🧪 Running tests...") directly to WhatsApp.
+- Implemented intelligent throttling to prevent message spans.
+
+### 🔧 Core Improvements
+- **Unified Command Parser:** Consolidated all slash command logic (`/status`, `/select`, etc.) into a single robust parser.
+- **Session Sync:** Fixed state synchronization issues where agent-initiated workspace changes weren't persisting.
+- **Self-Healing:** The agent now detects and automatically recovers from 429 Rate Limits and 500 errors.
+
 ## [2.4.1] - 2026-02-04 (Harness Alignment & Diagnostics 🛠️)
 
 ### 🧩 Harness Interface Alignment

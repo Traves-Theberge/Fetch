@@ -53,6 +53,7 @@ func NewEditor() *Editor {
 	editor := &Editor{
 		fields: []ConfigField{
 			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
+			{Key: "TRUSTED_PHONE_NUMBERS", Label: "Trusted Numbers", Help: "Comma-separated phones that can use @fetch (e.g., 15551234567,15559876543)"},
 			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
 			{Key: "ANTHROPIC_API_KEY", Label: "Anthropic Key", Help: "API key for Claude", Masked: true},
 			{Key: "GEMINI_API_KEY", Label: "Gemini Key", Help: "API key for Gemini", Masked: true},

@@ -2,242 +2,254 @@
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
-A headless **ChatOps** development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work.
+A headless "ChatOps" development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters 🦞)
 
----
+```
+  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀    ███████╗███████╗████████╗ ██████╗██╗  ██╗
+  ⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀    ██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
+  ⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀    █████╗  █████╗     ██║   ██║     ███████║
+  ⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿    ██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
+  ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
+  ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
+  ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀                                             
+  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion                  
+  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                  
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀                                             
+```
 
 ## 🎯 Overview
 
-Fetch is a **context-aware, multi-mode AI coding assistant** that understands what you need and responds appropriately—whether it's a quick chat, a code question, a single edit, or a complex multi-step task.
+Fetch is a **lightweight orchestrator** that delegates coding tasks to specialized AI harnesses (Claude Code, Gemini CLI, GitHub Copilot CLI) while managing conversation state and user interaction via WhatsApp.
 
-### 🧠 4-Mode Architecture
+**Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
 
-| Mode | When | Tools | Example |
-|------|------|-------|---------|
-| 💬 **Conversation** | Greetings, thanks, chat | None | "Hey!", "Thanks!" |
-| 🔍 **Inquiry** | Questions about code | Read-only | "What's in auth.ts?" |
-| ⚡ **Action** | Single edits/changes | Full (1 cycle) | "Fix the typo" |
-| 📋 **Task** | Complex multi-step work | Full (multi-step) | "Build a login page" |
+### 🏗️ V2 Orchestrator Architecture
 
-### 🤖 Agentic Framework
+Fetch automatically classifies your intent and routes to the appropriate handler:
 
-Powered by **OpenRouter** with access to **100+ AI models**:
+| Intent | When | Action | Example |
+|--------|------|--------|---------|
+| 💬 **Conversation** | Greetings, thanks, chat | Direct response | "Hey!", "Thanks!" |
+| 📁 **Workspace** | Project management | Tool calls | "List projects", "Switch to api" |
+| 🚀 **Task** | Coding work | Delegate to harness | "Add dark mode", "Fix the bug" |
 
-- **Model Flexibility** — GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
-- **ReAct Loop** — Reason + Act pattern for multi-step tasks
-- **11 Orchestrator Tools** — Workspace, task, and interaction operations
-- **Session Memory** — Persistent conversation context
-- **Project Awareness** — Knows your active project and git status
-- **Configurable Autonomy** — Supervised, semi-autonomous, or fully autonomous modes
+### 🤖 Harness System
 
----
+Fetch delegates actual coding work to specialized CLI tools:
+
+| Harness | CLI | Best For |
+|---------|-----|----------|
+| **Claude Code** | `claude` | Complex refactoring, multi-file changes |
+| **Gemini CLI** | `gemini` | Quick edits, explanations |
+| **Copilot CLI** | `gh copilot` | Suggestions, command help |
+
+### 🧠 Smart Capabilities
+
+- **🗺️ Repo Maps:** Fetch scans your project structure to understand the architecture, exports, and relationships between files.
+- **🎙️ Voice Mode:** Send voice notes on WhatsApp! Fetch transcribes them using Whisper and executes them as commands.
+- **👀 Vision:** Send screenshots of errors or UI designs. Fetch uses GPT-4o Vision to understand what he's looking at.
+- **🌊 Streaming:** Get real-time updates as Fetch works (e.g., "📝 Editing src/index.ts...").
+
+### 🛠️ 11 Orchestrator Tools
+
+| Category | Tools | Purpose |
+|----------|-------|---------|
+| **Workspace** | `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete` | Project management |
+| **Task** | `task_create`, `task_status`, `task_cancel`, `task_respond` | Task lifecycle |
+| **Interaction** | `ask_user`, `report_progress` | User communication |
 
 ## 🏗️ Architecture
 
-<!-- DIAGRAM:architecture -->
+> 📊 **Interactive diagrams available at [http://localhost:8765/docs](http://localhost:8765/docs)** when the bridge is running.
 
----
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                              HOST MACHINE                                  │
+│                                                                            │
+│  ┌──────────────┐         ┌────────────────────────────────────────────┐  │
+│  │  🎛️ Manager  │         │            🐳 Docker Compose               │  │
+│  │    (Go TUI)  │─────────│  ┌─────────────┐      ┌─────────────┐      │  │
+│  │              │         │  │  🌉 Bridge  │      │  🏠 Kennel  │      │  │
+│  │ • Start/Stop │         │  │   (Node.js) │◄────►│   (Ubuntu)  │      │  │
+│  │ • Configure  │         │  │             │      │             │      │  │
+│  │ • View Logs  │         │  │ WhatsApp    │      │ Claude CLI  │      │  │
+│  │ • Model Sel. │         │  │ Security    │      │ Gemini CLI  │      │  │
+│  └──────────────┘         │  │ Agent Core  │      │ Copilot CLI │      │  │
+│                           │  └──────┬──────┘      └──────┬──────┘      │  │
+│                           └─────────┼──────────────────-─┼─────────────┘  │
+│                                     │                    │                │
+│                                     ▼                    ▼                │
+│                              📱 WhatsApp          📁 /workspace           │
+└────────────────────────────────────────────────────────────────────────────┘
+```
 
-## � Message Flow
+### Message Flow
 
-<!-- DIAGRAM:messageflow -->
-
----
-
-## 🤖 Harness System
-
-<!-- DIAGRAM:harness -->
-
----
-
-## �🔒 Security
-
-Fetch implements **5 layers of security** to ensure your system remains protected:
-
-<!-- DIAGRAM:security -->
-
-### Security Features
-
-| Feature | Description |
-|---------|-------------|
-| **@fetch Trigger** | Messages must start with `@fetch` to be processed |
-| **Whitelist Auth** | Only responds to `OWNER_PHONE_NUMBER` |
-| **Rate Limiting** | 30 requests per minute maximum |
-| **Input Validation** | Blocks shell injection, path traversal, etc. |
-| **Docker Isolation** | AI agents run in sandboxed containers |
-
----
+```
+    📱 WhatsApp Message
+            │
+            ▼
+    ┌───────────────┐
+    │ 🧠 Intent     │
+    │   Classifier  │
+    └───────┬───────┘
+            │
+    ┌───────┼───────┬───────────┐
+    ▼       ▼       ▼           ▼
+   💬      🔍      ⚡          📋
+  Chat   Inquiry  Action      Task
+    │       │       │           │
+    ▼       ▼       ▼           ▼
+ Direct  Read-only Full Tools  ReAct
+Response  Tools   (1 cycle)    Loop
+    │       │       │           │
+    └───────┴───────┴───────────┘
+                    │
+                    ▼
+             ✅ WhatsApp Reply
+```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
-- Linux machine (any architecture: x86_64, ARM64)
-- Docker & Docker Compose v2
-- Go 1.21+ (for manager TUI)
+- Linux machine (any architecture)
+- Docker & Docker Compose
+- Go 1.21+ (for manager)
+- Node.js 20+ (for development)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/Traves-Theberge/Fetch.git
-   cd Fetch
+   git clone https://github.com/yourusername/fetch.git
+   cd fetch
    ```
 
 2. **Configure environment**
    ```bash
    cp .env.example .env
-   nano .env  # Add your phone number and API keys
+   # Edit .env with your API keys and phone number
    ```
 
-3. **Build the TUI manager**
-   ```bash
-   cd manager && go build -o fetch-manager . && cd ..
-   ```
-
-4. **Start with Docker Compose**
+3. **Start with Docker Compose**
    ```bash
    docker compose up -d
    ```
 
-5. **Select an AI Model** (optional)
+4. **Scan WhatsApp QR Code**
    ```bash
-   ./manager/fetch-manager
-   # Select "🤖 Select Model" from the menu
-   ```
-
-6. **Scan WhatsApp QR Code**
-   ```bash
-   # Option A: Use the TUI manager
-   ./manager/fetch-manager
-   
-   # Option B: View logs directly
    docker logs -f fetch-bridge
+   # Scan the QR code that appears
    ```
 
----
+### Using the Manager TUI
 
-## 📱 Using Fetch
-
-### The @fetch Trigger
-
-**All messages must start with `@fetch`** (case-insensitive):
-
-```
-@fetch fix the bug in auth.ts
-@Fetch explain how useEffect works
-@FETCH what's the git status?
+```bash
+cd manager
+go run .
 ```
 
-### Built-in Commands
+The TUI provides a beautiful terminal interface with:
+- 🎨 **Horizontal Layout** - ASCII dog mascot on the left, menu on the right
+- 📍 **Bottom-Aligned UI** - Content aligned to bottom with status bar
+- 🐕 **Neofetch-Style Version** - Press `v` for detailed system info
+
+**Menu Options:**
+- 🔧 Setup - First-time configuration wizard
+- ▶️  Start - Launch Bridge & Kennel containers
+- ⏹️  Stop - Stop running services
+- ⚙️  Configure - Edit environment variables
+- 🤖 Select Model - Choose AI model via OpenRouter
+- 📜 Logs - View container logs
+- 📚 Documentation - Open docs in browser
+- ℹ️  Version - System information
+- 🚪 Exit - Quit the TUI
+
+## 📱 WhatsApp Commands
 
 | Command | Description |
 |---------|-------------|
-| `@fetch help` | Show available commands |
-| `@fetch status` | Check system and task status |
-| `@fetch ping` | Test if Fetch is responsive |
-| `@fetch undo` | Revert last file changes |
-| `@fetch auto` | Enable autonomous mode |
-| `@fetch supervised` | Return to supervised mode |
+| `help` | Show available commands |
+| `status` | Check system and task status |
+| `ping` | Test if Fetch is responsive |
 
-### Natural Language Tasks
+### Project Management
 
-Just describe what you need after `@fetch`:
+| Command | Description |
+|---------|-------------|
+| `/projects` | List available projects in workspace |
+| `/project <name>` | Switch to a specific project |
+| `/clone <url>` | Clone a git repository |
+| `/init <name>` | Initialize a new project |
+| `/status` | Show git status |
+| `/diff` | Show current changes |
+| `/log [n]` | Show recent commits |
 
-- *"@fetch Fix the authentication bug in auth.ts"* → Claude analyzes and fixes
-- *"@fetch Explain how the useEffect hook works"* → Gemini explains
-- *"@fetch Why is my git push failing?"* → Copilot helps debug
+### Natural Language Examples
 
----
+Just describe what you need:
 
-## 🛠️ Orchestrator Tools (11)
+| You Say | Intent | What Happens |
+|---------|--------|--------------|
+| "Hey Fetch!" | 💬 Conversation | Direct response, no tools |
+| "What projects are open?" | 📁 Workspace | Lists workspaces via tools |
+| "Build a REST API for users" | 🚀 Task | Delegates to harness (Claude/Gemini/Copilot) |
+| "Create a login form component" | 🚀 Task | AI plans & executes multi-step work |
+| "Help me debug this error" | 🚀 Task | AI analyzes code, proposes fixes |
 
-Fetch includes **11 built-in tools** organized into 3 categories:
+## 🔒 Security
 
-### Workspace Tools (5)
+Fetch is designed with security as a top priority:
 
-| Tool | Description |
-|------|-------------|
-| `workspace_list` | List all projects |
-| `workspace_select` | Select active project |
-| `workspace_status` | Git status & branch |
-| `workspace_create` | Create new project |
-| `workspace_delete` | Delete a project |
+- **Whitelist Only**: Only responds to `OWNER_PHONE_NUMBER`
+- **@fetch Trigger**: All messages must start with `@fetch` prefix
+- **Zod Validation**: Runtime type checking for all tool arguments
+- **No Shell Injection**: Commands use array-based argument passing
+- **Rate Limiting**: 30 requests per minute maximum
+- **Input Validation**: Sanitizes all user input
+- **Path Traversal Protection**: Blocks `..` in file paths
+- **Docker Isolation**: AI agents run in sandboxed containers
+- **Read-Only Configs**: Auth tokens mounted as read-only
 
-### Task Tools (4)
-
-| Tool | Description |
-|------|-------------|
-| `task_create` | Start a coding task |
-| `task_status` | Get task progress |
-| `task_cancel` | Cancel running task |
-| `task_respond` | Answer agent question |
-
-### Interaction Tools (2)
-
-| Tool | Description |
-|------|-------------|
-| `ask_user` | Ask clarifying question |
-| `report_progress` | Report task progress |
-
----
-
-## �️ TUI Manager
-
-The Go-based TUI provides a beautiful terminal interface for managing Fetch:
-
-**Layout**: Horizontal design with ASCII dog mascot on left, FETCH title + menu on right, all bottom-aligned.
-
-**Menu Options** (9 items):
-- 🔧 **Setup** - First-time configuration wizard
-- ▶️ **Start** - Launch Bridge & Kennel containers
-- ⏹️ **Stop** - Stop running services
-- ⚙️ **Configure** - Edit environment variables
-- 🤖 **Select Model** - Choose AI model via OpenRouter
-- 📜 **Logs** - View container logs
-- 📚 **Documentation** - Open docs in browser
-- ℹ️ **Version** - Neofetch-style system info
-- 🚪 **Exit** - Quit the TUI
-
-**Keyboard Shortcuts**:
-- `↑/↓` or `k/j` - Navigate
-- `Enter` - Select
-- `v` - Version screen
-- `q` - Quit
-- `Esc` - Back
-
----
-
-## �📁 Project Structure
+## 📁 Project Structure
 
 ```
 fetch/
 ├── manager/                 # Go TUI for system management
 │   ├── main.go
 │   └── internal/
-│       ├── theme/          # Design system (colors, borders, styles)
-│       ├── layout/         # Frame and responsive utilities
-│       ├── components/     # UI components (header, splash, version, etc.)
 │       ├── config/         # .env editor
-│       ├── models/         # OpenRouter model selector
-│       └── logs/           # Real-time log viewer
+│       ├── docker/         # Container control
+│       ├── logs/           # Log viewer
+│       └── update/         # Git update
 ├── fetch-app/              # Node.js Bridge
 │   └── src/
 │       ├── bridge/         # WhatsApp client
 │       ├── security/       # Auth, rate limiting, validation
-│       ├── agent/          # Agentic core (ReAct loop)
-│       ├── tools/          # Tool registry (24 tools)
-│       ├── session/        # Session management (SQLite)
-│       └── api/            # Status API (:8765)
-├── kennel/                 # AI CLI container (Ubuntu)
-├── docs/                   # Documentation site
+│       ├── agent/          # V2 Orchestrator (core, intent, prompts)
+│       ├── harness/        # CLI adapters (Claude, Gemini, Copilot)
+│       ├── session/        # Session management
+│       ├── tools/          # 8 orchestrator tools + Zod schemas
+│       ├── executor/       # Docker exec wrapper
+│       ├── tasks/          # Task persistence
+│       └── utils/          # Logger, sanitizer
+│   └── tests/              # Vitest test suite
+│       ├── unit/           # Unit tests
+│       ├── integration/    # Integration tests
+│       └── e2e/            # End-to-end tests
+├── kennel/                 # AI CLI container
+│   └── Dockerfile
 ├── config/                 # Auth token mounts
+│   ├── claude/
+│   └── github/
 ├── workspace/              # Code sandbox
 ├── data/                   # Persistent data
 └── docker-compose.yml
 ```
-
----
 
 ## ⚙️ Configuration
 
@@ -247,29 +259,21 @@ fetch/
 |----------|-------------|
 | `OWNER_PHONE_NUMBER` | Your WhatsApp number (e.g., `15551234567`) |
 | `OPENROUTER_API_KEY` | API key from [OpenRouter](https://openrouter.ai) |
+| `AGENT_MODEL` | OpenRouter model ID (default: `openai/gpt-4o-mini`) |
+| `ANTHROPIC_API_KEY` | API key for Claude |
+| `GEMINI_API_KEY` | API key for Gemini |
 
-### Optional Variables
+### GitHub Copilot Authentication
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MODEL` | `openai/gpt-4o-mini` | AI model for agent reasoning |
-| `ENABLE_CLAUDE` | `false` | Enable Claude Code CLI |
-| `ENABLE_GEMINI` | `false` | Enable Gemini CLI |
-| `ENABLE_COPILOT` | `true` | Enable GitHub Copilot |
+1. On a machine with a browser:
+   ```bash
+   gh auth login
+   ```
 
----
-
-## 📚 Documentation
-
-- **[Setup Guide](SETUP_GUIDE.md)** — Detailed installation instructions
-- **[Full Documentation](DOCUMENTATION.md)** — Complete reference
-- **[API Reference](API_REFERENCE.md)** — Internal APIs and integrations
-- **[Agentic Architecture](AGENTIC_PLAN.md)** — How the agent works
-- **[Changelog](CHANGELOG.md)** — Version history
-
-Access the documentation site at **http://localhost:8765/docs** when the bridge is running.
-
----
+2. Copy the hosts file:
+   ```bash
+   cp ~/.config/gh/hosts.json ./config/github/
+   ```
 
 ## 📝 License
 
@@ -277,7 +281,6 @@ MIT
 
 ## 🙏 Acknowledgments
 
-- [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) — WhatsApp Web API
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) — TUI framework
-- [OpenRouter](https://openrouter.ai) — AI model routing
-- [D3.js](https://d3js.org) — Diagram visualizations
+- [whatsapp-web.js](https://github.com/pedroslopez/whatsapp-web.js) - WhatsApp Web API
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
+- [OpenRouter](https://openrouter.ai) - AI model routing

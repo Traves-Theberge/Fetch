@@ -80,14 +80,26 @@ nano .env
 # Example: 15551234567 for USA +1 (555) 123-4567
 OWNER_PHONE_NUMBER=YOUR_PHONE_NUMBER_HERE
 
-# OpenRouter API Key (for agent reasoning)
+# OpenRouter API Key (required for agent reasoning, vision & voice)
 # Get one at: https://openrouter.ai/keys
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
+
+# OpenAI API Key (NOT REQUIRED - We use OpenRouter)
+# OPENAI_API_KEY=sk-proj-xxxxxxxx
 
 # Enable at least one CLI
 ENABLE_COPILOT=true
 ENABLE_CLAUDE=false
 ENABLE_GEMINI=false
+```
+
+**Optional - Zero Trust Bonding (Group Chat Security):**
+
+```dotenv
+# Comma-separated phone numbers that can use @fetch in group chats
+# Owner is ALWAYS trusted - no need to add here
+# You can also manage this via /trust commands in WhatsApp
+TRUSTED_PHONE_NUMBERS=15551234567,15559876543
 ```
 
 ### Step 3: Build the TUI Manager
@@ -160,12 +172,12 @@ The TUI includes a model selector that fetches available models from OpenRouter.
 
 | Model | Provider | Best For |
 |-------|----------|----------|
-| `openai/gpt-4o-mini` | OpenAI | Fast, affordable, good reasoning |
-| `openai/gpt-4o` | OpenAI | Best overall quality |
-| `anthropic/claude-3-5-sonnet` | Anthropic | Excellent coding |
-| `anthropic/claude-3-5-haiku` | Anthropic | Fast, affordable |
-| `google/gemini-2.0-flash-exp:free` | Google | Free tier available |
-| `deepseek/deepseek-chat` | DeepSeek | Very affordable |
+| `openai/gpt-4o-mini` | OpenAI (via OpenRouter) | Fast, affordable, good reasoning |
+| `openai/gpt-4o` | OpenAI (via OpenRouter) | Best overall quality |
+| `anthropic/claude-3-5-sonnet` | Anthropic (via OpenRouter) | Excellent coding |
+| `anthropic/claude-3-5-haiku` | Anthropic (via OpenRouter) | Fast, affordable |
+| `google/gemini-2.0-flash-exp:free` | Google (via OpenRouter) | Free tier available |
+| `deepseek/deepseek-chat` | DeepSeek (via OpenRouter) | Very affordable |
 
 ### Manual Configuration
 

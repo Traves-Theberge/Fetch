@@ -570,7 +570,7 @@ open http://localhost:8765/docs
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AGENT_MODEL` | `openai/gpt-4.1-nano` | LLM model for orchestration |
+| `AGENT_MODEL` | `openai/gpt-4o-mini` | OpenRouter model ID for orchestration |
 | `ENABLE_CLAUDE` | `false` | Enable Claude CLI harness |
 | `ENABLE_GEMINI` | `false` | Enable Gemini CLI harness |
 | `ENABLE_COPILOT` | `true` | Enable Copilot CLI harness |

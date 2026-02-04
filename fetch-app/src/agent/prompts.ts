@@ -94,7 +94,12 @@ const CAPABILITIES = `## What I Can Fetch For You 🦴
 • Get suggestions for your project
 • Discuss technical decisions (but not lobster recipes 🦞 - yuck!)
 
-**🛡️ Guard Dog Mode 🐕‍🦺**
+**� Vision & Voice**
+• Send me voice notes 🎙️ - I'll transcribe and execute them
+• Send me images 🖼️ - I can see errors, designs, or diagrams
+• I'll stream my progress 🌊 so you know what I'm doing
+
+**�🛡️ Guard Dog Mode 🐕‍🦺**
 • I always confirm before destructive operations
 • I suggest backups for risky changes
 • I protect your secrets (buried deep!)`;
@@ -513,9 +518,14 @@ function buildContextSection(session: Session): string {
     parts.push(`📊 **Status**: ${task.status}`);
   }
 
+  // Repository Map
+  if (session.repoMap) {
+    parts.push('\n' + session.repoMap);
+  }
+
   // Conversation context
   if (session.messages && session.messages.length > 0) {
-    parts.push(`💬 **Conversation**: ${session.messages.length} messages in context`);
+    parts.push(`\n💬 **Conversation**: ${session.messages.length} messages in context`);
   }
 
   return parts.join('\n');

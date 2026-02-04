@@ -34,6 +34,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { generateHarnessId } from '../utils/id.js';
+import { createParser } from './output-parser.js';
 import type { TaskId, AgentType } from '../task/types.js';
 import type {
   HarnessId,
@@ -55,19 +56,6 @@ import type {
  * Maximum output buffer size (1MB)
  */
 const MAX_OUTPUT_BUFFER = 1024 * 1024;
-
-/**
- * Output line patterns that indicate a question
- */
-const QUESTION_PATTERNS = [
-  /\?\s*$/,                    // Ends with ?
-  /\[y\/n\]/i,                 // Yes/no prompt
-  /\(yes\/no\)/i,              // Yes/no prompt
-  /press enter/i,              // Press enter prompt
-  /continue\?/i,               // Continue prompt
-  /proceed\?/i,                // Proceed prompt
-  /confirm/i,                  // Confirmation prompt
-];
 
 // ============================================================================
 // HarnessExecutor Class
@@ -312,6 +300,30 @@ export class HarnessExecutor extends EventEmitter {
     return new Promise((resolve, reject) => {
       let outputBuffer = '';
       let timeoutHandle: NodeJS.Timeout | null = null;
+      const parser = createParser(execution.agent);
+
+      // Subscribe to parser events
+      parser.on('progress', (event) => {
+        this.emitHarnessEvent('harness:progress', harnessId, execution.taskId, event);
+      });
+
+      parser.on('file_op', (event) => {
+        this.emitHarnessEvent('harness:file_op', harnessId, execution.taskId, event);
+      });
+
+      parser.on('question', (event) => {
+        this.updateStatus(harnessId, 'waiting_input');
+        this.emitHarnessEvent('harness:question', harnessId, execution.taskId, event);
+      });
+
+      parser.on('complete', () => {
+        // Handle completion if detected early in stream
+        logger.debug('Harness completion detected by parser');
+      });
+
+      parser.on('error', (event) => {
+        logger.warn('Harness error detected by parser', event);
+      });
 
       // Spawn process
       const childProcess = spawn(config.command, config.args, {
@@ -336,6 +348,9 @@ export class HarnessExecutor extends EventEmitter {
         const text = data.toString();
         outputBuffer += text;
 
+        // Feed to parser
+        parser.write(text);
+
         // Trim buffer if too large
         if (outputBuffer.length > MAX_OUTPUT_BUFFER) {
           outputBuffer = outputBuffer.slice(-MAX_OUTPUT_BUFFER);
@@ -343,13 +358,6 @@ export class HarnessExecutor extends EventEmitter {
 
         // Add event
         this.addOutputEvent(harnessId, 'stdout', text);
-
-        // Check for questions
-        if (this.isQuestion(text)) {
-          this.updateStatus(harnessId, 'waiting_input');
-          const question = this.extractQuestion(text);
-          this.emitHarnessEvent('harness:question', harnessId, execution.taskId, { question });
-        }
 
         // Emit output event
         this.emitHarnessEvent('harness:output', harnessId, execution.taskId, {
@@ -362,6 +370,9 @@ export class HarnessExecutor extends EventEmitter {
       childProcess.stderr?.on('data', (data: Buffer) => {
         const text = data.toString();
         outputBuffer += text;
+
+        // Also feed stderr to parser as sometimes errors/progress are there
+        parser.write(text);
 
         this.addOutputEvent(harnessId, 'stderr', text);
         this.emitHarnessEvent('harness:output', harnessId, execution.taskId, {
@@ -381,6 +392,9 @@ export class HarnessExecutor extends EventEmitter {
       childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
         if (timeoutHandle) clearTimeout(timeoutHandle);
         this.processes.delete(harnessId);
+        
+        // Ensure parser is finished
+        parser.flush();
 
         const exitCode = code ?? (signal ? 128 : 1);
         execution.exitCode = exitCode;
@@ -415,22 +429,6 @@ export class HarnessExecutor extends EventEmitter {
         });
       });
     });
-  }
-
-  /**
-   * Check if output contains a question
-   */
-  private isQuestion(text: string): boolean {
-    return QUESTION_PATTERNS.some((pattern) => pattern.test(text));
-  }
-
-  /**
-   * Extract question from output
-   */
-  private extractQuestion(text: string): string {
-    // Get last non-empty line as the question
-    const lines = text.trim().split('\n');
-    return lines[lines.length - 1].trim();
   }
 
   /**
