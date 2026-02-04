@@ -288,7 +288,7 @@ Tasks are delegated to AI harnesses (Claude, Gemini, or Copilot CLI):
 | Path | Contents |
 |------|----------|
 | `./data/.wwebjs_auth/` | WhatsApp session |
-| `./data/sessions.json` | Agent sessions |
+| `./data/sessions.db` | Agent sessions (SQLite) |
 | `./workspace/` | Code written by agents |
 | `./.env` | Your configuration |
 

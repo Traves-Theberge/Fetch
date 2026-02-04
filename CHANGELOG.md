@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-02-03 (SQLite Cleanup 🗄️)
+
+### 🗄️ Database Cleanup
+
+Removed all remnants of the old lowdb/JSON-based session storage.
+
+### Fixed
+
+**Documentation:**
+- Updated API_REFERENCE.md with correct SQLite-based SessionStore API
+- Updated SETUP_GUIDE.md to reference `sessions.db` instead of `sessions.json`
+- Updated PLAN.md file structure to show SQLite database
+
+**Configuration:**
+- Updated .dockerignore to exclude SQLite files (sessions.db, sessions.db-wal, sessions.db-shm)
+
+### Removed
+
+- Deleted old `data/sessions.json` file (no longer used)
+- Removed outdated `tasks.json` reference from PLAN.md
+
+---
+
 ## [2.1.1] - 2026-02-03 (Documentation & Diagrams Update 📊)
 
 ### 📊 Architecture Visualization Improvements
