@@ -172,14 +172,15 @@ interface AgentTask {
 
 ### Persistence
 
-**Why lowdb (JSON file)?**
+**Why SQLite?**
 
-| Factor | lowdb | SQLite | Vector DB |
-|--------|-------|--------|-----------|
-| Single user | ✅ Perfect | Overkill | Overkill |
-| Resource use | ✅ Minimal | OK | Heavy |
-| Human-readable | ✅ Yes | No | No |
-| Complexity | ✅ None | Medium | High |
+| Factor | SQLite | lowdb | Vector DB |
+|--------|--------|-------|----------|
+| Single user | ✅ Perfect | OK | Overkill |
+| Crash safety | ✅ ACID | No | Yes |
+| Resource use | ✅ Minimal | Minimal | Heavy |
+| Concurrency | ✅ WAL mode | No | Yes |
+| Complexity | ✅ Low | None | High |
 
 ---
 
@@ -425,7 +426,7 @@ ${repoMap}
 | `agent/format.ts` | WhatsApp message formatting |
 | `agent/whatsapp-format.ts` | Mobile-friendly utilities |
 | `session/types.ts` | TypeScript interfaces |
-| `session/store.ts` | lowdb persistence |
+| `session/store.ts` | SQLite persistence |
 | `session/manager.ts` | Session lifecycle |
 | `session/project.ts` | Project scanner |
 | `commands/parser.ts` | Command parsing |

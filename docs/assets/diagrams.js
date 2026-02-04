@@ -156,14 +156,14 @@ const FetchDiagrams = {
     container.innerHTML = '';
     
     const colors = this.getColors();
-    const svg = this.createSVG(container, 800, 500);
+    const svg = this.createSVG(container, 850, 480);
 
     // Host Machine box
     svg.append('rect')
       .attr('x', 20)
       .attr('y', 20)
-      .attr('width', 760)
-      .attr('height', 400)
+      .attr('width', 810)
+      .attr('height', 380)
       .attr('rx', 16)
       .attr('fill', 'none')
       .attr('stroke', colors.nodeBorder)
@@ -180,33 +180,64 @@ const FetchDiagrams = {
 
     // Go Manager
     const manager = svg.append('g');
-    this.drawNode(manager, 50, 80, 160, 180, 'Go Manager', '🎛️', colors.nodeBg);
+    svg.append('rect')
+      .attr('x', 50)
+      .attr('y', 80)
+      .attr('width', 180)
+      .attr('height', 200)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent4)
+      .attr('stroke-width', 2);
+    
+    svg.append('text')
+      .attr('x', 140)
+      .attr('y', 115)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '24px')
+      .text('🎛️');
+    
+    svg.append('text')
+      .attr('x', 140)
+      .attr('y', 140)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '600')
+      .text('Go Manager');
+    
+    svg.append('text')
+      .attr('x', 140)
+      .attr('y', 160)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '11px')
+      .text('(TUI)');
     
     // Manager features
-    const features = ['Start/Stop', 'Configure', 'View Logs', 'Docs'];
+    const features = ['• Start/Stop', '• Configure', '• View Logs', '• Select Model'];
     features.forEach((f, i) => {
       svg.append('text')
-        .attr('x', 130)
-        .attr('y', 145 + i * 24)
-        .attr('text-anchor', 'middle')
+        .attr('x', 65)
+        .attr('y', 190 + i * 22)
         .attr('fill', colors.textMuted)
         .attr('font-size', '12px')
-        .text(`• ${f}`);
+        .text(f);
     });
 
     // Docker Compose box
     svg.append('rect')
-      .attr('x', 280)
+      .attr('x', 300)
       .attr('y', 70)
-      .attr('width', 480)
-      .attr('height', 260)
+      .attr('width', 500)
+      .attr('height', 250)
       .attr('rx', 12)
       .attr('fill', colors.nodeBg)
       .attr('stroke', colors.accent1)
       .attr('stroke-width', 2);
 
     svg.append('text')
-      .attr('x', 300)
+      .attr('x', 320)
       .attr('y', 100)
       .attr('fill', colors.accent1)
       .attr('font-size', '14px')
@@ -214,19 +245,18 @@ const FetchDiagrams = {
       .text('🐳 Docker Compose');
 
     // Bridge container
-    const bridge = svg.append('g');
     svg.append('rect')
-      .attr('x', 310)
+      .attr('x', 320)
       .attr('y', 120)
-      .attr('width', 200)
-      .attr('height', 190)
+      .attr('width', 220)
+      .attr('height', 180)
       .attr('rx', 10)
       .attr('fill', colors.bg)
       .attr('stroke', colors.accent3)
       .attr('stroke-width', 2);
 
     svg.append('text')
-      .attr('x', 410)
+      .attr('x', 430)
       .attr('y', 150)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.accent3)
@@ -235,18 +265,18 @@ const FetchDiagrams = {
       .text('🌉 Bridge');
     
     svg.append('text')
-      .attr('x', 410)
-      .attr('y', 172)
+      .attr('x', 430)
+      .attr('y', 170)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
       .text('(Node.js)');
 
     const bridgeFeatures = ['WhatsApp Client', 'Security Gate', 'Agent Core', 'Tool Registry', 'Status API :8765'];
     bridgeFeatures.forEach((f, i) => {
       svg.append('text')
-        .attr('x', 410)
-        .attr('y', 200 + i * 22)
+        .attr('x', 430)
+        .attr('y', 200 + i * 20)
         .attr('text-anchor', 'middle')
         .attr('fill', colors.text)
         .attr('font-size', '11px')
@@ -255,17 +285,17 @@ const FetchDiagrams = {
 
     // Kennel container
     svg.append('rect')
-      .attr('x', 540)
+      .attr('x', 560)
       .attr('y', 120)
-      .attr('width', 200)
-      .attr('height', 190)
+      .attr('width', 220)
+      .attr('height', 180)
       .attr('rx', 10)
       .attr('fill', colors.bg)
       .attr('stroke', colors.accent2)
       .attr('stroke-width', 2);
 
     svg.append('text')
-      .attr('x', 640)
+      .attr('x', 670)
       .attr('y', 150)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.accent2)
@@ -274,18 +304,18 @@ const FetchDiagrams = {
       .text('🏠 Kennel');
     
     svg.append('text')
-      .attr('x', 640)
-      .attr('y', 172)
+      .attr('x', 670)
+      .attr('y', 170)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
       .text('(Ubuntu)');
 
     const kennelFeatures = ['Claude Code CLI', 'Gemini CLI', 'GitHub Copilot', '/workspace mount'];
     kennelFeatures.forEach((f, i) => {
       svg.append('text')
-        .attr('x', 640)
-        .attr('y', 200 + i * 26)
+        .attr('x', 670)
+        .attr('y', 200 + i * 24)
         .attr('text-anchor', 'middle')
         .attr('fill', colors.text)
         .attr('font-size', '11px')
@@ -293,32 +323,71 @@ const FetchDiagrams = {
     });
 
     // WhatsApp node
-    const whatsapp = svg.append('g');
-    this.drawNode(whatsapp, 340, 370, 140, 70, 'WhatsApp', '📱');
+    svg.append('rect')
+      .attr('x', 360)
+      .attr('y', 350)
+      .attr('width', 140)
+      .attr('height', 60)
+      .attr('rx', 30)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.success)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 430)
+      .attr('y', 380)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '13px')
+      .attr('font-weight', '600')
+      .text('📱 WhatsApp');
 
     // Workspace node
-    const workspace = svg.append('g');
-    this.drawNode(workspace, 560, 370, 140, 70, '/workspace', '📁');
+    svg.append('rect')
+      .attr('x', 600)
+      .attr('y', 350)
+      .attr('width', 140)
+      .attr('height', 60)
+      .attr('rx', 10)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent4)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 670)
+      .attr('y', 380)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '13px')
+      .attr('font-weight', '600')
+      .text('📁 /workspace');
 
     // Arrows
-    this.drawArrow(svg, 210, 170, 280, 170); // Manager -> Docker
-    this.drawArrow(svg, 410, 310, 410, 365); // Bridge -> WhatsApp
-    this.drawArrow(svg, 640, 310, 640, 365); // Kennel -> Workspace
-    this.drawArrow(svg, 510, 215, 540, 215); // Bridge -> Kennel
+    this.drawArrow(svg, 230, 180, 295, 180); // Manager -> Docker
+    this.drawArrow(svg, 430, 300, 430, 345); // Bridge -> WhatsApp
+    this.drawArrow(svg, 670, 300, 670, 345); // Kennel -> Workspace
+    this.drawArrow(svg, 540, 210, 555, 210); // Bridge -> Kennel
 
     // Labels
     svg.append('text')
-      .attr('x', 245)
-      .attr('y', 158)
+      .attr('x', 262)
+      .attr('y', 168)
       .attr('fill', colors.textMuted)
       .attr('font-size', '10px')
       .text('docker');
     svg.append('text')
-      .attr('x', 245)
-      .attr('y', 170)
+      .attr('x', 255)
+      .attr('y', 180)
       .attr('fill', colors.textMuted)
       .attr('font-size', '10px')
       .text('compose');
+
+    // Title at bottom
+    svg.append('text')
+      .attr('x', 425)
+      .attr('y', 450)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('🏗️ V2 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
   },
 
   // =====================================================
@@ -756,7 +825,96 @@ const FetchDiagrams = {
     container.innerHTML = '';
     
     const colors = this.getColors();
-    const svg = this.createSVG(container, 700, 350);
+    const svg = this.createSVG(container, 750, 380);
+
+    // Title
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 40)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '20px')
+      .attr('font-weight', '700')
+      .text('💾 Session State (SQLite)');
+
+    // Main session box
+    svg.append('rect')
+      .attr('x', 40)
+      .attr('y', 70)
+      .attr('width', 670)
+      .attr('height', 260)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.nodeBorder)
+      .attr('stroke-width', 2);
+
+    const sections = [
+      { title: 'Identity', items: ['userId (phone)', 'sessionId'], x: 60, color: colors.accent1 },
+      { title: 'Conversation', items: ['messages[]', '(last 30 in context)'], x: 220, color: colors.accent2 },
+      { title: 'Preferences', items: ['autonomyLevel', 'autoCommit', 'verboseMode'], x: 390, color: colors.accent3 },
+      { title: 'Task State', items: ['currentTask', 'plan[]', 'iterations'], x: 560, color: colors.accent4 },
+    ];
+
+    sections.forEach(section => {
+      // Section header
+      svg.append('rect')
+        .attr('x', section.x)
+        .attr('y', 95)
+        .attr('width', 140)
+        .attr('height', 35)
+        .attr('rx', 6)
+        .attr('fill', section.color)
+        .attr('opacity', 0.2);
+
+      svg.append('text')
+        .attr('x', section.x + 70)
+        .attr('y', 118)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.text)
+        .attr('font-size', '13px')
+        .attr('font-weight', '600')
+        .text(section.title);
+
+      // Items
+      section.items.forEach((item, i) => {
+        svg.append('text')
+          .attr('x', section.x + 12)
+          .attr('y', 160 + i * 28)
+          .attr('fill', colors.textMuted)
+          .attr('font-size', '11px')
+          .attr('font-family', 'JetBrains Mono, monospace')
+          .text(item);
+      });
+    });
+
+    // Why SQLite note
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 275)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('✨ ACID compliant • WAL mode • Zero config • Crash-safe');
+
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 300)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('📁 Stored at: ./data/sessions.db');
+  },
+
+  // =====================================================
+  // DIAGRAM: Message Flow (Intent Classification)
+  // =====================================================
+  renderMessageFlow(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const colors = this.getColors();
+    const svg = this.createSVG(container, 700, 520);
 
     // Title
     svg.append('text')
@@ -766,74 +924,379 @@ const FetchDiagrams = {
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('💾 Session State (lowdb)');
+      .text('📨 Message Flow & Intent Classification');
 
-    // Main session box
+    // Input node
+    const inputY = 70;
     svg.append('rect')
-      .attr('x', 50)
-      .attr('y', 60)
-      .attr('width', 600)
-      .attr('height', 260)
-      .attr('rx', 12)
+      .attr('x', 250)
+      .attr('y', inputY)
+      .attr('width', 200)
+      .attr('height', 50)
+      .attr('rx', 25)
+      .attr('fill', colors.accent1)
+      .attr('opacity', 0.2);
+    svg.append('rect')
+      .attr('x', 250)
+      .attr('y', inputY)
+      .attr('width', 200)
+      .attr('height', 50)
+      .attr('rx', 25)
+      .attr('fill', 'none')
+      .attr('stroke', colors.accent1)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 350)
+      .attr('y', inputY + 30)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '600')
+      .text('📱 WhatsApp Message');
+
+    // Arrow down
+    svg.append('text')
+      .attr('x', 350)
+      .attr('y', 145)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.arrow)
+      .attr('font-size', '20px')
+      .text('↓');
+
+    // Intent Classifier
+    const classifierY = 160;
+    svg.append('rect')
+      .attr('x', 225)
+      .attr('y', classifierY)
+      .attr('width', 250)
+      .attr('height', 60)
+      .attr('rx', 10)
       .attr('fill', colors.nodeBg)
-      .attr('stroke', colors.nodeBorder)
+      .attr('stroke', colors.accent2)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 350)
+      .attr('y', classifierY + 25)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '600')
+      .text('🧠 Intent Classifier');
+    svg.append('text')
+      .attr('x', 350)
+      .attr('y', classifierY + 45)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '11px')
+      .text('Analyzes message to determine mode');
+
+    // Branching arrows
+    const branchY = 250;
+    svg.append('path')
+      .attr('d', `M 350 220 L 350 ${branchY} L 120 ${branchY + 30}`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+    svg.append('path')
+      .attr('d', `M 350 ${branchY} L 290 ${branchY + 30}`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+    svg.append('path')
+      .attr('d', `M 350 ${branchY} L 410 ${branchY + 30}`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+    svg.append('path')
+      .attr('d', `M 350 ${branchY} L 580 ${branchY + 30}`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
       .attr('stroke-width', 2);
 
-    const sections = [
-      { title: 'Identity', items: ['userId (phone)', 'sessionId'], x: 70, color: colors.accent1 },
-      { title: 'Conversation', items: ['messages[]', '(last 30 in context)'], x: 220, color: colors.accent2 },
-      { title: 'Preferences', items: ['autonomyLevel', 'autoCommit', 'verboseMode'], x: 370, color: colors.accent3 },
-      { title: 'Task State', items: ['currentTask', 'plan[]', 'iterations'], x: 520, color: colors.accent4 },
+    // Intent boxes
+    const intents = [
+      { icon: '💬', label: 'Conversation', desc: 'Chat, greetings', x: 50, color: colors.accent1 },
+      { icon: '🔍', label: 'Inquiry', desc: 'Questions', x: 210, color: colors.accent2 },
+      { icon: '⚡', label: 'Action', desc: 'Single edit', x: 370, color: colors.accent3 },
+      { icon: '📋', label: 'Task', desc: 'Multi-step', x: 530, color: colors.accent4 },
     ];
 
-    sections.forEach(section => {
-      // Section header
+    const intentY = 290;
+    intents.forEach(intent => {
       svg.append('rect')
-        .attr('x', section.x)
-        .attr('y', 80)
-        .attr('width', 130)
-        .attr('height', 30)
-        .attr('rx', 6)
-        .attr('fill', section.color)
-        .attr('opacity', 0.2);
-
+        .attr('x', intent.x)
+        .attr('y', intentY)
+        .attr('width', 120)
+        .attr('height', 80)
+        .attr('rx', 10)
+        .attr('fill', colors.nodeBg)
+        .attr('stroke', intent.color)
+        .attr('stroke-width', 2);
       svg.append('text')
-        .attr('x', section.x + 65)
-        .attr('y', 100)
+        .attr('x', intent.x + 60)
+        .attr('y', intentY + 30)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '24px')
+        .text(intent.icon);
+      svg.append('text')
+        .attr('x', intent.x + 60)
+        .attr('y', intentY + 52)
         .attr('text-anchor', 'middle')
         .attr('fill', colors.text)
         .attr('font-size', '12px')
         .attr('font-weight', '600')
-        .text(section.title);
+        .text(intent.label);
+      svg.append('text')
+        .attr('x', intent.x + 60)
+        .attr('y', intentY + 68)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '10px')
+        .text(intent.desc);
+    });
 
-      // Items
-      section.items.forEach((item, i) => {
+    // Arrows to outcomes
+    const outcomeY = 400;
+    intents.forEach(intent => {
+      svg.append('text')
+        .attr('x', intent.x + 60)
+        .attr('y', intentY + 95)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.arrow)
+        .attr('font-size', '16px')
+        .text('↓');
+    });
+
+    // Outcome boxes
+    const outcomes = [
+      { label: 'Direct Response', x: 50 },
+      { label: 'Read-Only Tools', x: 210 },
+      { label: 'Full Tools (1x)', x: 370 },
+      { label: 'ReAct Loop', x: 530 },
+    ];
+
+    outcomes.forEach((outcome, i) => {
+      svg.append('rect')
+        .attr('x', outcome.x)
+        .attr('y', outcomeY)
+        .attr('width', 120)
+        .attr('height', 40)
+        .attr('rx', 8)
+        .attr('fill', intents[i].color)
+        .attr('opacity', 0.15);
+      svg.append('rect')
+        .attr('x', outcome.x)
+        .attr('y', outcomeY)
+        .attr('width', 120)
+        .attr('height', 40)
+        .attr('rx', 8)
+        .attr('fill', 'none')
+        .attr('stroke', intents[i].color)
+        .attr('stroke-width', 1);
+      svg.append('text')
+        .attr('x', outcome.x + 60)
+        .attr('y', outcomeY + 25)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.text)
+        .attr('font-size', '11px')
+        .text(outcome.label);
+    });
+
+    // Converge to response
+    svg.append('path')
+      .attr('d', `M 110 440 L 110 465 L 350 480 M 270 440 L 270 465 L 350 480 M 430 440 L 430 465 L 350 480 M 590 440 L 590 465 L 350 480`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+
+    // Response node
+    svg.append('rect')
+      .attr('x', 275)
+      .attr('y', 470)
+      .attr('width', 150)
+      .attr('height', 40)
+      .attr('rx', 20)
+      .attr('fill', colors.success)
+      .attr('opacity', 0.2);
+    svg.append('rect')
+      .attr('x', 275)
+      .attr('y', 470)
+      .attr('width', 150)
+      .attr('height', 40)
+      .attr('rx', 20)
+      .attr('fill', 'none')
+      .attr('stroke', colors.success)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 350)
+      .attr('y', 495)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '13px')
+      .attr('font-weight', '600')
+      .text('✅ WhatsApp Reply');
+  },
+
+  // =====================================================
+  // DIAGRAM: Harness System
+  // =====================================================
+  renderHarnessSystem(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const colors = this.getColors();
+    const svg = this.createSVG(container, 750, 380);
+
+    // Title
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 35)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '20px')
+      .attr('font-weight', '700')
+      .text('🤖 Harness System - CLI Delegation');
+
+    // Orchestrator box
+    svg.append('rect')
+      .attr('x', 275)
+      .attr('y', 60)
+      .attr('width', 200)
+      .attr('height', 70)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent1)
+      .attr('stroke-width', 2);
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 90)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '600')
+      .text('🎯 Fetch Orchestrator');
+    svg.append('text')
+      .attr('x', 375)
+      .attr('y', 115)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '11px')
+      .text('Intent: Task → Delegate');
+
+    // Branching lines
+    svg.append('path')
+      .attr('d', 'M 375 130 L 375 160 L 125 180')
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+    svg.append('path')
+      .attr('d', 'M 375 160 L 375 180')
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+    svg.append('path')
+      .attr('d', 'M 375 160 L 625 180')
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 2);
+
+    // Harness boxes
+    const harnesses = [
+      { 
+        name: 'Claude Code', 
+        icon: '🟣', 
+        cli: 'claude', 
+        bestFor: 'Complex refactoring',
+        features: ['Multi-file changes', 'Code analysis', 'Architectural tasks'],
+        x: 50, 
+        color: colors.accent2 
+      },
+      { 
+        name: 'Gemini CLI', 
+        icon: '🔵', 
+        cli: 'gemini', 
+        bestFor: 'Quick edits',
+        features: ['Fast responses', 'Explanations', 'Simple fixes'],
+        x: 300, 
+        color: colors.accent1 
+      },
+      { 
+        name: 'GitHub Copilot', 
+        icon: '⚫', 
+        cli: 'gh copilot', 
+        bestFor: 'Suggestions',
+        features: ['Command help', 'Code completion', 'Git workflows'],
+        x: 550, 
+        color: colors.accent3 
+      },
+    ];
+
+    harnesses.forEach(h => {
+      // Harness card
+      svg.append('rect')
+        .attr('x', h.x)
+        .attr('y', 190)
+        .attr('width', 150)
+        .attr('height', 150)
+        .attr('rx', 10)
+        .attr('fill', colors.nodeBg)
+        .attr('stroke', h.color)
+        .attr('stroke-width', 2);
+
+      // Header
+      svg.append('rect')
+        .attr('x', h.x)
+        .attr('y', 190)
+        .attr('width', 150)
+        .attr('height', 45)
+        .attr('rx', 10)
+        .attr('fill', h.color)
+        .attr('opacity', 0.15);
+
+      // Icon and name
+      svg.append('text')
+        .attr('x', h.x + 20)
+        .attr('y', 218)
+        .attr('font-size', '18px')
+        .text(h.icon);
+      svg.append('text')
+        .attr('x', h.x + 45)
+        .attr('y', 218)
+        .attr('fill', colors.text)
+        .attr('font-size', '13px')
+        .attr('font-weight', '600')
+        .text(h.name);
+
+      // CLI command
+      svg.append('text')
+        .attr('x', h.x + 75)
+        .attr('y', 260)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.accent1)
+        .attr('font-size', '11px')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .text(`$ ${h.cli}`);
+
+      // Features
+      h.features.forEach((f, i) => {
         svg.append('text')
-          .attr('x', section.x + 10)
-          .attr('y', 135 + i * 24)
+          .attr('x', h.x + 12)
+          .attr('y', 285 + i * 18)
           .attr('fill', colors.textMuted)
-          .attr('font-size', '11px')
-          .attr('font-family', 'JetBrains Mono, monospace')
-          .text(item);
+          .attr('font-size', '10px')
+          .text(`• ${f}`);
       });
     });
 
-    // Why lowdb note
+    // Legend
     svg.append('text')
-      .attr('x', 350)
-      .attr('y', 250)
+      .attr('x', 375)
+      .attr('y', 365)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
-      .attr('font-size', '12px')
-      .text('✨ Human-readable JSON • Single user optimized • Zero config');
-
-    svg.append('text')
-      .attr('x', 350)
-      .attr('y', 275)
-      .attr('text-anchor', 'middle')
-      .attr('fill', colors.textMuted)
-      .attr('font-size', '12px')
-      .text('📁 Stored at: ./data/sessions.json');
+      .attr('font-size', '11px')
+      .text('🔄 Tasks execute in Kennel container with /workspace mounted');
   },
 
   // =====================================================
@@ -861,6 +1324,12 @@ const FetchDiagrams = {
           break;
         case 'session':
           this.renderSessionState(container.id);
+          break;
+        case 'messageflow':
+          this.renderMessageFlow(container.id);
+          break;
+        case 'harness':
+          this.renderHarnessSystem(container.id);
           break;
       }
     });

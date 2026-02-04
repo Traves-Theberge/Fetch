@@ -1,7 +1,7 @@
 /**
- * @fileoverview Session Store - Persistent Storage
+ * @fileoverview Session Store - SQLite Persistent Storage
  * 
- * Provides persistent storage for sessions using lowdb (JSON file database).
+ * Provides persistent storage for sessions using better-sqlite3.
  * Handles session creation, retrieval, updates, and cleanup.
  * 
  * @module session/store
@@ -10,26 +10,22 @@
  * 
  * ## Storage
  * 
- * - File: `/app/data/sessions.json`
- * - Format: JSON with array of Session objects
+ * - File: `/app/data/sessions.db`
+ * - Format: SQLite database
  * - Expiry: Sessions expire after 7 days of inactivity
  * 
  * ## Database Schema
  * 
- * ```json
- * {
- *   "sessions": [
- *     {
- *       "id": "uuid",
- *       "userId": "phone_number",
- *       "createdAt": "ISO date",
- *       "lastActivityAt": "ISO date",
- *       "messages": [...],
- *       "preferences": {...},
- *       ...
- *     }
- *   ]
- * }
+ * ```sql
+ * CREATE TABLE sessions (
+ *   id TEXT PRIMARY KEY,
+ *   user_id TEXT UNIQUE NOT NULL,
+ *   data TEXT NOT NULL,  -- JSON blob
+ *   created_at TEXT NOT NULL,
+ *   last_activity_at TEXT NOT NULL
+ * );
+ * CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+ * CREATE INDEX idx_sessions_last_activity ON sessions(last_activity_at);
  * ```
  * 
  * @example
@@ -45,12 +41,10 @@
  * ```
  */
 
-import { Low } from 'lowdb';
-import { JSONFile } from 'lowdb/node';
+import Database from 'better-sqlite3';
 import { dirname } from 'path';
 import { mkdir } from 'fs/promises';
 import { 
-  Database, 
   Session, 
   createSession 
 } from './types.js';
@@ -61,17 +55,29 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /** Default database file path */
-const DEFAULT_DB_PATH = '/app/data/sessions.json';
+const DEFAULT_DB_PATH = '/app/data/sessions.db';
 
 /** Session expiry time (7 days in milliseconds) */
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
+// =============================================================================
+// DATABASE ROW TYPE
+// =============================================================================
+
+interface SessionRow {
+  id: string;
+  user_id: string;
+  data: string;
+  created_at: string;
+  last_activity_at: string;
+}
 
 // =============================================================================
 // SESSION STORE CLASS
 // =============================================================================
 
 /**
- * Persistent session storage using lowdb.
+ * Persistent session storage using SQLite.
  * 
  * Provides CRUD operations for sessions with automatic initialization,
  * activity tracking, and expiry cleanup.
@@ -79,21 +85,29 @@ const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
  * @class
  * @example
  * ```typescript
- * const store = new SessionStore('/path/to/sessions.json');
+ * const store = new SessionStore('/path/to/sessions.db');
  * await store.init();
  * 
  * const session = await store.getOrCreate('user@phone');
  * ```
  */
 export class SessionStore {
-  private db: Low<Database>;
+  private db: Database.Database | null = null;
   private dbPath: string;
   private initialized: boolean = false;
 
+  // Prepared statements for performance
+  private stmtGetById: Database.Statement | null = null;
+  private stmtGetByUserId: Database.Statement | null = null;
+  private stmtInsert: Database.Statement | null = null;
+  private stmtUpdate: Database.Statement | null = null;
+  private stmtDelete: Database.Statement | null = null;
+  private stmtGetAll: Database.Statement | null = null;
+  private stmtCount: Database.Statement | null = null;
+  private stmtCleanup: Database.Statement | null = null;
+
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     this.dbPath = dbPath;
-    const adapter = new JSONFile<Database>(dbPath);
-    this.db = new Low(adapter, { sessions: [] });
   }
 
   /**
@@ -106,18 +120,44 @@ export class SessionStore {
       // Ensure data directory exists
       await mkdir(dirname(this.dbPath), { recursive: true });
 
-      // Read existing data or create empty database
-      await this.db.read();
+      // Open database
+      this.db = new Database(this.dbPath);
       
-      if (!this.db.data) {
-        this.db.data = { sessions: [] };
-        await this.db.write();
-      }
+      // Enable WAL mode for better concurrency
+      this.db.pragma('journal_mode = WAL');
+      
+      // Create tables if they don't exist
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          user_id TEXT UNIQUE NOT NULL,
+          data TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          last_activity_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions(last_activity_at);
+      `);
+
+      // Prepare statements
+      this.stmtGetById = this.db.prepare('SELECT * FROM sessions WHERE id = ?');
+      this.stmtGetByUserId = this.db.prepare('SELECT * FROM sessions WHERE user_id = ?');
+      this.stmtInsert = this.db.prepare(`
+        INSERT INTO sessions (id, user_id, data, created_at, last_activity_at)
+        VALUES (@id, @user_id, @data, @created_at, @last_activity_at)
+      `);
+      this.stmtUpdate = this.db.prepare(`
+        UPDATE sessions SET data = @data, last_activity_at = @last_activity_at WHERE id = @id
+      `);
+      this.stmtDelete = this.db.prepare('DELETE FROM sessions WHERE id = ?');
+      this.stmtGetAll = this.db.prepare('SELECT * FROM sessions ORDER BY last_activity_at DESC');
+      this.stmtCount = this.db.prepare('SELECT COUNT(*) as count FROM sessions');
+      this.stmtCleanup = this.db.prepare('DELETE FROM sessions WHERE last_activity_at < ?');
 
       this.initialized = true;
-      logger.info('Session store initialized', { 
-        sessionCount: this.db.data.sessions.length 
-      });
+      
+      const count = (this.stmtCount.get() as { count: number }).count;
+      logger.info('Session store initialized', { sessionCount: count });
     } catch (error) {
       logger.error('Failed to initialize session store', { error });
       throw error;
@@ -128,9 +168,19 @@ export class SessionStore {
    * Ensure store is initialized
    */
   private ensureInitialized(): void {
-    if (!this.initialized) {
+    if (!this.initialized || !this.db) {
       throw new Error('Session store not initialized. Call init() first.');
     }
+  }
+
+  /**
+   * Convert database row to Session object
+   */
+  private rowToSession(row: SessionRow): Session {
+    const session = JSON.parse(row.data) as Session;
+    // Ensure timestamps are synced
+    session.lastActivityAt = row.last_activity_at;
+    return session;
   }
 
   /**
@@ -140,40 +190,55 @@ export class SessionStore {
     this.ensureInitialized();
 
     // Try to find existing session
-    let session = this.db.data!.sessions.find(s => s.userId === userId);
+    const row = this.stmtGetByUserId!.get(userId) as SessionRow | undefined;
 
-    if (!session) {
+    if (!row) {
       // Create new session
-      session = createSession(userId);
-      this.db.data!.sessions.push(session);
-      await this.db.write();
+      const session = createSession(userId);
+      
+      this.stmtInsert!.run({
+        id: session.id,
+        user_id: session.userId,
+        data: JSON.stringify(session),
+        created_at: session.createdAt,
+        last_activity_at: session.lastActivityAt,
+      });
+      
       logger.info('Created new session', { sessionId: session.id, userId });
-    } else {
-      // Migrate old sessions to have new fields
-      let needsUpdate = false;
-      
-      if (session.availableProjects === undefined) {
-        session.availableProjects = [];
-        needsUpdate = true;
-      }
-      if (session.currentProject === undefined) {
-        session.currentProject = null;
-        needsUpdate = true;
-      }
-      if (session.activeFiles === undefined) {
-        session.activeFiles = [];
-        needsUpdate = true;
-      }
-      
-      if (needsUpdate) {
-        await this.db.write();
-        logger.info('Migrated session to new schema', { sessionId: session.id });
-      }
-      
-      // Update last activity
-      session.lastActivityAt = new Date().toISOString();
-      await this.db.write();
+      return session;
     }
+
+    // Parse existing session
+    let session = this.rowToSession(row);
+    let needsUpdate = false;
+    
+    // Migrate old sessions to have new fields
+    if (session.availableProjects === undefined) {
+      session.availableProjects = [];
+      needsUpdate = true;
+    }
+    if (session.currentProject === undefined) {
+      session.currentProject = null;
+      needsUpdate = true;
+    }
+    if (session.activeFiles === undefined) {
+      session.activeFiles = [];
+      needsUpdate = true;
+    }
+    
+    // Update last activity
+    session.lastActivityAt = new Date().toISOString();
+    
+    if (needsUpdate) {
+      logger.info('Migrated session to new schema', { sessionId: session.id });
+    }
+    
+    // Always update activity timestamp
+    this.stmtUpdate!.run({
+      id: session.id,
+      data: JSON.stringify(session),
+      last_activity_at: session.lastActivityAt,
+    });
 
     return session;
   }
@@ -183,7 +248,8 @@ export class SessionStore {
    */
   async getById(sessionId: string): Promise<Session | undefined> {
     this.ensureInitialized();
-    return this.db.data!.sessions.find(s => s.id === sessionId);
+    const row = this.stmtGetById!.get(sessionId) as SessionRow | undefined;
+    return row ? this.rowToSession(row) : undefined;
   }
 
   /**
@@ -191,7 +257,8 @@ export class SessionStore {
    */
   async getByUserId(userId: string): Promise<Session | undefined> {
     this.ensureInitialized();
-    return this.db.data!.sessions.find(s => s.userId === userId);
+    const row = this.stmtGetByUserId!.get(userId) as SessionRow | undefined;
+    return row ? this.rowToSession(row) : undefined;
   }
 
   /**
@@ -200,15 +267,17 @@ export class SessionStore {
   async update(session: Session): Promise<void> {
     this.ensureInitialized();
 
-    const index = this.db.data!.sessions.findIndex(s => s.id === session.id);
+    session.lastActivityAt = new Date().toISOString();
     
-    if (index === -1) {
+    const result = this.stmtUpdate!.run({
+      id: session.id,
+      data: JSON.stringify(session),
+      last_activity_at: session.lastActivityAt,
+    });
+    
+    if (result.changes === 0) {
       throw new Error(`Session not found: ${session.id}`);
     }
-
-    session.lastActivityAt = new Date().toISOString();
-    this.db.data!.sessions[index] = session;
-    await this.db.write();
   }
 
   /**
@@ -217,16 +286,13 @@ export class SessionStore {
   async delete(sessionId: string): Promise<boolean> {
     this.ensureInitialized();
 
-    const index = this.db.data!.sessions.findIndex(s => s.id === sessionId);
+    const result = this.stmtDelete!.run(sessionId);
     
-    if (index === -1) {
-      return false;
+    if (result.changes > 0) {
+      logger.info('Deleted session', { sessionId });
+      return true;
     }
-
-    this.db.data!.sessions.splice(index, 1);
-    await this.db.write();
-    logger.info('Deleted session', { sessionId });
-    return true;
+    return false;
   }
 
   /**
@@ -255,22 +321,14 @@ export class SessionStore {
   async cleanup(): Promise<number> {
     this.ensureInitialized();
 
-    const now = Date.now();
-    const expiredSessions = this.db.data!.sessions.filter(s => {
-      const lastActivity = new Date(s.lastActivityAt).getTime();
-      return now - lastActivity > SESSION_EXPIRY_MS;
-    });
-
-    if (expiredSessions.length > 0) {
-      this.db.data!.sessions = this.db.data!.sessions.filter(s => {
-        const lastActivity = new Date(s.lastActivityAt).getTime();
-        return now - lastActivity <= SESSION_EXPIRY_MS;
-      });
-      await this.db.write();
-      logger.info('Cleaned up expired sessions', { count: expiredSessions.length });
+    const expiryDate = new Date(Date.now() - SESSION_EXPIRY_MS).toISOString();
+    const result = this.stmtCleanup!.run(expiryDate);
+    
+    if (result.changes > 0) {
+      logger.info('Cleaned up expired sessions', { count: result.changes });
     }
 
-    return expiredSessions.length;
+    return result.changes;
   }
 
   /**
@@ -278,7 +336,8 @@ export class SessionStore {
    */
   async getAll(): Promise<Session[]> {
     this.ensureInitialized();
-    return [...this.db.data!.sessions];
+    const rows = this.stmtGetAll!.all() as SessionRow[];
+    return rows.map(row => this.rowToSession(row));
   }
 
   /**
@@ -286,7 +345,19 @@ export class SessionStore {
    */
   async count(): Promise<number> {
     this.ensureInitialized();
-    return this.db.data!.sessions.length;
+    const result = this.stmtCount!.get() as { count: number };
+    return result.count;
+  }
+
+  /**
+   * Close the database connection
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.initialized = false;
+    }
   }
 }
 
