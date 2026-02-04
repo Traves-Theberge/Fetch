@@ -57,6 +57,7 @@ import { SessionManager } from '../session/manager.js';
 import { formatHelp, formatStatus } from '../agent/format.js';
 import { scanProjects, getProject, formatProjectList, formatProjectInfo } from '../session/project.js';
 import { logger } from '../utils/logger.js';
+import { handleTrustCommand } from './trust.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { mkdir } from 'fs/promises';
@@ -257,6 +258,12 @@ export async function parseCommand(
       return handleUndo(session, sessionManager);
 
     // =========================================================================
+    // Security - Zero Trust Bonding
+    // =========================================================================
+    case 'trust':
+      return handleTrust(argString);
+
+    // =========================================================================
     // Help
     // =========================================================================
     case 'help':
@@ -281,6 +288,18 @@ export async function parseCommand(
 // =============================================================================
 // Command Handlers
 // =============================================================================
+
+/**
+ * Handle /trust commands for Zero Trust Bonding whitelist management.
+ * Only owner can use these commands.
+ */
+async function handleTrust(args: string): Promise<CommandResult> {
+  const result = await handleTrustCommand(args);
+  return {
+    handled: true,
+    responses: [result.response]
+  };
+}
 
 async function handleStop(
   session: Session, 

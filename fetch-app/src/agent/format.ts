@@ -338,6 +338,11 @@ Just ask me anything! No commands needed.
 • \`/mode\` - Show/change autonomy level
 • \`/verbose\` - Toggle detailed output
 
+🔐 *Security (Zero Trust Bonding):*
+• \`/trust add <number>\` - Add trusted phone
+• \`/trust remove <number>\` - Remove trusted phone
+• \`/trust list\` - Show trusted numbers
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔐 *Approval Responses:*
