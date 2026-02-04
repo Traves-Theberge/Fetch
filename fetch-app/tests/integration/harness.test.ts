@@ -484,7 +484,7 @@ describe('HarnessExecutor Timeout Handling', () => {
 
     const startTime = Date.now();
     const result = await executor.execute(
-      'task-1',
+      'tsk_1',
       'claude',
       'test goal',
       '/tmp',
@@ -525,7 +525,7 @@ describe('Harness Error Handling', () => {
       executor.registerAdapter(mockAdapter);
 
       const result = await executor.execute(
-        'task-1',
+        'tsk_1',
         'claude',
         'test goal',
         '/tmp',
@@ -559,7 +559,7 @@ describe('Harness Error Handling', () => {
       executor.registerAdapter(mockAdapter);
 
       const result = await executor.execute(
-        'task-1',
+        'tsk_1',
         'gemini',
         'test goal',
         '/nonexistent/path/xyz',
@@ -576,7 +576,7 @@ describe('Harness Error Handling', () => {
 
       await expect(
         executor.execute(
-          'task-1',
+          'tsk_1',
           'unknown-agent' as any,
           'test goal',
           '/tmp',
@@ -616,7 +616,7 @@ describe('Harness Event Emission', () => {
     executor.on('harness:started', () => events.push('started'));
     executor.on('harness:completed', () => events.push('completed'));
 
-    await executor.execute('task-1', 'claude', 'test', '/tmp', 5000);
+    await executor.execute('tsk_1', 'claude', 'test', '/tmp', 5000);
 
     expect(events).toContain('started');
     expect(events).toContain('completed');
@@ -648,7 +648,7 @@ describe('Harness Event Emission', () => {
       outputEventFired = true;
     });
 
-    const result = await executor.execute('task-1', 'claude', 'test', '/tmp', 5000);
+    const result = await executor.execute('tsk_1', 'claude', 'test', '/tmp', 5000);
 
     // Verify the output was captured in the result
     expect(result.output).toContain('test output');

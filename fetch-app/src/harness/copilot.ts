@@ -328,6 +328,22 @@ export class CopilotAdapter implements HarnessAdapter {
   }
 
   /**
+   * Extract file operations from Copilot output
+   *
+   * Gh-copilot doesn't perform file operations directly.
+   *
+   * @param _output - Full output buffer
+   * @returns Object with created, modified, deleted files
+   */
+  extractFileOperations(_output: string): {
+    created: string[];
+    modified: string[];
+    deleted: string[];
+  } {
+    return { created: [], modified: [], deleted: [] };
+  }
+
+  /**
    * Build config for explanation mode
    *
    * @param code - Code to explain

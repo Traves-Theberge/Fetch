@@ -128,6 +128,15 @@ export const DEFAULT_HARNESS_TIMEOUT_MS = 300000; // 5 minutes
 // ============================================================================
 
 /**
+ * File operations performed by a harness
+ */
+export interface FileOperations {
+  created: string[];
+  modified: string[];
+  deleted: string[];
+}
+
+/**
  * Harness adapter interface
  *
  * Each coding agent (Claude, Gemini, Copilot) implements this interface.
@@ -173,6 +182,22 @@ export interface HarnessAdapter {
    * @returns Formatted response for stdin
    */
   formatResponse(response: string): string;
+
+  /**
+   * Extract a summary of changes from the harness output
+   *
+   * @param output - Full stdout buffer
+   * @returns Summary string or null if none found
+   */
+  extractSummary(output: string): string | null;
+
+  /**
+   * Extract file operations from the harness output
+   *
+   * @param output - Full stdout buffer
+   * @returns List of created, modified, and deleted files
+   */
+  extractFileOperations(output: string): FileOperations;
 }
 
 // ============================================================================

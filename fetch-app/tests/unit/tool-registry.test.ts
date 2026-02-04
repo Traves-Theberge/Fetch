@@ -13,9 +13,9 @@ describe('Tool Registry', () => {
   });
 
   describe('Tool Registration', () => {
-    it('should have 9 orchestrator tools', () => {
+    it('should have 11 orchestrator tools', () => {
       const toolNames = registry.getToolNames();
-      expect(toolNames).toHaveLength(9);
+      expect(toolNames).toHaveLength(11);
     });
 
     it('should have workspace tools', () => {

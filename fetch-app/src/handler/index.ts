@@ -13,7 +13,7 @@ import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
 import { initializeToolRegistry } from '../tools/registry.js';
-import { TaskManager, getTaskManager } from '../task/manager.js';
+import { TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import { logger } from '../utils/logger.js';
 
@@ -22,10 +22,10 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /** Session manager singleton */
-let sessionManager: SessionManager;
+let sessionManager: SessionManager | null = null;
 
 /** Task manager singleton */
-let taskManager: TaskManager;
+let taskManager: TaskManager | null = null;
 
 /** Initialization flag */
 let initialized = false;
@@ -49,7 +49,7 @@ export async function initializeHandler(): Promise<void> {
   await initializeToolRegistry();
   logger.success('Tool registry loaded');
 
-  taskManager = await getTaskManager();
+  taskManager = await getPersistentTaskManager();
   logger.success('Task manager ready');
 
   // Sync queue with active task from persistent storage
@@ -93,13 +93,17 @@ export async function handleMessage(
   const startTime = Date.now();
   logger.info(`Processing message (${message.length} chars)`);
 
+  // Type-safety assertions
+  const sManager = sessionManager!;
+  // const tManager = taskManager!;
+
   try {
     // Get or create session
-    const session = await sessionManager.getOrCreateSession(userId);
+    const session = await sManager.getOrCreateSession(userId);
 
     // Update last activity
     session.lastActivityAt = new Date().toISOString();
-    await sessionManager.updateSession(session);
+    await sManager.updateSession(session);
 
     // Check for slash commands (these bypass the agent)
     if (message.startsWith('/')) {
@@ -128,7 +132,7 @@ export async function handleMessage(
         timestamp: new Date().toISOString(),
       }
     );
-    await sessionManager.updateSession(session);
+    await sManager.updateSession(session);
 
     return responses;
   } catch (error) {

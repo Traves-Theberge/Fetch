@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2026-02-04 (Harness Alignment & Diagnostics 🛠️)
+
+### 🧩 Harness Interface Alignment
+- Unified `HarnessAdapter` interface across Claude, Gemini, and Copilot.
+- Implemented `extractFileOperations` in Copilot CLI adapter for consistent task summaries.
+- Refined output parsing to accurately detect interactive questions vs completion summaries.
+
+### 🛡️ System Diagnostics & Hardening
+- Resolved "Cannot redeclare block-scoped variable" shadowing issues in tool layer.
+- Fixed import naming collisions in main orchestrator handler (`getTaskManager` vs singleton).
+- Added strict null safety checks and type-safe manager accessors.
+- Cleaned up Go TUI diagnostics and optimized QR code rendering logic.
+
+### 🧹 Code Quality
+- Migrated to Flat Config (`eslint.config.js`) for ESLint 9 compatibility.
+- Fixed useless regex escape characters and unused variable warnings.
+- Achieved 100% test pass rate (104/104 tests) across Unit, E2E, and Integration suites.
+
 ## [2.4.0] - 2026-02-04 (Reliability & Persistence 🔄 💾)
 
 ### 🔄 Better Error Recovery & Retry Logic

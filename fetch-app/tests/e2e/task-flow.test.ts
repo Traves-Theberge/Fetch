@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createMockSession, createMockWorkspace } from '../helpers/mock-session.js';
+import { createMockSession, createMockProject } from '../helpers/mock-session.js';
 import { MockHarnessExecutor } from '../helpers/mock-harness.js';
 
 // Mock the harness executor
@@ -28,7 +28,7 @@ describe('E2E: Task Flow', () => {
   describe('Happy Path', () => {
     it('should complete a coding task successfully', async () => {
       const session = createMockSession({
-        workspace: createMockWorkspace('my-project'),
+        currentProject: createMockProject('my-project'),
       });
 
       // Queue successful response

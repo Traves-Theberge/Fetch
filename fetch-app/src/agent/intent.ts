@@ -119,9 +119,9 @@ const WORKSPACE_PATTERNS = {
 
   // Select project - look for project-like names
   select: [
-    /^(switch|use|select|work\s*on|open|go\s*to|load)\s+(to\s+)?(the\s+)?[\w-]+[\s]*$/i,
-    /^(let'?s?\s*)?(work\s+on|use)\s+[\w-]+$/i,
-    /^(cd|change\s+to|move\s+to)\s+[\w-]+$/i,
+    /^(switch|use|select|work\s*on|open|go\s*to|load)\s+(to\s+)?(the\s+)?[\w-]+(\s+(project|workspace|app))?[\s?]*$/i,
+    /^(let'?s?\s*)?(work\s+on|use)\s+[\w-]+(\s+(project|workspace|app))?[\s?]*$/i,
+    /^(cd|change\s+to|move\s+to)\s+[\w-]+[\s?]*$/i,
   ],
 
   // Create workspace/project - THIS IS WORKSPACE, NOT TASK!
@@ -245,7 +245,7 @@ const CODE_INDICATORS = [
   /\b(component|hook|provider|context|state|props|redux|store)\b/i,
   /\b(api|endpoint|route|handler|middleware|controller)\b/i,
   /\b(database|schema|model|migration|query)\b/i,
-  /[{}\[\]();].*[{}\[\]();]/,  // Multiple brackets = code
+  /[{}[\]();].*[{}[\]();]/,  // Multiple brackets = code
   /=>/,                         // Arrow function
   /::/,                         // Rust/C++ scope
 ];

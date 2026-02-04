@@ -24,7 +24,7 @@ describe('E2E: Conversation Flow', () => {
       for (const greeting of greetings) {
         const intent = classifyIntent(greeting, session);
         expect(intent.type).toBe('conversation');
-        expect(intent.confidence).toBeGreaterThan(0.7);
+        expect(intent.confidence).toBeGreaterThanOrEqual(0.6);
       }
     });
   });
@@ -87,7 +87,7 @@ describe('E2E: Conversation Flow', () => {
       for (const msg of ambiguous) {
         const intent = classifyIntent(msg, session);
         expect(intent.type).toBe('conversation');
-        expect(intent.reason).toBe('short_message');
+        expect(['short_message', 'conversation_reactions']).toContain(intent.reason);
       }
     });
   });

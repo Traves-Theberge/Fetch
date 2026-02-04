@@ -187,7 +187,7 @@ export class DockerExecutor {
       
       return new Promise((resolve, reject) => {
         let output = '';
-        let errorOutput = '';
+        const errorOutput = '';
 
         // Set timeout
         const timeout = setTimeout(() => {

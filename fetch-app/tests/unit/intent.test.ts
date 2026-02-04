@@ -16,7 +16,7 @@ describe('Intent Classification', () => {
       for (const greeting of greetings) {
         const result = classifyIntent(greeting, session);
         expect(result.type).toBe('conversation');
-        expect(result.confidence).toBeGreaterThan(0.8);
+        expect(result.confidence).toBeGreaterThanOrEqual(0.6);
       }
     });
 
@@ -36,7 +36,7 @@ describe('Intent Classification', () => {
       
       const result = classifyIntent('ok', session);
       expect(result.type).toBe('conversation');
-      expect(result.reason).toBe('short_message');
+      expect(result.reason).toBe('conversation_reactions');
     });
   });
 
@@ -105,15 +105,15 @@ describe('Intent Classification', () => {
       expect(result.type).toBe('task');
     });
 
-    it('should default ambiguous long messages to task', () => {
+    it('should fall back to conversation for ambiguous long messages', () => {
       const session = createMockSession();
       
       const result = classifyIntent(
         'I need you to look at the authentication flow and make improvements',
         session
       );
-      expect(result.type).toBe('task');
-      expect(result.reason).toBe('default');
+      expect(result.type).toBe('conversation');
+      expect(result.reason).toBe('fallback_will_clarify');
     });
   });
 

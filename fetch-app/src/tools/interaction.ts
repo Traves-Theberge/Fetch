@@ -97,7 +97,6 @@ export async function handleAskUser(
     }
 
     // Set the pending question on the task (this transitions to waiting_input)
-    const manager = await getTaskManager();
     await manager.setWaitingInput(currentTaskId, formattedQuestion);
 
     // The WhatsApp layer will pick up the question from task events
@@ -205,7 +204,6 @@ export async function handleReportProgress(
     }
 
     // Add progress update to task (message, files, percent)
-    const manager = await getTaskManager();
     await manager.addProgress(currentTaskId as TaskId, message, undefined, percent);
 
     return {

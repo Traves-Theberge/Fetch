@@ -302,7 +302,6 @@ export async function handleTaskCancel(
     }
 
     // Cancel the task
-    const manager = await getTaskManager();
     await manager.cancelTask(taskId as TaskId);
 
     // Clear from queue if it's the current task
@@ -407,7 +406,6 @@ export async function handleTaskRespond(
     }
 
     // Resume the task
-    const manager = await getTaskManager();
     await manager.resumeTask(targetTaskId as TaskId);
 
     // TODO: Send response to harness via stdin

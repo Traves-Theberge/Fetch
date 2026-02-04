@@ -335,7 +335,7 @@ export class Bridge {
    */
   private async isReplyToFetchMessage(message: Message): Promise<boolean> {
     try {
-      const quotedMsg = await message.getQuotedMessage();
+      const quotedMsg = await (message as any).getQuotedMessage();
       if (!quotedMsg) return false;
       
       // Check if the quoted message is from us (fromMe)
