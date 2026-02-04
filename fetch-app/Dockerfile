@@ -4,6 +4,14 @@
 # Build stage
 FROM node:20-slim AS builder
 
+# Install build dependencies for native modules (better-sqlite3)
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy package files
@@ -22,7 +30,7 @@ RUN npm run build
 # Production stage
 FROM node:20-slim
 
-# Install dependencies for Puppeteer (whatsapp-web.js requirement)
+# Install dependencies for Puppeteer (whatsapp-web.js requirement) and SQLite runtime
 RUN apt-get update && apt-get install -y \
     chromium \
     fonts-liberation \
@@ -41,6 +49,9 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     xdg-utils \
+    python3 \
+    make \
+    g++ \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

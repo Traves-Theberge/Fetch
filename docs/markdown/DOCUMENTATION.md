@@ -40,7 +40,7 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 - 📁 **Project Management** — Clone, init, switch between projects
 - 🔒 **Security-First** — 6 layers of protection
 - 🐳 **Docker Isolation** — All execution in sandboxed containers
-- 💾 **Session Persistence** — Survives reboots with lowdb
+- 💾 **Session Persistence** — Survives reboots with SQLite
 - 🖥️ **TUI Manager** — Beautiful terminal interface
 
 ---
@@ -89,7 +89,7 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
     - Copilot CLI adapter
   - 11 orchestrator tools
   - Project management (clone, init, switch)
-  - Session persistence (lowdb)
+  - Session persistence (SQLite)
   - Status API and documentation server
 
 #### The Kennel (Docker) - "The Muscle"
@@ -109,11 +109,12 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 <!-- DIAGRAM:session -->
 
-**Why lowdb?**
+**Why SQLite?**
 - ✅ Perfect for single user
-- ✅ Human-readable JSON
+- ✅ ACID compliant & crash-safe
 - ✅ Zero configuration
 - ✅ Minimal resource usage
+- ✅ WAL mode for better concurrency
 
 ---
 
@@ -636,7 +637,7 @@ fetch/
 │       │   └── whatsapp-format.ts # Mobile formatting
 │       ├── session/            # State management
 │       │   ├── types.ts        # TypeScript interfaces
-│       │   ├── store.ts        # lowdb persistence
+│       │   ├── store.ts        # SQLite persistence
 │       │   ├── manager.ts      # Session lifecycle
 │       │   └── project.ts      # Project scanner
 │       ├── commands/           # Command parser

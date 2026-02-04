@@ -38,7 +38,19 @@ Powered by **OpenRouter** with access to **100+ AI models**:
 
 ---
 
-## 🔒 Security
+## � Message Flow
+
+<!-- DIAGRAM:messageflow -->
+
+---
+
+## 🤖 Harness System
+
+<!-- DIAGRAM:harness -->
+
+---
+
+## �🔒 Security
 
 Fetch implements **5 layers of security** to ensure your system remains protected:
 
@@ -215,7 +227,7 @@ fetch/
 │       ├── security/       # Auth, rate limiting, validation
 │       ├── agent/          # Agentic core (ReAct loop)
 │       ├── tools/          # Tool registry (24 tools)
-│       ├── session/        # Session management (lowdb)
+│       ├── session/        # Session management (SQLite)
 │       └── api/            # Status API (:8765)
 ├── kennel/                 # AI CLI container (Ubuntu)
 ├── docs/                   # Documentation site
