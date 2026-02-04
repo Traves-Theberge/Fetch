@@ -1,4 +1,4 @@
-// Package components provides a menu component for the Fetch TUI.
+// Package components provides reusable UI components for the Fetch TUI.
 package components
 
 import (
@@ -8,7 +8,7 @@ import (
 	"github.com/fetch/manager/internal/theme"
 )
 
-// MenuItem represents a menu item
+// MenuItem represents a single menu item with icon, label, and optional hotkey.
 type MenuItem struct {
 	Icon     string
 	Label    string
@@ -16,7 +16,7 @@ type MenuItem struct {
 	Disabled bool
 }
 
-// Menu renders a styled menu
+// Menu is a keyboard-navigable menu component with customizable styling.
 type Menu struct {
 	Items    []MenuItem
 	Cursor   int

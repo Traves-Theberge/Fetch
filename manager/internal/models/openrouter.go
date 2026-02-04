@@ -15,7 +15,7 @@ import (
 	"github.com/fetch/manager/internal/paths"
 )
 
-// Model represents an OpenRouter model
+// Model represents an OpenRouter AI model with metadata and pricing.
 type Model struct {
 	ID            string  `json:"id"`
 	Name          string  `json:"name"`
@@ -24,18 +24,18 @@ type Model struct {
 	Pricing       Pricing `json:"pricing"`
 }
 
-// Pricing represents model pricing info
+// Pricing contains the per-token cost information for prompt and completion.
 type Pricing struct {
 	Prompt     string `json:"prompt"`
 	Completion string `json:"completion"`
 }
 
-// ModelsResponse is the OpenRouter API response
+// ModelsResponse represents the OpenRouter API response structure.
 type ModelsResponse struct {
 	Data []Model `json:"data"`
 }
 
-// Category groups models by provider
+// Category groups models by provider for display organization.
 type Category struct {
 	Name   string
 	Models []Model

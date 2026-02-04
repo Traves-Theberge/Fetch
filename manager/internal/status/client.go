@@ -15,7 +15,8 @@ const (
 	RequestTimeout = 5 * time.Second
 )
 
-// BridgeStatus represents the current state of the Fetch Bridge
+// BridgeStatus represents the current state of the Fetch Bridge.
+// It includes WhatsApp connection state, authentication info, and metrics.
 type BridgeStatus struct {
 	State        string  `json:"state"`        // initializing, qr_pending, authenticated, disconnected, error
 	QRCode       *string `json:"qrCode"`       // Raw QR code data (if pending)
@@ -25,7 +26,7 @@ type BridgeStatus struct {
 	LastError    *string `json:"lastError"`    // Last error message (if any)
 }
 
-// Client is a status API client
+// Client provides HTTP access to the Fetch Bridge status and control APIs.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client

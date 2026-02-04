@@ -37,18 +37,24 @@ var (
 			Bold(true)
 )
 
-// SelectionState represents the model selector state
+// SelectionState represents the current state of the model selection UI.
 type SelectionState int
 
 const (
+	// StateLoading indicates models are being fetched from the API.
 	StateLoading SelectionState = iota
+	// StateLoaded indicates models have been successfully loaded.
 	StateLoaded
+	// StateError indicates an error occurred while loading models.
 	StateError
+	// StateSaving indicates the selected model is being saved.
 	StateSaving
+	// StateSaved indicates the model was successfully saved.
 	StateSaved
 )
 
-// Selector handles model selection UI
+// Selector handles the OpenRouter model selection UI.
+// It displays models grouped by category with search and filtering capabilities.
 type Selector struct {
 	state        SelectionState
 	models       []Model
@@ -62,19 +68,20 @@ type Selector struct {
 	showAll      bool // Show all models or just recommended
 }
 
+// listItem represents an item in the flattened model list.
 type listItem struct {
 	isCategory bool
 	category   string
 	model      Model
 }
 
-// ModelsLoadedMsg is sent when models are fetched
+// ModelsLoadedMsg is sent when models are fetched from the OpenRouter API.
 type ModelsLoadedMsg struct {
 	Models []Model
 	Err    error
 }
 
-// ModelSavedMsg is sent when model is saved
+// ModelSavedMsg is sent when a model selection is saved to configuration.
 type ModelSavedMsg struct {
 	Err error
 }

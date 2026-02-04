@@ -16,6 +16,8 @@ import { EventEmitter } from 'events';
 import { taskManager } from './manager.js';
 import { getHarnessExecutor } from '../harness/executor.js';
 import { getClaudeAdapter } from '../harness/claude.js';
+import { getGeminiAdapter } from '../harness/gemini.js';
+import { getCopilotAdapter } from '../harness/copilot.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { logger } from '../utils/logger.js';
 import type { Task, TaskId, AgentType } from './types.js';
@@ -71,9 +73,16 @@ export class TaskIntegration extends EventEmitter {
     // Initialize harness executor
     const executor = getHarnessExecutor();
 
-    // Register Claude adapter
+    // Register all harness adapters
     const claudeAdapter = getClaudeAdapter();
+    const geminiAdapter = getGeminiAdapter();
+    const copilotAdapter = getCopilotAdapter();
+    
     executor.registerAdapter(claudeAdapter);
+    executor.registerAdapter(geminiAdapter);
+    executor.registerAdapter(copilotAdapter);
+    
+    logger.info('Registered harness adapters: claude, gemini, copilot');
 
     // Subscribe to harness events
     this.subscribeToHarnessEvents(executor);

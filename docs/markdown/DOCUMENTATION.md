@@ -35,7 +35,7 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 - 🧠 **V2 Orchestrator Architecture** — 3-intent system (Conversation, Workspace, Task)
 - 🤖 **Harness System** — Plug-in adapters for Claude, Gemini, Copilot CLIs
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
-- 🛠️ **8 Orchestrator Tools** — Focused workspace management tools
+- 🛠️ **11 Orchestrator Tools** — Workspace (5), task (4), interaction (2)
 - 🛡️ **Zod Validation** — Runtime type-safe tool argument validation
 - 📁 **Project Management** — Clone, init, switch between projects
 - 🔒 **Security-First** — 6 layers of protection
@@ -81,13 +81,13 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
   - Security (whitelist, rate limiting, validation)
   - **3-Intent Classification (V2):**
     - 💬 Conversation — Greetings, thanks, general chat (direct response)
-    - 📁 Workspace — Project management (8 orchestrator tools)
+    - 📁 Workspace — Project management (11 orchestrator tools)
     - 🚀 Task — Complex work (delegated to harness)
   - **Harness System:**
     - Claude CLI adapter
     - Gemini CLI adapter
     - Copilot CLI adapter
-  - 8 orchestrator tools
+  - 11 orchestrator tools
   - Project management (clone, init, switch)
   - Session persistence (lowdb)
   - Status API and documentation server

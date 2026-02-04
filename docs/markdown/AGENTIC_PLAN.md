@@ -185,9 +185,33 @@ interface AgentTask {
 
 ## Tool Registry
 
-Fetch includes **24 built-in tools** for complete development workflows:
+Fetch includes **11 orchestrator tools** for workspace management, task control, and user interaction:
 
-<!-- DIAGRAM:tools -->
+### Workspace Tools (5)
+
+| Tool | Auto-Approve | Description |
+|------|--------------|-------------|
+| `workspace_list` | ✅ | List all projects |
+| `workspace_select` | ✅ | Select active project |
+| `workspace_status` | ✅ | Git status & branch |
+| `workspace_create` | ❌ | Create new project |
+| `workspace_delete` | ❌ | Delete a project |
+
+### Task Tools (4)
+
+| Tool | Auto-Approve | Description |
+|------|--------------|-------------|
+| `task_create` | ❌ | Start a coding task |
+| `task_status` | ✅ | Get task progress |
+| `task_cancel` | ❌ | Cancel running task |
+| `task_respond` | ✅ | Answer agent question |
+
+### Interaction Tools (2)
+
+| Tool | Auto-Approve | Description |
+|------|--------------|-------------|
+| `ask_user` | ✅ | Ask clarifying question |
+| `report_progress` | ✅ | Report task progress |
 
 ### Auto-Approve Logic
 

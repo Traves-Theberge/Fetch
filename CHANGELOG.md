@@ -5,6 +5,113 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-02-03 (Good Boy Update 🐕)
+
+### 🐕 "Good Boy" Personality Enhancement
+
+Fetch is now a proper good boy who just wants to help! Woof!
+
+### Added
+
+**New Tools:**
+- `workspace_create` - Create new projects with templates (empty, node, python, rust, go, react, next)
+- `workspace_delete` - Delete projects with required confirmation
+
+**Tool Count:** 9 → 11 tools total (5 workspace + 4 task + 2 interaction)
+
+**Personality:**
+- Full good boy energy with tail wags and woofs
+- Lobster hatred 🦞 - Fetch DESPISES lobsters (weird ocean bugs with claws!)
+- "Guard dog mode" for security concerns
+- "Let me fetch that!" and "Good boy reporting back!" expressions
+- Error messages: "Ruff, hit a snag!" instead of cold errors
+
+**Project Templates:**
+- `empty` - Just README
+- `node` - package.json, index.js, .gitignore
+- `python` - main.py, requirements.txt
+- `rust` - Cargo.toml, src/main.rs
+- `go` - go.mod, main.go
+- `react` - Vite React scaffold
+- `next` - Next.js scaffold
+
+### Changed
+
+**Prompts Rewritten:**
+- `CORE_IDENTITY` - Now a loyal coding companion, not just a tool
+- `CAPABILITIES` - "What I Can Fetch For You 🦴" with dog personality
+- `TOOL_REFERENCE` - Complete table of all 11 tools
+- Response examples with *wags tail* and enthusiasm
+- Error recovery with "Good dogs don't give up!"
+
+**Documentation:**
+- Updated PROMPT_ENGINEERING.md with cleaner structure
+- Removed excessive dog metaphors from code comments (kept in user-facing prompts)
+
+### Fixed
+
+- Can now create new projects (was missing workspace_create tool)
+- Can now delete projects with proper confirmation flow
+- Tool listing when user asks "what can you do?"
+
+---
+
+## [2.0.1] - 2026-02-03 (Prompt Engineering Update)
+
+### 🐕 "Good Sniffer Dog" Prompt Engineering
+
+Major prompt engineering improvements to make Fetch a better companion.
+
+### Added
+
+**Prompt System:**
+- `CORE_IDENTITY` - Enhanced personality with "good sniffer dog" metaphor
+- `UNDERSTANDING_PATTERNS` - Smart interpretation of vague requests
+- `CAPABILITIES` - Clear, scannable list of what Fetch can do
+- [docs/PROMPT_ENGINEERING.md](docs/PROMPT_ENGINEERING.md) - Complete prompt engineering guide
+
+**Ethical Guidelines:**
+- "DO no evil, protect and serve" philosophy
+- Explicit confirmation for destructive operations
+- Safety-first approach to data changes
+- Secret protection (never log credentials)
+
+**Intent Classification:**
+- Reorganized patterns into semantic categories
+- Added entity extraction (file paths, actions, destructive flag)
+- Improved confidence scoring with better thresholds
+- Added `ExtractedEntities` type for richer classification results
+- Better LLM fallback logic for ambiguous cases
+
+### Changed
+
+**Orchestrator Prompt:**
+- Added "Understanding Your Human" section for vague requests
+- Added emotional signal handling (frustration, urgency, uncertainty)
+- Improved edge case examples with dog personality
+- Added smart interpretation examples ("fix it", "make it work", "the usual")
+
+**Intent Patterns:**
+- Split `CONVERSATION_PATTERNS` into subcategories (greetings, thanks, farewells, help, reactions)
+- Split `WORKSPACE_PATTERNS` into subcategories (list, select, status, context)
+- Split `TASK_PATTERNS` into subcategories (create, modify, refactor, destructive, test, debug)
+- Added extensive file extension patterns for code context detection
+- Added code indicator patterns (keywords, syntax markers)
+
+**Response Style:**
+- More consistent dog personality ("Let me fetch that!", "Sniffing around...")
+- Better error recovery messages with supportive tone
+- Confirmation prompts for destructive operations
+- Clearer next-step suggestions
+
+### Security
+
+- Added `isDestructive` flag in entity extraction
+- Destructive actions always require explicit confirmation
+- Added backup/branch suggestions for risky changes
+
+---
+
 ## [2.0.0] - 2026-02-03 (Fetch-v2-demo)
 
 ### 🚀 Major Architecture Change: Orchestrator Model
