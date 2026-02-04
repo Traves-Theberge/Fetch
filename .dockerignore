@@ -1,6 +1,8 @@
 # Data directory (has session files with restricted permissions)
 data/.wwebjs_auth
-data/sessions.json
+data/sessions.db
+data/sessions.db-wal
+data/sessions.db-shm
 
 # Git
 .git

@@ -472,13 +472,19 @@ class HarnessExecutor extends EventEmitter {
 
 ```typescript
 class SessionStore {
-  constructor(dbPath: string = './data/sessions.json')
+  constructor(dbPath: string = '/app/data/sessions.db')
   
-  get(id: string): Session | undefined
-  create(id: string): Session
-  update(session: Session): void
-  delete(id: string): void
-  cleanup(maxAgeMs: number): void
+  init(): Promise<void>
+  getOrCreate(userId: string): Promise<Session>
+  getById(sessionId: string): Promise<Session | undefined>
+  getByUserId(userId: string): Promise<Session | undefined>
+  update(session: Session): Promise<void>
+  delete(sessionId: string): Promise<boolean>
+  clear(sessionId: string): Promise<Session | undefined>
+  cleanup(): Promise<number>
+  getAll(): Promise<Session[]>
+  count(): Promise<number>
+  close(): void
 }
 ```
 

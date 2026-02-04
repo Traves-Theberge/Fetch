@@ -2128,8 +2128,7 @@ Fetch/
 │   └── .gitkeep
 │
 ├── data/                         # Persistent data
-│   ├── sessions.json
-│   ├── tasks.json                # Task history (NEW)
+│   ├── sessions.db               # SQLite database
 │   └── .wwebjs_auth/             # WhatsApp auth
 │
 └── docs/
