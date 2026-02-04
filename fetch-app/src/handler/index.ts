@@ -107,7 +107,11 @@ export async function handleMessage(
 
     // Check for slash commands (these bypass the agent)
     if (message.startsWith('/')) {
-      return handleSlashCommand(message, userId);
+      const { parseCommand } = await import('../commands/parser.js');
+      const result = await parseCommand(message, session, sManager);
+      if (result.handled) {
+        return result.responses || [];
+      }
     }
 
     // Process with agent
@@ -143,51 +147,6 @@ export async function handleMessage(
     return [
       `🐕 Oops! Something went wrong: ${errorMessage}\n\nTry again or type /help.`,
     ];
-  }
-}
-
-// =============================================================================
-// SLASH COMMANDS
-// =============================================================================
-
-/**
- * Handle slash commands (bypass agent)
- */
-function handleSlashCommand(message: string, _userId: string): string[] {
-  const cmd = message.toLowerCase().split(' ')[0];
-
-  switch (cmd) {
-    case '/help':
-      return [
-        `🐕 *Fetch Commands*
-
-*Workspace*
-/projects - List available projects
-/select <name> - Select a project
-/status - Current project status
-
-*Tasks*
-/task <description> - Start a coding task
-/tasks - List active tasks
-/cancel - Cancel current task
-
-*Settings*
-/auto [full|guided|manual] - Set autonomy level
-/reset - Reset session
-
-*Info*
-/help - Show this help
-/version - Show version info`,
-      ];
-
-    case '/version':
-      return [`🐕 Fetch v2.0.0 (Orchestrator Architecture)`];
-
-    case '/reset':
-      return [`🐕 Session reset! Fresh start.`];
-
-    default:
-      return [`🐕 Unknown command: ${cmd}\n\nType /help for available commands.`];
   }
 }
 

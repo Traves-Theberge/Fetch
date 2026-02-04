@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎙️ Voice & Vision (Issues #6 & #7)
 - **Voice Notes:** Built-in Whisper integration automatically transcribes voice notes and PTT into text commands.
-- **Image Intelligence:** Send screenshots or diagrams! Fetch now uses Vision models (via OpenRouter) to analyze images and provide context (e.g., "Fix this error" + screenshot).
+- **Image Intelligence:** Send screenshots or diagrams! Fetch now uses OpenAI Vision to analyze images and provide context (e.g., "Fix this error" + screenshot).
 - Added multimedia support to the WhatsApp Bridge, allowing seamlessly mixing voice, text, and images.
 
 ### 🌊 Live Progress Streaming (Issue #8)

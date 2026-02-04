@@ -62,6 +62,7 @@ export class TaskIntegration extends EventEmitter {
   private manager: TaskManager | null = null;
   private activeExecutions = new Map<TaskId, AbortController>();
   private progressCallbacks = new Map<TaskId, ProgressCallback>();
+  private taskSessions = new Map<TaskId, string>();
 
   /**
    * Initialize the integration layer
@@ -116,6 +117,7 @@ export class TaskIntegration extends EventEmitter {
     const executor = getHarnessExecutor();
     const abort = new AbortController();
     this.activeExecutions.set(task.id, abort);
+    this.taskSessions.set(task.id, task.sessionId);
 
     if (onProgress) {
       this.progressCallbacks.set(task.id, onProgress);
@@ -169,6 +171,7 @@ export class TaskIntegration extends EventEmitter {
     } finally {
       this.activeExecutions.delete(task.id);
       this.progressCallbacks.delete(task.id);
+      this.taskSessions.delete(task.id);
     }
   }
 
@@ -217,37 +220,55 @@ export class TaskIntegration extends EventEmitter {
     executor.on('harness:output', (event) => {
       const { taskId, data } = event;
       const callback = this.progressCallbacks.get(taskId);
+      const sessionId = this.taskSessions.get(taskId);
 
       if (callback && data?.line) {
         callback(taskId, data.line as string);
       }
 
-      this.emit('task:output', { taskId, line: data?.line });
+      this.emit('task:output', { taskId, sessionId, line: data?.line });
+    });
+
+    executor.on('harness:progress', (event) => {
+      const { taskId, data } = event;
+      const sessionId = this.taskSessions.get(taskId);
+      this.emit('task:progress', { taskId, sessionId, ...(data as object) });
+    });
+
+    executor.on('harness:file_op', (event) => {
+      const { taskId, data } = event;
+      const sessionId = this.taskSessions.get(taskId);
+      this.emit('task:file_op', { taskId, sessionId, ...(data as object) });
     });
 
     executor.on('harness:question', (event) => {
       const { taskId, data } = event;
+      const sessionId = this.taskSessions.get(taskId);
 
       // Pause task and wait for response
       this.manager!.pauseTask(taskId, data?.question as string | undefined);
 
       this.emit('task:question', {
         taskId,
+        sessionId,
         question: data?.question,
       });
     });
 
     executor.on('harness:completed', (event) => {
       const { taskId } = event;
+      const sessionId = this.taskSessions.get(taskId);
 
-      this.emit('task:completed', { taskId });
+      this.emit('task:completed', { taskId, sessionId });
     });
 
     executor.on('harness:failed', (event) => {
       const { taskId, data } = event;
+      const sessionId = this.taskSessions.get(taskId);
 
       this.emit('task:failed', {
         taskId,
+        sessionId,
         error: data?.error,
       });
     });

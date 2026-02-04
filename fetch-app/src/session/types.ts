@@ -53,6 +53,10 @@ export interface ProjectContext {
   hasUncommitted: boolean;
   /** When project info was last refreshed */
   refreshedAt: string;
+  /** Cached repository map string */
+  repoMap?: string;
+  /** Last time the repo map was updated */
+  repoMapUpdatedAt?: string;
 }
 
 // ============================================================================

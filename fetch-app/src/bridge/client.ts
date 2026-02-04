@@ -70,7 +70,10 @@ type ClientType = InstanceType<typeof Client>;
 import { logger } from '../utils/logger.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
+import { getTaskIntegration } from '../task/integration.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
+import { transcribeAudio, isTranscriptionAvailable } from '../transcription/index.js';
+import { analyzeImage, isVisionAvailable } from '../vision/index.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -165,7 +168,8 @@ export class Bridge {
       }
     });
 
-    this.securityGate = new SecurityGate();
+    // SecurityGate initialized in initialize() for async whitelist loading
+    this.securityGate = null as unknown as SecurityGate;
     this.rateLimiter = new RateLimiter(30, 60000); // 30 requests per minute
   }
 
@@ -173,10 +177,14 @@ export class Bridge {
     // Clean up any stale Chrome lock files from previous crashes
     cleanupChromeLocks('/app/data/.wwebjs_auth');
     
+    // Initialize security gate with Zero Trust Bonding whitelist
+    this.securityGate = await SecurityGate.create();
+    
     // Initialize agentic handler
     await initializeHandler();
     
     this.setupEventHandlers();
+    this.setupTaskProgressListeners();
     await this.client.initialize();
   }
 
@@ -282,8 +290,23 @@ export class Bridge {
     
     // Use message_create to catch ALL messages including self-chat
     this.client.on('message_create', async (message: Message) => {
-      logger.debug(`message_create: from=${message.from}, to=${message.to}, fromMe=${message.fromMe}, body="${message.body.substring(0, 50)}"`);
+      logger.debug(`message_create: from=${message.from}, type=${message.type}, fromMe=${message.fromMe}`);
       
+      // Handle Voice Notes (PTT)
+      if (message.type === 'ptt' || message.type === 'audio') {
+        const success = await this.handleVoiceMessage(message);
+        if (!success) {
+          logger.debug('Skipped: voice transcription failed or not available');
+          return;
+        }
+      }
+
+      // Handle Images
+      if (message.type === 'image') {
+        await this.handleImageMessage(message);
+        // Note: we don't return if it fails, as it might still have a text caption
+      }
+
       // Skip empty messages (media without caption, etc.)
       if (!message.body || message.body.trim() === '') {
         logger.debug('Skipped: empty message body');
@@ -294,37 +317,22 @@ export class Bridge {
       const isReplyToFetch = await this.isReplyToFetchMessage(message);
       const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
       
-      // For self-chat messages (fromMe=true), process if @fetch OR reply to Fetch
+      // For messages from us (fromMe=true), process if @fetch OR reply to Fetch
+      // This allows self-chat and also allows us to trigger Fetch on our own responses if needed
       if (message.fromMe) {
         if (!hasFetchTrigger && !isReplyToFetch) {
-          logger.debug('Skipped: fromMe without @fetch trigger or thread reply');
+          // logger.debug('Skipped: fromMe without @fetch trigger or thread reply');
           return;
         }
         logger.info(`Processing self-chat message${isReplyToFetch ? ' (thread reply)' : ''}`);
+      } else {
+        // For messages from others, also require trigger OR reply
+        if (!hasFetchTrigger && !isReplyToFetch) {
+          return;
+        }
+        logger.info(`Processing incoming message from ${message.from}${isReplyToFetch ? ' (thread reply)' : ''}`);
       }
       
-      incrementMessageCount();
-      await this.handleIncomingMessage(message, isReplyToFetch);
-    });
-
-    // Also listen to regular message event for incoming messages from others
-    this.client.on('message', async (message: Message) => {
-      logger.debug(`message: from=${message.from}, body="${message.body.substring(0, 50)}"`);
-      
-      // Skip empty messages
-      if (!message.body || message.body.trim() === '') {
-        return;
-      }
-      
-      // Check if this is a reply to a Fetch message (thread continuation)
-      const isReplyToFetch = await this.isReplyToFetchMessage(message);
-      const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
-      
-      // Only process if starts with @fetch OR is reply to Fetch
-      if (!hasFetchTrigger && !isReplyToFetch) {
-        return;
-      }
-      logger.info(`Incoming message from ${message.from}${isReplyToFetch ? ' (thread reply)' : ''}`);
       incrementMessageCount();
       await this.handleIncomingMessage(message, isReplyToFetch);
     });
@@ -345,6 +353,144 @@ export class Bridge {
       }
       return false;
     } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Handle image messages by analyzing them with vision
+   */
+  private async handleImageMessage(message: Message): Promise<boolean> {
+    if (!isVisionAvailable()) {
+      logger.warn('Image received but vision is not configured (missing API key)');
+      return false;
+    }
+
+    try {
+      logger.info('🖼️ Processing image...');
+      
+      const media = await message.downloadMedia();
+      if (!media || !media.data) {
+        logger.error('Failed to download image media');
+        return false;
+      }
+
+      // If it's not an image, skip
+      if (!media.mimetype.startsWith('image/')) {
+        return false;
+      }
+
+      const analysis = await analyzeImage(media.data, media.mimetype);
+      
+      if (!analysis) return false;
+
+      // Update message body to include analysis context
+      const originalCaption = message.body || '';
+      message.body = `${originalCaption}\n\n[CONTEXT: Image Analysis]\n${analysis}`.trim();
+      
+      logger.success('🖼️ Image analysis added to message context');
+      return true;
+    } catch (error) {
+      logger.error('Failed to handle image message', error);
+      return false;
+    }
+  }
+
+  /**
+   * Listen for real-time task progress and route to WhatsApp
+   */
+  private setupTaskProgressListeners(): void {
+    const integration = getTaskIntegration();
+
+    // Mapping to track last progress message per session to avoid noise
+    const lastProgressUpdate = new Map<string, number>();
+    const THROTTLE_MS = 3000; // Minimum 3s between general progress updates
+
+    integration.on('task:progress', async (event: any) => {
+      const { sessionId, message } = event;
+      if (!sessionId) return;
+
+      const now = Date.now();
+      const lastUpdate = lastProgressUpdate.get(sessionId) || 0;
+
+      // Always send priority patterns, throttle others
+      const isPriority = /starting|done|complete|failed|error|waiting/i.test(message);
+      
+      if (isPriority || (now - lastUpdate > THROTTLE_MS)) {
+        try {
+          await this.client.sendMessage(sessionId, `🐕 ${message}`);
+          lastProgressUpdate.set(sessionId, now);
+        } catch (error) {
+          logger.error('Failed to send progress message', error);
+        }
+      }
+    });
+
+    integration.on('task:file_op', async (event: any) => {
+      const { sessionId, operation, path } = event;
+      if (!sessionId) return;
+
+      try {
+        const emoji = operation === 'create' ? '🆕' : operation === 'modify' ? '✏️' : '🗑️';
+        const action = operation === 'modify' ? 'Modifying' : operation === 'create' ? 'Creating' : 'Deleting';
+        
+        await this.client.sendMessage(sessionId, `${emoji} ${action} ${path}...`);
+      } catch (error) {
+        logger.error('Failed to send file_op message', error);
+      }
+    });
+
+    integration.on('task:question', async (event: any) => {
+      const { sessionId, question } = event;
+      if (!sessionId || !question) return;
+
+      try {
+        await this.client.sendMessage(
+          sessionId, 
+          `❓ *Fetch needs your help:*\n\n${question}\n\n_(Reply to this message to answer)_`
+        );
+      } catch (error) {
+        logger.error('Failed to send task question', error);
+      }
+    });
+  }
+
+  /**
+   * Handle voice messages by transcribing them first
+   */
+  private async handleVoiceMessage(message: Message): Promise<boolean> {
+    if (!isTranscriptionAvailable()) {
+      logger.warn('Voice message received but transcription is not configured (missing API key)');
+      return false;
+    }
+
+    try {
+      logger.info('🎤 Processing voice note...');
+      
+      const media = await message.downloadMedia();
+      if (!media) {
+        logger.error('Failed to download voice note media');
+        return false;
+      }
+
+      const buffer = Buffer.from(media.data, 'base64');
+      const filename = media.filename || `voice-${Date.now()}.ogg`;
+      
+      const transcription = await transcribeAudio(buffer, filename);
+      
+      if (!transcription || transcription.trim().length === 0) {
+        logger.warn('Transcription returned empty text');
+        return false;
+      }
+
+      // Prepend a microphone emoji to indicate it was a voice note
+      // and inject into the message body for normal processing
+      message.body = transcription;
+      
+      logger.success(`🎤 Transcribed voice: "${transcription}"`);
+      return true;
+    } catch (error) {
+      logger.error('Failed to handle voice message', error);
       return false;
     }
   }
@@ -393,22 +539,46 @@ export class Bridge {
     logger.message(`Received: "${validation.sanitized.substring(0, 40)}${validation.sanitized.length > 40 ? '...' : ''}"`);
 
     try {
+      let firstMessageSent = false;
+      
+      // Determine prefix for different media types
+      let mediaPrefix = '';
+      if (message.type === 'ptt' || message.type === 'audio') {
+        mediaPrefix = `🎤 I heard: "${validation.sanitized}"\n\n`;
+      } else if (message.type === 'image') {
+        mediaPrefix = `🖼️ I see an image!\n\n`;
+        // Optional: you could extract the summary from the analysis here if desired
+      }
+
       // Process through agentic handler
       const responses = await handleMessage(
         rateLimitId, 
         validation.sanitized,
         async (text) => {
-          await message.reply(text);
+          let output = text;
+          if (!firstMessageSent && mediaPrefix) {
+            output = mediaPrefix + output;
+            firstMessageSent = true;
+          }
+          await message.reply(output);
         }
       );
       
       // Send all response messages
-      for (const response of responses) {
+      for (let i = 0; i < responses.length; i++) {
+        let response = responses[i];
+        
+        // Prepend media info prefix if it was a voice note or image and we haven't sent the prefix yet
+        if (!firstMessageSent && mediaPrefix) {
+          response = mediaPrefix + response;
+          firstMessageSent = true; // Mark as sent so subsequent responses don't get it
+        }
+
         await message.reply(response);
         logger.success(`Reply sent (${response.length} chars)`);
         
         // Small delay between messages to avoid rate limiting
-        if (responses.length > 1) {
+        if (responses.length > 1 && i < responses.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));
         }
       }

@@ -97,10 +97,24 @@ Fetch has **11 built-in tools** organized into three categories:
 
 | Command | Description |
 |---------|-------------|
-| `@fetch /status` | Show git status of current project |
+| `@fetch /status` | Show git status of current project (includes Repo Map status) |
 | `@fetch /diff` | Show uncommitted changes |
 | `@fetch /log` | Show last 5 commits |
 | `@fetch /log 10` | Show last 10 commits |
+
+### Security (Zero Trust Bonding)
+
+Manage who can use `@fetch` in group chats. **Owner only.**
+
+| Command | Aliases | Description |
+|---------|---------|-------------|
+| `@fetch /trust add <number>` | — | Add phone number to whitelist |
+| `@fetch /trust remove <number>` | `/trust rm`, `/trust delete` | Remove from whitelist |
+| `@fetch /trust list` | `/trust ls` | Show all trusted numbers |
+| `@fetch /trust clear` | — | Remove ALL trusted numbers |
+| `@fetch /trust` | — | Show trust command help |
+
+**Note:** Owner is always trusted and cannot be locked out.
 
 ### Task Control
 

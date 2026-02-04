@@ -33,6 +33,9 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
 - 🧠 **V2 Orchestrator Architecture** — 3-intent system (Conversation, Workspace, Task)
+- 🗺️ **Repo Maps** — Architectural awareness of large projects
+- 🎙️ **Voice & Vision** — Transcribe voice notes and analyze screenshots
+- 🌊 **Streaming** — Real-time progress updates for long tasks
 - 🤖 **Harness System** — Plug-in adapters for Claude, Gemini, Copilot CLIs
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
 - 🛠️ **11 Orchestrator Tools** — Workspace (5), task (4), interaction (2)

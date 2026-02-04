@@ -1,16 +1,19 @@
 /**
- * @fileoverview Security Gate - Whitelist Enforcement
+ * @fileoverview Security Gate - Zero Trust Bonding
  * 
  * CRITICAL SECURITY COMPONENT
  * 
  * Enforces strict phone number whitelist validation. Only messages from
- * OWNER_PHONE_NUMBER with @fetch trigger are processed. All other messages
- * are silently dropped.
+ * the owner OR explicitly trusted phone numbers with @fetch trigger are
+ * processed. All other messages are silently dropped.
  * 
  * @module security/gate
  * @see {@link SecurityGate} - Main gate class
+ * @see {@link WhitelistStore} - Trusted numbers management
  * 
- * ## Security Model
+ * ## Security Model (Zero Trust Bonding)
+ * 
+ * "Fetch is loyal to his owner and people his owner explicitly trusts."
  * 
  * ```
  * Incoming Message
@@ -18,10 +21,10 @@
  * Has @fetch trigger?
  *      │ No → DROP (silent)
  *      ↓ Yes
- * From owner (direct)?
- *      │ Yes → ALLOW
+ * From owner?
+ *      │ Yes → ALLOW (owner is always exempt)
  *      ↓ No
- * In group with owner participant?
+ * In trusted whitelist?
  *      │ Yes → ALLOW
  *      ↓ No
  * DROP (silent)
@@ -29,7 +32,8 @@
  * 
  * ## Configuration
  * 
- * - OWNER_PHONE_NUMBER: Required environment variable
+ * - OWNER_PHONE_NUMBER: Required environment variable (always trusted)
+ * - TRUSTED_PHONE_NUMBERS: Optional comma-separated list of trusted numbers
  * - Trigger prefix: `@fetch` (case-insensitive)
  * 
  * ## IMPORTANT
@@ -37,10 +41,11 @@
  * - Unauthorized messages are dropped WITHOUT response
  * - This prevents information leakage about the bot's existence
  * - Broadcast messages are always rejected
+ * - Owner can manage whitelist via /trust commands
  * 
  * @example
  * ```typescript
- * const gate = new SecurityGate();
+ * const gate = await SecurityGate.create();
  * 
  * if (gate.isAuthorized(senderId, participantId, message)) {
  *   const cleanMessage = gate.stripTrigger(message);
@@ -51,6 +56,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import { getWhitelistStore, type WhitelistStore } from './whitelist.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -64,16 +70,17 @@ const FETCH_TRIGGER = '@fetch';
 // =============================================================================
 
 /**
- * Security gate enforcing phone number whitelist.
+ * Security gate enforcing Zero Trust Bonding.
  * 
- * Only processes messages from OWNER_PHONE_NUMBER that start with @fetch.
- * All other messages are silently dropped.
+ * Only processes messages from owner OR trusted whitelist members
+ * that start with @fetch. All other messages are silently dropped.
  * 
  * @class
  * @throws {Error} If OWNER_PHONE_NUMBER is not set
  */
 export class SecurityGate {
   private readonly ownerNumberClean: string;
+  private whitelist: WhitelistStore | null = null;
 
   constructor() {
     const ownerNumber = process.env.OWNER_PHONE_NUMBER;
@@ -84,11 +91,36 @@ export class SecurityGate {
 
     // Store clean number for participant checking
     this.ownerNumberClean = ownerNumber.replace(/\D/g, '');
+  }
 
-    logger.section('🔒 Security Gate Initialized');
-    logger.info(`Owner: +${this.ownerNumberClean}`);
+  /**
+   * Factory method to create and initialize SecurityGate with whitelist.
+   */
+  static async create(): Promise<SecurityGate> {
+    const gate = new SecurityGate();
+    await gate.initializeWhitelist();
+    return gate;
+  }
+
+  /**
+   * Initialize the whitelist store.
+   * Call this after construction to enable Zero Trust Bonding.
+   */
+  async initializeWhitelist(): Promise<void> {
+    this.whitelist = await getWhitelistStore();
+    
+    logger.section('🔒 Security Gate Initialized (Zero Trust Bonding)');
+    logger.info(`Owner: +${this.ownerNumberClean} (always trusted)`);
+    logger.info(`Trusted numbers: ${this.whitelist.count()}`);
     logger.info(`Trigger: ${FETCH_TRIGGER} (case-insensitive)`);
     logger.divider();
+  }
+
+  /**
+   * Get the whitelist store for management operations.
+   */
+  getWhitelist(): WhitelistStore | null {
+    return this.whitelist;
   }
 
   /**
@@ -126,6 +158,16 @@ export class SecurityGate {
   }
 
   /**
+   * Check if sender/participant is in the trusted whitelist.
+   * Owner is checked separately (always trusted).
+   */
+  private isTrusted(whatsappId: string): boolean {
+    if (!this.whitelist) return false;
+    const number = this.extractNumber(whatsappId);
+    return this.whitelist.has(number);
+  }
+
+  /**
    * Check if message is from the owner (without @fetch requirement)
    * Used for thread replies where @fetch trigger is not needed
    * 
@@ -153,8 +195,8 @@ export class SecurityGate {
   }
 
   /**
-   * Check if a message is authorized
-   * Requires: @fetch trigger + owner (direct or group participant)
+   * Check if a message is authorized (Zero Trust Bonding)
+   * Requires: @fetch trigger + (owner OR trusted whitelist member)
    * 
    * @param senderId - WhatsApp chat ID (can be @c.us or @g.us)
    * @param participantId - For groups, the actual sender's ID
@@ -180,28 +222,30 @@ export class SecurityGate {
         return false;
       }
 
-      // Check if it's a group message
-      if (isGroup) {
-        if (!participantId) {
-          logger.warn('Group message missing participant ID');
-          return false;
-        }
-        if (!this.isOwner(participantId)) {
-          logger.warn(`Blocked: @fetch from non-owner in group`);
-          return false;
-        }
-        logger.success(`Authorized from owner (group chat)`);
-        return true;
-      }
-
-      // Direct message: check sender
-      if (!this.isOwner(senderId)) {
-        logger.warn(`Blocked: @fetch from unknown number`);
+      // Determine which ID to check
+      const checkId = isGroup ? participantId : senderId;
+      
+      if (isGroup && !participantId) {
+        logger.warn('Group message missing participant ID');
         return false;
       }
 
-      logger.success(`Authorized from owner (direct message)`);
-      return true;
+      // Check 1: Owner is ALWAYS allowed (exempt from whitelist)
+      if (this.isOwner(checkId!)) {
+        logger.success(`Authorized from owner (${chatType})`);
+        return true;
+      }
+
+      // Check 2: Trusted whitelist member
+      if (this.isTrusted(checkId!)) {
+        const number = this.extractNumber(checkId!);
+        logger.success(`Authorized from trusted number +${number} (${chatType})`);
+        return true;
+      }
+
+      // Not owner and not in whitelist - DROP
+      logger.warn(`Blocked: @fetch from untrusted number (${chatType})`);
+      return false;
     } catch (error) {
       logger.error('Security gate error - denying access', error);
       return false;

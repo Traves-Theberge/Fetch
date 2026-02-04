@@ -272,6 +272,8 @@ export interface HarnessExecution {
 export type HarnessEventType =
   | 'harness:started'
   | 'harness:output'
+  | 'harness:progress'
+  | 'harness:file_op'
   | 'harness:question'
   | 'harness:completed'
   | 'harness:failed'

@@ -47,6 +47,13 @@ Fetch delegates actual coding work to specialized CLI tools:
 | **Gemini CLI** | `gemini` | Quick edits, explanations |
 | **Copilot CLI** | `gh copilot` | Suggestions, command help |
 
+### 🧠 Smart Capabilities
+
+- **🗺️ Repo Maps:** Fetch scans your project structure to understand the architecture, exports, and relationships between files.
+- **🎙️ Voice Mode:** Send voice notes on WhatsApp! Fetch transcribes them using Whisper and executes them as commands.
+- **👀 Vision:** Send screenshots of errors or UI designs. Fetch uses GPT-4o Vision to understand what he's looking at.
+- **🌊 Streaming:** Get real-time updates as Fetch works (e.g., "📝 Editing src/index.ts...").
+
 ### 🛠️ 11 Orchestrator Tools
 
 | Category | Tools | Purpose |

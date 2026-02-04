@@ -139,6 +139,7 @@ export async function parseCommand(
     case 'ls':
       return handleListProjects(session, sessionManager);
 
+    case 'select':
     case 'project':
     case 'cd':
       if (!argString) {
@@ -155,6 +156,61 @@ export async function parseCommand(
         };
       }
       return handleSwitchProject(argString, session, sessionManager);
+
+    case 'status':
+    case 'st':
+      return {
+        handled: true,
+        responses: [formatStatus(session)]
+      };
+
+    // =========================================================================
+    // General Info
+    // =========================================================================
+    case 'help':
+    case 'h':
+    case '?':
+      return {
+        handled: true,
+        responses: [
+          `🐕 *Fetch Commands*
+
+*Workspace*
+/projects - List available projects
+/select <name> - Select a project
+/status - Current project status
+
+*Tasks*
+/task <description> - Start a coding task
+/tasks - List active tasks
+/cancel - Cancel current task
+
+*Context*
+/add <file> - Add file to context
+/drop <file> - Remove file from context
+/files - Show active context
+
+*Settings*
+/auto [full|guided|manual] - Set autonomy level
+/reset - Reset session
+
+*Security*
+/trust add <number> - Add trusted number
+/trust remove <number> - Remove number
+/trust list - Show trusted numbers
+
+*Info*
+/help - Show this help
+/version - Show version info`
+        ]
+      };
+
+    case 'version':
+    case 'v':
+      return {
+        handled: true,
+        responses: [`🐕 Fetch v2.4.2 (Orchestrator Architecture)`]
+      };
 
     // =========================================================================
     // Task Control
@@ -225,8 +281,8 @@ export async function parseCommand(
     case 'init':
       return handleInit(argString, session, sessionManager);
 
-    case 'status':
-    case 'st':
+    case 'gs':
+    case 'git':
       return handleGitStatus(session);
 
     case 'diff':

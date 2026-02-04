@@ -24,6 +24,8 @@ import {
 } from './prompts.js';
 import { getToolRegistry } from '../tools/registry.js';
 import { formatForWhatsApp } from './whatsapp-format.js';
+import { getSessionManager } from '../session/manager.js';
+import { generateRepoMap } from '../workspace/repo-map.js';
 
 // =============================================================================
 // TYPES
@@ -238,6 +240,7 @@ export async function processMessage(
   onProgress?: (text: string) => Promise<void>
 ): Promise<AgentResponse> {
   const startTime = Date.now();
+  const sManager = await getSessionManager();
 
   try {
     // Check circuit breaker
@@ -255,6 +258,17 @@ export async function processMessage(
         return {
           text: "🐕 I'm taking a short break after some hiccups. Try again in a moment!",
         };
+      }
+    }
+
+    // Refresh repo map if needed
+    if (session.currentProject && (!session.repoMap || sManager.isRepoMapStale(session))) {
+      logger.info('Repo map stale or missing, refreshing...', { sessionId: session.id });
+      try {
+        const repoMap = await generateRepoMap(session.currentProject.path);
+        await sManager.updateRepoMap(session, repoMap);
+      } catch (e) {
+        logger.error('Failed to refresh repo map', { error: e, sessionId: session.id });
       }
     }
 
@@ -532,6 +546,30 @@ async function handleWithTools(
         args: toolArgs,
         result,
       });
+
+      // SYNC SESSION STATE BASED ON TOOLS
+      if (toolName === 'workspace_select' && result.success) {
+        try {
+          const workspace = JSON.parse(result.output);
+          session.currentProject = {
+            name: workspace.name,
+            path: workspace.path,
+            type: workspace.projectType,
+            mainFiles: [], // List might be empty initially
+            gitBranch: workspace.git?.branch || null,
+            lastCommit: null,
+            hasUncommitted: workspace.git?.dirty || false,
+            refreshedAt: new Date().toISOString()
+          };
+          session.repoMap = null; // Clear old map
+          
+          const sManager = await getSessionManager();
+          await sManager.updateSession(session);
+          logger.info('Project synced to session after tool call', { project: workspace.name });
+        } catch (e) {
+          logger.error('Failed to sync session after workspace_select', e);
+        }
+      }
 
       // Add tool result to messages
       messages.push({
