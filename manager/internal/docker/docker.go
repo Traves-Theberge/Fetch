@@ -49,12 +49,12 @@ func RestartBridge() error {
 	if output, err := stop.CombinedOutput(); err != nil {
 		return fmt.Errorf("stop failed: %v: %s", err, string(output))
 	}
-	
+
 	// Remove bridge container
 	rm := exec.Command("docker", "compose", "rm", "-f", "fetch-bridge")
 	rm.Dir = paths.ProjectDir
 	rm.CombinedOutput() // Ignore errors
-	
+
 	// Start bridge
 	start := exec.Command("docker", "compose", "up", "-d", "fetch-bridge")
 	start.Dir = paths.ProjectDir
