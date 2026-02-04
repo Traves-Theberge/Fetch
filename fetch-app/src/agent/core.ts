@@ -116,7 +116,7 @@ function getBackoffTime(sessionId: string): number {
  * 400-level errors (except 429) are generally not retriable
  * 500-level errors and network errors are retriable
  */
-function isRetriableError(error: unknown): boolean {
+function isRetriableError(error: unknown, attempt: number): boolean {
   if (error instanceof Error) {
     // Check for HTTP status codes in error message or properties
     const errorAny = error as Error & { status?: number; statusCode?: number; code?: string };
@@ -125,18 +125,78 @@ function isRetriableError(error: unknown): boolean {
     // 429 (rate limit) is retriable
     if (status === 429) return true;
     
-    // Other 4xx errors are not retriable
-    if (status && status >= 400 && status < 500) return false;
+    // 400 (bad request) is retriable once with simplified context
+    if (status === 400) return attempt < 2;
     
     // Network errors are retriable
     if (errorAny.code === 'ECONNRESET' || errorAny.code === 'ETIMEDOUT') return true;
     
     // 5xx errors are retriable
     if (status && status >= 500) return true;
+    
+    // Other 4xx errors are not retriable
+    if (status && status >= 400 && status < 500) return false;
   }
   
   // Default to retriable for unknown errors
   return true;
+}
+
+ * Execute an agent operation with retry logic and progress reporting
+ *
+ * @param fn - Function to execute (receives attempt number)
+ * @param sessionId - Session identifier for logging
+ * @param onProgress - Optional callback for user progress messages
+ */
+async function handleWithRetry<T>(
+  fn: (attempt: number) => Promise<T>,
+  sessionId: string,
+  onProgress?: (text: string) => Promise<void>
+): Promise<T> {
+  const maxAttempts = 4;
+  const backoffs = [0, 1000, 3000, 10000];
+  const retryMessages = [
+    "Hold on, fetching again... 🐕",
+    "Still working on it, be patient! 🐕",
+    "One last try, I'm determined! 🐕"
+  ];
+
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      if (attempt > 1) {
+        const delay = backoffs[attempt - 1] ?? 10000;
+        logger.info(`Retrying request for session ${sessionId}`, { attempt, delay });
+        
+        // Report progress to user if callback provided
+        if (onProgress) {
+          const retryMessage = retryMessages[attempt - 2] ?? "Still trying... 🐕";
+          await onProgress(retryMessage);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      return await fn(attempt);
+    } catch (error) {
+      lastError = error;
+      
+      const isRetriable = isRetriableError(error, attempt);
+      const isLastAttempt = attempt === maxAttempts;
+      
+      if (!isRetriable || isLastAttempt) {
+        throw error;
+      }
+      
+      logger.warn(`Request failed, will retry`, {
+        sessionId,
+        attempt,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  throw lastError;
 }
 
 // =============================================================================
@@ -168,11 +228,13 @@ function getOpenAI(): OpenAI {
  *
  * @param message - User message
  * @param session - Current session
+ * @param onProgress - Optional callback for intermediate progress messages
  * @returns Agent response
  */
 export async function processMessage(
   message: string,
-  session: Session
+  session: Session,
+  onProgress?: (text: string) => Promise<void>
 ): Promise<AgentResponse> {
   const startTime = Date.now();
 
@@ -207,16 +269,28 @@ export async function processMessage(
     let response: AgentResponse;
     switch (intent.type) {
       case 'conversation':
-        response = await handleConversation(message, session);
+        response = await handleWithRetry(
+          (attempt) => handleConversation(message, session, attempt),
+          session.id,
+          onProgress
+        );
         break;
 
       case 'workspace':
       case 'task':
-        response = await handleWithTools(message, session, intent.type);
+        response = await handleWithRetry(
+          (attempt) => handleWithTools(message, session, intent.type, attempt),
+          session.id,
+          onProgress
+        );
         break;
 
       default:
-        response = await handleConversation(message, session);
+        response = await handleWithRetry(
+          (attempt) => handleConversation(message, session, attempt),
+          session.id,
+          onProgress
+        );
     }
 
     // Success - reset error count
@@ -263,9 +337,18 @@ export async function processMessage(
  */
 async function handleConversation(
   message: string,
-  session: Session
+  session: Session,
+  attempt: number = 1
 ): Promise<AgentResponse> {
   const openai = getOpenAI();
+
+  const history = buildMessageHistory(session);
+  
+  // If retrying from a failure (likely 400 Bad Request or token limit),
+  // simplify the history to just the last few exchanges
+  const finalHistory = attempt > 1 
+    ? history.slice(-3) // Keep only last 3 messages
+    : history;
 
   const response = await openai.chat.completions.create({
     model: MODEL,
@@ -274,7 +357,7 @@ async function handleConversation(
         role: 'system',
         content: buildConversationPrompt(session),
       },
-      ...buildMessageHistory(session),
+      ...finalHistory,
       { role: 'user', content: message },
     ],
     max_tokens: 300,
@@ -384,17 +467,25 @@ ${CAPABILITIES}
 async function handleWithTools(
   message: string,
   session: Session,
-  _intent: IntentType
+  _intent: IntentType,
+  attempt: number = 1
 ): Promise<AgentResponse> {
   const openai = getOpenAI();
   const registry = getToolRegistry();
   const tools = registry.toOpenAIFormat();
   const toolCalls: ToolCallRecord[] = [];
 
+  const history = buildMessageHistory(session);
+  
+  // If retrying from a failure, simplify context
+  const finalHistory = attempt > 1 
+    ? history.slice(-2) // Keep even less for tool calls to avoid token limits
+    : history;
+
   // Build messages
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
     { role: 'system', content: buildOrchestratorPrompt(session) },
-    ...buildMessageHistory(session),
+    ...finalHistory,
     { role: 'user', content: message },
   ];
 
@@ -511,16 +602,15 @@ function buildMessageHistory(
 /**
  * Frame a user request as a task goal
  *
- * Used when the user's request needs to be transformed into
- * a clear goal for the harness.
- *
  * @param message - Original user message
  * @param session - Current session
+ * @param _attempt - Optional attempt count
  * @returns Framed task goal
  */
 export async function frameTaskGoal(
   message: string,
-  session: Session
+  session: Session,
+  _attempt: number = 1
 ): Promise<string> {
   const openai = getOpenAI();
 

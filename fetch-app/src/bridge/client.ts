@@ -394,7 +394,13 @@ export class Bridge {
 
     try {
       // Process through agentic handler
-      const responses = await handleMessage(rateLimitId, validation.sanitized);
+      const responses = await handleMessage(
+        rateLimitId, 
+        validation.sanitized,
+        async (text) => {
+          await message.reply(text);
+        }
+      );
       
       // Send all response messages
       for (const response of responses) {

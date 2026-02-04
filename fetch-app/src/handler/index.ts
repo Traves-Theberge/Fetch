@@ -13,7 +13,8 @@ import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
 import { initializeToolRegistry } from '../tools/registry.js';
-import { TaskManager } from '../task/manager.js';
+import { TaskManager, getTaskManager } from '../task/manager.js';
+import { taskQueue } from '../task/queue.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -48,8 +49,15 @@ export async function initializeHandler(): Promise<void> {
   await initializeToolRegistry();
   logger.success('Tool registry loaded');
 
-  taskManager = new TaskManager();
+  taskManager = await getTaskManager();
   logger.success('Task manager ready');
+
+  // Sync queue with active task from persistent storage
+  const currentTask = taskManager.getCurrentTask();
+  if (currentTask && ['pending', 'running', 'waiting_input'].includes(currentTask.status)) {
+    taskQueue.setCurrentTask(currentTask);
+    logger.info(`TaskQueue synced with active task: ${currentTask.id}`);
+  }
 
   // Initialize task-harness integration
   const { initializeTaskIntegration } = await import('../task/integration.js');
@@ -69,11 +77,13 @@ export async function initializeHandler(): Promise<void> {
  *
  * @param userId - WhatsApp JID (phone number)
  * @param message - Incoming message text
+ * @param onProgress - Optional callback for intermediate messages
  * @returns Array of response messages to send
  */
 export async function handleMessage(
   userId: string,
-  message: string
+  message: string,
+  onProgress?: (text: string) => Promise<void>
 ): Promise<string[]> {
   // Ensure initialized
   if (!initialized) {
@@ -97,7 +107,7 @@ export async function handleMessage(
     }
 
     // Process with agent
-    const response = await processMessage(message, session);
+    const response = await processMessage(message, session, onProgress);
 
     // Build response array
     const responses = buildResponses(response);

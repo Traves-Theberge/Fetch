@@ -11,7 +11,7 @@
 export * from './types.js';
 
 // Manager
-export { TaskManager, taskManager } from './manager.js';
+export { TaskManager, getTaskManager } from './manager.js';
 
 // Queue
 export { TaskQueue, taskQueue } from './queue.js';
