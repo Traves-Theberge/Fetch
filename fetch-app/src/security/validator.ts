@@ -135,6 +135,7 @@ export function validateInput(input: string): ValidationResult {
   // Sanitize: remove null bytes and control characters (except newlines)
   const sanitized = trimmed
     .replace(/\0/g, '')                    // Remove null bytes
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); // Remove control chars
 
   return { valid: true, sanitized };

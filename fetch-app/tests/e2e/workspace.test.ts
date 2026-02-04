@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { classifyIntent } from '../../src/agent/intent.js';
-import { createMockSession, createMockWorkspace } from '../helpers/mock-session.js';
+import { createMockSession, createMockProject } from '../helpers/mock-session.js';
 
 describe('E2E: Workspace Management', () => {
   describe('Workspace Listing', () => {
@@ -46,7 +46,7 @@ describe('E2E: Workspace Management', () => {
   describe('Workspace Status', () => {
     it('should classify status requests', () => {
       const session = createMockSession({
-        workspace: createMockWorkspace('my-project'),
+        currentProject: createMockProject('my-project'),
       });
       
       const statusRequests = [
@@ -64,7 +64,7 @@ describe('E2E: Workspace Management', () => {
 
     it('should handle status with active workspace', () => {
       const session = createMockSession({
-        workspace: createMockWorkspace('active-project'),
+        currentProject: createMockProject('active-project'),
       });
 
       const intent = classifyIntent('show status', session);
@@ -74,12 +74,12 @@ describe('E2E: Workspace Management', () => {
 
   describe('Current Workspace Context', () => {
     it('should preserve workspace context in session', () => {
-      const workspace = createMockWorkspace('test-project');
-      const session = createMockSession({ workspace });
+      const currentProject = createMockProject('test-project');
+      const session = createMockSession({ currentProject });
 
-      expect(session.workspace).toBeDefined();
-      expect(session.workspace?.name).toBe('test-project');
-      expect(session.workspace?.path).toBe('/workspace/test-project');
+      expect(session.currentProject).toBeDefined();
+      expect(session.currentProject?.name).toBe('test-project');
+      expect(session.currentProject?.path).toBe('/workspace/test-project');
     });
   });
 });

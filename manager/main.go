@@ -112,13 +112,15 @@ func initialModel() model {
 		progress.WithoutPercentage(),
 	)
 
+	qrCountdown := int(qrRefreshInterval.Seconds())
+
 	return model{
 		screen:         screenSplash,
 		statusClient:   status.NewClient(),
 		versionInfo:    components.DefaultVersionInfo(),
 		qrProgress:     prog,
-		qrCountdown:    20,
-		qrMaxCountdown: 20,
+		qrCountdown:    qrCountdown,
+		qrMaxCountdown: qrCountdown,
 		choices: []string{
 			"📱 Setup WhatsApp",
 			"� Disconnect WhatsApp",
@@ -154,13 +156,7 @@ func checkStatus() tea.Msg {
 	}
 }
 
-// Fetch bridge status from API
-func (m model) fetchBridgeStatus() tea.Msg {
-	status, err := m.statusClient.GetStatus()
-	return bridgeStatusMsg{status: status, err: err}
-}
-
-// fetchBridgeStatusCmd wraps fetchBridgeStatus as a tea.Cmd
+// fetchBridgeStatusCmd fetches the current bridge status as a tea.Cmd
 func fetchBridgeStatusCmd(client *status.Client) tea.Cmd {
 	return func() tea.Msg {
 		s, err := client.GetStatus()
@@ -961,44 +957,6 @@ func (m model) viewSetup() string {
 		setupContent,
 		helpBar,
 	)
-}
-
-// renderQRCode renders a QR code as ASCII art for the terminal
-func renderQRCode(data string) string {
-	qr, err := qrcode.New(data, qrcode.Medium)
-	if err != nil {
-		return "   Error generating QR code"
-	}
-
-	// Get the QR code as a bitmap
-	bitmap := qr.Bitmap()
-	var sb strings.Builder
-
-	// Use unicode block characters for compact display
-	for y := 0; y < len(bitmap)-1; y += 2 {
-		sb.WriteString("   ") // Left padding
-		for x := 0; x < len(bitmap[y]); x++ {
-			top := bitmap[y][x]
-			bottom := false
-			if y+1 < len(bitmap) {
-				bottom = bitmap[y+1][x]
-			}
-
-			// Use half-block characters for 2:1 aspect ratio
-			if top && bottom {
-				sb.WriteString("█")
-			} else if top {
-				sb.WriteString("▀")
-			} else if bottom {
-				sb.WriteString("▄")
-			} else {
-				sb.WriteString(" ")
-			}
-		}
-		sb.WriteString("\n")
-	}
-
-	return sb.String()
 }
 
 // renderQRCodeCompact renders a smaller QR code using Low error correction

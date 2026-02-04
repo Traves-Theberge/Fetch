@@ -736,8 +736,8 @@ async function handleClone(
 function extractRepoName(url: string): string | null {
   // Handle HTTPS URLs: https://github.com/user/repo.git
   // Handle SSH URLs: git@github.com:user/repo.git
-  const httpsMatch = url.match(/\/([^\/]+?)(\.git)?$/);
-  const sshMatch = url.match(/:([^\/]+\/)?([^\/]+?)(\.git)?$/);
+  const httpsMatch = url.match(/\/([^/]+?)(\.git)?$/);
+  const sshMatch = url.match(/:([^/]+\/)?([^/]+?)(\.git)?$/);
   
   if (httpsMatch) return httpsMatch[1].replace('.git', '');
   if (sshMatch) return sshMatch[2].replace('.git', '');
@@ -826,7 +826,7 @@ async function handleGitStatus(session: Session): Promise<CommandResult> {
       responses: [`📊 ${session.currentProject.name}\n\n\`\`\`\n${output}\n\`\`\``]
     };
 
-  } catch (error) {
+  } catch (_error) {
     return {
       handled: true,
       responses: ['Failed to get git status.']
@@ -865,7 +865,7 @@ async function handleGitDiff(session: Session): Promise<CommandResult> {
       responses: [`📝 Changes in ${session.currentProject.name}\n\n\`\`\`\n${truncated}\n\`\`\``]
     };
 
-  } catch (error) {
+  } catch (_error) {
     return {
       handled: true,
       responses: ['Failed to get diff.']
@@ -905,7 +905,7 @@ async function handleGitLog(
       responses: [`📜 Recent commits (${session.currentProject.name})\n\n\`\`\`\n${stdout.trim()}\n\`\`\``]
     };
 
-  } catch (error) {
+  } catch (_error) {
     return {
       handled: true,
       responses: ['Failed to get git log.']

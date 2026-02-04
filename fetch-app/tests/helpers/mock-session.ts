@@ -4,13 +4,12 @@
  * Provides mock session creation utilities for testing.
  */
 
-import type { Session, Message, Workspace } from '../../src/session/types.js';
+import type { Session, Message, ProjectContext } from '../../src/session/types.js';
 
 interface MockSessionOptions {
   userId?: string;
-  workspace?: Workspace | null;
+  currentProject?: ProjectContext | null;
   messages?: Message[];
-  mode?: 'conversation' | 'action' | 'task';
 }
 
 /**
@@ -22,32 +21,39 @@ export function createMockSession(options: MockSessionOptions = {}): Session {
 
   return {
     id: `ses_${Date.now()}`,
-    platform: 'test',
     userId,
+    messages: options.messages ?? [],
+    currentProject: options.currentProject ?? null,
+    availableProjects: [],
+    activeFiles: [],
+    repoMap: null,
+    repoMapUpdatedAt: null,
+    preferences: {
+      autonomyLevel: 'cautious',
+      autoCommit: true,
+      verboseMode: false,
+      maxIterations: 25,
+    },
+    currentTask: null,
+    gitStartCommit: null,
     createdAt: now,
     lastActivityAt: now,
-    mode: options.mode ?? 'conversation',
-    workspace: options.workspace ?? null,
-    pendingApproval: null,
-    messages: options.messages ?? [],
-    activeTasks: [],
-    context: {
-      lastCommand: null,
-      lastError: null,
-      consecutiveErrors: 0,
-    },
   };
 }
 
 /**
- * Create a mock workspace
+ * Create a mock project context
  */
-export function createMockWorkspace(name: string = 'test-project'): Workspace {
+export function createMockProject(name: string = 'test-project'): ProjectContext {
   return {
     name,
     path: `/workspace/${name}`,
+    type: 'node',
+    mainFiles: ['index.ts'],
     gitBranch: 'main',
-    lastModified: new Date().toISOString(),
+    lastCommit: 'initial commit',
+    hasUncommitted: false,
+    refreshedAt: new Date().toISOString(),
   };
 }
 

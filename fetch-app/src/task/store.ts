@@ -128,7 +128,7 @@ export class TaskStore {
     const row = this.db!.prepare('SELECT value FROM task_metadata WHERE key = ?')
       .get('currentTaskId') as { value: string } | undefined;
     
-    return row?.value || null;
+    return (row?.value as TaskId) || null;
   }
 
   private async ensureInitialized(): Promise<void> {

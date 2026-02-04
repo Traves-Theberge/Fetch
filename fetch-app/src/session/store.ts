@@ -209,7 +209,7 @@ export class SessionStore {
     }
 
     // Parse existing session
-    let session = this.rowToSession(row);
+    const session = this.rowToSession(row);
     let needsUpdate = false;
     
     // Migrate old sessions to have new fields
