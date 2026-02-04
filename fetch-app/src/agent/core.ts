@@ -142,6 +142,7 @@ function isRetriableError(error: unknown, attempt: number): boolean {
   return true;
 }
 
+/**
  * Execute an agent operation with retry logic and progress reporting
  *
  * @param fn - Function to execute (receives attempt number)
@@ -304,7 +305,7 @@ export async function processMessage(
     const shouldContinue = trackError(session.id);
     
     // Check if it's a retriable error
-    const isRetriable = isRetriableError(error);
+    const isRetriable = isRetriableError(error, 1);
     
     if (!shouldContinue) {
       return {
@@ -583,10 +584,6 @@ function buildMessageHistory(
   session: Session,
   maxMessages = 10
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-  if (!session.messages) {
-    return [];
-  }
-
   return session.messages
     .slice(-maxMessages)
     .map((msg: Message) => ({
