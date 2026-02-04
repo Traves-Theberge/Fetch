@@ -25,7 +25,7 @@ Powered by **OpenRouter** with access to **100+ AI models**:
 
 - **Model Flexibility** — GPT-4o, Claude, Gemini, Llama, Mistral, DeepSeek, and more
 - **ReAct Loop** — Reason + Act pattern for multi-step tasks
-- **24 Built-in Tools** — File, code, shell, git, and control operations
+- **11 Orchestrator Tools** — Workspace, task, and interaction operations
 - **Session Memory** — Persistent conversation context
 - **Project Awareness** — Knows your active project and git status
 - **Configurable Autonomy** — Supervised, semi-autonomous, or fully autonomous modes
@@ -138,11 +138,35 @@ Just describe what you need after `@fetch`:
 
 ---
 
-## 🛠️ Tool Categories
+## 🛠️ Orchestrator Tools (11)
 
-Fetch includes **24 built-in tools** organized into 5 categories:
+Fetch includes **11 built-in tools** organized into 3 categories:
 
-<!-- DIAGRAM:tools -->
+### Workspace Tools (5)
+
+| Tool | Description |
+|------|-------------|
+| `workspace_list` | List all projects |
+| `workspace_select` | Select active project |
+| `workspace_status` | Git status & branch |
+| `workspace_create` | Create new project |
+| `workspace_delete` | Delete a project |
+
+### Task Tools (4)
+
+| Tool | Description |
+|------|-------------|
+| `task_create` | Start a coding task |
+| `task_status` | Get task progress |
+| `task_cancel` | Cancel running task |
+| `task_respond` | Answer agent question |
+
+### Interaction Tools (2)
+
+| Tool | Description |
+|------|-------------|
+| `ask_user` | Ask clarifying question |
+| `report_progress` | Report task progress |
 
 ---
 

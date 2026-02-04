@@ -1,7 +1,7 @@
 /**
  * @fileoverview Tool input validation schemas
  *
- * Zod schemas for validating all 8 Fetch v2 tool inputs.
+ * Zod schemas for validating all Fetch v2 tool inputs.
  * Each tool has a corresponding schema that validates its parameters.
  *
  * @module validation/tools
@@ -48,6 +48,27 @@ export const AgentSelectionSchema = z.enum(
 );
 
 // ============================================================================
+// Project Template Schemas
+// ============================================================================
+
+/**
+ * Project template types
+ */
+export const ProjectTemplateSchema = z.enum([
+  'empty',      // Just creates the directory
+  'node',       // package.json + basic structure
+  'python',     // requirements.txt + basic structure
+  'rust',       // Cargo.toml + basic structure
+  'go',         // go.mod + basic structure
+  'react',      // Vite React template
+  'next',       // Next.js template
+], {
+  errorMap: () => ({
+    message: 'Template must be one of: empty, node, python, rust, go, react, next',
+  }),
+});
+
+// ============================================================================
 // Workspace Tool Schemas
 // ============================================================================
 
@@ -84,6 +105,56 @@ export const WorkspaceStatusInputSchema = z
   })
   .strict()
   .describe('Get status of a workspace including git info');
+
+/**
+ * workspace_create - Create a new workspace/project
+ */
+export const WorkspaceCreateInputSchema = z
+  .object({
+    /** Name for the new workspace */
+    name: z.string()
+      .min(1, 'Workspace name is required')
+      .max(64, 'Workspace name too long (max 64 characters)')
+      .regex(/^[a-zA-Z0-9_-]+$/, 'Workspace name can only contain letters, numbers, hyphens, and underscores')
+      .describe('Name for the new workspace'),
+    
+    /** Project template to use */
+    template: ProjectTemplateSchema.optional()
+      .default('empty')
+      .describe('Project template: empty, node, python, rust, go, react, next'),
+    
+    /** Optional description for the project */
+    description: z.string()
+      .max(256, 'Description too long (max 256 characters)')
+      .optional()
+      .describe('Brief description of the project'),
+    
+    /** Initialize git repository */
+    initGit: z.boolean()
+      .optional()
+      .default(true)
+      .describe('Initialize a git repository (default: true)'),
+  })
+  .strict()
+  .describe('Create a new workspace/project');
+
+/**
+ * workspace_delete - Delete a workspace (requires confirmation)
+ */
+export const WorkspaceDeleteInputSchema = z
+  .object({
+    /** Name of workspace to delete */
+    name: WorkspaceNameSchema.describe('Name of the workspace to delete'),
+    
+    /** Confirmation that user wants to delete */
+    confirm: z.boolean()
+      .refine((val) => val === true, {
+        message: 'Must explicitly confirm deletion by setting confirm: true',
+      })
+      .describe('Must be true to confirm deletion'),
+  })
+  .strict()
+  .describe('Delete a workspace (requires explicit confirmation)');
 
 // ============================================================================
 // Task Tool Schemas
@@ -204,13 +275,18 @@ export const ReportProgressInputSchema = z
  * before calling tool handlers.
  */
 export const ToolInputSchemas = {
+  // Workspace tools (5)
   workspace_list: WorkspaceListInputSchema,
   workspace_select: WorkspaceSelectInputSchema,
   workspace_status: WorkspaceStatusInputSchema,
+  workspace_create: WorkspaceCreateInputSchema,
+  workspace_delete: WorkspaceDeleteInputSchema,
+  // Task tools (4)
   task_create: TaskCreateInputSchema,
   task_status: TaskStatusInputSchema,
   task_cancel: TaskCancelInputSchema,
   task_respond: TaskRespondInputSchema,
+  // Interaction tools (2)
   ask_user: AskUserInputSchema,
   report_progress: ReportProgressInputSchema,
 } as const;
@@ -231,6 +307,8 @@ export const TOOL_NAMES: ToolName[] = Object.keys(ToolInputSchemas) as ToolName[
 export type WorkspaceListInput = z.infer<typeof WorkspaceListInputSchema>;
 export type WorkspaceSelectInput = z.infer<typeof WorkspaceSelectInputSchema>;
 export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;
+export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInputSchema>;
+export type WorkspaceDeleteInput = z.infer<typeof WorkspaceDeleteInputSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateInputSchema>;
 export type TaskStatusInput = z.infer<typeof TaskStatusInputSchema>;
 export type TaskCancelInput = z.infer<typeof TaskCancelInputSchema>;
@@ -245,6 +323,8 @@ export type ToolInput =
   | WorkspaceListInput
   | WorkspaceSelectInput
   | WorkspaceStatusInput
+  | WorkspaceCreateInput
+  | WorkspaceDeleteInput
   | TaskCreateInput
   | TaskStatusInput
   | TaskCancelInput

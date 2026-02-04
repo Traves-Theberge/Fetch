@@ -18,6 +18,7 @@
 import { taskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import { workspaceManager } from '../workspace/manager.js';
+import { getTaskIntegration } from '../task/integration.js';
 import {
   TaskCreateInputSchema,
   TaskStatusInputSchema,
@@ -121,11 +122,19 @@ export async function handleTaskCreate(
     // Set as current task in queue
     taskQueue.setCurrentTask(task);
 
-    // Start the task
-    await taskManager.startTask(task.id);
-
-    // TODO: Actually start harness execution here
-    // For now, we just return the created task
+    // Start task execution in the background via harness
+    // This spawns claude/gemini/copilot CLI to do the actual work
+    const integration = getTaskIntegration();
+    
+    // Execute asynchronously - don't await, let it run in background
+    integration.executeTask(task, (taskId, message, percent) => {
+      // Progress callback - could emit events here for real-time updates
+      console.log(`[Task ${taskId}] ${percent ?? 0}% - ${message}`);
+    }).then(result => {
+      console.log(`[Task ${task.id}] Completed:`, result.success ? 'SUCCESS' : 'FAILED');
+    }).catch(err => {
+      console.error(`[Task ${task.id}] Error:`, err);
+    });
 
     const taskData = formatTaskOutput(task);
 

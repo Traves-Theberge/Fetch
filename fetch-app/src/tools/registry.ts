@@ -2,15 +2,17 @@
  * @fileoverview Tool Registry
  * @module tools/registry
  * 
- * The registry contains the 8 orchestrator tools that delegate
+ * The registry contains the orchestrator tools that delegate
  * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  *
- * ## Tools (8 total)
+ * ## Tools (11 total)
  *
- * ### Workspace (3)
+ * ### Workspace (5)
  * - `workspace_list` - List available workspaces
  * - `workspace_select` - Select active workspace
  * - `workspace_status` - Get workspace status
+ * - `workspace_create` - Create new workspace
+ * - `workspace_delete` - Delete workspace
  *
  * ### Task (4)
  * - `task_create` - Create a new task
@@ -33,6 +35,8 @@ import {
   handleWorkspaceList,
   handleWorkspaceSelect,
   handleWorkspaceStatus,
+  handleWorkspaceCreate,
+  handleWorkspaceDelete,
   workspaceTools,
 } from './workspace.js';
 
@@ -81,7 +85,7 @@ export type ToolHandler = (input: unknown) => Promise<ToolResult>;
  * All orchestrator tools
  */
 export const orchestratorTools: Record<ToolName, OrchestratorTool> = {
-  // Workspace tools
+  // Workspace tools (5)
   workspace_list: {
     name: 'workspace_list',
     description: workspaceTools.workspace_list.description,
@@ -100,8 +104,20 @@ export const orchestratorTools: Record<ToolName, OrchestratorTool> = {
     handler: handleWorkspaceStatus,
     schema: ToolInputSchemas.workspace_status,
   },
+  workspace_create: {
+    name: 'workspace_create',
+    description: workspaceTools.workspace_create.description,
+    handler: handleWorkspaceCreate,
+    schema: ToolInputSchemas.workspace_create,
+  },
+  workspace_delete: {
+    name: 'workspace_delete',
+    description: workspaceTools.workspace_delete.description,
+    handler: handleWorkspaceDelete,
+    schema: ToolInputSchemas.workspace_delete,
+  },
 
-  // Task tools
+  // Task tools (4)
   task_create: {
     name: 'task_create',
     description: taskTools.task_create.description,
@@ -127,7 +143,7 @@ export const orchestratorTools: Record<ToolName, OrchestratorTool> = {
     schema: ToolInputSchemas.task_respond,
   },
 
-  // Interaction tools
+  // Interaction tools (2)
   ask_user: {
     name: 'ask_user',
     description: interactionTools.ask_user.description,

@@ -2,7 +2,7 @@
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
-A headless "ChatOps" development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work.
+A headless "ChatOps" development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters 🦞)
 
 ```
   ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
@@ -25,6 +25,8 @@ A headless "ChatOps" development environment. Send natural language coding tasks
 
 Fetch is a **lightweight orchestrator** that delegates coding tasks to specialized AI harnesses (Claude Code, Gemini CLI, GitHub Copilot CLI) while managing conversation state and user interaction via WhatsApp.
 
+**Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
+
 ### 🏗️ V2 Orchestrator Architecture
 
 Fetch automatically classifies your intent and routes to the appropriate handler:
@@ -45,11 +47,11 @@ Fetch delegates actual coding work to specialized CLI tools:
 | **Gemini CLI** | `gemini` | Quick edits, explanations |
 | **Copilot CLI** | `gh copilot` | Suggestions, command help |
 
-### 🛠️ 8 Orchestrator Tools
+### 🛠️ 11 Orchestrator Tools
 
 | Category | Tools | Purpose |
 |----------|-------|---------|
-| **Workspace** | `workspace_list`, `workspace_select`, `workspace_status` | Project management |
+| **Workspace** | `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete` | Project management |
 | **Task** | `task_create`, `task_status`, `task_cancel`, `task_respond` | Task lifecycle |
 | **Interaction** | `ask_user`, `report_progress` | User communication |
 

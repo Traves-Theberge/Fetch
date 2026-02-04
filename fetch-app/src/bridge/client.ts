@@ -71,6 +71,60 @@ import { logger } from '../utils/logger.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// =============================================================================
+// CHROME LOCK CLEANUP
+// =============================================================================
+
+/**
+ * Removes stale Chrome lock files that prevent browser startup.
+ * This happens when the container crashes without graceful shutdown.
+ * 
+ * @param authPath - Path to the .wwebjs_auth directory
+ */
+function cleanupChromeLocks(authPath: string): void {
+  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+  
+  try {
+    if (!fs.existsSync(authPath)) {
+      return; // No auth directory yet, nothing to clean
+    }
+    
+    // Find session directories (session-* folders)
+    const entries = fs.readdirSync(authPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      if (entry.isDirectory() && entry.name.startsWith('session')) {
+        const sessionPath = path.join(authPath, entry.name);
+        
+        // Check for Default profile folder
+        const defaultPath = path.join(sessionPath, 'Default');
+        if (fs.existsSync(defaultPath)) {
+          for (const lockFile of lockFiles) {
+            const lockPath = path.join(defaultPath, lockFile);
+            if (fs.existsSync(lockPath)) {
+              fs.unlinkSync(lockPath);
+              logger.info(`🧹 Cleaned up stale lock: ${lockFile}`);
+            }
+          }
+        }
+        
+        // Also check session root for lock files
+        for (const lockFile of lockFiles) {
+          const lockPath = path.join(sessionPath, lockFile);
+          if (fs.existsSync(lockPath)) {
+            fs.unlinkSync(lockPath);
+            logger.info(`🧹 Cleaned up stale lock: ${lockFile}`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.warn(`Could not clean Chrome locks: ${error}`);
+  }
+}
 
 // =============================================================================
 // BRIDGE CLASS
@@ -116,6 +170,9 @@ export class Bridge {
   }
 
   async initialize(): Promise<void> {
+    // Clean up any stale Chrome lock files from previous crashes
+    cleanupChromeLocks('/app/data/.wwebjs_auth');
+    
     // Initialize agentic handler
     await initializeHandler();
     

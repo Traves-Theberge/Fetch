@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	qrcode "github.com/skip2/go-qrcode"
@@ -25,47 +26,60 @@ import (
 	"github.com/fetch/manager/internal/theme"
 )
 
-// Screen represents the current TUI screen.
+// screen represents the current TUI screen.
 type screen int
 
+// Screen constants for navigation
 const (
-	screenSplash screen = iota
-	screenMenu
-	screenConfig
-	screenLogs
-	screenStatus
-	screenSetup
-	screenModels
-	screenVersion
+	screenSplash  screen = iota // Initial splash screen
+	screenMenu                  // Main menu
+	screenConfig                // Configuration editor
+	screenLogs                  // Log viewer
+	screenStatus                // System status
+	screenSetup                 // WhatsApp setup wizard
+	screenModels                // AI model selector
+	screenVersion               // Version information
 )
 
-// Messages
+// Bubble Tea messages for async operations
+
+// statusMsg carries Docker container status updates
 type statusMsg struct {
 	bridgeRunning bool
 	kennelRunning bool
 	err           error
 }
 
+// actionResultMsg carries results from user-initiated actions
 type actionResultMsg struct {
 	success bool
 	message string
 }
 
+// logMsg carries log lines from container logs
 type logMsg struct {
 	lines []string
 }
 
+// bridgeStatusMsg carries Bridge API status updates
 type bridgeStatusMsg struct {
 	status *status.BridgeStatus
 	err    error
 }
 
+// tickMsg triggers periodic status updates
 type tickMsg time.Time
+
+// qrRefreshTickMsg triggers the QR code refresh countdown
+type qrRefreshTickMsg time.Time
 
 // splashDoneMsg signals splash screen timeout
 type splashDoneMsg struct{}
 
-// Model
+// QR code refresh interval (WhatsApp QR codes expire after ~20 seconds)
+const qrRefreshInterval = 20 * time.Second
+
+// model is the main Bubble Tea model for the TUI
 type model struct {
 	screen        screen
 	choices       []string
@@ -84,13 +98,27 @@ type model struct {
 	bridgeStatus  *status.BridgeStatus
 	statusClient  *status.Client
 	versionInfo   components.VersionInfo
+	// QR code refresh state
+	qrProgress     progress.Model
+	qrCountdown    int // Seconds remaining until refresh
+	qrMaxCountdown int // Total countdown time
 }
 
 func initialModel() model {
+	// Create progress bar for QR countdown
+	prog := progress.New(
+		progress.WithDefaultGradient(),
+		progress.WithWidth(30),
+		progress.WithoutPercentage(),
+	)
+
 	return model{
-		screen:       screenSplash,
-		statusClient: status.NewClient(),
-		versionInfo:  components.DefaultVersionInfo(),
+		screen:         screenSplash,
+		statusClient:   status.NewClient(),
+		versionInfo:    components.DefaultVersionInfo(),
+		qrProgress:     prog,
+		qrCountdown:    20,
+		qrMaxCountdown: 20,
 		choices: []string{
 			"📱 Setup WhatsApp",
 			"� Disconnect WhatsApp",
@@ -132,10 +160,25 @@ func (m model) fetchBridgeStatus() tea.Msg {
 	return bridgeStatusMsg{status: status, err: err}
 }
 
+// fetchBridgeStatusCmd wraps fetchBridgeStatus as a tea.Cmd
+func fetchBridgeStatusCmd(client *status.Client) tea.Cmd {
+	return func() tea.Msg {
+		s, err := client.GetStatus()
+		return bridgeStatusMsg{status: s, err: err}
+	}
+}
+
 // Tick for polling bridge status
 func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
+	})
+}
+
+// Tick for QR code refresh countdown (every second)
+func qrRefreshTickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return qrRefreshTickMsg(t)
 	})
 }
 
@@ -167,7 +210,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case bridgeStatusMsg:
 		if msg.err == nil {
+			oldQRCode := ""
+			if m.bridgeStatus != nil && m.bridgeStatus.QRCode != nil {
+				oldQRCode = *m.bridgeStatus.QRCode
+			}
 			m.bridgeStatus = msg.status
+			// Only reset countdown when we get a NEW QR code (different from before)
+			if msg.status != nil && msg.status.State == "qr_pending" && msg.status.QRCode != nil {
+				newQRCode := *msg.status.QRCode
+				if oldQRCode != newQRCode {
+					m.qrCountdown = m.qrMaxCountdown
+				}
+			}
 		}
 		return m, nil
 
@@ -183,10 +237,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case progress.FrameMsg:
+		// Handle progress bar animation
+		progressModel, cmd := m.qrProgress.Update(msg)
+		m.qrProgress = progressModel.(progress.Model)
+		return m, cmd
+
+	case qrRefreshTickMsg:
+		// Only countdown if on setup screen and QR is pending
+		if m.screen == screenSetup && m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
+			m.qrCountdown--
+			if m.qrCountdown <= 0 {
+				// Auto-refresh: fetch new status
+				m.qrCountdown = m.qrMaxCountdown
+				return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), qrRefreshTickCmd())
+			}
+			// Update progress bar
+			percent := float64(m.qrCountdown) / float64(m.qrMaxCountdown)
+			cmd := m.qrProgress.SetPercent(percent)
+			return m, tea.Batch(cmd, qrRefreshTickCmd())
+		}
+		return m, nil
+
 	case tickMsg:
-		// Only poll if on setup screen
-		if m.screen == screenSetup {
-			return m, tea.Batch(m.fetchBridgeStatus, tickCmd())
+		// Only poll if on setup screen AND we don't have status yet
+		if m.screen == screenSetup && m.bridgeStatus == nil {
+			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd())
 		}
 		return m, nil
 
@@ -241,13 +317,14 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch m.cursor {
 		case 0: // Setup WhatsApp
 			m.screen = screenSetup
-			return m, tea.Batch(m.fetchBridgeStatus, tickCmd())
+			m.qrCountdown = m.qrMaxCountdown // Reset countdown
+			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
 		case 1: // Disconnect WhatsApp
 			return m, disconnectWhatsApp(m.statusClient)
 		case 2: // Start
-			return m, startFetch
+			return m, startFetchCmd()
 		case 3: // Stop
-			return m, stopFetch
+			return m, stopFetchCmd()
 		case 4: // Configure
 			m.screen = screenConfig
 			m.configEditor = config.NewEditor()
@@ -277,12 +354,6 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.screen = screenMenu
 		return m, nil
-	case "r":
-		// Refresh status from API
-		return m, m.fetchBridgeStatus
-	case "R":
-		// Restart bridge to get new QR code
-		return m, restartBridge
 	case "o":
 		// Open QR URL in browser
 		if m.bridgeStatus != nil && m.bridgeStatus.QRUrl != nil {
@@ -355,20 +426,27 @@ func (m model) updateVersion(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // Commands
-func startFetch() tea.Msg {
-	err := docker.StartServices()
-	if err != nil {
-		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to start: %v", err)}
+
+// startFetchCmd returns a command that starts Docker services
+func startFetchCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := docker.StartServices()
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to start: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "✅ Fetch services started!"}
 	}
-	return actionResultMsg{success: true, message: "✅ Fetch services started!"}
 }
 
-func stopFetch() tea.Msg {
-	err := docker.StopServices()
-	if err != nil {
-		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to stop: %v", err)}
+// stopFetchCmd returns a command that stops Docker services
+func stopFetchCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := docker.StopServices()
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to stop: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "🛑 Fetch services stopped."}
 	}
-	return actionResultMsg{success: true, message: "🛑 Fetch services stopped."}
 }
 
 func fetchLogs() tea.Msg {
@@ -396,17 +474,6 @@ func disconnectWhatsApp(client *status.Client) tea.Cmd {
 		}
 		return actionResultMsg{success: false, message: fmt.Sprintf("Disconnect failed: %s", result.Message)}
 	}
-}
-
-func restartBridge() tea.Msg {
-	// Stop then start to get fresh QR code
-	docker.StopServices()
-	time.Sleep(2 * time.Second)
-	err := docker.StartServices()
-	if err != nil {
-		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to restart: %v", err)}
-	}
-	return actionResultMsg{success: true, message: "🔄 Bridge restarted - new QR code will be generated"}
 }
 
 func (m model) View() string {
@@ -831,10 +898,14 @@ func (m model) viewSetup() string {
 			content.WriteString(theme.StatusInfo.Render("📱 Scan this QR code with WhatsApp:") + "\n\n")
 
 			if m.bridgeStatus.QRCode != nil {
-				// Render QR code in terminal
-				qrText := renderQRCode(*m.bridgeStatus.QRCode)
-				content.WriteString(qrText + "\n\n")
-				content.WriteString(theme.StatusSuccess.Render("'o' open in browser | 'r' refresh status | 'R' new QR code") + "\n")
+				// Render QR code in terminal (compact)
+				qrText := renderQRCodeCompact(*m.bridgeStatus.QRCode)
+				content.WriteString(qrText + "\n")
+
+				// Show countdown progress bar
+				content.WriteString(fmt.Sprintf("\n⏱️  Auto-refresh in %ds ", m.qrCountdown))
+				content.WriteString(m.qrProgress.View() + "\n\n")
+				content.WriteString(theme.Subtitle.Render("'o' open in browser | Esc go back") + "\n")
 			} else if m.bridgeStatus.QRUrl != nil {
 				content.WriteString(theme.QRBox.Render(
 					"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
@@ -867,9 +938,9 @@ func (m model) viewSetup() string {
 	}
 
 	// Help bar
-	helpKeys := []string{"r Refresh", "R New QR", "Esc Back"}
+	helpKeys := []string{"Esc Back"}
 	if m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
-		helpKeys = []string{"o Open QR", "r Refresh", "R New QR", "Esc Back"}
+		helpKeys = []string{"o Open QR", "Esc Back"}
 	}
 	helpBar := components.HelpBar(helpKeys, width)
 	helpHeight := lipgloss.Height(helpBar)
@@ -928,6 +999,53 @@ func renderQRCode(data string) string {
 	}
 
 	return sb.String()
+}
+
+// renderQRCodeCompact renders a smaller QR code using Low error correction
+// and skipping every other pixel for a more compact display
+func renderQRCodeCompact(data string) string {
+	// Use Low error correction for smaller QR code
+	qr, err := qrcode.New(data, qrcode.Low)
+	if err != nil {
+		return "   Error generating QR code"
+	}
+
+	// Get the QR code as a bitmap
+	bitmap := qr.Bitmap()
+
+	// Style for the QR code box
+	boxStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("#FF6B35")).
+		Padding(0, 1)
+
+	var qrContent strings.Builder
+
+	// Use unicode block characters - combine 2 rows into 1 line
+	for y := 0; y < len(bitmap)-1; y += 2 {
+		for x := 0; x < len(bitmap[y]); x++ {
+			top := bitmap[y][x]
+			bottom := false
+			if y+1 < len(bitmap) {
+				bottom = bitmap[y+1][x]
+			}
+
+			// Use half-block characters for 2:1 aspect ratio
+			if top && bottom {
+				qrContent.WriteString("█")
+			} else if top {
+				qrContent.WriteString("▀")
+			} else if bottom {
+				qrContent.WriteString("▄")
+			} else {
+				qrContent.WriteString(" ")
+			}
+		}
+		qrContent.WriteString("\n")
+	}
+
+	// Wrap in a styled box
+	return boxStyle.Render(qrContent.String())
 }
 
 func main() {

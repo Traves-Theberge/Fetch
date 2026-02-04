@@ -420,4 +420,173 @@ curl http://localhost:8765/docs
 
 ---
 
+## Docker Development Workflow
+
+A guide for developing and reloading Fetch after making code changes.
+
+### Development Architecture
+
+```
+┌─────────────────────────────────────────────────┐
+│                   Host Machine                   │
+├─────────────────────────────────────────────────┤
+│  fetch-app/src/        ← Your code changes      │
+│  manager/              ← TUI code (Go)          │
+│  workspace/            ← Mounted to container   │
+│  data/                 ← Persistent sessions    │
+└─────────────────────────────────────────────────┘
+                          │
+                          ▼ docker compose up --build
+┌─────────────────────────────────────────────────┐
+│              Docker Containers                   │
+├─────────────────────────────────────────────────┤
+│  fetch-bridge          ← Agent + WhatsApp       │
+│  fetch-kennel          ← CLI sandbox            │
+└─────────────────────────────────────────────────┘
+```
+
+### Development Workflow
+
+#### Step 1: Make Code Changes
+
+Edit files in your editor:
+
+```bash
+# Agent/WhatsApp code
+code fetch-app/src/
+
+# TUI code
+code manager/
+
+# Documentation
+code docs/
+```
+
+#### Step 2: Rebuild Containers
+
+After changing **TypeScript** code in `fetch-app/`:
+
+```bash
+# Rebuild and restart (preserves WhatsApp session)
+docker compose up -d --build
+
+# Or rebuild a specific container
+docker compose up -d --build fetch-bridge
+```
+
+#### Step 3: Verify the Build
+
+```bash
+# Watch the build logs
+docker compose logs -f --tail 50
+
+# Check container status
+docker ps
+
+# Test the status endpoint
+curl http://localhost:8765/status
+```
+
+### Quick Reload Commands
+
+| Task | Command |
+|------|---------|
+| Rebuild after TS changes | `docker compose up -d --build` |
+| Rebuild bridge only | `docker compose up -d --build fetch-bridge` |
+| View live logs | `docker compose logs -f` |
+| Restart without rebuild | `docker compose restart` |
+| Full reset (⚠️ clears auth) | `docker compose down && docker compose up -d --build` |
+| Soft restart (keeps auth) | `docker compose restart fetch-bridge` |
+
+### Hot Reload for TUI (Go)
+
+The TUI runs on your host, not in Docker:
+
+```bash
+cd manager
+
+# Rebuild after changes
+go build -o fetch-manager .
+
+# Or use air for hot reload
+go install github.com/cosmtrek/air@latest
+air  # Auto-rebuilds on file changes
+```
+
+### Preserving WhatsApp Session
+
+Your WhatsApp session is stored in `./data/.wwebjs_auth/`. To preserve it:
+
+```bash
+# ✅ GOOD: Rebuild without losing session
+docker compose up -d --build
+
+# ✅ GOOD: Restart without losing session
+docker compose restart
+
+# ⚠️ CAUTION: This clears session
+docker compose down -v
+rm -rf ./data/.wwebjs_auth/
+```
+
+### Troubleshooting Development Issues
+
+#### "Chromium Lock" Error
+
+Chrome profile is locked from a previous session:
+
+```bash
+# Clear stale lock files
+sudo rm -rf ./data/.wwebjs_auth/session/SingletonLock
+
+# Or fresh start (requires re-scanning QR)
+rm -rf ./data/.wwebjs_auth
+docker compose up -d --build
+```
+
+#### Changes Not Appearing
+
+```bash
+# Force rebuild with no cache
+docker compose build --no-cache
+docker compose up -d
+```
+
+#### TypeScript Compilation Errors
+
+```bash
+# Check build logs
+docker compose logs fetch-bridge | grep -i error
+
+# Or build locally first
+cd fetch-app
+npm run build
+```
+
+### Development Environment Tips
+
+1. **Use two terminals:**
+   - Terminal 1: `docker compose logs -f` (watch logs)
+   - Terminal 2: Edit code, rebuild
+
+2. **Add console.log for debugging:**
+   ```typescript
+   console.log('[DEBUG]', variable);
+   ```
+   Then rebuild and watch logs.
+
+3. **Test changes quickly:**
+   ```bash
+   # One-liner rebuild and follow logs
+   docker compose up -d --build && docker compose logs -f
+   ```
+
+4. **Use the TUI for common operations:**
+   ```bash
+   cd manager && ./fetch-manager
+   # Use Start/Stop/Logs from the menu
+   ```
+
+---
+
 *Fetch - Your Faithful Code Companion* 🐕

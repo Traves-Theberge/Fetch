@@ -2,6 +2,7 @@
 package docker
 
 import (
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -22,12 +23,43 @@ func IsContainerRunning(name string) bool {
 func StartServices() error {
 	cmd := exec.Command("docker", "compose", "up", "-d")
 	cmd.Dir = paths.ProjectDir
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v: %s", err, string(output))
+	}
+	return nil
 }
 
 // StopServices stops all Fetch Docker services.
 func StopServices() error {
 	cmd := exec.Command("docker", "compose", "down")
 	cmd.Dir = paths.ProjectDir
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%v: %s", err, string(output))
+	}
+	return nil
+}
+
+// RestartBridge restarts only the bridge container with fresh auth.
+func RestartBridge() error {
+	// Stop bridge
+	stop := exec.Command("docker", "compose", "stop", "fetch-bridge")
+	stop.Dir = paths.ProjectDir
+	if output, err := stop.CombinedOutput(); err != nil {
+		return fmt.Errorf("stop failed: %v: %s", err, string(output))
+	}
+	
+	// Remove bridge container
+	rm := exec.Command("docker", "compose", "rm", "-f", "fetch-bridge")
+	rm.Dir = paths.ProjectDir
+	rm.CombinedOutput() // Ignore errors
+	
+	// Start bridge
+	start := exec.Command("docker", "compose", "up", "-d", "fetch-bridge")
+	start.Dir = paths.ProjectDir
+	if output, err := start.CombinedOutput(); err != nil {
+		return fmt.Errorf("start failed: %v: %s", err, string(output))
+	}
+	return nil
 }

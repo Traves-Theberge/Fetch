@@ -25,8 +25,52 @@ Fetch automatically detects your intent and routes appropriately:
 | Intent | Description | Handler | Example |
 |--------|-------------|---------|--------|
 | 💬 **Conversation** | Greetings, thanks, general chat | Direct response | `@fetch Hey!` |
-| 📁 **Workspace** | Project management, git operations | 8 orchestrator tools | `@fetch list projects` |
+| 📁 **Workspace** | Project management, git operations | 11 orchestrator tools | `@fetch list projects` |
 | 🚀 **Task** | Complex coding work | Harness (Claude/Gemini/Copilot) | `@fetch Build a login page` |
+
+---
+
+## Orchestrator Tools (11)
+
+Fetch has **11 built-in tools** organized into three categories:
+
+### Workspace Tools (5)
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `workspace_list` | List all projects | — |
+| `workspace_select` | Select active project | `name` |
+| `workspace_status` | Git status & branch | — |
+| `workspace_create` | Create new project | `name`, `template?`, `description?`, `initGit?` |
+| `workspace_delete` | Delete a project | `name`, `confirm: true` |
+
+### Task Tools (4)
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `task_create` | Start a coding task | `goal`, `agent?`, `files?` |
+| `task_status` | Get task progress | `taskId?` |
+| `task_cancel` | Cancel running task | `taskId?` |
+| `task_respond` | Answer agent question | `response` |
+
+### Interaction Tools (2)
+
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `ask_user` | Ask clarifying question | `question`, `options?` |
+| `report_progress` | Report task progress | `message`, `percent?`, `files?` |
+
+### Available Templates (workspace_create)
+
+| Template | Creates |
+|----------|---------|
+| `empty` | Just README.md |
+| `node` | package.json, index.js, .gitignore |
+| `python` | main.py, requirements.txt |
+| `rust` | Cargo.toml, src/main.rs |
+| `go` | go.mod, main.go |
+| `react` | Vite React scaffold |
+| `next` | Next.js scaffold |
 
 ---
 
@@ -269,4 +313,4 @@ To revert everything from this session:
 
 ---
 
-*Fetch Command Reference v0.2.0*
+*Fetch Command Reference v2.1.0*
