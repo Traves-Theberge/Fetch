@@ -9,7 +9,7 @@ This guide covers testing all features of Fetch including the TUI, WhatsApp comm
 Before testing, ensure:
 
 - [ ] Docker containers running: `docker compose ps`
-- [ ] TUI rebuilt: `cd manager && go build -o fetch-manager .`
+- [ ] TUI installed: `which fetch` (should show `/usr/local/bin/fetch`)
 - [ ] WhatsApp authenticated (scan QR if needed)
 - [ ] `.env` configured with `OWNER_PHONE_NUMBER` and `OPENROUTER_API_KEY`
 
@@ -17,82 +17,290 @@ Before testing, ensure:
 # Quick status check
 docker compose ps
 curl -s http://localhost:8765/status | jq
+
+# Launch TUI (from anywhere!)
+fetch
 ```
 
 ---
 
 ## 🖥️ Part 1: TUI Manager Tests
 
-### 1.1 Launch TUI
+### 1.0 Launching the TUI
 
 ```bash
-cd manager
+# From anywhere in your terminal:
+fetch
+
+# Or from the project directory:
+cd /path/to/Fetch/manager
 ./fetch-manager
 ```
 
-**Expected:** Splash screen → Main menu with ASCII dog mascot
+**Expected:** Splash screen (2 seconds) → Main menu with ASCII dog mascot on left, menu on right
+
+### 1.1 Splash Screen Test
+
+| Test | Expected |
+|------|----------|
+| Launch `fetch` | Splash screen appears with Fetch logo |
+| Wait 2 seconds | Auto-transitions to main menu |
 
 ### 1.2 Menu Navigation
 
 | Test | Action | Expected |
 |------|--------|----------|
-| Navigate | `↑`/`↓` or `j`/`k` | Cursor moves through menu |
-| Select | `Enter` or `Space` | Opens selected screen |
-| Back | `Esc` | Returns to previous screen |
-| Quit | `q` | Exits TUI |
-| Version | `v` from menu | Shows neofetch-style info |
+| Navigate down | `↓` or `j` | Cursor moves to next item |
+| Navigate up | `↑` or `k` | Cursor moves to previous item |
+| Select item | `Enter` or `Space` | Opens selected screen |
+| Go back | `Esc` | Returns to previous screen |
+| Quick quit | `q` | Exits TUI immediately |
+| Version info | `v` (from menu) | Shows neofetch-style info |
 
-### 1.3 Test Each Menu Option
+### 1.3 Menu Items Test Matrix
 
-| # | Menu Item | Test Actions |
-|---|-----------|--------------|
-| 1 | 📱 Setup WhatsApp | Shows QR code if not authenticated |
-| 2 | 🔌 Disconnect WhatsApp | Logs out WhatsApp session |
-| 3 | 🚀 Start Fetch | Starts Docker containers |
-| 4 | 🛑 Stop Fetch | Stops Docker containers |
-| 5 | ⚙️ Configure | Opens .env editor |
-| 6 | 🔐 Trusted Numbers | Opens whitelist manager |
-| 7 | 🤖 Select Model | Opens OpenRouter model picker |
-| 8 | 📜 View Logs | Shows container logs |
-| 9 | 📚 Documentation | Opens docs in browser |
-| 10 | ℹ️ Version | Shows version info |
-| 11 | ❌ Exit | Quits TUI |
+| # | Menu Item | Key Test | Expected Result |
+|---|-----------|----------|-----------------|
+| 1 | 📱 Setup WhatsApp | Select → View QR | Shows QR code or "Already authenticated" |
+| 2 | 🔌 Disconnect WhatsApp | Select → Confirm | Logs out WhatsApp session |
+| 3 | 🚀 Start Fetch | Select | Runs `docker compose up -d` |
+| 4 | 🛑 Stop Fetch | Select | Runs `docker compose down` |
+| 5 | ⚙️ Configure | Select | Opens .env editor |
+| 6 | 🤖 Select Model | Select | Opens OpenRouter model picker |
+| 7 | 📜 View Logs | Select | Shows scrollable container logs |
+| 8 | 📚 Documentation | Select | Opens docs URL in browser |
+| 9 | ℹ️ Version | Select | Shows version/system info |
+| 10 | ❌ Exit | Select | Quits TUI |
 
-### 1.4 🔐 Trusted Numbers Screen (NEW)
+---
 
-| Test | Action | Expected |
-|------|--------|----------|
-| Open | Select "🔐 Trusted Numbers" | Shows whitelist manager |
-| View list | Just open | Shows current trusted numbers |
-| Add number | Type number, press Enter | Number added, list refreshes |
-| Delete | Navigate to number, press `d` | Number removed |
-| Clear input | Press `Esc` while typing | Clears input field |
-| Exit | Press `Esc` | Returns to menu |
+### 1.4 ⚙️ Configure Screen Tests
 
-**Test Flow:**
-1. Add: `15551234567` → Press Enter → ✅ Should appear in list
-2. Add: `15559876543` → Press Enter → ✅ Should appear in list  
-3. Navigate to first number → Press `d` → ✅ Should be removed
-4. Press `Esc` → ✅ Returns to menu
-
-### 1.5 Configure Screen
+**Open:** Main Menu → "⚙️ Configure"
 
 | Test | Action | Expected |
 |------|--------|----------|
-| Navigate fields | `↑`/`↓` | Cursor moves through config fields |
-| Edit field | `Enter` or `e` | Enables edit mode |
-| Type value | Type text | Value updates |
-| Save edit | `Enter` | Saves field value |
-| Cancel edit | `Esc` | Discards changes |
-| Save file | `s` | Writes to .env file |
+| View fields | Open screen | Shows all config fields |
+| Navigate | `↑`/`↓` | Moves between fields |
+| Edit field | `Enter` or `e` | Cursor appears in field |
+| Type value | Type text | Characters appear |
+| Confirm edit | `Enter` | Value saved to field |
+| Cancel edit | `Esc` | Reverts to previous value |
+| Save to file | `s` | "✅ Configuration saved!" message |
+| Exit | `Esc` (not editing) | Returns to menu |
 
-**Fields to verify:**
-- Owner Phone
-- Trusted Numbers
-- OpenRouter Key (masked)
-- Anthropic Key (masked)
-- Gemini Key (masked)
-- Log Level
+**Fields to Test:**
+
+| Field | Test Value | Notes |
+|-------|------------|-------|
+| Owner Phone | `15551234567` | Your WhatsApp number |
+| Trusted Numbers | `15559876543,15551112222` | Comma-separated |
+| OpenRouter Key | `sk-or-v1-xxx` | Shows as dots (masked) |
+| Anthropic Key | `sk-ant-xxx` | Shows as dots (masked) |
+| Gemini Key | `xxx` | Shows as dots (masked) |
+| Log Level | `debug` | Options: debug, info, warn, error |
+
+**Test Sequence:**
+```
+1. Open Configure
+2. Navigate to "Log Level"
+3. Press Enter to edit
+4. Type "debug"
+5. Press Enter to confirm
+6. Press 's' to save
+7. Verify "✅ Configuration saved!" appears
+8. Press Esc to return to menu
+```
+
+---
+
+### 1.5 🤖 Model Selector Tests
+
+**Open:** Main Menu → "🤖 Select Model"
+
+| Test | Action | Expected |
+|------|--------|----------|
+| Load models | Open screen | Models load from OpenRouter API |
+| Navigate | `↑`/`↓` | Scrolls through model list |
+| Toggle view | `Tab` | Switches between "Recommended" and "All" |
+| Search | Type model name | Filters list |
+| Select model | `Enter` | Model saved to .env |
+| Exit | `Esc` | Returns to menu |
+
+**Recommended Models to Test:**
+
+| Model | Provider |
+|-------|----------|
+| `openai/gpt-4o-mini` | OpenAI |
+| `anthropic/claude-3-5-sonnet` | Anthropic |
+| `google/gemini-2.0-flash-exp:free` | Google |
+
+---
+
+### 1.6 📜 Log Viewer Tests
+
+**Open:** Main Menu → "📜 View Logs"
+
+| Test | Action | Expected |
+|------|--------|----------|
+| View logs | Open screen | Shows container logs |
+| Scroll down | `↓` or `j` | Scrolls log viewport |
+| Scroll up | `↑` or `k` | Scrolls up |
+| Page down | `Page Down` | Jumps down |
+| Page up | `Page Up` | Jumps up |
+| Refresh | `r` | Reloads latest logs |
+| Exit | `Esc` or `q` | Returns to menu |
+
+---
+
+### 1.7 📱 WhatsApp Setup Tests
+
+**Open:** Main Menu → "📱 Setup WhatsApp"
+
+| State | Expected Display |
+|-------|-----------------|
+| Not authenticated | QR code displayed (ASCII or URL) |
+| QR expired | New QR auto-refreshes every 20s |
+| Authenticated | "✅ WhatsApp Connected" message |
+
+**Test Sequence:**
+```
+1. Open "📱 Setup WhatsApp"
+2. If QR shown: Scan with WhatsApp → Linked Devices
+3. Wait for "authenticated" status
+4. Press Esc to return
+5. Status bar should show "WhatsApp: Connected"
+```
+
+---
+
+### 1.8 ℹ️ Version Screen Tests
+
+**Open:** Main Menu → "ℹ️ Version" or press `v`
+
+| Element | Expected |
+|---------|----------|
+| Fetch version | Shows current version (e.g., v2.4.3) |
+| Go version | Shows Go runtime version |
+| OS/Arch | Shows Linux/amd64 or similar |
+| Docker status | Shows if Docker is available |
+| Container status | Shows Bridge/Kennel running state |
+
+---
+
+### 1.9 Status Bar Tests
+
+The status bar at the bottom should always show:
+
+| Element | Expected |
+|---------|----------|
+| Left side | Current screen name |
+| Center | Key hints (↑↓ Navigate, Enter Select, etc.) |
+| Right side | Docker status (🟢 Running / 🔴 Stopped) |
+
+---
+
+### 1.10 Keyboard Shortcuts Summary
+
+| Key | Context | Action |
+|-----|---------|--------|
+| `↑`/`k` | Everywhere | Navigate up |
+| `↓`/`j` | Everywhere | Navigate down |
+| `Enter` | Menu | Select item |
+| `Enter` | Config | Edit field / Confirm edit |
+| `Space` | Menu | Select item |
+| `Esc` | Everywhere | Go back / Cancel |
+| `q` | Menu | Quit TUI |
+| `v` | Menu | Version screen |
+| `s` | Config | Save file |
+| `r` | Logs | Refresh |
+| `Tab` | Models | Toggle view |
+| `d` | Whitelist | Delete selected |
+
+---
+
+## 🧪 TUI Test Checklist
+
+Run through this checklist to verify the TUI is working:
+
+### Basic Navigation
+- [ ] `fetch` command launches TUI
+- [ ] Splash screen appears and transitions
+- [ ] Can navigate menu with arrow keys
+- [ ] Can select items with Enter
+- [ ] Can go back with Esc
+- [ ] Can quit with q
+
+### Configuration
+- [ ] Configure screen opens
+- [ ] Can navigate between fields
+- [ ] Can edit field values
+- [ ] Masked fields show dots (API keys)
+- [ ] Save works (shows confirmation)
+- [ ] Changes persist after reopening
+
+### Docker Control
+- [ ] "Start Fetch" launches containers
+- [ ] "Stop Fetch" stops containers
+- [ ] Status bar updates accordingly
+
+### WhatsApp
+- [ ] QR code displays when not authenticated
+- [ ] QR refreshes automatically
+- [ ] Shows "Connected" when authenticated
+
+### Logs
+- [ ] Log viewer shows container output
+- [ ] Can scroll through logs
+- [ ] Refresh loads new logs
+
+### Models
+- [ ] Model list loads from OpenRouter
+- [ ] Can toggle between Recommended/All
+- [ ] Can select and save a model
+
+---
+
+## 🐛 TUI Troubleshooting
+
+### TUI won't start
+```bash
+# Check if fetch is installed
+which fetch
+
+# Rebuild if needed
+cd /path/to/Fetch/manager
+go build -o fetch-manager .
+sudo cp fetch-manager /usr/local/bin/fetch
+```
+
+### Terminal display issues
+```bash
+# Ensure terminal supports 256 colors
+echo $TERM  # Should be xterm-256color or similar
+
+# Try different terminal emulator
+# (Alacritty, Kitty, iTerm2 work best)
+```
+
+### Docker commands fail
+```bash
+# Check Docker permissions
+docker ps
+
+# If permission denied, add user to docker group
+sudo usermod -aG docker $USER
+# Then logout/login
+```
+
+### Config won't save
+```bash
+# Check .env file permissions
+ls -la /path/to/Fetch/.env
+
+# Fix permissions if needed
+chmod 644 /path/to/Fetch/.env
+```
 
 ---
 
