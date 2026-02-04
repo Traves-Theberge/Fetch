@@ -31,14 +31,15 @@ type screen int
 
 // Screen constants for navigation
 const (
-	screenSplash  screen = iota // Initial splash screen
-	screenMenu                  // Main menu
-	screenConfig                // Configuration editor
-	screenLogs                  // Log viewer
-	screenStatus                // System status
-	screenSetup                 // WhatsApp setup wizard
-	screenModels                // AI model selector
-	screenVersion               // Version information
+	screenSplash    screen = iota // Initial splash screen
+	screenMenu                    // Main menu
+	screenConfig                  // Configuration editor
+	screenLogs                    // Log viewer
+	screenStatus                  // System status
+	screenSetup                   // WhatsApp setup wizard
+	screenModels                  // AI model selector
+	screenVersion                 // Version information
+	screenWhitelist               // Trusted numbers manager
 )
 
 // Bubble Tea messages for async operations
@@ -81,23 +82,24 @@ const qrRefreshInterval = 20 * time.Second
 
 // model is the main Bubble Tea model for the TUI
 type model struct {
-	screen        screen
-	choices       []string
-	cursor        int
-	quitting      bool
-	bridgeRunning bool
-	kennelRunning bool
-	statusLoaded  bool
-	actionMessage string
-	actionSuccess bool
-	logLines      []string
-	configEditor  *config.Editor
-	modelSelector *models.Selector
-	width         int
-	height        int
-	bridgeStatus  *status.BridgeStatus
-	statusClient  *status.Client
-	versionInfo   components.VersionInfo
+	screen           screen
+	choices          []string
+	cursor           int
+	quitting         bool
+	bridgeRunning    bool
+	kennelRunning    bool
+	statusLoaded     bool
+	actionMessage    string
+	actionSuccess    bool
+	logLines         []string
+	configEditor     *config.Editor
+	modelSelector    *models.Selector
+	whitelistManager *config.WhitelistManager
+	width            int
+	height           int
+	bridgeStatus     *status.BridgeStatus
+	statusClient     *status.Client
+	versionInfo      components.VersionInfo
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -123,10 +125,11 @@ func initialModel() model {
 		qrMaxCountdown: qrCountdown,
 		choices: []string{
 			"📱 Setup WhatsApp",
-			"� Disconnect WhatsApp",
+			"🔌 Disconnect WhatsApp",
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
+			"🔐 Trusted Numbers",
 			"🤖 Select Model",
 			"📜 View Logs",
 			"📚 Documentation",
@@ -277,6 +280,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateMenu(msg)
 		case screenConfig:
 			return m.updateConfig(msg)
+		case screenWhitelist:
+			return m.updateWhitelist(msg)
 		case screenLogs:
 			return m.updateLogs(msg)
 		case screenStatus:
@@ -325,19 +330,23 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenConfig
 			m.configEditor = config.NewEditor()
 			return m, nil
-		case 5: // Select Model
+		case 5: // Trusted Numbers
+			m.screen = screenWhitelist
+			m.whitelistManager = config.NewWhitelistManager()
+			return m, nil
+		case 6: // Select Model
 			m.screen = screenModels
 			m.modelSelector = models.NewSelector()
 			return m, models.FetchModelsCmd
-		case 6: // Logs
+		case 7: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 7: // Documentation
+		case 8: // Documentation
 			return m, openDocs
-		case 8: // Version
+		case 9: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 9: // Exit
+		case 10: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -369,6 +378,23 @@ func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.configEditor != nil {
 		m.configEditor.Update(msg)
+	}
+
+	return m, nil
+}
+
+func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Only allow escape when not in add mode
+	if !m.whitelistManager.IsAdding() {
+		switch msg.String() {
+		case "esc", "q":
+			m.screen = screenMenu
+			return m, nil
+		}
+	}
+
+	if m.whitelistManager != nil {
+		m.whitelistManager.Update(msg)
 	}
 
 	return m, nil
@@ -482,6 +508,8 @@ func (m model) View() string {
 		return m.viewSplash()
 	case screenConfig:
 		return m.viewConfig()
+	case screenWhitelist:
+		return m.viewWhitelist()
 	case screenLogs:
 		return m.viewLogs()
 	case screenStatus:
@@ -709,6 +737,49 @@ func (m model) viewConfig() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		topSpacer,
 		configContent,
+		helpBar,
+	)
+}
+
+func (m model) viewWhitelist() string {
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Title
+	title := layout.SectionHeader("🔐 Trusted Numbers", width-4)
+
+	var content strings.Builder
+	if m.whitelistManager != nil {
+		content.WriteString(m.whitelistManager.View())
+	}
+
+	// Help bar
+	helpBar := components.HelpBar(
+		[]string{"↑/↓ Navigate", "a Add", "d Delete", "r Refresh", "Esc Back"},
+		width,
+	)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	whitelistContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(whitelistContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		whitelistContent,
 		helpBar,
 	)
 }
