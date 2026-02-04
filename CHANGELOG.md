@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-02-04 (Test Harness Integration 🧪)
+
+### 🧪 Harness Integration Testing
+
+Comprehensive integration test suite for the CLI harness adapters (Claude, Gemini, Copilot).
+
+### Added
+
+**Test Coverage:**
+- Created `/fetch-app/tests/integration/harness.test.ts` with 34 comprehensive tests
+- OutputParser tests: question detection, progress indicators, file operations, completion detection, error handling
+- Adapter integration tests: ClaudeAdapter, GeminiAdapter, CopilotAdapter output parsing
+- HarnessExecutor tests: timeout handling, error recovery, event emission
+
+**Test Categories:**
+- Question Detection (4 tests): `?` endings, `[y/n]` prompts, yes/no patterns
+- Progress Detection (2 tests): spinner indicators, percentage progress
+- File Operation Detection (4 tests): created/modified/deleted files, Gemini bracket format
+- Completion Detection (2 tests): "Done" messages, Copilot completion phrases
+- Error Detection (2 tests): error messages, fatal errors
+- ANSI Stripping (2 tests): strip/preserve ANSI codes
+- Streaming Buffer (2 tests): partial lines, buffer flushing
+- Adapter Output Parsing (10 tests): ClaudeAdapter, GeminiAdapter, CopilotAdapter
+- HarnessExecutor (6 tests): timeout, invalid command, invalid cwd, unregistered adapter, events
+
+### Technical Notes
+
+- Tests use mock CLI output samples that match actual CLI output patterns
+- Executor tests use real shell commands with proper timing for output buffering
+- Addresses GitHub Issue #2: Test Harness Integration
+
+---
+
 ## [2.1.2] - 2026-02-03 (SQLite Cleanup 🗄️)
 
 ### 🗄️ Database Cleanup
