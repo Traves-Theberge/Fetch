@@ -128,7 +128,7 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 ## 3. Security Model
 
-Fetch implements **6 layers of security** to protect your system:
+Fetch implements **7 layers of security** to protect your system:
 
 <!-- DIAGRAM:security -->
 
@@ -141,12 +141,23 @@ All messages must start with `@fetch` (case-insensitive):
 fix the bug in auth.ts          ❌ Ignored
 ```
 
-#### Layer 2: Whitelist Authentication
+#### Layer 2: Zero Trust Bonding (Whitelist)
 ```typescript
-// security/gate.ts
-// Only OWNER_PHONE_NUMBER can interact
-// Rejects: Groups (@g.us), Broadcasts, Non-whitelisted
-// Silent drop for unauthorized (no acknowledgment)
+// security/gate.ts + security/whitelist.ts
+// "Fetch is loyal to his owner and people his owner explicitly trusts"
+//
+// Authorization Flow:
+//   1. Is sender the owner? → ALLOW (always exempt)
+//   2. Is sender in whitelist? → ALLOW
+//   3. Otherwise → DROP (silent, no response)
+//
+// Whitelist Management (owner only):
+//   /trust add <number>    - Add trusted number
+//   /trust remove <number> - Remove trusted number
+//   /trust list            - Show all trusted numbers
+//
+// Configuration:
+//   TRUSTED_PHONE_NUMBERS=15551234567,15559876543 (in .env)
 ```
 
 #### Layer 3: Rate Limiting
