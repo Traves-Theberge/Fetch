@@ -605,18 +605,21 @@ body {
    ======================================== */
 
 .diagram-container {
-  margin: var(--spacing-2xl) 0;
-  padding: var(--spacing-xl);
+  margin: var(--spacing-3xl) 0;
+  padding: var(--spacing-2xl);
   background: hsl(var(--card));
   border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
+  box-shadow: var(--shadow-md);
 }
 
 .diagram-container svg {
   display: block;
   margin: 0 auto;
   font-family: var(--font-sans);
+  max-width: 100%;
+  height: auto;
 }
 
 .diagram-container svg text {
@@ -626,6 +629,7 @@ body {
 /* Dark mode diagram adjustments */
 .dark .diagram-container {
   background: hsl(var(--card-elevated));
+  border-color: hsl(var(--border-hover));
 }
 
 /* ========================================
