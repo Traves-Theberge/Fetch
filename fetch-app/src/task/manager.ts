@@ -38,6 +38,7 @@
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { generateTaskId, generateProgressId } from '../utils/id.js';
+import { getTaskStore, TaskStore } from './store.js';
 import type {
   Task,
   TaskId,
@@ -107,6 +108,37 @@ export class TaskManager extends EventEmitter {
   /** Currently active task (only one at a time) */
   private currentTaskId: TaskId | null = null;
 
+  /** Persistence store */
+  private store: TaskStore;
+
+  constructor(store?: TaskStore) {
+    super();
+    this.store = store || getTaskStore();
+  }
+
+  /**
+   * Initialize the task manager, loading state from disk
+   */
+  async init(): Promise<void> {
+    try {
+      await this.store.init();
+      
+      const loadedTasks = await this.store.loadAllTasks();
+      for (const task of loadedTasks) {
+        this.tasks.set(task.id, task);
+      }
+      
+      this.currentTaskId = await this.store.loadCurrentTaskId();
+      
+      logger.info(`TaskManager initialized with ${loadedTasks.length} tasks`, {
+        currentTaskId: this.currentTaskId
+      });
+    } catch (error) {
+      logger.error('Failed to initialize TaskManager', { error });
+      // Don't throw, just start with empty state if DB fails
+    }
+  }
+
   // ==========================================================================
   // Task Creation
   // ==========================================================================
@@ -155,6 +187,10 @@ export class TaskManager extends EventEmitter {
     // Store task
     this.tasks.set(task.id, task);
     this.currentTaskId = task.id;
+    
+    // Persist
+    await this.store.saveTask(task);
+    await this.store.saveCurrentTaskId(task.id);
 
     // Emit event
     this.emitTaskEvent('task:created', task.id, { task });
@@ -182,6 +218,10 @@ export class TaskManager extends EventEmitter {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'running');
     task.startedAt = new Date().toISOString();
+    
+    // Persist
+    await this.store.saveTask(task);
+    
     this.emitTaskEvent('task:started', taskId);
 
     logger.info(`Task started: ${taskId}`);
@@ -197,6 +237,10 @@ export class TaskManager extends EventEmitter {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'waiting_input');
     task.pendingQuestion = question;
+    
+    // Persist
+    await this.store.saveTask(task);
+    
     this.emitTaskEvent('task:question', taskId, { question });
 
     logger.info(`Task waiting for input: ${taskId}`, { question });
@@ -214,6 +258,9 @@ export class TaskManager extends EventEmitter {
     }
     this.transitionTo(task, 'running');
     task.pendingQuestion = undefined;
+    
+    // Persist
+    await this.store.saveTask(task);
 
     logger.info(`Task resumed: ${taskId}`);
   }
@@ -230,6 +277,11 @@ export class TaskManager extends EventEmitter {
     task.result = result;
     task.completedAt = new Date().toISOString();
     this.currentTaskId = null;
+    
+    // Persist
+    await this.store.saveTask(task);
+    await this.store.saveCurrentTaskId(null);
+    
     this.emitTaskEvent('task:completed', taskId, { result });
 
     logger.success(`Task completed: ${taskId}`, {
@@ -260,6 +312,11 @@ export class TaskManager extends EventEmitter {
     };
     task.completedAt = new Date().toISOString();
     this.currentTaskId = null;
+    
+    // Persist
+    await this.store.saveTask(task);
+    await this.store.saveCurrentTaskId(null);
+    
     this.emitTaskEvent('task:failed', taskId, { error });
 
     logger.error(`Task failed: ${taskId}`, { error });
@@ -277,6 +334,11 @@ export class TaskManager extends EventEmitter {
     if (this.currentTaskId === taskId) {
       this.currentTaskId = null;
     }
+    
+    // Persist
+    await this.store.saveTask(task);
+    await this.store.saveCurrentTaskId(this.currentTaskId);
+    
     this.emitTaskEvent('task:cancelled', taskId);
 
     logger.warn(`Task cancelled: ${taskId}`);
@@ -323,6 +385,10 @@ export class TaskManager extends EventEmitter {
     };
 
     task.progress.push(progress);
+    
+    // Persist
+    await this.store.saveTask(task);
+    
     this.emitTaskEvent('task:progress', taskId, { progress });
 
     logger.debug(`Task progress: ${taskId}`, { message, percent });
@@ -475,4 +541,17 @@ export class TaskManager extends EventEmitter {
 /**
  * Global task manager instance
  */
-export const taskManager = new TaskManager();
+let taskManagerInstance: TaskManager | null = null;
+
+/**
+ * Get or create the global task manager instance
+ *
+ * @returns Task manager instance
+ */
+export async function getTaskManager(): Promise<TaskManager> {
+  if (!taskManagerInstance) {
+    taskManagerInstance = new TaskManager();
+    await taskManagerInstance.init();
+  }
+  return taskManagerInstance;
+}

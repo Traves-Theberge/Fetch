@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-02-04 (Reliability & Persistence 🔄 💾)
+
+### 🔄 Better Error Recovery & Retry Logic
+- Implemented robust retry strategy with backoffs [0s, 1s, 3s, 10s].
+- Added user-facing progress reporting during retries ("Hold on, fetching again... 🐕").
+- Added specialized handling for `400 Bad Request`, retrying once with simplified context history.
+- Consolidated all LLM calls (conversation, tools, task framing) into a unified retry handler.
+
+### 💾 Persistent Task Management
+- Created SQLite-based `TaskStore` for reliable task state preservation.
+- Implemented automatic state loading on application startup.
+- Ensured all task transitions and progress updates are persisted in real-time.
+- Synchronized `TaskQueue` with stored active tasks to prevent data loss across restarts.
+
+### ⚡ Docker Kennel Performance
+- Optimized `Kennel` Dockerfile with multi-language runtimes (Python, Go, Rust).
+- Added essential developer tools (`jq`, `tree`, `build-essential`) to the sandbox.
+- Reduced image layers by grouping installations.
+
 ## [2.3.0] - 2026-02-04 (Auto-scaffold Templates 🛠️)
 
 ### 🛠️ Workspace Scaffolding Improvements

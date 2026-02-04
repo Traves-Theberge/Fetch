@@ -22,6 +22,9 @@ RUN apt-get update && apt-get install -y \
     golang-go \
     cargo \
     rustc \
+    jq \
+    tree \
+    build-essential \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -38,14 +41,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 RUN gh extension install github/gh-copilot || true
 
 # ============================================
-# Install Claude Code CLI
+# Install AI CLIs (Claude, Gemini)
 # ============================================
-RUN npm install -g @anthropic-ai/claude-code
-
-# ============================================
-# Install Gemini CLI
-# ============================================
-RUN npm install -g @google/gemini-cli
+RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # ============================================
 # Create workspace directory

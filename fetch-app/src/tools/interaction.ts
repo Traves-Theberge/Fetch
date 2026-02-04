@@ -12,7 +12,7 @@
  * - `report_progress` - Report task progress
  */
 
-import { taskManager } from '../task/manager.js';
+import { getTaskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import {
   AskUserInputSchema,
@@ -78,7 +78,8 @@ export async function handleAskUser(
   }
 
   try {
-    const task = taskManager.getTask(currentTaskId);
+    const manager = await getTaskManager();
+    const task = manager.getTask(currentTaskId);
 
     if (!task) {
       return {
@@ -96,7 +97,8 @@ export async function handleAskUser(
     }
 
     // Set the pending question on the task (this transitions to waiting_input)
-    await taskManager.setWaitingInput(currentTaskId, formattedQuestion);
+    const manager = await getTaskManager();
+    await manager.setWaitingInput(currentTaskId, formattedQuestion);
 
     // The WhatsApp layer will pick up the question from task events
     // and send it to the user. The task is now in waiting_input status.
@@ -180,7 +182,8 @@ export async function handleReportProgress(
   }
 
   try {
-    const task = taskManager.getTask(currentTaskId);
+    const manager = await getTaskManager();
+    const task = manager.getTask(currentTaskId);
 
     if (!task) {
       return {
@@ -202,7 +205,8 @@ export async function handleReportProgress(
     }
 
     // Add progress update to task (message, files, percent)
-    await taskManager.addProgress(currentTaskId as TaskId, message, undefined, percent);
+    const manager = await getTaskManager();
+    await manager.addProgress(currentTaskId as TaskId, message, undefined, percent);
 
     return {
       success: true,

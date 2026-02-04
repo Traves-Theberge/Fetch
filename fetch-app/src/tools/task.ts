@@ -15,7 +15,7 @@
  * - `task_respond` - Respond to task question
  */
 
-import { taskManager } from '../task/manager.js';
+import { getTaskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { getTaskIntegration } from '../task/integration.js';
@@ -109,7 +109,8 @@ export async function handleTaskCreate(
 
   try {
     // Create the task via TaskManager
-    const task = await taskManager.createTask(
+    const manager = await getTaskManager();
+    const task = await manager.createTask(
       {
         goal,
         agent: agent ?? 'auto',
@@ -206,7 +207,8 @@ export async function handleTaskStatus(
   }
 
   try {
-    const task = taskManager.getTask(targetTaskId as TaskId);
+    const manager = await getTaskManager();
+    const task = manager.getTask(targetTaskId as TaskId);
 
     if (!task) {
       return {
@@ -277,7 +279,8 @@ export async function handleTaskCancel(
   const { taskId } = parseResult.data as TaskCancelInput;
 
   try {
-    const task = taskManager.getTask(taskId as TaskId);
+    const manager = await getTaskManager();
+    const task = manager.getTask(taskId as TaskId);
 
     if (!task) {
       return {
@@ -299,7 +302,8 @@ export async function handleTaskCancel(
     }
 
     // Cancel the task
-    await taskManager.cancelTask(taskId as TaskId);
+    const manager = await getTaskManager();
+    await manager.cancelTask(taskId as TaskId);
 
     // Clear from queue if it's the current task
     if (taskQueue.getCurrentTaskId() === taskId) {
@@ -380,7 +384,8 @@ export async function handleTaskRespond(
   }
 
   try {
-    const task = taskManager.getTask(targetTaskId as TaskId);
+    const manager = await getTaskManager();
+    const task = manager.getTask(targetTaskId as TaskId);
 
     if (!task) {
       return {
@@ -402,7 +407,8 @@ export async function handleTaskRespond(
     }
 
     // Resume the task
-    await taskManager.resumeTask(targetTaskId as TaskId);
+    const manager = await getTaskManager();
+    await manager.resumeTask(targetTaskId as TaskId);
 
     // TODO: Send response to harness via stdin
 

@@ -13,7 +13,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { taskManager } from './manager.js';
+import { getTaskManager, TaskManager } from './manager.js';
 import { getHarnessExecutor } from '../harness/executor.js';
 import { getClaudeAdapter } from '../harness/claude.js';
 import { getGeminiAdapter } from '../harness/gemini.js';
@@ -59,6 +59,7 @@ export type ProgressCallback = (
  */
 export class TaskIntegration extends EventEmitter {
   private initialized = false;
+  private manager: TaskManager | null = null;
   private activeExecutions = new Map<TaskId, AbortController>();
   private progressCallbacks = new Map<TaskId, ProgressCallback>();
 
@@ -69,6 +70,9 @@ export class TaskIntegration extends EventEmitter {
     if (this.initialized) return;
 
     logger.info('Initializing task-harness integration...');
+
+    // Get task manager
+    this.manager = await getTaskManager();
 
     // Initialize harness executor
     const executor = getHarnessExecutor();
@@ -134,7 +138,7 @@ export class TaskIntegration extends EventEmitter {
       const agent = this.selectAgent(task.agent);
 
       // Update task status
-      await taskManager.startTask(task.id);
+      await this.manager!.startTask(task.id);
       onProgress?.(task.id, 'Starting execution...', 0);
 
       // Get timeout from constraints (default 10 min)
@@ -155,7 +159,7 @@ export class TaskIntegration extends EventEmitter {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Task execution failed: ${task.id}`, { error: errorMessage });
 
-      await taskManager.failTask(task.id, errorMessage);
+      await this.manager!.failTask(task.id, errorMessage);
 
       return {
         taskId: task.id,
@@ -180,7 +184,7 @@ export class TaskIntegration extends EventEmitter {
       logger.info(`Cancelled task execution: ${taskId}`);
     }
 
-    await taskManager.cancelTask(taskId);
+    await this.manager!.cancelTask(taskId);
   }
 
   /**
@@ -225,7 +229,7 @@ export class TaskIntegration extends EventEmitter {
       const { taskId, data } = event;
 
       // Pause task and wait for response
-      taskManager.pauseTask(taskId, data?.question as string | undefined);
+      this.manager!.pauseTask(taskId, data?.question as string | undefined);
 
       this.emit('task:question', {
         taskId,
@@ -281,7 +285,7 @@ export class TaskIntegration extends EventEmitter {
         exitCode: result.exitCode ?? 0,
       };
 
-      await taskManager.completeTask(taskId, taskResult);
+      await this.manager!.completeTask(taskId, taskResult);
 
       return {
         taskId,
@@ -289,7 +293,7 @@ export class TaskIntegration extends EventEmitter {
         output: result.output,
       };
     } else {
-      await taskManager.failTask(taskId, result.error ?? 'Unknown error');
+      await this.manager!.failTask(taskId, result.error ?? 'Unknown error');
 
       return {
         taskId,
