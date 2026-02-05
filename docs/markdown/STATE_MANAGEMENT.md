@@ -37,7 +37,6 @@ Fetch has **22 stateful singletons** organized into 6 layers. State is distribut
 │  SessionManager ─── SessionStore (sessions.db)          │
 │  TaskManager ────── TaskStore (tasks.db)                │
 │  ModeManager ────── SessionStore meta KV                │
-│  MemoryManager ──── SessionStore tables                 │
 │  IdentityManager ── Filesystem (data/identity/)         │
 │  SkillManager ───── Filesystem (data/skills/)           │
 │  ToolRegistry ───── Filesystem (data/tools/)            │
@@ -64,8 +63,6 @@ Fetch has **22 stateful singletons** organized into 6 layers. State is distribut
 |:------|:------------|:------------|:--------|
 | `sessions` | SessionStore | SessionStore, SessionManager | Full session JSON blobs |
 | `session_meta` | SessionStore | SessionStore, **ModeManager** | Key-value pairs (`FETCH_MODE`) |
-| `memory_facts` | SessionStore | **MemoryManager** | Long-term fact memory |
-| `working_context` | SessionStore | **MemoryManager** | Short-term working context |
 | `conversation_summaries` | SessionStore | **ConversationSummarizer** | Thread summaries |
 | `conversation_threads` | SessionStore | **session/ThreadManager** | Thread metadata + snapshots |
 
@@ -124,7 +121,6 @@ Fetch has **22 stateful singletons** organized into 6 layers. State is distribut
 | SessionManager | `session/manager.ts` | `getSessionManager()` (async) |
 | TaskStore | `task/store.ts` | `getTaskStore()` |
 | TaskManager | `task/manager.ts` | `getTaskManager()` (async) |
-| MemoryManager | `memory/manager.ts` | `getMemoryManager()` |
 | SkillManager | `skills/manager.ts` | `getSkillManager()` |
 | InstinctRegistry | `instincts/index.ts` | `getInstinctRegistry()` |
 | WhitelistStore | `security/whitelist.ts` | `getWhitelistStore()` (async) |
@@ -214,7 +210,7 @@ index.ts main() sequence:
      └── client.initialize()    → Puppeteer/Chrome launched
 ```
 
-**Critical dependency**: SessionStore must init before ModeManager.init(), MemoryManager, ConversationSummarizer, or session/ThreadManager can function. The current boot order calls `initModes()` before `initializeHandler()`, meaning ModeManager.init() accesses SessionStore before it's initialized. This works only because ModeManager catches the error silently.
+**Critical dependency**: SessionStore must init before ModeManager.init(), ConversationSummarizer, or session/ThreadManager can function. The current boot order calls `initModes()` before `initializeHandler()`, meaning ModeManager.init() accesses SessionStore before it's initialized. This works only because ModeManager catches the error silently.
 
 ---
 

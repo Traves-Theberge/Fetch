@@ -1,17 +1,17 @@
-# 🐕 Fetch - Comprehensive Documentation
+# 🐕 Fetch — Comprehensive Documentation (V3.1)
 
 ## Table of Contents
 
 1. [Overview](#1-overview)
 2. [Architecture](#2-architecture)
 3. [Security Model](#3-security-model)
-4. [Installation Guide](#4-installation-guide)
-5. [Configuration Reference](#5-configuration-reference)
-6. [Agentic Framework](#6-agentic-framework)
-7. [Tool Reference](#7-tool-reference)
-8. [API Reference](#8-api-reference)
-9. [Troubleshooting](#9-troubleshooting)
-10. [Development Guide](#10-development-guide)
+4. [Installation & Configuration](#4-installation--configuration)
+5. [Agentic Framework](#5-agentic-framework)
+6. [Tool Reference](#6-tool-reference)
+7. [API Reference](#7-api-reference)
+8. [Conversation & Threading](#8-conversation--threading)
+9. [Developer Guide](#9-developer-guide)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -19,34 +19,33 @@
 
 ### 1.1 What is Fetch?
 
-Fetch is a **headless ChatOps development environment**. It enables "programming on the go" by bridging WhatsApp messages to AI coding agents.
+Fetch is a **headless ChatOps development environment** — a WhatsApp-driven AI coding orchestrator. It enables "programming on the go" by bridging WhatsApp messages to AI coding agents (Claude Code, Gemini CLI, GitHub Copilot CLI) running inside sandboxed Docker containers.
+
+Fetch is not an AI model. It is a **Pack Leader** — an orchestrator that classifies intent, activates instincts, delegates complex tasks to the right AI harness, and reports results back through WhatsApp in mobile-friendly formatting.
 
 ### 1.2 Core Philosophy
 
 | Principle | Description |
 |-----------|-------------|
-| **Loyal** | Responds *only* to the owner's phone number |
-| **Obedient** | Executes commands precisely within sandboxed containers |
-| **Retriever** | Fetches code, logs, and answers using AI agents |
+| **Loyal** | Responds *only* to the owner's phone number and explicitly trusted users |
+| **Obedient** | Executes commands precisely within sandboxed Docker containers |
+| **Retriever** | Fetches code, logs, and answers using AI agents — then brings them back |
+| **Protective** | 7-layer security model with crash-recoverable state |
 
 ### 1.3 Key Features
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
-- 🧠 **V3 Pack Leader Architecture** — Orchestrator system with Instincts, Skills, and Modes
-- 🗺️ **Repo Maps** — Architectural awareness of large projects
+- 🧠 **Four-Layer Processing** — Instinct → Mode → Skill → Agent pipeline
+- 🐺 **The Pack** — Claude (🦉 The Sage), Gemini (⚡ The Scout), Copilot (🎯 The Retriever)
+- 🛠️ **11 Orchestrator Tools** — Workspace (5) + Task (4) + Interaction (2)
+- 🎭 **Dynamic Identity** — Hot-reloaded persona via Markdown files (COLLAR / ALPHA / AGENTS)
+- 🧩 **Skills Framework** — 7 built-in skills + user-defined skills hot-loaded from `data/skills/`
+- 🗺️ **Repo Maps** — Architectural awareness of large codebases
 - 🎙️ **Voice & Vision** — Transcribe voice notes and analyze screenshots
-- 🌊 **Streaming** — Real-time progress updates for long tasks
-- 🤖 **Harness System** — Plug-in adapters for Claude, Gemini, Copilot CLIs
-- 🎭 **Dynamic Identity** — Customizable persona via hot-reloaded Markdown files (Collar/Alpha)
-- 🧩 **Skills Framework** — Teach Fetch new capabilities on the fly
-- 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
-- 🛠️ **11 Orchestrator Tools** — Workspace (5), task (4), interaction (2)
-- 🛡️ **Guarding Mode** — Safety locks for high-impact actions
-- 📁 **Project Management** — Clone, init, switch between projects
-- 🔒 **Security-First** — 6 layers of protection
-- 🐳 **Docker Isolation** — All execution in sandboxed containers
-- 💾 **Session Persistence** — Survives reboots with SQLite
-- 🖥️ **TUI Manager** — Beautiful terminal interface
+- 🔄 **Conversation Threading** — Topic detection, summarization, and context windowing
+- 🔒 **7-Layer Security** — From owner verification to Docker isolation
+- 💾 **SQLite Persistence** — WAL-mode databases for sessions and tasks, crash-recoverable
+- 🖥️ **Go TUI Manager** — Terminal interface for local administration
 
 ---
 
@@ -54,679 +53,519 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 ### 2.1 High-Level Overview
 
-<!-- DIAGRAM:architecture -->
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  WhatsApp (User)                                                     │
+│    │                                                                 │
+│    ▼                                                                 │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  fetch-bridge (Node.js/TypeScript)                       :8765 │ │
+│  │                                                                 │ │
+│  │  ┌──────────────────────────────────────────────────────────┐  │ │
+│  │  │ Security Pipeline                                        │  │ │
+│  │  │  Owner → Whitelist → @fetch Gate → Rate Limit → Validate │  │ │
+│  │  └──────────────────────┬───────────────────────────────────┘  │ │
+│  │                         ▼                                       │ │
+│  │  ┌──────────────────────────────────────────────────────────┐  │ │
+│  │  │ Four-Layer Processing Pipeline                           │  │ │
+│  │  │  1. Instinct  (deterministic, no LLM)                   │  │ │
+│  │  │  2. Mode      (state machine routing)                   │  │ │
+│  │  │  3. Skill     (specialized prompts)                     │  │ │
+│  │  │  4. Agent     (LLM + tools + harness delegation)        │  │ │
+│  │  └──────────────────────┬───────────────────────────────────┘  │ │
+│  │                         ▼                                       │ │
+│  │  ┌───────────┐ ┌───────────┐ ┌───────────┐                    │ │
+│  │  │  Claude   │ │  Gemini   │ │  Copilot  │  ← Harness Pool   │ │
+│  │  │  🦉 Sage  │ │  ⚡ Scout │ │  🎯 Retr  │                    │ │
+│  │  └─────┬─────┘ └─────┬─────┘ └─────┬─────┘                    │ │
+│  └────────┼──────────────┼─────────────┼───────────────────────────┘ │
+│           ▼              ▼             ▼                             │
+│  ┌─────────────────────────────────────────────────────────────────┐ │
+│  │  fetch-kennel (Docker)                                          │ │
+│  │  Ubuntu 22.04 · Claude CLI · Gemini CLI · gh copilot           │ │
+│  │  /workspace (mounted volumes)                                   │ │
+│  └─────────────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 ### 2.2 Component Breakdown
 
-#### The Manager (Go TUI) - "Administration"
-- **Language:** Go 1.21+
-- **Framework:** Bubble Tea + Lipgloss + Bubbles
-- **Purpose:** Local administration interface
-- **Layout:** Horizontal - Dashboard left, Menu right
-- **Features:**
-  - Service start/stop via Docker Compose
-  - Environment configuration editor
-  - Real-time log viewing with viewport scrolling
-  - QR code display for WhatsApp
-  - OpenRouter model selector with search
-  - System status screen
-  - Documentation browser
-- **Packages:**
-  - `theme/` - Design system (colors, borders, styles)
-  - `layout/` - Frame helpers and responsive breakpoints
-  - `components/` - Reusable UI (header, splash, version, etc.)
+#### The Manager (Go TUI) — Administration
 
-#### The Bridge (Node.js) - "The Orchestrator"
-- **Language:** TypeScript/Node.js 20+
-- **Framework:** whatsapp-web.js
-- **Port:** 8765 (Status API + Documentation)
-- **Purpose:** WhatsApp connection and V3 orchestration
-- **Features:**
-  - `@fetch` trigger gate
-  - Security (whitelist, rate limiting, validation)
-  - **V3 State Machine Modes:**
-    - 🟢 ALERT — Listening for commands (Default)
-    - 🔵 WORKING — Active task execution
-    - 🟠 WAITING — Paused for user input
-    - 🔴 GUARDING — Safety lock for dangerous actions
-    - 💤 RESTING — Idle state
-  - **Harness System:**
-    - Claude CLI adapter
-    - Gemini CLI adapter
-    - Copilot CLI adapter
-  - 11 orchestrator tools
-  - Project management (clone, init, switch)
-  - Session persistence (SQLite)
-  - Status API and documentation server
+| Property | Value |
+|----------|-------|
+| Language | Go 1.21+ |
+| Framework | Bubble Tea + Lipgloss + Bubbles |
+| Purpose | Local administration interface |
 
-<!-- DIAGRAM:messageflow -->
+Features: Service start/stop, environment configuration editor, real-time log viewing, QR code display, system status dashboard, documentation browser.
 
-#### The Sandbox (Docker) - "Execution Environment"
-- **Base:** Ubuntu 22.04
-- **Purpose:** Multi-Model AI Agent Execution
-- **Contains:**
-  - Claude Code CLI
-  - Gemini CLI
-  - GitHub CLI + Copilot extension
-- **Role:** Sandboxed execution environment for AI coding agents
+#### The Bridge (Node.js) — Orchestrator
 
-<!-- DIAGRAM:harness -->
+| Property | Value |
+|----------|-------|
+| Language | TypeScript / Node.js 20+ |
+| Framework | whatsapp-web.js |
+| Port | 8765 (Status API + Documentation) |
 
-### 2.3 Data Flow
+Core Systems:
+- **Instinct Layer** — 12 deterministic handlers (no LLM call)
+- **Mode State Machine** — ALERT → WORKING → WAITING → GUARDING → RESTING
+- **Skills Framework** — 7 built-in + user-defined hot-loaded skills
+- **Identity System** — Hot-reloaded from `data/identity/`
+- **Harness System** — Claude, Gemini, Copilot adapters with process pool
+- **Conversation System** — Threading, summarization, topic detection
+- **Proactive System** — Polling service, file/git watchers
+- **11 Orchestrator Tools** — Workspace, task, and interaction management
+- **Session Persistence** — SQLite with WAL mode
 
-<!-- DIAGRAM:dataflow -->
+#### The Kennel (Docker) — Sandbox
 
-### 2.4 Session State
+| Property | Value |
+|----------|-------|
+| Base | Ubuntu 22.04 |
+| Purpose | Isolated AI agent execution environment |
+| Contains | Claude Code CLI, Gemini CLI, GitHub CLI + Copilot extension |
+| Mount | `/workspace` (user code volumes) |
+| Limits | 2 GB RAM, 2 CPUs (configurable) |
 
-<!-- DIAGRAM:session -->
+### 2.3 Four-Layer Message Processing Pipeline
 
-**Why SQLite?**
-- ✅ Perfect for single user
-- ✅ ACID compliant & crash-safe
-- ✅ Zero configuration
-- ✅ Minimal resource usage
-- ✅ WAL mode for better concurrency
+Every incoming message flows through these layers in order. The first layer that produces a response short-circuits the pipeline:
+
+```
+Incoming Message
+     │
+     ▼
+┌─────────────────────────────────────────────┐
+│ Layer 1: INSTINCT                           │
+│ Deterministic pattern matching. No LLM.     │
+│ 12 handlers sorted by priority.             │
+│ Example: "stop" → halt task immediately     │
+│ Matched? → Return response, STOP pipeline   │
+└──────────────────────┬──────────────────────┘
+                       │ Not matched
+                       ▼
+┌─────────────────────────────────────────────┐
+│ Layer 2: MODE                               │
+│ State machine (ALERT/WORKING/WAITING/etc.)  │
+│ Routes based on current operational mode.   │
+│ Example: WAITING → route to task_respond    │
+│ Handled? → Return response, STOP pipeline   │
+└──────────────────────┬──────────────────────┘
+                       │ Not handled
+                       ▼
+┌─────────────────────────────────────────────┐
+│ Layer 3: SKILL                              │
+│ Matches message against skill triggers.     │
+│ Injects specialized instructions into       │
+│ system prompt for the LLM.                  │
+│ Example: "debug this" → debugging skill     │
+└──────────────────────┬──────────────────────┘
+                       │ (enriches, doesn't stop)
+                       ▼
+┌─────────────────────────────────────────────┐
+│ Layer 4: AGENT                              │
+│ Intent classification → LLM reasoning loop  │
+│ Tools: 11 orchestrator tools                │
+│ Delegation: Complex tasks → Harness (Pack)  │
+│ Returns final response to user              │
+└─────────────────────────────────────────────┘
+```
+
+### 2.4 Session & Persistence
+
+| Database | Path | Purpose |
+|----------|------|---------|
+| `sessions.db` | `data/sessions.db` | Session state, messages, metadata |
+| `tasks.db` | `data/tasks.db` | Task lifecycle, progress, results |
+
+Both databases use **SQLite WAL mode** for crash-safe concurrent reads. Sessions survive container restarts with 7-day auto-expiry and cleanup.
 
 ---
 
 ## 3. Security Model
 
-Fetch implements **7 layers of security** to protect your system:
+Fetch implements **7 layers of security**:
 
-<!-- DIAGRAM:security -->
+```
+Layer 1: Owner Verification         "Is this the owner?"
+Layer 2: Whitelist Check             "Is this a trusted user?"
+Layer 3: @fetch Trigger Gate         "Did they address me?"
+Layer 4: Rate Limiting               "Too many requests?"
+Layer 5: Input Validation            "Is the input safe?"
+Layer 6: Path Traversal Protection   "Trying to escape sandbox?"
+Layer 7: Docker Isolation            "Sandboxed execution"
+```
 
 ### 3.1 Layer Details
 
-#### Layer 1: @fetch Trigger Gate
-All messages must start with `@fetch` (case-insensitive):
-```
-@fetch fix the bug in auth.ts  ✅ Processed
-fix the bug in auth.ts          ❌ Ignored
-```
+**Layer 1 — Owner Verification:** The `OWNER_PHONE_NUMBER` in `.env` is always authorized. This is the primary trust anchor.
 
-#### Layer 2: Zero Trust Bonding (Whitelist)
-```typescript
-// security/gate.ts + security/whitelist.ts
-// "Fetch securely authenticates the owner and authorized users."
-//
-// Authorization Flow:
-//   1. Is sender the owner? → ALLOW (always exempt)
-//   2. Is sender in whitelist? → ALLOW
-//   3. Otherwise → DROP (silent, no response)
-//
-// Whitelist Management (owner only):
-//   /trust add <number>    - Add trusted number
-//   /trust remove <number> - Remove trusted number
-//   /trust list            - Show all trusted numbers
-//
-// Configuration:
-//   TRUSTED_PHONE_NUMBERS=15551234567,15559876543 (in .env)
-```
+**Layer 2 — Whitelist Check:** Additional trusted users managed via `/trust` commands. Unauthorized messages are **silently dropped**.
 
-#### Layer 3: Rate Limiting
+**Layer 3 — @fetch Trigger Gate:** All messages must contain `@fetch` (case-insensitive).
 
-| Setting | Value |
-|---------|-------|
-| Max Requests | 30 |
-| Window | 60 seconds |
-| Scope | Per phone number |
+**Layer 4 — Rate Limiting:** 30 requests per 60 seconds per phone number.
 
-#### Layer 4: Input Validation
+**Layer 5 — Input Validation:** Blocks `$(...)`, backticks, `; rm -rf`, `| sh`, `eval(`, and more. Max 10,000 characters.
 
-**Blocked Patterns:**
-- `$(...)` - Command substitution
-- `` `...` `` - Backtick execution
-- `; rm -rf` - Destructive commands
-- `| sh`, `| bash` - Pipe to shell
-- `../` - Path traversal
-- `eval(` - JavaScript eval
+**Layer 6 — Path Traversal Protection:** No `..` sequences, all paths resolve within `/workspace`, symlink resolution checked.
 
-**Limits:**
-- Max length: 10,000 characters
-
-#### Layer 5: Tool Argument Validation (Zod)
-
-```typescript
-// All tool arguments validated with Zod schemas
-import { validateToolArgs } from './tools/schemas.js';
-
-const validation = validateToolArgs('read_file', args);
-if (!validation.success) {
-  return { error: validation.error };  // Returns detailed validation message
-}
-```
-
-**Validation Rules:**
-- **SafePath** - No `..`, must be in `/workspace`
-- **Numeric coercion** - Strings auto-converted to numbers
-- **Required fields** - Missing fields caught early
-- **Range validation** - `start_line <= end_line`
-- **Length limits** - Commands max 10,000 chars
-
-#### Layer 6: Docker Isolation
-
-```typescript
-// Commands use array-based argument passing (SAFE)
-await container.exec({
-  Cmd: ['claude', '--print', userPrompt],
-  WorkingDir: '/workspace'
-});
-
-// Never: shell string concatenation (UNSAFE)
-```
+**Layer 7 — Docker Isolation:** All AI agent execution runs inside `fetch-kennel` with resource limits, read-only config mounts, and array-based argument passing.
 
 ### 3.2 Authentication Tokens
 
 | Token | Storage | Mount |
 |-------|---------|-------|
-| GitHub (hosts.json) | `./config/github/` | Read-only |
-| Claude (config.json) | `./config/claude/` | Read-only |
-| API Keys | `.env` file | Environment vars |
+| GitHub (hosts.json) | `./config/github/` | Read-only in Kennel |
+| Claude (config.json) | `./config/claude/` | Read-only in Kennel |
+| API Keys | `.env` file | Environment variables |
 
 ---
 
-## 4. Installation Guide
+## 4. Installation & Configuration
 
 ### 4.1 Prerequisites
 
 | Requirement | Version |
 |-------------|---------|
-| Platform | Any Linux (ARM64/x86_64) |
+| Platform | Any Linux (ARM64 / x86_64) |
 | Docker | 24.0+ |
 | Docker Compose | v2.0+ |
-| Go | 1.21+ |
+| Go | 1.21+ (for TUI manager) |
 
 ### 4.2 Quick Install
 
 ```bash
-# Clone repository
 git clone https://github.com/Traves-Theberge/Fetch.git
 cd Fetch
-
-# Configure environment
 cp .env.example .env
 nano .env  # Add your API keys and phone number
-
-# Build TUI manager
 cd manager && go build -o fetch-manager . && cd ..
-
-# Start services
 docker compose up -d
-
-# Run TUI and scan QR code
 ./manager/fetch-manager
 ```
 
-### 4.3 GitHub Copilot Setup
-
-Since Copilot requires browser-based OAuth:
-
-```bash
-# On a machine WITH a browser:
-gh auth login
-
-# Copy the auth file:
-scp ~/.config/gh/hosts.json yourserver:~/Fetch/config/github/
-```
-
----
-
-## 5. Configuration Reference
-
-### 5.1 Environment Variables
+### 4.3 Environment Variables
 
 #### Required
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `OWNER_PHONE_NUMBER` | Your WhatsApp number (no + or spaces) | `15551234567` |
-| `OPENROUTER_API_KEY` | OpenRouter API key | `sk-or-v1-...` |
+| `OWNER_PHONE_NUMBER` | Your WhatsApp number (no `+` or spaces) | `15551234567` |
+| `OPENROUTER_API_KEY` | OpenRouter API key for LLM orchestration | `sk-or-v1-...` |
 
 #### Optional
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AGENT_MODEL` | `openai/gpt-4o-mini` | OpenRouter model |
-| `ENABLE_CLAUDE` | `false` | Enable Claude CLI |
-| `ENABLE_GEMINI` | `false` | Enable Gemini CLI |
-| `ENABLE_COPILOT` | `true` | Enable Copilot CLI |
+| `AGENT_MODEL` | `openai/gpt-4o-mini` | OpenRouter model for orchestration |
+| `SUMMARY_MODEL` | `openai/gpt-4o-mini` | Model for conversation summarization |
+| `ENABLE_CLAUDE` | `false` | Enable Claude Code CLI harness |
+| `ENABLE_GEMINI` | `false` | Enable Gemini CLI harness |
+| `ENABLE_COPILOT` | `true` | Enable GitHub Copilot CLI harness |
 | `LOG_LEVEL` | `info` | Logging verbosity |
-
-### 5.2 Docker Compose Configuration
-
-```yaml
-services:
-  fetch-bridge:
-    # WhatsApp client + orchestration
-    ports:
-      - "8765:8765"  # Status API + Docs
-    volumes:
-      - ./data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-
-  fetch-kennel:
-    # AI CLI sandbox
-    volumes:
-      - ./workspace:/workspace
-      - ./config/github:/root/.config/gh:ro
-      - ./config/claude:/root/.config/claude:ro
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '2'
-```
+| `TRUSTED_PHONE_NUMBERS` | _(empty)_ | Comma-separated trusted numbers |
+| `DATA_DIR` | `/app/data` | Override data directory path |
 
 ---
 
-## 6. Agentic Framework
+## 5. Agentic Framework
 
-### 6.1 ReAct Loop
+### 5.1 Instinct Layer
 
-The agent follows the **ReAct (Reason + Act)** pattern:
+Instincts are **hardwired, deterministic behaviors** that bypass LLM processing. They fire before intent classification — no tokens consumed, guaranteed consistency.
 
-<!-- DIAGRAM:react -->
+#### Registered Instincts (12 handlers)
 
-### 6.2 Session Management
+| # | Instinct | Priority | Category | Triggers |
+|---|----------|----------|----------|----------|
+| 1 | `stop` | 100 | Safety | `stop`, `cancel`, `abort`, `halt` |
+| 2 | `undo` | 95 | Safety | `undo`, `revert` |
+| 3 | `clear` | 90 | Safety | `clear`, `reset` |
+| 4 | `help` | 80 | Info | `help`, `/help`, `?` |
+| 5 | `status` | 80 | Info | `status`, `/status` |
+| 6 | `commands` | 75 | Info | `commands`, `/commands` |
+| 7 | `whoami` | 70 | Meta | `whoami`, `who am i` |
+| 8 | `identity` | 70 | Meta | `identity`, `persona` |
+| 9 | `thread` | 65 | Meta | `thread`, `threads`, `context` |
+| 10 | `skills` | 60 | Meta | `skills`, `/skills` |
+| 11 | `tools` | 60 | Meta | `tools`, `/tools` |
+| 12 | `scheduling` | 55 | Meta | `schedule`, `/schedule` |
 
-Each WhatsApp conversation maintains a persistent session:
+### 5.2 Mode State Machine
 
-```typescript
-interface Session {
-  id: string;                    // WhatsApp JID
-  messages: Message[];           // Conversation history (last 30)
-  currentTask?: AgentTask;       // Active task state
-  currentProject?: ProjectContext; // Active project
-  availableProjects: string[];   // Projects in /workspace
-  preferences: {
-    autonomyLevel: 'supervised' | 'semi-autonomous' | 'autonomous';
-    autoCommit: boolean;
-    verboseMode: boolean;
-  };
-}
-
-interface ProjectContext {
-  name: string;                  // Directory name
-  path: string;                  // Full path in /workspace
-  type?: string;                 // node, python, go, etc.
-  gitBranch?: string;            // Current git branch
-  gitStatus?: string;            // Clean/dirty indicator
-}
+```
+  🟢 ALERT ◄──── default on boot
+  │  Listening for commands
+  │
+  ├── task_create ──► 🔵 WORKING
+  │                    │  Executing task
+  │                    ├── ask_user ──► ⏳ WAITING (awaiting input)
+  │                    │                │
+  │                    │  ◄── respond ──┘
+  │                    ├── complete ──► 🟢 ALERT
+  │                    └── fail ──────► 🟢 ALERT
+  │
+  └── dangerous op ──► 🔴 GUARDING (safety lock)
+                        ├── approve ──► execute
+                        └── reject ───► 🟢 ALERT
 ```
 
-### 6.3 Intent Classification (V2)
+Mode state is persisted to SQLite and restored on boot. Stuck modes auto-reset to ALERT on restart.
 
-Messages are routed based on detected intent:
+### 5.3 Skills Framework
 
-```typescript
-type IntentType = 'conversation' | 'workspace' | 'task';
+Skills inject domain-specific context into the LLM's system prompt.
 
-function classifyIntent(message: string): IntentClassification {
-  // Greeting patterns → conversation (direct response)
-  // "list projects", "show status", "switch to" → workspace (orchestrator tools)
-  // "build", "create", "fix", "refactor" → task (delegated to harness)
-}
-```
+#### Built-in Skills (7)
+
+| Skill | Purpose |
+|-------|---------|
+| `debugging` | Systematic debugging methodology |
+| `docker` | Container management patterns |
+| `fetch-meta` | Self-modification of Fetch itself |
+| `git` | Git workflow best practices |
+| `react` | React/frontend development |
+| `testing` | Test writing and TDD |
+| `typescript` | TypeScript patterns and best practices |
+
+#### User-Defined Skills
+
+Create custom skills in `data/skills/<name>/SKILL.md` with YAML frontmatter. Hot-reloaded via `chokidar` — no restart needed.
+
+### 5.4 Identity System
+
+| File | Purpose | Hot-Reloaded |
+|------|---------|--------------|
+| `COLLAR.md` | Core identity — name, role, voice, directives, behavioral rules | ✅ |
+| `ALPHA.md` | Owner/administrator profile and preferences | ✅ |
+| `AGENTS.md` | Pack member definitions, routing rules, specializations | ✅ |
+
+### 5.5 Harness System (The Pack)
+
+| Harness | Emoji | CLI | Role | Best For |
+|---------|-------|-----|------|----------|
+| `claude` | 🦉 | `claude` | The Sage | Multi-file refactoring, architecture, test suites |
+| `gemini` | ⚡ | `gemini` | The Scout | Quick fixes, explanations, boilerplate |
+| `copilot` | 🎯 | `gh copilot` | The Retriever | Single functions, shell commands, GitHub ops |
+
+**Manual Override:** `@fetch use claude: <task>` / `@fetch use gemini: <task>` / `@fetch use copilot: <task>`
+
+### 5.6 Intent Classification
 
 | Intent | Description | Handling |
 |--------|-------------|----------|
-| 💬 Conversation | Greetings, thanks, chat | Direct LLM response, no tools |
-| 📁 Workspace | Project management | 8 orchestrator tools |
-| 🚀 Task | Complex coding work | Delegate to harness (Claude/Gemini/Copilot) |
-
-### 6.4 Harness System (V2)
-
-Tasks are delegated to AI CLI tools via the harness system:
-
-```typescript
-interface HarnessAdapter {
-  name: string;           // 'claude', 'gemini', 'copilot'
-  executable: string;     // CLI command
-  
-  buildConfig(task: TaskConfig): HarnessConfig;
-  parseOutputLine(line: string): ParsedOutput;
-  detectQuestion(line: string): boolean;
-  extractSummary(output: string): string;
-}
-```
-
-**Available Harnesses:**
-
-| Harness | CLI | Best For |
-|---------|-----|----------|
-| `claude` | `claude` | Complex coding, refactoring |
-| `gemini` | `gemini` | Code analysis, explanations |
-| `copilot` | `gh copilot suggest` | Quick suggestions, commands |
-
-### 6.5 Autonomy Levels
-
-| Level | Description |
-|-------|-------------|
-| `supervised` | Approves ALL tool executions |
-| `semi-autonomous` | Auto-approve reads, prompt for writes |
-| `autonomous` | Full autonomy (prompts for destructive ops) |
-
-Change mode: `@fetch set mode autonomous`
-
-### 6.6 LLM Configuration
-
-```typescript
-// OpenRouter with GPT-4.1-nano
-const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4.1-nano';
-```
-
-**Why GPT-4.1-nano?**
-- ⚡ Fast response times (~1-2s)
-- 💰 Extremely low cost per token
-- 🎯 Excellent at structured tool calling
-- 🧠 Good reasoning for CLI-based tasks
+| 💬 `conversation` | Greetings, thanks, casual chat | Direct LLM response |
+| 📁 `workspace` | Project management, status | Orchestrator tools |
+| 🚀 `task` | Complex coding work | Delegate to harness |
+| ❓ `clarify` | Ambiguous — needs more info | Ask user |
 
 ---
 
-## 7. Tool Reference
+## 6. Tool Reference
 
-The V2 orchestrator uses **11 focused tools** for workspace management. Complex tasks are delegated to harnesses.
+### 6.1 Workspace Tools (5)
 
-<!-- DIAGRAM:tools -->
+| Tool | Danger | Description |
+|------|--------|-------------|
+| `workspace_list` | Safe | List all workspaces |
+| `workspace_select` | Safe | Set active workspace |
+| `workspace_status` | Safe | Git status and details |
+| `workspace_create` | Moderate | Create workspace with template |
+| `workspace_delete` | Dangerous | Delete workspace directory |
 
-### 7.1 Orchestrator Tools (11)
+### 6.2 Task Tools (4)
 
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `list_workspaces` | List available projects | ✅ |
-| `get_workspace_info` | Get project details | ✅ |
-| `switch_workspace` | Change active project | ✅ |
-| `create_workspace` | Initialize new project | ❌ |
-| `clone_repository` | Clone from git URL | ❌ |
-| `get_git_status` | Show git status | ✅ |
-| `get_git_diff` | Show file changes | ✅ |
-| `get_git_log` | Show commit history | ✅ |
+| Tool | Danger | Description |
+|------|--------|-------------|
+| `task_create` | Moderate | Create and start a coding task |
+| `task_status` | Safe | Check task status |
+| `task_cancel` | Moderate | Cancel running/queued task |
+| `task_respond` | Safe | Send response to waiting task |
 
-### 7.2 Harness Capabilities
+### 6.3 Interaction Tools (2)
 
-When tasks are delegated to harnesses (Claude, Gemini, Copilot), they have full access to:
-- File reading and writing
-- Code analysis and refactoring
-- Shell command execution
-- Git operations
-- Test running and debugging
+| Tool | Danger | Description |
+|------|--------|-------------|
+| `ask_user` | Safe | Pause and ask user a question |
+| `report_progress` | Safe | Send progress update |
 
-The harness system provides:
-- **Output Parsing** — Structured extraction of results
-- **Question Detection** — Identifies when AI needs input
-- **Progress Tracking** — Monitors task completion
-- **Error Handling** — Circuit breaker for failures
+### 6.4 Custom Tools
 
-### 7.3 File Tools (Legacy Reference)
-
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `read_file` | Read file contents | ✅ |
-| `write_file` | Write content to file | ❌ |
-| `edit_file` | Search & replace edit | ❌ |
-| `search_files` | Search text in files | ✅ |
-| `list_directory` | List directory contents | ✅ |
-
-### 7.2 Code Tools (4)
-
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `repo_map` | Get codebase structure | ✅ |
-| `find_definition` | Find symbol definition | ✅ |
-| `find_references` | Find symbol usages | ✅ |
-| `get_diagnostics` | Get TypeScript errors | ✅ |
-
-### 7.3 Shell Tools (3)
-
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `run_command` | Execute shell command | ❌ |
-| `run_tests` | Run test suite | ✅ |
-| `run_lint` | Run linter | ✅ |
-
-### 7.4 Git Tools (7)
-
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `git_status` | Show git status | ✅ |
-| `git_diff` | Show changes | ✅ |
-| `git_commit` | Stage and commit | ❌ |
-| `git_undo` | Undo last commit(s) | ❌ |
-| `git_branch` | Create/list branches | ❌ |
-| `git_log` | Show commit history | ✅ |
-| `git_stash` | Stash/restore changes | ❌ |
-
-### 7.5 Control Tools (5)
-
-| Tool | Description | Auto-Approve |
-|------|-------------|--------------|
-| `ask_user` | Ask user a question | ✅ |
-| `report_progress` | Send progress update | ✅ |
-| `task_complete` | Signal completion | ✅ |
-| `task_blocked` | Signal blocked | ✅ |
-| `think` | Reason through problem | ✅ |
+Users can define shell-based custom tools in `data/tools/*.json`. Hot-loaded via file watching.
 
 ---
 
-## 8. API Reference
+## 7. API Reference
 
-### 8.1 WhatsApp Commands
+### 7.1 Status API
 
-All commands require the `@fetch` prefix.
+**Base URL:** `http://localhost:8765`
 
-#### System Commands
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/status` | Current bridge status (JSON) |
+| `GET` | `/docs/*` | Documentation site (static HTML) |
+
+### 7.2 WhatsApp Commands
 
 | Command | Description |
 |---------|-------------|
 | `@fetch help` | Show help message |
-| `@fetch ping` | Connectivity test |
-| `@fetch task` | Show task status |
-
-#### Project Commands
-
-| Command | Description |
-|---------|-------------|
-| `@fetch /projects` | List available projects |
-| `@fetch /project <name>` | Switch to project |
-| `@fetch /clone <url>` | Clone a repository |
-| `@fetch /init <name>` | Initialize new project |
-| `@fetch /status` | Git status |
-| `@fetch /diff` | Show uncommitted changes |
-| `@fetch /log [n]` | Show recent commits |
-
-#### Control Commands
-
-| Command | Description |
-|---------|-------------|
-| `@fetch undo` | Undo last changes |
-| `@fetch auto` | Enable autonomous mode |
-| `@fetch supervised` | Return to supervised mode |
+| `@fetch status` | System and task status |
+| `@fetch commands` | List available commands |
+| `@fetch stop` | Halt current task |
+| `@fetch undo` | Revert last changes |
 | `@fetch clear` | Clear conversation history |
-
-#### Approval Responses
-
-When asked to approve an action:
-
-| Response | Effect |
-|----------|--------|
-| `yes`, `y`, `ok`, `👍` | Approve and execute |
-| `no`, `n`, `nope`, `👎` | Reject action |
-| `skip` | Skip this action |
-| `yes all` | Approve all (switch to autonomous) |
-
-### 8.2 Status API
-
-**Base URL:** `http://localhost:8765`
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /status` | System status JSON |
-| `GET /health` | Health check |
-| `GET /docs` | Documentation site |
-
-### 8.3 Response Format
-
-```
-✅ *Task Complete*
-
-Fixed the authentication bug in auth.ts
-
-📝 Changes made:
-• Fixed token validation logic
-• Added error handling
-
-Files modified: auth.ts
-```
+| `@fetch whoami` | Show identity info |
+| `@fetch tools` | List available tools |
+| `@fetch skills` | List loaded skills |
+| `@fetch threads` | Show conversation threads |
+| `/trust add <num>` | Add trusted number (owner only) |
+| `/trust remove <num>` | Remove trusted number |
+| `/trust list` | Show trusted numbers |
 
 ---
 
-## 9. Troubleshooting
+## 8. Conversation & Threading
 
-### 9.1 Common Issues
+### 8.1 Thread Management
 
-#### QR Code Not Appearing
+Threads track conversation context over time with topic detection and automatic summarization every 20 messages.
 
-```bash
-# Check logs
-docker logs fetch-bridge --tail 100
+### 8.2 Conversation Modes
 
-# If "Chromium lock" error:
-docker compose down
-sudo rm -rf ./data/.wwebjs_auth
-docker compose up -d
-```
-
-#### Messages Not Received
-
-1. Ensure messages start with `@fetch`
-2. Check phone number in `.env` (no + or spaces)
-3. Verify container is running: `docker ps`
-4. Check logs: `docker logs fetch-bridge`
-
-#### Permission Denied
-
-```bash
-sudo chown -R $USER:$USER ./data
-```
-
-#### Rate Limit Exceeded
-
-Wait 60 seconds or adjust in `security/rateLimiter.ts`.
-
-### 9.2 Reset WhatsApp Session
-
-```bash
-docker compose down
-sudo rm -rf ./data/.wwebjs_auth
-docker compose up -d
-# Scan new QR code
-```
-
-### 9.3 Debug Mode
-
-```bash
-echo "LOG_LEVEL=debug" >> .env
-docker compose restart fetch-bridge
-docker logs -f fetch-bridge
-```
+| Mode | Description |
+|------|-------------|
+| `CHAT` | Casual conversation, Q&A |
+| `EXPLORATION` | Asking about codebase or capabilities |
+| `TASK` | Specific work requested |
+| `COLLABORATION` | Working together ("let's", "we should") |
+| `TEACHING` | Explaining a concept ("teach me") |
 
 ---
 
-## 10. Development Guide
+## 9. Developer Guide
 
-### 10.1 Project Structure
+### 9.1 Project Structure
 
 ```
-fetch/
-├── manager/                    # Go TUI Application
+Fetch/
+├── manager/                        # Go TUI Application
 │   ├── main.go
 │   └── internal/
-│       ├── config/             # .env editor
-│       ├── docker/             # Container control
-│       ├── logs/               # Log retrieval
-│       └── update/             # Git operations
+│       ├── components/             # Reusable UI components
+│       ├── config/                 # .env editor
+│       ├── docker/                 # Container control
+│       ├── layout/                 # Frame helpers
+│       ├── models/                 # Bubble Tea models
+│       ├── paths/                  # Path resolution
+│       ├── status/                 # Status display
+│       └── theme/                  # Design system
 │
-├── fetch-app/                  # Node.js Bridge
+├── fetch-app/                      # Node.js Bridge (TypeScript)
 │   └── src/
-│       ├── bridge/             # WhatsApp client
-│       ├── security/           # Auth, rate limiting
-│       ├── agent/              # Core agent system
-│       │   ├── core.ts         # Main orchestrator
-│       │   ├── intent.ts       # Intent classification
-│       │   ├── conversation.ts # Chat mode handler
-│       │   ├── inquiry.ts      # Read-only mode
-│       │   ├── action.ts       # Single-edit mode
-│       │   ├── prompts.ts      # Centralized prompts
-│       │   ├── format.ts       # Message formatting
-│       │   └── whatsapp-format.ts # Mobile formatting
-│       ├── session/            # State management
-│       │   ├── types.ts        # TypeScript interfaces
-│       │   ├── store.ts        # SQLite persistence
-│       │   ├── manager.ts      # Session lifecycle
-│       │   └── project.ts      # Project scanner
-│       ├── commands/           # Command parser
-│       ├── tools/              # Tool registry
-│       ├── api/                # Status API
-│       └── utils/              # Logger, sanitizer
+│       ├── index.ts                # Entry point
+│       ├── agent/                  # Core Agent (orchestrator, intent, prompts)
+│       ├── instincts/              # Instinct Layer (12 handlers)
+│       ├── modes/                  # Mode State Machine
+│       ├── skills/                 # Skills Framework (7 built-in)
+│       ├── identity/               # Identity System (COLLAR/ALPHA/AGENTS)
+│       ├── harness/                # Harness System (Claude/Gemini/Copilot)
+│       ├── tools/                  # Orchestrator Tools (11)
+│       ├── conversation/           # Threading & Summarization
+│       ├── proactive/              # Polling & File Watchers
+│       ├── session/                # Session Persistence (SQLite)
+│       ├── task/                   # Task Lifecycle
+│       ├── security/               # 7-Layer Security Pipeline
+│       ├── config/                 # Centralized path configuration
+│       ├── handler/                # Message entry point
+│       ├── bridge/                 # WhatsApp client wrapper
+│       ├── api/                    # Status server (:8765)
+│       ├── workspace/              # Workspace management
+│       ├── validation/             # Zod schemas
+│       ├── transcription/          # Voice note transcription
+│       ├── vision/                 # Image analysis
+│       └── utils/                  # Logger, sanitizer, helpers
 │
-├── kennel/                     # AI CLI container
-├── docs/                       # Documentation site
-├── config/                     # Auth tokens
-├── workspace/                  # Code sandbox
-├── data/                       # Persistent data
-└── docker-compose.yml
+├── kennel/                         # Docker sandbox definition
+├── data/                           # Persistent data (volume-mounted)
+│   ├── identity/                   # COLLAR.md, ALPHA.md, AGENTS.md
+│   ├── skills/                     # User-defined skills
+│   ├── tools/                      # Custom tool definitions
+│   ├── sessions.db                 # Session database (SQLite WAL)
+│   ├── tasks.db                    # Task database (SQLite WAL)
+│   └── POLLING.md                  # Polling configuration
+│
+├── config/                         # Authentication tokens
+├── workspace/                      # Code sandbox (mounted into Kennel)
+├── docs/                           # Documentation site
+└── docker-compose.yml              # Service orchestration
 ```
 
-### 10.2 Adding a New Tool
+### 9.2 Adding a New Instinct
 
-1. Create tool file in `fetch-app/src/tools/`:
+Create a file in `fetch-app/src/instincts/` and register it in `index.ts`:
+
 ```typescript
-export const myTool: Tool = {
-  name: 'my_tool',
-  description: 'What it does',
-  parameters: { ... },
-  execute: async (args, context) => {
-    // Implementation
-    return { success: true, output: '...' };
-  }
+export const myInstinct: Instinct = {
+  name: 'my-instinct',
+  description: 'What this instinct does',
+  triggers: ['trigger1', '/trigger1'],
+  patterns: [/^trigger1\s*$/i],
+  priority: 50,
+  enabled: true,
+  category: 'custom',
+  handler: (ctx) => ({
+    matched: true,
+    response: '🎯 Custom instinct response!',
+    continueProcessing: false,
+  }),
 };
 ```
 
-2. Register in `tools/registry.ts`
+### 9.3 Adding a New Skill
 
-### 10.3 Building
+Create `data/skills/<name>/SKILL.md` with YAML frontmatter:
+
+```markdown
+---
+name: My Skill
+description: Domain-specific knowledge
+triggers:
+  - keyword1
+  - keyword2
+---
+
+# My Skill Instructions
+Your specialized prompt content here...
+```
+
+### 9.4 Building
 
 ```bash
-# Build bridge
-cd fetch-app && npm run build
-
-# Build manager
-cd manager && go build -o fetch-manager .
-
-# Rebuild containers
-docker compose up -d --build
+cd fetch-app && npm run build        # Build bridge
+cd manager && go build -o fetch-manager .  # Build TUI
+docker compose up -d --build         # Rebuild containers
+cd fetch-app && npm test             # Run tests
 ```
 
 ---
 
-## Appendix
+## 10. Troubleshooting
 
-### Performance Expectations
-
-| Operation | Latency |
-|-----------|---------|
-| Message receive | <1s |
-| Agent reasoning | 1-3s |
-| Tool execution | 1-60s |
-
-### Version History
-
-| Version | Date | Notes |
-|---------|------|-------|
-| 0.2.0 | 2026-02-02 | 4-mode architecture, project management |
-| 0.1.0 | 2026-02-01 | Initial beta release |
+| Problem | Solution |
+|---------|----------|
+| QR code not appearing | `docker logs fetch-bridge --tail 100` |
+| Messages not received | Check `OWNER_PHONE_NUMBER` (no `+`), verify `@fetch` prefix |
+| Mode stuck in WORKING | `docker compose restart fetch-bridge` or `@fetch stop` |
+| Harness not responding | `docker ps \| grep kennel`, check auth with `docker exec` |
+| Permission denied | `sudo chown -R $USER:$USER ./data ./workspace ./config` |
+| Rate limited | Wait 60 seconds for window reset |
+| Chromium lock | `sudo rm -rf ./data/.wwebjs_auth && docker compose up -d` |
 
 ---
 
-*Documentation for Fetch v0.2.0*
-*Last updated: February 2, 2026*
+*Documentation for Fetch v3.1.2 — Last updated: February 5, 2026*

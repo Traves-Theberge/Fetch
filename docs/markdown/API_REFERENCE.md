@@ -13,10 +13,9 @@ Complete API documentation for Fetch's tools, endpoints, and integrations.
 5. [Harness System](#5-harness-system)
 6. [Session API](#6-session-api)
 7. [Status API](#7-status-api)
-8. [Retrieval API](#8-retrieval-api)
-9. [Instinct API](#9-instinct-api)
-10. [Environment Variables](#10-environment-variables)
-11. [Error Codes](#11-error-codes)
+8. [Instinct API](#8-instinct-api)
+9. [Environment Variables](#9-environment-variables)
+10. [Error Codes](#10-error-codes)
 
 ---
 
@@ -367,7 +366,7 @@ class RateLimiter {
 **File:** `fetch-app/src/agent/intent.ts`
 
 ```typescript
-type IntentType = 'conversation' | 'workspace' | 'task';
+type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
 
 interface IntentClassification {
   intent: IntentType;
@@ -385,6 +384,7 @@ function classifyIntent(message: string): IntentClassification
 | `conversation` | Casual chat, greetings | "Hello!", "Thanks" |
 | `workspace` | Project management | "List projects", "Status" |
 | `task` | Complex coding work | "Build a REST API", "Fix this bug" |
+| `clarify` | Ambiguous request requiring user input | "Do the thing", "Fix it" |
 
 ### 4.2 Agent Core (Orchestrator)
 
@@ -559,77 +559,75 @@ open http://localhost:8765/docs
 
 ---
 
-## 8. Retrieval API
+## 8. Instinct API
 
-Fetch uses a **Hybrid Retrieval** system that combines keywords (BM25) and semantics (embeddings).
+Instincts are deterministic, regex-based rules that bypass the LLM for high-speed interactions. They are checked **before** intent classification — if matched, they return a response without any LLM call.
 
-### Components
+**File:** `fetch-app/src/instincts/index.ts`
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **BM25** | `natural` | Exact keyword matching, identifier finding |
-| **Semantic** | `text-embedding-3-small` | Concept matching, fuzzy search |
-| **RRF** | Reciprocal Rank Fusion | Improved ranking by combining scores |
+### 8.1 Instinct Categories
 
-### Methods
+Fetch registers **12 instinct handlers** organized into three categories:
 
-#### `searchContents(query, options)`
+#### Safety Instincts (Highest Priority)
 
-Performs a hybrid search across the codebase.
+| Instinct | Triggers | Description | Priority |
+|----------|----------|-------------|----------|
+| `stop` | `/stop`, `cancel`, `abort`, `halt` | Immediately halt current task | 100 |
+| `undo` | `/undo`, `revert`, `rollback` | Revert last change (git reset) | 90 |
+| `clear` | `/clear`, `reset` | Clear conversation history | 80 |
+
+#### Info Instincts
+
+| Instinct | Triggers | Description | Priority |
+|----------|----------|-------------|----------|
+| `help` | `/help`, `hello`, `hi`, `?` | Returns complete capabilities list | 10 |
+| `status` | `/status`, `state` | Returns current system state (dynamic) | 10 |
+| `commands` | `/commands`, `/cmds` | Returns available slash commands | 10 |
+
+#### Meta Instincts
+
+| Instinct | Triggers | Description | Priority |
+|----------|----------|-------------|----------|
+| `whoami` | `/whoami`, `who am i` | Returns session and user info | 5 |
+| `identity` | `/identity` | Inspect/modify agent persona | 10 |
+| `thread` | `/thread`, `/t` | Manage conversation threads | 50 |
+| `skills` | `/skill`, `/skills` | Manage skills system | 10 |
+| `tools` | `/tool`, `/tools` | Manage tools system | 10 |
+| `scheduling` | `/remind`, `/schedule`, `/cron` | Manage reminders and schedules | 10 |
+
+### 8.2 Instinct Interface
+
+**File:** `fetch-app/src/instincts/types.ts`
 
 ```typescript
-// Input
-interface SearchOptions {
-  limit?: number;        // Default: 10
-  threshold?: number;    // Default: 0.1
-  includeCode?: boolean; // Default: true
-}
-
-// Output
-interface SearchResult {
-  file: string;
-  score: number;
-  content: string;
-  matches: string[];     // Matched terms
+interface Instinct {
+  name: string;
+  description: string;
+  triggers: string[];          // Exact match strings
+  patterns?: RegExp[];         // Regex patterns for fuzzy matching
+  priority: number;            // Higher = checked first
+  enabled: boolean;
+  category: string;            // 'safety' | 'info' | 'meta' | 'system' | 'control'
+  handler: (ctx: InstinctContext) => InstinctResponse | Promise<InstinctResponse>;
 }
 ```
 
-#### `generateRepoMap(path)`
+### 8.3 Matching Order
 
-Generates a compact, token-efficient map of the repository structure.
-
-```typescript
-// Output
-interface RepoMap {
-  tree: string;          // Visual tree structure
-  modules: string[];     // List of significant modules
-  exports: string[];     // Key exports
-}
-```
+1. Instincts are sorted by priority (highest first)
+2. Exact trigger match is checked first (case-insensitive)
+3. Regex patterns are checked if no trigger matched
+4. First matching instinct wins — no further processing
 
 ---
 
-## 9. Instinct API
-
-Instincts are deterministic, regex-based rules that bypass the LLM for high-speed interactions.
-
-### Standard Instincts
-
-| Pattern | Action | Mode Context |
-|---------|--------|--------------|
-| `stop`, `halt`, `cancel` | Cancels current task | WORKING |
-| `clear`, `reset` | Clears conversation history | ALERT |
-| `status`, `report` | Shows current task status | ANY |
-| `undo`, `revert` | Reverts last file change | ANY |
-
----
-
-## 10. Environment Variables
+## 9. Environment Variables
 
 ### Required
 
 | Variable | Description | Example |
-|----------|-------------|---------|
+|----------|-------------|----------|
 | `OWNER_PHONE_NUMBER` | Your WhatsApp number | `15551234567` |
 | `OPENROUTER_API_KEY` | OpenRouter API key | `sk-or-v1-xxx` |
 
@@ -643,11 +641,10 @@ Instincts are deterministic, regex-based rules that bypass the LLM for high-spee
 | `ENABLE_COPILOT` | `true` | Enable Copilot CLI harness |
 | `LOG_LEVEL` | `info` | Logging level (debug/info/warn/error) |
 | `PORT` | `8765` | Status API port |
-| `FETCH_V2_ENABLED` | `true` | Enable V2 orchestrator |
 
 ---
 
-## 11. Error Codes
+## 10. Error Codes
 
 | Code | Description | Resolution |
 |------|-------------|------------|
@@ -663,4 +660,4 @@ Instincts are deterministic, regex-based rules that bypass the LLM for high-spee
 
 ---
 
-*Fetch API Reference v2.1.0 - Last updated: February 3, 2026*
+*Fetch API Reference v3.1.2 - Last updated: February 5, 2026*

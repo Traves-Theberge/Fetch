@@ -173,11 +173,11 @@ The TUI includes a model selector that fetches available models from OpenRouter.
 
 | Model | Provider | Best For |
 |-------|----------|----------|
-| `openai/gpt-4o-mini` | OpenAI (via OpenRouter) | Fast, affordable, good reasoning |
-| `openai/gpt-4o` | OpenAI (via OpenRouter) | Best overall quality |
-| `anthropic/claude-3-5-sonnet` | Anthropic (via OpenRouter) | Excellent coding |
-| `anthropic/claude-3-5-haiku` | Anthropic (via OpenRouter) | Fast, affordable |
-| `google/gemini-2.0-flash-exp:free` | Google (via OpenRouter) | Free tier available |
+| `anthropic/claude-sonnet-4` | Anthropic (via OpenRouter) | Best overall coding |
+| `anthropic/claude-haiku-4` | Anthropic (via OpenRouter) | Fast, affordable |
+| `openai/gpt-4o` | OpenAI (via OpenRouter) | Strong reasoning |
+| `openai/gpt-4o-mini` | OpenAI (via OpenRouter) | Fast, affordable |
+| `google/gemini-2.5-flash` | Google (via OpenRouter) | Free tier available |
 | `deepseek/deepseek-chat` | DeepSeek (via OpenRouter) | Very affordable |
 
 ### Manual Configuration
@@ -247,25 +247,29 @@ docker compose up -d
 
 Messages without `@fetch` are silently ignored for security.
 
-### V2 Intent System
+### V3.1 Four-Layer Pipeline
 
-Fetch uses a 3-intent classification system:
+Fetch processes messages through four layers: **Instinct → Mode → Skill → Agent**. Intent is classified into 4 types:
 
 | Intent | Description | Example |
-|--------|-------------|---------|
+|--------|-------------|----------|
 | 💬 **Conversation** | Greetings, thanks, chat | `@fetch Hello!` |
-| 📁 **Workspace** | Project management | `@fetch list projects` |
+| 📁 **Workspace** | Project management | `@fetch /workspace` |
 | 🚀 **Task** | Complex coding work | `@fetch Build a REST API` |
+| ❓ **Clarify** | Ambiguous request needs input | `@fetch do the thing` |
 
 ### Built-in Commands
 
 | Command | Description |
 |---------|-------------|
-| `@fetch help` | Show available commands |
-| `@fetch status` | System status and uptime |
-| `@fetch ping` | Quick connectivity test |
-| `@fetch list projects` | List available workspaces |
-| `@fetch switch to <name>` | Change active workspace |
+| `@fetch /help` | Show capabilities |
+| `@fetch /status` | System status and uptime |
+| `@fetch /commands` | List all slash commands |
+| `@fetch /stop` | Halt current task |
+| `@fetch /undo` | Revert last change |
+| `@fetch /clear` | Reset session |
+| `@fetch /skills` | List available skills |
+| `@fetch /identity` | Show identity info |
 
 ### Coding Tasks
 
@@ -309,19 +313,21 @@ Tasks are delegated to AI harnesses (Claude, Gemini, or Copilot CLI):
 
 ## Security Architecture
 
-Fetch implements a 5-layer security pipeline to protect your system:
+Fetch implements a 7-layer security model to protect your system:
 
 <!-- DIAGRAM:security -->
 
 ### Security Layers Explained
 
 | Layer | Purpose |
-|-------|---------|
-| **Owner Verification** | Only your phone number can interact |
-| **Trigger Required** | Messages must start with `@fetch` |
-| **Safe Patterns** | Commands checked against allowed patterns |
-| **Blocked Patterns** | Dangerous operations rejected |
-| **Docker Isolation** | CLI runs in sandboxed container |
+|-------|----------|
+| **1. Owner Verification** | Only your phone number can interact |
+| **2. Whitelist Check** | Trusted numbers validated via Zero Trust Bonding |
+| **3. @fetch Trigger** | Messages must start with `@fetch` |
+| **4. Rate Limiting** | Abuse prevention per phone number |
+| **5. Input Validation** | Suspicious patterns detected and rejected |
+| **6. Path Traversal Protection** | Workspace-only file access enforced |
+| **7. Docker Isolation** | CLI runs in sandboxed container |
 
 ### What's Protected
 
@@ -339,10 +345,11 @@ Fetch allows you to customize its personality and knowledge without touching the
 
 ### Identity Files
 Edit the files in `data/identity/`:
-- `SYSTEM.md`: The core instructions and rules.
-- `USER.md`: Your profile.
+- `COLLAR.md`: Fetch's core personality, directives, and communication style.
+- `ALPHA.md`: Your user profile, preferences, and working style.
+- `AGENTS.md`: The Pack — harness definitions, routing rules, and specializations.
 
-Changes are hot-reloaded automatically. You can also use `/identity reset` to force a reload.
+Changes are hot-reloaded automatically. You can also use `/identity` to view current identity or `/identity collar` / `/identity alpha` to inspect specific files.
 
 ### Skills
 Add new capabilities by adding markdown files to `data/skills/`. See [Skills Documentation](DOCUMENTATION.md#skills) for details.
@@ -618,4 +625,4 @@ npm run build
 
 ---
 
-*Fetch - Your Faithful Code Companion* 🐕
+*Setup Guide for Fetch v3.1.2 — Your Faithful Code Companion* 🐕

@@ -58,9 +58,9 @@ import { loadToolDefinition, buildToolSchema, CustomToolDefinition } from './loa
 import { exec } from 'child_process';
 import util from 'util';
 const execPromise = util.promisify(exec);
-import path from 'path';
 import chokidar from 'chokidar';
 import fs from 'fs';
+import { TOOLS_DIR } from '../config/paths.js';
 
 // ============================================================================
 // Internal Types
@@ -97,10 +97,11 @@ export type ToolHandler = (input: unknown) => Promise<ToolResult>;
 export class ToolRegistry {
   private static instance: ToolRegistry | undefined;
   private tools: Map<string, OrchestratorTool> = new Map();
-  private customToolsDir = path.resolve(process.cwd(), '../data/tools');
+  private customToolsDir: string;
   private watchers: ReturnType<typeof chokidar.watch>[] = [];
 
   private constructor() {
+    this.customToolsDir = TOOLS_DIR;
     this.registerBuiltins();
     this.initCustomTools();
   }

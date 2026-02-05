@@ -10,6 +10,13 @@ import (
 	"github.com/fetch/manager/internal/theme"
 )
 
+// Build-time variables set via -ldflags.
+var (
+	version   = "v1.0.0-dev"
+	buildDate = "unknown"
+	gitCommit = "unknown"
+)
+
 // VersionInfo holds version information for the application.
 type VersionInfo struct {
 	Version   string
@@ -18,12 +25,12 @@ type VersionInfo struct {
 	GoVersion string
 }
 
-// DefaultVersionInfo returns default version info (can be overridden by ldflags).
+// DefaultVersionInfo returns version info populated from ldflags (or defaults).
 func DefaultVersionInfo() VersionInfo {
 	return VersionInfo{
-		Version:   "v1.0.0-dev",
-		BuildDate: "unknown",
-		GitCommit: "unknown",
+		Version:   version,
+		BuildDate: buildDate,
+		GitCommit: gitCommit,
 		GoVersion: runtime.Version(),
 	}
 }
@@ -106,7 +113,7 @@ func Version(info VersionInfo, width int) string {
 	// Line 10: Bridge
 	lines = append(lines, treeStyle.Render("├─ ")+labelStyle.Render("Bridge")+"  "+valueStyle.Render("WhatsApp ↔ AI Gateway"))
 	// Line 11: Kennel
-	lines = append(lines, treeStyle.Render("├─ ")+labelStyle.Render("Kennel")+"  "+valueStyle.Render("Multi-Model AI Orchestrator"))
+	lines = append(lines, treeStyle.Render("├─ ")+labelStyle.Render("Kennel")+"  "+valueStyle.Render("CLI Execution Sandbox"))
 	// Line 12: Manager
 	lines = append(lines, treeStyle.Render("└─ ")+labelStyle.Render("Manager")+" "+valueStyle.Render("Terminal UI"))
 	// Line 13: Empty

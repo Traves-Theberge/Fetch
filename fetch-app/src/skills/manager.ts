@@ -11,10 +11,11 @@ import fs from 'fs/promises';
 import { logger } from '../utils/logger.js';
 import type { Skill, SkillConfig, SkillMetadata } from './types.js';
 import { loadSkill, checkRequirements } from './loader.js';
+import { SKILLS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 
 const DEFAULT_SKILL_CONFIG: SkillConfig = {
-  userSkillsDir: path.resolve(process.cwd(), '../data/skills'),
+  userSkillsDir: SKILLS_DIR,
   builtinSkillsDir: path.join(process.cwd(), 'src/skills/builtin'),
   disabledSkills: [],
 };

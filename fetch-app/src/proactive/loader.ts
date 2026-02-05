@@ -5,16 +5,16 @@
  */
 
 import fs from 'fs/promises';
-import path from 'path';
 import { logger } from '../utils/logger.js';
 import { getPollingService } from './polling.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { POLLING_FILE } from '../config/paths.js';
 
 const execAsync = promisify(exec);
 
-// Path to data directory
-const POLLING_FILE_PATH = path.join(process.cwd(), 'data', 'POLLING.md');
+// Path to polling config
+const POLLING_FILE_PATH = POLLING_FILE;
 
 interface ParsedTask {
   id: string;

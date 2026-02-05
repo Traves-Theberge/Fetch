@@ -2,7 +2,7 @@
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
-A headless "ChatOps" development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters 🦞)
+A headless development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters and cats 🦞)
 
 ```
   ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
@@ -130,7 +130,7 @@ Response  Tools   (1 cycle)    Loop
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/fetch.git
+   git clone https://github.com/Traves-Theberge/Fetch.git
    cd fetch
    ```
 
@@ -272,7 +272,7 @@ fetch/
 │   ├── claude/
 │   └── github/
 ├── data/                   # Persistent data
-│   ├── identity/           # Persona files (SYSTEM.md, USER.md)
+│   ├── identity/           # Persona files (COLLAR.md, ALPHA.md, AGENTS.md)
 │   ├── skills/             # User-defined skill files
 │   └── tools/              # Custom tool definitions
 ├── docs/                   # Documentation site

@@ -38,22 +38,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 💾 Robust Persistence & Recovery
 - **Crash Recovery:** Fetch now persists its exact state (WORKING, WAITING, etc.) to the database.
 - **Resurrection:** If the server crashes during a task, Fetch wakes up, checks the DB, restores the state, and resumes work (or alerts the user).
-- **Thread Management:** Introduction of `/thread` commands to switching contexts and manually archiving conversations.
+- **Thread Management:** Introduction of `/thread` commands for switching contexts and manually archiving conversations.
 
 ## [3.0.0] - 2026-02-04 (The Orchestrator Architecture)
 
 ### 🏗️ Core Architecture Overhaul
 - **Orchestrator Philosophy:** Re-architected Fetch to be an *orchestrator* of specialized "sub-agents" (Claude, Gemini, Copilot) rather than just a chatbot.
-- **New Mode System:** Introduced formal state machine modes: `ALERT` (Listing), `WORKING` (Executing), `WAITING` (Input), `GUARDING` (Safety), `RESTING` (Idle).
-- **Instincts Layer:** Deterministic \"fast-path\" reactions that bypass the LLM for immediate control (e.g., `stop`, `status`).
+- **New Mode System:** Introduced formal state machine modes: `ALERT` (Listening), `WORKING` (Executing), `WAITING` (Input), `GUARDING` (Safety), `RESTING` (Idle).
+- **Instincts Layer:** Deterministic "fast-path" reactions that bypass the LLM for immediate control (e.g., `stop`, `status`).
 
 ### 🛡️ Safety
-- **Safety Mode:** High-risk operations (file deletion, large refactors) now trigger a consecrated `GUARDING` mode that locks the context until approved.
+- **Safety Mode:** High-risk operations (file deletion, large refactors) now trigger a `GUARDING` mode that locks the context until approved.
 - **Impact Analysis:** (Beta) Pre-execution diff reviews for critical changes.
 
 ### 🧩 Skills Framework
-- **Modular Capabilities:** Created a plugin-like system for "Skills" (Git, Docker, React, etc.) defined in `SKILL.md` files.
+- **Modular Capabilities:** Created a plugin-like system for "Skills" (Git, Docker, React, etc.) defined in Markdown files.
 - **Auto-Loading:** Skills are automatically discovered and loaded on startup.
+
+## [2.4.4] - 2026-02-04 (Stability & Voice Fix 🎙️)
+
+### 🔧 Bug Fixes
+
+#### Message Deduplication
+- Fixed **triple message response** bug where WhatsApp's `message_create` event fired multiple times
+- Added `MessageDeduplicator` class with 30-second TTL to prevent duplicate processing
+- Messages are now tracked by ID and processed exactly once
+
+#### Voice Transcription (Local Whisper)
+- Fixed **whisper binary path** mismatch in Dockerfile (`whisper-cli` → `whisper-cpp`)
+- Voice notes now transcribe correctly using local `whisper.cpp` (100% free, no API)
+- Added proper binary permissions and verification logging
+
+#### Help & Capabilities
+- Updated `CAPABILITIES` prompt to include all slash commands and aliases
+- Now shows consistent information when asking "what can you do" or "what commands do you have"
+- Commands now show aliases (e.g., `/status` shows `/st`, `/gs`)
+
+### 📝 Changed Files
+- `bridge/client.ts` - Added MessageDeduplicator for event deduplication
+- `agent/prompts.ts` - Rewrote CAPABILITIES to include all commands
+- `Dockerfile` - Fixed whisper binary copy command
+
+## [2.4.3] - 2026-02-04 (Zero Trust Bonding 🔐)
+
+### 🔐 Phone Number Whitelist (Issue #13)
+- Implemented **Zero Trust Bonding** security model for group chat access control.
+- Created `WhitelistStore` class for managing trusted phone numbers with file persistence.
+- Added `/trust` commands for owner to manage whitelist via WhatsApp:
+  - `/trust add <number>` - Add a phone number to the whitelist
+  - `/trust remove <number>` - Remove a phone number from the whitelist
+  - `/trust list` - Show all trusted numbers
+  - `/trust clear` - Clear all trusted numbers (dangerous!)
+- Added `TRUSTED_PHONE_NUMBERS` environment variable for startup configuration.
+- Updated TUI config editor to include trusted numbers field.
+- Owner is always exempt from whitelist checks (cannot be locked out).
+- Unauthorized `@fetch` messages are silently dropped (no information leakage).
+
+### 🛡️ Security Flow
+```
+Incoming @fetch message
+    ↓
+Is sender the owner? → Yes → ALLOW
+    ↓ No
+Is sender in whitelist? → Yes → ALLOW
+    ↓ No
+DROP (silent)
+```
 
 ## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
 
@@ -66,7 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎙️ Voice & Vision (Issues #6 & #7)
 - **Voice Notes:** Built-in Whisper integration automatically transcribes voice notes and PTT into text commands.
-- **Image Intelligence:** Send screenshots or diagrams! Fetch now uses Vision models (via OpenRouter) to analyze images and provide context (e.g., "Fix this error" + screenshot).
+- **Image Intelligence:** Send screenshots or diagrams! Fetch now uses OpenAI Vision to analyze images and provide context (e.g., "Fix this error" + screenshot).
 - Added multimedia support to the WhatsApp Bridge, allowing seamlessly mixing voice, text, and images.
 
 ### 🌊 Live Progress Streaming (Issue #8)
@@ -563,11 +613,31 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 3.1.1 | 2026-02-05 | Code Audit & State Architecture |
+| 3.1.0 | 2026-02-05 | Dynamic Identity, Skills, Crash Recovery |
+| 3.0.0 | 2026-02-04 | Orchestrator Architecture & Mode System |
+| 2.4.4 | 2026-02-04 | Stability & Voice Fix |
+| 2.4.3 | 2026-02-04 | Zero Trust Bonding |
+| 2.4.2 | 2026-02-04 | Repo Maps & Media Intelligence |
+| 2.4.1 | 2026-02-04 | Harness Alignment & Diagnostics |
+| 2.4.0 | 2026-02-04 | Reliability & Persistence |
+| 2.3.0 | 2026-02-04 | Auto-scaffold Templates |
+| 2.2.0 | 2026-02-04 | Test Harness Integration |
+| 2.1.2 | 2026-02-03 | SQLite Cleanup |
+| 2.1.1 | 2026-02-03 | Documentation & Diagrams |
+| 2.1.0 | 2026-02-03 | Good Boy Update |
+| 2.0.1 | 2026-02-03 | Prompt Engineering |
 | 2.0.0 | 2026-02-03 | V2 Orchestrator Architecture |
 | 1.1.0 | 2026-02-02 | 4-Mode Architecture & Zod Validation |
 | 0.2.0 | 2026-02-02 | TUI Redesign |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
+[3.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v3.1.0...v3.1.1
+[3.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.4...v3.0.0
+[2.4.4]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.3...v2.4.4
+[2.4.3]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.2...v2.4.3
+[2.4.2]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.1...v2.4.2
 [2.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.2.0...v1.1.0
 [0.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.1.0...v0.2.0
