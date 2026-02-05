@@ -30,9 +30,7 @@ import {
  * Agent type enum schema
  */
 export const AgentTypeSchema = z.enum(['claude', 'gemini', 'copilot'], {
-  errorMap: () => ({
-    message: 'Agent must be one of: claude, gemini, copilot',
-  }),
+  error: 'Agent must be one of: claude, gemini, copilot',
 });
 
 /**
@@ -41,9 +39,7 @@ export const AgentTypeSchema = z.enum(['claude', 'gemini', 'copilot'], {
 export const AgentSelectionSchema = z.enum(
   ['claude', 'gemini', 'copilot', 'auto'],
   {
-    errorMap: () => ({
-      message: 'Agent must be one of: claude, gemini, copilot, auto',
-    }),
+    error: 'Agent must be one of: claude, gemini, copilot, auto',
   }
 );
 
@@ -63,9 +59,7 @@ export const ProjectTemplateSchema = z.enum([
   'react',      // Vite React template
   'next',       // Next.js template
 ], {
-  errorMap: () => ({
-    message: 'Template must be one of: empty, node, python, rust, go, react, next',
-  }),
+  error: 'Template must be one of: empty, node, python, rust, go, react, next',
 });
 
 // ============================================================================
