@@ -8,14 +8,14 @@
  * For real CLI testing, use the e2e test suite with Docker.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { EventEmitter } from 'events';
+import { describe, it, expect } from 'vitest';
 import { ClaudeAdapter } from '../../src/harness/claude.js';
 import { GeminiAdapter } from '../../src/harness/gemini.js';
 import { CopilotAdapter } from '../../src/harness/copilot.js';
 import { OutputParser } from '../../src/harness/output-parser.js';
 import { HarnessExecutor } from '../../src/harness/executor.js';
-import type { HarnessConfig, HarnessResult, HarnessAdapter } from '../../src/harness/types.js';
+import type { HarnessAdapter } from '../../src/harness/types.js';
+import type { AgentType } from '../../src/task/types.js';
 
 // ============================================================================
 // Mock CLI Output Samples
@@ -465,7 +465,7 @@ describe('HarnessExecutor Timeout Handling', () => {
     // Create a mock adapter that returns a config for a slow command
     const mockAdapter: HarnessAdapter = {
       agent: 'claude',
-      buildConfig: (goal, cwd, timeoutMs) => ({
+      buildConfig: (goal, cwd, _timeoutMs) => ({
         command: 'sleep',
         args: ['60'], // Sleep for 60 seconds
         env: {},
@@ -577,7 +577,7 @@ describe('Harness Error Handling', () => {
       await expect(
         executor.execute(
           'tsk_1',
-          'unknown-agent' as any,
+          'unknown-agent' as unknown as AgentType,
           'test goal',
           '/tmp',
           5000
