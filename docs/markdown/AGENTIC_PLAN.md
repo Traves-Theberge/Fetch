@@ -10,44 +10,60 @@ Fetch transforms WhatsApp messages into intelligent coding assistance through a 
 
 ---
 
-## The 4-Mode System
+## The Orchestrator Architecture (V3)
 
-Fetch automatically classifies user intent and routes to the appropriate mode:
+Fetch v3 moves beyond simple intent classification to a **State-Machine Driven Orchestrator**.
 
-```
-User Message
-     │
-     ▼
-┌─────────────────┐
-│ Intent Classifier │
-└────────┬────────┘
-         │
-    ┌────┼────┬────────┐
-    ▼    ▼    ▼        ▼
-   💬    🔍   ⚡       📋
-  Chat  Inquiry Action  Task
-   │      │      │       │
-   ▼      ▼      ▼       ▼
-  No    Read   Single  Multi
- Tools  Only   Cycle   Step
-```
+### The Hierarchy
 
-### Mode Details
-
-| Mode | Trigger Patterns | Tools | Approval | Example |
-|------|------------------|-------|----------|---------|
-| **Conversation** | Greetings, thanks, general questions | None | N/A | "Hey!", "Thanks!" |
-| **Inquiry** | "what's in", "show me", "how does" | Read-only | Auto | "What's in auth.ts?" |
-| **Action** | "fix", "add", "change", "rename" | All | One cycle | "Fix the typo" |
-| **Task** | "build", "create", "refactor", complex | All | Per step | "Build a login page" |
+1.  **The Administrator (User)**: Helper commands, high-level intent.
+2.  **The Orchestrator (Fetch)**: Maintains context, plans tasks, guards safety, and orchestrates the sub-agents.
+3.  **The Sub-agents (Harnesses)**: Specialized agents (Claude Code, Gemini CLI, Copilot CLI) that perform the actual heavy lifting (coding, terminal execution).
 
 ---
 
-## Design Principles
+## 🧠 Cognitive Architecture
 
-### 1. Intent-Driven Routing
-- Don't force users to declare modes
-- Analyze message to determine appropriate response level
+Fetch's "brain" is composed of layers, processed in order:
+
+### 1. Reflex Layer (System Rules)
+Before LLM processing, message content is checked against deterministic patterns.
+*   **Speed:** < 5ms
+*   **Function:** Safety, immediate control (`stop`, `status`), mode switching.
+*   **Example:** User types "STOP!" -> System immediately halts current process.
+
+### 2. Mode System (State Machine)
+The core of the agent is a finite state machine. The current **Mode** determines how the agent perceives and reacts to input.
+
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| **ALERT** 🟢 | Default | Listening for commands. Assessing intent. |
+| **WORKING** 🔵 | Task Start | Focusing on task execution. Ignores chit-chat. |
+| **WAITING** 🟠 | Question | Paused, expecting specific user input. |
+| **GUARDING** 🔴 | High Risk | Locked down. Requires explicit approval to proceed. |
+| **RESTING** 💤 | Inactivity | Low-power monitoring (future). |
+
+### 3. Skill & Tool Layer (Capabilities)
+If no reflex or mode-lock intercepts the message, the **Orchestrator** plans a response using:
+*   **Skills**: Modular capabilities (Git, Docker, Test) loaded from `data/skills/`.
+*   **Tools**: Discrete actions (search_files, read_file).
+*   **Harnesses**: Delegating complex coding tasks to external CLIs.
+
+---
+
+## Task Execution Flow
+
+<!-- DIAGRAM:stateflow -->
+
+### The Harness System
+
+Unlike V2, Fetch V3 does not try to write all code itself. It "unleashes" specialized harnesses:
+- **Claude Code**: Best for complex refactoring and reasoning.
+- **Gemini CLI**: Good for fast context retrieval and simple scripts.
+- **GitHub Copilot CLI**: Excellent for shell commands and explanations.
+
+Fetch wraps these CLIs in a standardized **Harness Adapter**, handling stdin/stdout, error recovery, and context injection.
+
 - Simple greetings don't need tool calls
 - Complex requests get full task treatment
 

@@ -1,8 +1,11 @@
 # Fetch v2 - Architecture & Implementation Plan
 
+> **Deprecated:** This document describes V2. 
+> **Current Version:** [V3 Checklist](./docs/markdown/IMPLEMENTATION_CHECKLIST.md)
+> **Next Version:** [V3.1 Plan](./docs/markdown/IMPLEMENTATION_PLAN_V3_1.md)
 > **Document Version:** 1.0  
 > **Created:** February 3, 2026  
-> **Status:** Planning Phase
+> **Status:** Archived
 
 ---
 
@@ -2275,20 +2278,35 @@ Fetch/
 
 **Deliverable:** V2 can run alongside V1
 
-### Phase 6: Polish & Testing (Future)
+### Phase 6: Polish & Testing (Current)
 
-**Goal:** Production-ready quality
+**Goal:** Production-ready quality and expanded agent support
 
 | Status | Task | File(s) | Est. Hours |
 |--------|------|---------|------------|
-| ⬜ | Create Gemini harness | `harness/gemini.ts` | 4 |
-| ⬜ | Create Copilot harness | `harness/copilot.ts` | 4 |
+| ✅ | Create Gemini harness | `harness/gemini.ts` | 4 |
+| ✅ | Create Copilot harness | `harness/copilot.ts` | 4 |
+| ✅ | Implement Harness Pool (V3) | `harness/pool.ts` | 4 |
+| ✅ | Refactor Executor for Pool | `harness/executor.ts` | 2 |
 | ⬜ | End-to-end tests | Test files | 8 |
 | ⬜ | Error handling polish | Multiple | 4 |
 | ⬜ | Performance optimization | Multiple | 4 |
 | ⬜ | Documentation updates | Docs | 4 |
 
 **Deliverable:** v2.0 release candidate
+
+### Phase 7: Proactive Systems (In Progress)
+
+**Goal:** Enable autonomous background behavior
+
+| Status | Task | File(s) | Est. Hours |
+|--------|------|---------|------------|
+| ✅ | Create Polling Service | `proactive/polling.ts` | 2 |
+| ✅ | Create Cron Scheduler | `proactive/scheduler.ts` | 2 |
+| ✅ | Create File Watcher | `proactive/watcher.ts` | 2 |
+| ✅ | Initialize Proactive System | `index.ts` | 1 |
+| ⬜ | Implement Git Watcher | `proactive/git-watcher.ts` | 4 |
+| ⬜ | Implement Status Poller | `proactive/status-poller.ts` | 2 |
 
 ---
 

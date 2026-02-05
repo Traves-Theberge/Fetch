@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
+
+### 🧹 Comprehensive Code Audit
+- **20 dead files removed:** Entire `memory/` module (3 files), `retrieval/` module (6 files), `executor/docker.ts`, `utils/stream.ts`, `utils/sanitize.ts`, `tools/types.ts` (rebuilt), 7 dead barrel `index.ts` files, and empty `executor/` directory.
+- **Dead code cleaned from live files:** Removed unused `cron_jobs` table DDL from `task/store.ts`, 10 dead exports from `utils/id.ts`, 6 dead functions from `agent/format.ts`, dead `SessionSummary` and `Database` interfaces from `session/types.ts`.
+- **`tools/types.ts` rebuilt:** Kept only `ToolResult` and `DangerLevel` (removed ~30 dead exports).
+
+### 📐 State Management Architecture Doc
+- Created `docs/markdown/STATE_MANAGEMENT.md` documenting all 22 stateful singletons across 6 layers.
+- Mapped 9 SQLite tables across 2 databases, filesystem watchers, and in-memory stores.
+- Catalogued 7 EventEmitter chains, 3 singleton patterns, and initialization order.
+- Identified 5 redundancies: dual task tracking, two ThreadManagers, dead cron_jobs table, dual process maps, mode naming collision.
+
+### 📝 Documentation
+- Updated `CODE_AUDIT_CHECKLIST.md` — all deleted/cleaned files annotated.
+- Added State Management link to docs site sidebar.
+- Updated README.md — fixed project structure, removed dead module references, corrected V2→V3 terminology.
+- Synced root and docs CHANGELOGs to parity.
+
+## [3.1.0] - 2026-02-05 (The Responsive Orchestrator)
+
+### 🎭 Dynamic Identity System
+- **Filesystem Hot-Reloading:** Fetch's personality is now fully customizable via Markdown files in `data/identity/`.
+- **Live Updates:** Editing `SYSTEM.md` (Core rules) or `USER.md` (User info) instantly updates the system prompt without a restart.
+- **New Commands:** `/identity reset` and `/identity <section>` to manage the agent's persona on the fly.
+
+### 🧠 Runtime Skill Teaching
+- **Dynamic Skills:** Skills (in `data/skills/`) are now hot-reloaded. You can "teach" Fetch new capabilities by dropping a Markdown file.
+- **Skill Management:** Added `/skill` command suite to list, enable, disable, and manage skills at runtime.
+
+### 💾 Robust Persistence & Recovery
+- **Crash Recovery:** Fetch now persists its exact state (WORKING, WAITING, etc.) to the database.
+- **Resurrection:** If the server crashes during a task, Fetch wakes up, checks the DB, restores the state, and resumes work (or alerts the user).
+- **Thread Management:** Introduction of `/thread` commands to switching contexts and manually archiving conversations.
+
+## [3.0.0] - 2026-02-04 (The Orchestrator Architecture)
+
+### 🏗️ Core Architecture Overhaul
+- **Orchestrator Philosophy:** Re-architected Fetch to be an *orchestrator* of specialized "sub-agents" (Claude, Gemini, Copilot) rather than just a chatbot.
+- **New Mode System:** Introduced formal state machine modes: `ALERT` (Listing), `WORKING` (Executing), `WAITING` (Input), `GUARDING` (Safety), `RESTING` (Idle).
+- **Instincts Layer:** Deterministic \"fast-path\" reactions that bypass the LLM for immediate control (e.g., `stop`, `status`).
+
+### 🛡️ Safety
+- **Safety Mode:** High-risk operations (file deletion, large refactors) now trigger a consecrated `GUARDING` mode that locks the context until approved.
+- **Impact Analysis:** (Beta) Pre-execution diff reviews for critical changes.
+
+### 🧩 Skills Framework
+- **Modular Capabilities:** Created a plugin-like system for "Skills" (Git, Docker, React, etc.) defined in `SKILL.md` files.
+- **Auto-Loading:** Skills are automatically discovered and loaded on startup.
+
 ## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
 
 ### 🗺️ Smart Repo Maps (Issue #9)

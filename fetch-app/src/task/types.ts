@@ -48,6 +48,20 @@ export type AgentType = 'claude' | 'gemini' | 'copilot';
  */
 export type AgentSelection = AgentType | 'auto';
 
+// ===================================
+// Scheduling Types
+// ===================================
+
+export interface CronJob {
+  id: string;
+  schedule: string; // Cron expression
+  command: string;  // Command to run or internal handler name
+  description: string;
+  enabled: boolean;
+  lastRun?: number;
+  nextRun?: number;
+}
+
 /**
  * Task lifecycle states
  *
@@ -80,7 +94,8 @@ export type TaskStatus =
   | 'waiting_input'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'paused';
 
 /**
  * Task priority levels

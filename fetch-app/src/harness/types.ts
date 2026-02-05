@@ -119,6 +119,35 @@ export interface HarnessConfig {
 }
 
 /**
+ * Harness Spawn Configuration
+ */
+export interface SpawnConfig extends HarnessConfig {
+  /** Optional background execution mode */
+  background?: boolean;
+}
+
+/**
+ * Running Harness Instance
+ */
+export interface HarnessInstance {
+  id: HarnessId;
+  status: HarnessStatus;
+  startTime: number;
+  pid?: number;
+  stdout: string[];
+  stderr: string[];
+  config: SpawnConfig;
+}
+
+/**
+ * Pool Configuration
+ */
+export interface PoolConfig {
+  maxConcurrent: number;
+  defaultTimeoutMs: number;
+}
+
+/**
  * Default timeout for harness execution
  */
 export const DEFAULT_HARNESS_TIMEOUT_MS = 300000; // 5 minutes

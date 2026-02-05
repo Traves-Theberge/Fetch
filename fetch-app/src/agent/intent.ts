@@ -1,10 +1,11 @@
 /**
  * @fileoverview Intent Classification
  *
- * Classifies user messages into three intents:
+ * Classifies user messages into intents:
  * - conversation: Chat that doesn't need tools
  * - workspace: Project/workspace management
  * - task: Coding work that needs a harness
+ * - clarify: Ambiguous request requiring user input
  *
  * @module agent/intent
  */
@@ -17,9 +18,9 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /**
- * Intent types (3 categories)
+ * Intent types (4 categories now)
  */
-export type IntentType = 'conversation' | 'workspace' | 'task';
+export type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
 
 /**
  * Classification result
@@ -323,6 +324,33 @@ export function classifyIntent(
 
   // Extract entities for context
   const entities = extractEntities(trimmed);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // PHASE 0: Vague/Ambiguous signals requiring clarification (V3.1)
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // If message is just "fix it", "make it work", "do it"
+  const AMBIGUOUS_PATTERNS = [
+      /^(fix|do|make|change|update)\s*(it|this|that|something)?[\s!.]*$/i,
+      /^not working[\s!.]*$/i,
+      /^help me[\s!.]*$/i,
+      /^broken[\s!.]*$/i
+  ];
+  
+  for (const pattern of AMBIGUOUS_PATTERNS) {
+      if (pattern.test(trimmed)) {
+          // If we have an active task, this might refer to it, so check context
+          if (!session.currentTask) {
+              logger.debug(`Intent: clarify (ambiguous)`, { message: trimmed.substring(0, 50) });
+              return {
+                  type: 'clarify',
+                  confidence: 0.9,
+                  reason: 'ambiguous_request',
+                  entities
+              };
+          }
+      }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // PHASE 1: Strong conversation signals

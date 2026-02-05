@@ -27,7 +27,7 @@
 export * from './types.js';
 
 // Tool Registry
-export { ToolRegistry, getToolRegistry, initializeToolRegistry, orchestratorTools } from './registry.js';
+export { ToolRegistry, getToolRegistry } from './registry.js';
 export type { OrchestratorTool, ToolHandler } from './registry.js';
 
 // Tool handlers

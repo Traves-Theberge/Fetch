@@ -62,6 +62,8 @@ import 'dotenv/config';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
 import { startStatusServer, setLogoutCallback } from './api/status.js';
+import { initModes } from './modes/index.js';
+import { getProactiveSystem } from './proactive/index.js';
 
 /**
  * Main application entry point.
@@ -78,6 +80,13 @@ async function main(): Promise<void> {
   
   // Start status API server first
   startStatusServer();
+  
+  // Initialize Mode System
+  await initModes();
+  logger.info('✅ Mode System initialized');
+
+  // Initialize Proactive Systems (V3)
+  await getProactiveSystem().start();
   
   // Validate critical environment variables
   const requiredEnvVars = [

@@ -12,7 +12,8 @@ A step-by-step guide to setting up and using Fetch, your AI-powered WhatsApp cod
 4. [WhatsApp Authentication](#whatsapp-authentication)
 5. [Using Fetch via WhatsApp](#using-fetch-via-whatsapp)
 6. [Architecture Overview](#architecture-overview)
-7. [Troubleshooting](#troubleshooting)
+7. [Customization](#customization)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -329,6 +330,22 @@ Fetch implements a 5-layer security pipeline to protect your system:
 - ❌ **No network** operations from kennel
 - ❌ **No sudo** or elevated privileges
 - ✅ **Limited** to `/workspace` directory
+
+---
+
+## Customization (V3.1)
+
+Fetch allows you to customize its personality and knowledge without touching the code.
+
+### Identity Files
+Edit the files in `data/identity/`:
+- `SYSTEM.md`: The core instructions and rules.
+- `USER.md`: Your profile.
+
+Changes are hot-reloaded automatically. You can also use `/identity reset` to force a reload.
+
+### Skills
+Add new capabilities by adding markdown files to `data/skills/`. See [Skills Documentation](DOCUMENTATION.md#skills) for details.
 
 ---
 
