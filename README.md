@@ -27,13 +27,14 @@ Fetch is a **lightweight orchestrator** that delegates coding tasks to specializ
 
 **Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
 
-### 🏗️ V2 Orchestrator Architecture
+### 🏗️ V3 Orchestrator Architecture
 
-Fetch automatically classifies your intent and routes to the appropriate handler:
+Fetch automatically classifies your intent, checks Instincts for a fast-path, then routes to the appropriate handler:
 
-| Intent | When | Action | Example |
-|--------|------|--------|---------|
-| 💬 **Conversation** | Greetings, thanks, chat | Direct response | "Hey!", "Thanks!" |
+| Layer | When | Action | Example |
+|-------|------|--------|--------|
+| ⚡ **Instinct** | Slash commands, safety | Deterministic response (<5ms) | "/status", "/stop", "/help" |
+| 💬 **Conversation** | Greetings, thanks, chat | Direct LLM response | "Hey!", "Thanks!" |
 | 📁 **Workspace** | Project management | Tool calls | "List projects", "Switch to api" |
 | 🚀 **Task** | Coding work | Delegate to harness | "Add dark mode", "Fix the bug" |
 
@@ -49,10 +50,14 @@ Fetch delegates actual coding work to specialized CLI tools:
 
 ### 🧠 Smart Capabilities
 
+- **⚡ Instincts:** A deterministic "fast path" for common commands (like "stop", "clear", "undo") ensuring immediate reaction without LLM latency.
+- **🎭 Dynamic Identity:** Fetch's personality is customizable via hot-reloaded Markdown files in `data/identity/`. Edit them live — no restart needed.
+- **🧩 Skills Framework:** Teach Fetch new capabilities by dropping Markdown skill files into `data/skills/`.
 - **🗺️ Repo Maps:** Fetch scans your project structure to understand the architecture, exports, and relationships between files.
-- **🎙️ Voice Mode:** Send voice notes on WhatsApp! Fetch transcribes them using Whisper and executes them as commands.
-- **👀 Vision:** Send screenshots of errors or UI designs. Fetch uses GPT-4o Vision to understand what he's looking at.
+- **🎙️ Voice Mode:** Send voice notes on WhatsApp! Fetch detects the language (English, Spanish, etc.), transcribes using Whisper, and executes commands.
+- **👀 Vision:** Send screenshots of errors or UI designs. Fetch uses Vision models (via OpenRouter) with project context to provide accurate analysis.
 - **🌊 Streaming:** Get real-time updates as Fetch works (e.g., "📝 Editing src/index.ts...").
+- **💾 State Machine Modes:** ALERT → WORKING → WAITING → GUARDING — persisted to SQLite, crash-recoverable.
 
 ### 🛠️ 11 Orchestrator Tools
 
@@ -237,15 +242,26 @@ fetch/
 │       └── update/         # Git update
 ├── fetch-app/              # Node.js Bridge
 │   └── src/
+│       ├── agent/          # Orchestrator (core, intent, prompts, format)
 │       ├── bridge/         # WhatsApp client
-│       ├── security/       # Auth, rate limiting, validation
-│       ├── agent/          # V2 Orchestrator (core, intent, prompts)
+│       ├── commands/       # Slash command parser
+│       ├── conversation/   # Thread & summarizer
+│       ├── handler/        # Message entry point
 │       ├── harness/        # CLI adapters (Claude, Gemini, Copilot)
-│       ├── session/        # Session management
-│       ├── tools/          # 8 orchestrator tools + Zod schemas
-│       ├── executor/       # Docker exec wrapper
-│       ├── tasks/          # Task persistence
-│       └── utils/          # Logger, sanitizer
+│       ├── identity/       # Hot-reloaded persona (Collar/Alpha)
+│       ├── instincts/      # Deterministic fast-path behaviors
+│       ├── modes/          # State machine (ALERT/WORKING/WAITING/GUARDING)
+│       ├── proactive/      # Polling & watcher services
+│       ├── security/       # Auth, rate limiting, validation
+│       ├── session/        # Session & thread persistence (SQLite)
+│       ├── skills/         # Modular skill framework + builtins
+│       ├── task/           # Task lifecycle & persistence (SQLite)
+│       ├── tools/          # 11 orchestrator tools + Zod schemas
+│       ├── transcription/  # Voice note transcription (Whisper)
+│       ├── utils/          # Logger, ID generators, Docker helpers
+│       ├── validation/     # Zod schemas for tool I/O
+│       ├── vision/         # Image analysis via Vision models
+│       └── workspace/      # Workspace discovery, repo maps
 │   └── tests/              # Vitest test suite
 │       ├── unit/           # Unit tests
 │       ├── integration/    # Integration tests
@@ -255,8 +271,14 @@ fetch/
 ├── config/                 # Auth token mounts
 │   ├── claude/
 │   └── github/
-├── workspace/              # Code sandbox
 ├── data/                   # Persistent data
+│   ├── identity/           # Persona files (SYSTEM.md, USER.md)
+│   ├── skills/             # User-defined skill files
+│   └── tools/              # Custom tool definitions
+├── docs/                   # Documentation site
+│   ├── index.html
+│   └── markdown/
+├── workspace/              # Code sandbox
 └── docker-compose.yml
 ```
 

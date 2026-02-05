@@ -51,21 +51,29 @@
 
 /**
  * Maximum characters per line for comfortable mobile reading.
+ * WhatsApp displays ~35-40 chars per line on most phones.
  * @constant {number}
  */
-const MAX_LINE_LENGTH = 50;
+const MAX_LINE_LENGTH = 40;
+
+/**
+ * Maximum total message length (WhatsApp supports up to 65536).
+ * Keep much shorter for readability.
+ * @constant {number}
+ */
+const MAX_MESSAGE_LENGTH = 4000;
 
 /**
  * Maximum lines to show in code blocks before truncating.
  * @constant {number}
  */
-const MAX_CODE_LINES = 15;
+const MAX_CODE_LINES = 12;
 
 /**
  * Maximum lines to show in diff output before truncating.
  * @constant {number}
  */
-const MAX_DIFF_LINES = 20;
+const MAX_DIFF_LINES = 15;
 
 // =============================================================================
 // TEXT FORMATTING
@@ -93,10 +101,127 @@ export function formatForWhatsApp(text: string): string {
     .replace(/^## (.+)$/gm, '📋 *$1*')
     .replace(/^# (.+)$/gm, '🔷 *$1*');
   
-  // Wrap long lines
+  // Clean up excessive whitespace
+  formatted = formatted
+    .replace(/\n{3,}/g, '\n\n')  // Max 2 consecutive newlines
+    .replace(/[ \t]+$/gm, '');    // Trim trailing whitespace per line
+  
+  // Wrap long lines for mobile
   formatted = wrapLongLines(formatted, MAX_LINE_LENGTH);
   
+  // Truncate if too long
+  if (formatted.length > MAX_MESSAGE_LENGTH) {
+    formatted = formatted.substring(0, MAX_MESSAGE_LENGTH - 50) + '\n\n_... message truncated_';
+  }
+  
   return formatted;
+}
+
+/**
+ * Formats a response specifically optimized for WhatsApp mobile display.
+ * 
+ * This is the main entry point for formatting agent responses.
+ * Handles all cleanup, wrapping, and mobile optimization.
+ * 
+ * @param {string} text - Raw response text
+ * @returns {string} Mobile-optimized WhatsApp message
+ */
+export function formatMobileResponse(text: string): string {
+  let formatted = text;
+  
+  // 1. Convert markdown headers
+  formatted = formatted
+    .replace(/^### (.+)$/gm, '📌 *$1*')
+    .replace(/^## (.+)$/gm, '\n📋 *$1*')
+    .replace(/^# (.+)$/gm, '\n🔷 *$1*');
+  
+  // 2. Convert markdown lists to emoji bullets
+  formatted = formatted
+    .replace(/^- /gm, '• ')
+    .replace(/^\* /gm, '• ')
+    .replace(/^(\d+)\. /gm, '$1️⃣ ');
+  
+  // 3. Preserve code blocks but limit their width
+  formatted = formatted.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const lines = code.trim().split('\n');
+    const truncatedLines = lines.slice(0, MAX_CODE_LINES);
+    const remaining = lines.length - MAX_CODE_LINES;
+    
+    // Limit code line width
+    const formattedCode = truncatedLines
+      .map((line: string) => line.length > 60 ? line.substring(0, 57) + '...' : line)
+      .join('\n');
+    
+    let result = '```' + (lang || '') + '\n' + formattedCode + '\n```';
+    if (remaining > 0) {
+      result += `\n_... ${remaining} more lines_`;
+    }
+    return result;
+  });
+  
+  // 4. Clean up whitespace
+  formatted = formatted
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+  
+  // 5. Wrap non-code lines
+  const lines = formatted.split('\n');
+  const wrappedLines: string[] = [];
+  let inCodeBlock = false;
+  
+  for (const line of lines) {
+    if (line.startsWith('```')) {
+      inCodeBlock = !inCodeBlock;
+      wrappedLines.push(line);
+      continue;
+    }
+    
+    if (inCodeBlock) {
+      wrappedLines.push(line);
+      continue;
+    }
+    
+    // Don't wrap short lines or list items
+    if (line.length <= MAX_LINE_LENGTH || line.startsWith('•') || /^\d️⃣/.test(line)) {
+      wrappedLines.push(line);
+      continue;
+    }
+    
+    // Word wrap long lines
+    wrappedLines.push(...wordWrap(line, MAX_LINE_LENGTH));
+  }
+  
+  formatted = wrappedLines.join('\n');
+  
+  // 6. Truncate if too long
+  if (formatted.length > MAX_MESSAGE_LENGTH) {
+    formatted = formatted.substring(0, MAX_MESSAGE_LENGTH - 50) + '\n\n_... message truncated_';
+  }
+  
+  return formatted;
+}
+
+/**
+ * Word-wrap a single line at word boundaries.
+ */
+function wordWrap(text: string, maxLength: number): string[] {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  
+  for (const word of words) {
+    const testLine = current ? current + ' ' + word : word;
+    if (testLine.length > maxLength && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = testLine;
+    }
+  }
+  if (current) lines.push(current);
+  
+  return lines;
 }
 
 // =============================================================================

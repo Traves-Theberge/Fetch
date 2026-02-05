@@ -17,15 +17,16 @@ import { Session, Message } from '../session/types.js';
 import { logger } from '../utils/logger.js';
 import { classifyIntent, type IntentType } from './intent.js';
 import {
-  buildOrchestratorPrompt,
   buildTaskFramePrompt,
-  CORE_IDENTITY,
-  CAPABILITIES,
 } from './prompts.js';
 import { getToolRegistry } from '../tools/registry.js';
 import { formatForWhatsApp } from './whatsapp-format.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
+import { getInstinctRegistry, FetchMode, type InstinctAction } from '../instincts/index.js';
+import { getIdentityManager } from '../identity/manager.js';
+import { modeDetector } from '../conversation/detector.js'; // Phase 8: Mode Detection
+import { threadManager } from '../conversation/thread.js'; // Phase 8: Threading
 
 // =============================================================================
 // TYPES
@@ -43,6 +44,8 @@ export interface AgentResponse {
   taskStarted?: boolean;
   /** Task ID if started */
   taskId?: string;
+  /** Detected conversation mode */
+  mode?: string;
 }
 
 /**
@@ -223,6 +226,84 @@ function getOpenAI(): OpenAI {
 }
 
 // =============================================================================
+// MODE & REFLEX HELPERS
+// =============================================================================
+
+/**
+ * Determine current Fetch mode based on session state
+ */
+/*
+function getCurrentMode(session: Session): FetchMode {
+  if (!session.currentTask) {
+    return 'ALERT';
+  }
+  
+  const taskStatus = session.currentTask.status;
+  
+  switch (taskStatus) {
+    case 'running':
+      return 'WORKING';
+    case 'waiting_input':
+      return 'WAITING';
+    case 'pending':
+    default:
+      return 'ALERT';
+  }
+}
+*/
+
+/**
+ * Handle instinct actions (stop, undo, clear, etc.)
+ */
+async function handleInstinctAction(
+  action: InstinctAction,
+  session: Session,
+  sManager: ReturnType<typeof getSessionManager> extends Promise<infer T> ? T : never
+): Promise<void> {
+  switch (action.type) {
+    case 'stop':
+      // Cancel current task if any
+      if (session.currentTask) {
+        logger.info('Instinct action: stopping task', { taskId: session.currentTask.id });
+        session.currentTask = {
+          ...session.currentTask,
+          status: 'cancelled',
+        };
+        await sManager.updateSession(session);
+      }
+      break;
+      
+    case 'undo':
+      // TODO: Implement git undo logic
+      logger.info('Instinct action: undo requested');
+      break;
+      
+    case 'clear':
+      // Clear session context but keep preferences
+      logger.info('Instinct action: clearing session');
+      session.messages = [];
+      session.activeFiles = [];
+      session.repoMap = null;
+      session.currentTask = null;
+      await sManager.updateSession(session);
+      break;
+      
+    case 'pause':
+      // TODO: Implement pause logic
+      logger.info('Instinct action: pause requested');
+      break;
+      
+    case 'resume':
+      // TODO: Implement resume logic
+      logger.info('Instinct action: resume requested');
+      break;
+      
+    default:
+      logger.warn('Unknown instinct action', { action });
+  }
+}
+
+// =============================================================================
 // MAIN AGENT FUNCTION
 // =============================================================================
 
@@ -272,6 +353,61 @@ export async function processMessage(
       }
     }
 
+    // =========================================================================
+    // 0. CHECK REFLEXS FIRST (Hardwired deterministic responses)
+    // =========================================================================
+    const instinctRegistry = getInstinctRegistry();
+    // Phase 8: Use ModeDetector first
+    const detectedMode = modeDetector.detect(message);
+    const activeTask = session.currentTask 
+      ? {
+          id: session.currentTask.id,
+          status: session.currentTask.status,
+          description: session.currentTask.goal,
+          goal: session.currentTask.goal,
+          harness: session.currentTask.harness,
+          startedAt: session.currentTask.startedAt,
+        }
+      : undefined;
+    
+    // Use the explicit mode if instincts don't override
+    const instinctContextMode: FetchMode = (detectedMode.mode === 'TASK' && activeTask?.status === 'running') 
+        ? FetchMode.WORKING 
+        : FetchMode.ALERT;
+
+    const instinctResult = await instinctRegistry.check({
+      message: message.toLowerCase().trim(),
+      originalMessage: message,
+      session,
+      mode: instinctContextMode, 
+      activeTask,
+      workspace: session.currentProject?.path,
+    });
+    
+    if (instinctResult.matched && instinctResult.response) {
+      logger.info('Instinct matched', {
+        instinct: instinctResult.instinct,
+        action: instinctResult.response.action?.type,
+      });
+      
+      // Handle instinct actions
+      if (instinctResult.response.action) {
+        await handleInstinctAction(instinctResult.response.action, session, sManager);
+      }
+      
+      // Return if instinct doesn't want to continue processing
+      if (!instinctResult.response.continueProcessing) {
+        return { 
+          text: instinctResult.response.response || "Task updated.", 
+          mode: detectedMode.mode
+        };
+      }
+    }
+
+    // Phase 8: Update Thread Context
+    const thread = threadManager.getActiveThread();
+    threadManager.updateActivity(thread.id, { mode: detectedMode.mode });
+
     // 1. Classify intent
     const intent = classifyIntent(message, session);
     logger.info('Intent classified', {
@@ -298,6 +434,13 @@ export async function processMessage(
           session.id,
           onProgress
         );
+        break;
+
+      case 'clarify':
+        // V3.1: Clarification flow
+        response = {
+            text: "🐕 I'm eager to help, but I'm not sure what you mean! Can you be more specific? *head tilt*"
+        };
         break;
 
       default:
@@ -370,7 +513,7 @@ async function handleConversation(
     messages: [
       {
         role: 'system',
-        content: buildConversationPrompt(session),
+        content: getIdentityManager().buildSystemPrompt(),
       },
       ...finalHistory,
       { role: 'user', content: message },
@@ -396,6 +539,7 @@ async function handleConversation(
  * - General coding questions
  * - Affirmations and reactions
  */
+/*
 function buildConversationPrompt(session: Session): string {
   const hasProject = !!session.currentProject;
   
@@ -471,6 +615,7 @@ ${CAPABILITIES}
 **User asks about non-coding topics:**
 → Gently redirect: "I'm best with code stuff! Got a project I can help with?"`;
 }
+*/
 
 // =============================================================================
 // TOOL HANDLER
@@ -499,7 +644,7 @@ async function handleWithTools(
 
   // Build messages
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: buildOrchestratorPrompt(session) },
+    { role: 'system', content: getIdentityManager().buildSystemPrompt() },
     ...finalHistory,
     { role: 'user', content: message },
   ];

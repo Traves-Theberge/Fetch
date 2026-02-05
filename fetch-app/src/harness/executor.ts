@@ -33,9 +33,9 @@
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
-import { generateHarnessId } from '../utils/id.js';
 import { createParser } from './output-parser.js';
 import type { TaskId, AgentType } from '../task/types.js';
+import { getHarnessPool } from './pool.js'; // V3 Pool Integration
 import type {
   HarnessId,
   HarnessStatus,
@@ -43,6 +43,7 @@ import type {
   HarnessExecution,
   HarnessResult,
   HarnessOutputEventType,
+  HarnessOutputEvent,
   HarnessEvent,
   HarnessEventType,
   HarnessAdapter,
@@ -161,9 +162,33 @@ export class HarnessExecutor extends EventEmitter {
     agent: AgentType,
     config: HarnessConfig
   ): Promise<HarnessResult> {
-    const harnessId = generateHarnessId();
+    const pool = getHarnessPool();
+    
+    // 1. Acquire instance (manages concurrency)
+    let instance;
+    try {
+      instance = await pool.acquire({
+        command: config.command,
+        args: config.args,
+        env: config.env,
+        cwd: config.cwd,
+        timeoutMs: config.timeoutMs
+      });
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      logger.error(`Failed to acquire harness from pool: ${errorMsg}`);
+      return {
+        success: false,
+        output: '',
+        exitCode: 1,
+        error: errorMsg,
+        durationMs: 0
+      };
+    }
 
-    // Create execution record
+    const harnessId = instance.id;
+
+    // 2. Create execution record
     const execution: HarnessExecution = {
       id: harnessId,
       taskId,
@@ -171,21 +196,66 @@ export class HarnessExecutor extends EventEmitter {
       status: 'starting',
       config,
       events: [],
-      startedAt: new Date().toISOString(),
+      startedAt: new Date(instance.startTime).toISOString(),
     };
 
     this.executions.set(harnessId, execution);
     this.emitHarnessEvent('harness:started', harnessId, taskId);
 
-    logger.info(`Harness starting: ${harnessId}`, {
+    logger.info(`Harness started via pool: ${harnessId}`, {
       agent,
       command: config.command,
       cwd: config.cwd,
     });
 
+    // 3. Setup event listeners
+    const spawner = pool.getSpawner();
+    
+    const outputHandler = (event: { id: HarnessId, type: string, data: string }) => {
+      if (event.id === harnessId) {
+        const timestamp = new Date().toISOString();
+        const outputEvent: HarnessOutputEvent = {
+          type: event.type as HarnessOutputEventType,
+          data: event.data,
+          timestamp
+        };
+        execution.events.push(outputEvent);
+        this.emitHarnessEvent('harness:output', harnessId, taskId, outputEvent);
+      }
+    };
+    
+    const statusHandler = (event: { id: HarnessId, status: HarnessStatus }) => {
+      if (event.id === harnessId) {
+        this.updateStatus(harnessId, event.status);
+      }
+    };
+
+    spawner.on('output', outputHandler);
+    spawner.on('status', statusHandler);
+
     try {
-      const result = await this.spawnAndWait(harnessId, execution, config);
-      return result;
+      const finalInstance = await pool.waitFor(harnessId);
+      
+      const success = finalInstance.status === 'completed';
+      const output = finalInstance.stdout.join('') + finalInstance.stderr.join(''); // Note: simplistic concatenation
+      
+      if (success) {
+          this.updateStatus(harnessId, 'completed');
+          this.emitHarnessEvent('harness:completed', harnessId, taskId);
+      } else {
+          this.updateStatus(harnessId, 'failed');
+          this.emitHarnessEvent('harness:failed', harnessId, taskId, { 
+              error: `Process failed with status: ${finalInstance.status}` 
+          });
+      }
+
+      return {
+        success,
+        output,
+        exitCode: success ? 0 : 1,
+        error: success ? undefined : `Process execution status: ${finalInstance.status}`,
+        durationMs: Date.now() - finalInstance.startTime,
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.updateStatus(harnessId, 'failed');
@@ -193,11 +263,14 @@ export class HarnessExecutor extends EventEmitter {
 
       return {
         success: false,
-        output: this.getOutputBuffer(harnessId),
+        output: '',
         exitCode: 1,
         error: errorMessage,
         durationMs: Date.now() - new Date(execution.startedAt).getTime(),
       };
+    } finally {
+      spawner.off('output', outputHandler);
+      spawner.off('status', statusHandler);
     }
   }
 

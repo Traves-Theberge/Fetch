@@ -71,44 +71,44 @@ You don't write code directly; you delegate to specialized coding agents (your p
 // =============================================================================
 
 /**
- * Complete list of what Fetch can do - shown when user asks
+ * Complete list of what Fetch can do - shown when user asks "what can you do"
  */
 const CAPABILITIES = `## What I Can Fetch For You 🦴
 
-**📂 Project Management**
-• \`projects\` - Show all your workspaces (let me sniff around!)
-• \`switch to [name]\` - Select a project to work on
-• \`create [name]\` - Create new project (I know node, python, rust, go, react, next!)
-• \`delete [name]\` - Remove a project (I'll ask twice - good dogs don't destroy things recklessly)
-• \`status\` - Git status and changes
+**💬 Chat & Questions**
+Just ask! "What does this function do?" • "Explain this error"
 
-**🔧 Coding Tasks** (pick a project first, then point me at it!)
-• \`add [feature]\` - Build new functionality
-• \`fix [issue]\` - Hunt down bugs (I have a good nose for these 🐕)
-• \`refactor [code]\` - Clean up the mess
-• \`test [code]\` - Add test coverage
-• \`explain [code]\` - I'll break it down
+**🔍 Code Exploration**
+"Show me src/app.ts" • "Find where login is defined"
 
-**💬 General Help**
-• Ask about coding concepts, architecture, best practices
-• Get suggestions for your project
-• Discuss technical decisions (but not lobster recipes 🦞 - yuck!)
+**✏️ Code Changes**
+"Fix the typo" • "Add a loading spinner" • "Create Header component"
 
-**� Vision & Voice**
-• Send me voice notes 🎙️ - I'll transcribe and execute them
-• Send me images 🖼️ - I can see errors, designs, or diagrams
-• I'll stream my progress 🌊 so you know what I'm doing
+**📋 Full Tasks**
+"Build a login form" • "Add dark mode" • "Write tests"
 
-**�🛡️ Guard Dog Mode 🐕‍🦺**
-• I always confirm before destructive operations
-• I suggest backups for risky changes
-• I protect your secrets (buried deep!)`;
+━━━━━━━━━━━━━━━━━━
+
+**📂 Project:** \`/projects\` • \`/project <name>\` • \`/clone\` • \`/init\`
+**📊 Git:** \`/status\` (\`/st\`) • \`/diff\` • \`/log\` • \`/undo\`
+**📝 Task:** \`/task\` • \`/stop\` • \`/pause\` • \`/resume\`
+**📁 Context:** \`/add\` • \`/drop\` • \`/files\` • \`/clear\`
+**ℹ️ Info:** \`/help\` • \`/version\`
+**🔐 Trust:** \`/trust add\` • \`/trust remove\` • \`/trust list\`
+
+━━━━━━━━━━━━━━━━━━
+
+**🎙️ Voice & Vision:** Send voice notes or images - I understand them!
+**✅ Approvals:** \`yes\`/\`y\` • \`no\`/\`n\` • \`skip\`/\`s\` • \`yesall\`/\`ya\`
+
+Type /help for full details! 🐕`;
 
 // =============================================================================
 // TOOL REFERENCE
 // =============================================================================
 
 /**
+
  * Complete tool reference for the orchestrator
  */
 const TOOL_REFERENCE = `## Available Tools (11)
@@ -488,8 +488,19 @@ Keep under 60 words. End with a question or clear option.`;
  * @param session - Current session
  * @returns Formatted context block
  */
+import { getSessionStore } from '../session/store.js';
+
+// =============================================================================
+// CONTEXT BUILDER
+// =============================================================================
+
 function buildContextSection(session: Session): string {
   const parts: string[] = ['## Current Context'];
+
+  // V3.1: Add Metadata
+  const threadId = session.metadata?.activeThreadId;
+  // FetchMode handled by ModeManager.
+  if(threadId) parts.push(`🧵 **Thread**: \`${threadId}\``);
 
   // Workspace status
   if (session.currentProject) {
@@ -516,6 +527,21 @@ function buildContextSection(session: Session): string {
       : task.goal;
     parts.push(`🎯 **Active task**: ${goalPreview}`);
     parts.push(`📊 **Status**: ${task.status}`);
+  }
+
+  // Summaries (V3.1)
+  try {
+      const store = getSessionStore();
+      const summaries = store.getSummaries(session.id, 2); // Get last 2 summaries
+      if (summaries && summaries.length > 0) {
+          parts.push(`\n## Recent Memories 🧠`);
+          summaries.reverse().forEach(sum => {
+              parts.push(`\n[Summary from ${new Date(sum.created_at).toLocaleTimeString()}]`);
+              parts.push(sum.content);
+          });
+      }
+  } catch {
+      // Ignore summary errors during prompt build
   }
 
   // Repository Map

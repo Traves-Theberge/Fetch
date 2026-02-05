@@ -32,14 +32,16 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 ### 1.3 Key Features
 
 - 📱 **WhatsApp Interface** — Send coding tasks via chat with `@fetch` trigger
-- 🧠 **V2 Orchestrator Architecture** — 3-intent system (Conversation, Workspace, Task)
+- 🧠 **V3 Pack Leader Architecture** — Orchestrator system with Instincts, Skills, and Modes
 - 🗺️ **Repo Maps** — Architectural awareness of large projects
 - 🎙️ **Voice & Vision** — Transcribe voice notes and analyze screenshots
 - 🌊 **Streaming** — Real-time progress updates for long tasks
 - 🤖 **Harness System** — Plug-in adapters for Claude, Gemini, Copilot CLIs
+- 🎭 **Dynamic Identity** — Customizable persona via hot-reloaded Markdown files (Collar/Alpha)
+- 🧩 **Skills Framework** — Teach Fetch new capabilities on the fly
 - 🔄 **Model Switching** — Change models anytime via TUI (GPT-4o, Claude, Gemini, etc.)
 - 🛠️ **11 Orchestrator Tools** — Workspace (5), task (4), interaction (2)
-- 🛡️ **Zod Validation** — Runtime type-safe tool argument validation
+- 🛡️ **Guarding Mode** — Safety locks for high-impact actions
 - 📁 **Project Management** — Clone, init, switch between projects
 - 🔒 **Security-First** — 6 layers of protection
 - 🐳 **Docker Isolation** — All execution in sandboxed containers
@@ -56,37 +58,38 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 ### 2.2 Component Breakdown
 
-#### The Manager (Go TUI) - "The Collar"
+#### The Manager (Go TUI) - "Administration"
 - **Language:** Go 1.21+
 - **Framework:** Bubble Tea + Lipgloss + Bubbles
 - **Purpose:** Local administration interface
-- **Layout:** Horizontal - ASCII dog mascot left, FETCH title + menu right
+- **Layout:** Horizontal - Dashboard left, Menu right
 - **Features:**
   - Service start/stop via Docker Compose
   - Environment configuration editor
   - Real-time log viewing with viewport scrolling
   - QR code display for WhatsApp
   - OpenRouter model selector with search
-  - Neofetch-style version screen
+  - System status screen
   - Documentation browser
 - **Packages:**
   - `theme/` - Design system (colors, borders, styles)
   - `layout/` - Frame helpers and responsive breakpoints
   - `components/` - Reusable UI (header, splash, version, etc.)
 
-#### The Bridge (Node.js) - "The Brain"
+#### The Bridge (Node.js) - "The Orchestrator"
 - **Language:** TypeScript/Node.js 20+
 - **Framework:** whatsapp-web.js
 - **Port:** 8765 (Status API + Documentation)
-- **Purpose:** WhatsApp connection and V2 orchestration
+- **Purpose:** WhatsApp connection and V3 orchestration
 - **Features:**
   - `@fetch` trigger gate
   - Security (whitelist, rate limiting, validation)
-  - **4-Mode Intent Classification:**
-    - 💬 Conversation — Greetings, thanks, general chat (direct response)
-    - 🔍 Inquiry — Questions about code (read-only tools)
-    - ⚡ Action — Single edits/changes (full tools, 1 cycle)
-    - 📋 Task — Complex multi-step work (full tools, ReAct loop)
+  - **V3 State Machine Modes:**
+    - 🟢 ALERT — Listening for commands (Default)
+    - 🔵 WORKING — Active task execution
+    - 🟠 WAITING — Paused for user input
+    - 🔴 GUARDING — Safety lock for dangerous actions
+    - 💤 RESTING — Idle state
   - **Harness System:**
     - Claude CLI adapter
     - Gemini CLI adapter
@@ -98,9 +101,9 @@ Fetch is a **headless ChatOps development environment**. It enables "programming
 
 <!-- DIAGRAM:messageflow -->
 
-#### The Kennel (Docker) - "The Muscle"
+#### The Sandbox (Docker) - "Execution Environment"
 - **Base:** Ubuntu 22.04
-- **Purpose:** Multi-Model AI Agent Orchestrator
+- **Purpose:** Multi-Model AI Agent Execution
 - **Contains:**
   - Claude Code CLI
   - Gemini CLI
@@ -144,7 +147,7 @@ fix the bug in auth.ts          ❌ Ignored
 #### Layer 2: Zero Trust Bonding (Whitelist)
 ```typescript
 // security/gate.ts + security/whitelist.ts
-// "Fetch is loyal to his owner and people his owner explicitly trusts"
+// "Fetch securely authenticates the owner and authorized users."
 //
 // Authorization Flow:
 //   1. Is sender the owner? → ALLOW (always exempt)

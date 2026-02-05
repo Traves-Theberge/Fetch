@@ -13,8 +13,10 @@ Complete API documentation for Fetch's tools, endpoints, and integrations.
 5. [Harness System](#5-harness-system)
 6. [Session API](#6-session-api)
 7. [Status API](#7-status-api)
-8. [Environment Variables](#8-environment-variables)
-9. [Error Codes](#9-error-codes)
+8. [Retrieval API](#8-retrieval-api)
+9. [Instinct API](#9-instinct-api)
+10. [Environment Variables](#10-environment-variables)
+11. [Error Codes](#11-error-codes)
 
 ---
 
@@ -557,7 +559,72 @@ open http://localhost:8765/docs
 
 ---
 
-## 8. Environment Variables
+## 8. Retrieval API
+
+Fetch uses a **Hybrid Retrieval** system that combines keywords (BM25) and semantics (embeddings).
+
+### Components
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **BM25** | `natural` | Exact keyword matching, identifier finding |
+| **Semantic** | `text-embedding-3-small` | Concept matching, fuzzy search |
+| **RRF** | Reciprocal Rank Fusion | Improved ranking by combining scores |
+
+### Methods
+
+#### `searchContents(query, options)`
+
+Performs a hybrid search across the codebase.
+
+```typescript
+// Input
+interface SearchOptions {
+  limit?: number;        // Default: 10
+  threshold?: number;    // Default: 0.1
+  includeCode?: boolean; // Default: true
+}
+
+// Output
+interface SearchResult {
+  file: string;
+  score: number;
+  content: string;
+  matches: string[];     // Matched terms
+}
+```
+
+#### `generateRepoMap(path)`
+
+Generates a compact, token-efficient map of the repository structure.
+
+```typescript
+// Output
+interface RepoMap {
+  tree: string;          // Visual tree structure
+  modules: string[];     // List of significant modules
+  exports: string[];     // Key exports
+}
+```
+
+---
+
+## 9. Instinct API
+
+Instincts are deterministic, regex-based rules that bypass the LLM for high-speed interactions.
+
+### Standard Instincts
+
+| Pattern | Action | Mode Context |
+|---------|--------|--------------|
+| `stop`, `halt`, `cancel` | Cancels current task | WORKING |
+| `clear`, `reset` | Clears conversation history | ALERT |
+| `status`, `report` | Shows current task status | ANY |
+| `undo`, `revert` | Reverts last file change | ANY |
+
+---
+
+## 10. Environment Variables
 
 ### Required
 
@@ -580,7 +647,7 @@ open http://localhost:8765/docs
 
 ---
 
-## 9. Error Codes
+## 11. Error Codes
 
 | Code | Description | Resolution |
 |------|-------------|------------|

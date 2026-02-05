@@ -54,3 +54,8 @@ export { HarnessExecutor } from './executor.js';
 
 // Output Parser
 export { OutputParser } from './output-parser.js';
+
+// Spawning & Pooling (New v3 Architecture)
+export { HarnessSpawner } from './spawner.js';
+export { HarnessPool, getHarnessPool } from './pool.js';
+

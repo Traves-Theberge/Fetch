@@ -1300,6 +1300,74 @@ const FetchDiagrams = {
   },
 
   // =====================================================
+  // DIAGRAM: State Flow (V3 State Machine)
+  // =====================================================
+  renderStateFlow(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    
+    const colors = this.getColors();
+    const svg = this.createSVG(container, 800, 500);
+
+    // Draw nodes
+    const alert = this.drawNode(svg.append('g'), 350, 50, 120, 80, 'ALERT', '🟢', colors.success);
+    const working = this.drawNode(svg.append('g'), 350, 250, 120, 80, 'WORKING', '🔵', colors.accent1);
+    const waiting = this.drawNode(svg.append('g'), 600, 250, 120, 80, 'WAITING', '🟠', colors.warning);
+    const guarding = this.drawNode(svg.append('g'), 100, 250, 120, 80, 'GUARDING', '🔴', colors.error);
+    const resting = this.drawNode(svg.append('g'), 350, 400, 120, 80, 'RESTING', '💤', colors.nodeBg);
+
+    // Draw labels for transitions
+    const label = (x, y, text) => {
+        svg.append('text')
+           .attr('x', x)
+           .attr('y', y)
+           .attr('text-anchor', 'middle')
+           .attr('fill', colors.textMuted)
+           .attr('font-size', '11px')
+           .style('background', colors.bg)
+           .text(text);
+    };
+
+    // Transitions
+    // Alert -> Working
+    this.drawArrow(svg, 410, 130, 410, 250);
+    label(440, 190, 'Task Start');
+
+    // Working -> Alert
+    this.drawArrow(svg, 380, 250, 380, 130);
+    label(350, 190, 'Complete/Stop');
+
+    // Working -> Waiting
+    this.drawArrow(svg, 470, 280, 600, 280);
+    label(535, 275, 'Ask User');
+
+    // Waiting -> Working
+    this.drawArrow(svg, 600, 300, 470, 300);
+    label(535, 315, 'Input Received');
+    
+    // Alert -> Guarding
+    this.drawArrow(svg, 350, 90, 160, 250, true);
+    label(220, 150, 'Dangerous Action');
+
+    // Guarding -> Working
+    this.drawArrow(svg, 220, 290, 350, 290);
+    label(285, 305, 'Approved');
+
+    // Guarding -> Alert
+    this.drawArrow(svg, 160, 250, 350, 110, true);
+    label(230, 190, 'Denied');
+
+    // Alert -> Resting
+    this.drawArrow(svg, 470, 90, 470, 400, true);
+    label(500, 380, 'Timeout');
+
+    // Resting -> Alert
+    this.drawArrow(svg, 410, 400, 410, 130);
+    label(430, 380, 'Wake Word');
+  },
+
+  // =====================================================
   // Initialize all diagrams on page
   // =====================================================
   initAll() {
@@ -1309,6 +1377,9 @@ const FetchDiagrams = {
       switch (type) {
         case 'architecture':
           this.renderArchitecture(container.id);
+          break;
+        case 'stateflow':
+          this.renderStateFlow(container.id);
           break;
         case 'security':
           this.renderSecurityFlow(container.id);

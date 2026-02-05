@@ -50,6 +50,8 @@ import {
   ToolCall
 } from './types.js';
 import { SessionStore, getSessionStore } from './store.js';
+import { ThreadManager, Thread } from './thread-manager.js';
+import { summarizer } from '../conversation/summarizer.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -75,9 +77,11 @@ import { logger } from '../utils/logger.js';
  */
 export class SessionManager {
   private store: SessionStore;
+  private threadManager: ThreadManager;
 
   constructor(store?: SessionStore) {
     this.store = store || getSessionStore();
+    this.threadManager = ThreadManager.getInstance();
   }
 
   /**
@@ -85,6 +89,50 @@ export class SessionManager {
    */
   async init(): Promise<void> {
     await this.store.init();
+  }
+
+  // ============================================================================
+  // Thread Management (V3.1)
+  // ============================================================================
+
+  public listThreads(session: Session): Thread[] {
+      return this.threadManager.listThreads(session.id);
+  }
+
+  public async createThread(session: Session, title?: string): Promise<Thread> {
+      return this.threadManager.createThread(session.id, title);
+  }
+
+  public async switchThread(session: Session, threadId: string): Promise<boolean> {
+      const targetThread = this.threadManager.getThread(threadId);
+      if (!targetThread) return false;
+
+      // 1. Save current state to current thread (if exists)
+      if (session.currentThreadId) {
+          const currentThread = this.threadManager.getThread(session.currentThreadId);
+          if (currentThread) {
+              currentThread.contextSnapshot = {
+                  messages: session.messages,
+                  activeFiles: session.activeFiles
+              };
+              await this.threadManager.updateThreadStore(currentThread);
+          }
+      }
+
+      // 2. Load target state
+      session.currentThreadId = threadId;
+      if (targetThread.contextSnapshot) {
+          session.messages = targetThread.contextSnapshot.messages || [];
+          if (targetThread.contextSnapshot.activeFiles) {
+              session.activeFiles = targetThread.contextSnapshot.activeFiles;
+          }
+      } else {
+          session.messages = [];
+          session.activeFiles = [];
+      }
+
+      await this.store.update(session);
+      return true;
   }
 
   /**
@@ -109,6 +157,105 @@ export class SessionManager {
   }
 
   // ============================================================================
+  // Thread Management (V3.1)
+  // ============================================================================
+
+  /**
+   * Get the ID of the currently active thread
+   */
+  getActiveThreadId(session: Session): string | undefined {
+    return session.metadata?.activeThreadId;
+  }
+
+  /**
+   * Pause the currently active thread (saves state and clears session)
+   */
+  async pauseActiveThread(session: Session): Promise<void> {
+    const threadId = this.getActiveThreadId(session);
+    if (!threadId) return;
+
+    // Snapshot current state
+    const snapshot = {
+      messages: session.messages,
+      currentTask: session.currentTask,
+      activeFiles: session.activeFiles,
+      repoMap: session.repoMap,
+      project: session.currentProject
+    };
+
+    // Update thread in DB
+    const thread = this.threadManager.getThread(threadId);
+    if (thread) {
+        thread.contextSnapshot = snapshot;
+        thread.status = 'paused';
+        await this.threadManager.updateThreadStore(thread);
+    }
+    
+    // Clear session state (except persistent preferences)
+    session.metadata.activeThreadId = undefined;
+    session.messages = [];
+    session.currentTask = null;
+    session.activeFiles = [];
+    // We keep repoMap/Project as they might be relevant to the next thread 
+    // or just general workspace state, but for "clean slate" thread switching,
+    // maybe we should clear them? 
+    // Let's clear them to ensure threads are isolated contexts.
+    session.repoMap = null;
+    session.currentProject = null;
+
+    await this.updateSession(session);
+  }
+
+  /**
+   * Resume a specific thread
+   */
+  async resumeThread(session: Session, threadId: string): Promise<boolean> {
+      const thread = this.threadManager.getThread(threadId);
+      if (!thread) return false;
+
+      // Pause current if active
+      await this.pauseActiveThread(session);
+
+      // Restore state
+      const snapshot = thread.contextSnapshot || {};
+      session.messages = snapshot.messages || [];
+      session.currentTask = snapshot.currentTask || null;
+      session.activeFiles = snapshot.activeFiles || [];
+      session.repoMap = snapshot.repoMap || null;
+      session.currentProject = snapshot.project || null;
+      
+      // Update metadata
+      // if (!session.metadata) session.metadata = {};
+      session.metadata.activeThreadId = thread.id;
+
+      // Mark thread active
+      thread.status = 'active';
+      await this.threadManager.updateThreadStore(thread);
+
+      await this.updateSession(session);
+      return true;
+  }
+
+  /**
+   * Create and switch to a new thread
+   */
+  async startNewThread(session: Session, title?: string): Promise<string> {
+      await this.pauseActiveThread(session);
+
+      const thread = await this.threadManager.createThread(session.id, title);
+      
+      // if (!session.metadata) session.metadata = {};
+      session.metadata.activeThreadId = thread.id;
+      
+      await this.updateSession(session);
+      return thread.id;
+  }
+
+  public getThreadManager(): ThreadManager {
+    return this.threadManager;
+  }
+
+  // ============================================================================
   // Message Management
   // ============================================================================
 
@@ -119,6 +266,12 @@ export class SessionManager {
     const message = createMessage('user', content);
     session.messages.push(message);
     await this.store.update(session);
+    
+    // Check for summarization (V3.1)
+    summarizer.checkAndSummarize(session).catch(err => {
+        logger.warn('Background summarization failed', err);
+    });
+
     return message;
   }
 
@@ -415,12 +568,12 @@ export class SessionManager {
       return null;
     }
 
-    session.currentTask.status = 'aborted';
+    session.currentTask.status = 'cancelled';
     session.currentTask.completedAt = new Date().toISOString();
     
     await this.store.update(session);
     
-    logger.info('Task aborted', { 
+    logger.info('Task cancelled', { 
       sessionId: session.id, 
       taskId: session.currentTask.id 
     });
@@ -461,10 +614,10 @@ export class SessionManager {
       throw new Error('Task is not paused');
     }
 
-    session.currentTask.status = 'executing';
+    session.currentTask.status = 'running';
     await this.store.update(session);
     
-    logger.info('Task resumed', { 
+    logger.info('Task resumed', {  
       sessionId: session.id, 
       taskId: session.currentTask.id 
     });
@@ -485,7 +638,7 @@ export class SessionManager {
       throw new Error('No active task');
     }
 
-    session.currentTask.status = 'awaiting_approval';
+    session.currentTask.status = 'waiting_input';
     session.currentTask.pendingApproval = {
       tool,
       args,
@@ -507,7 +660,7 @@ export class SessionManager {
     }
 
     session.currentTask.pendingApproval = null;
-    session.currentTask.status = 'executing';
+    session.currentTask.status = 'running';
     
     // Note: Don't record tool message here - caller will do it with proper toolCallId
     await this.store.update(session);

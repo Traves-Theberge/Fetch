@@ -12,7 +12,6 @@
 import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
-import { initializeToolRegistry } from '../tools/registry.js';
 import { TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import { logger } from '../utils/logger.js';
@@ -45,8 +44,6 @@ export async function initializeHandler(): Promise<void> {
   // Initialize components
   sessionManager = await getSessionManager();
   logger.success('Session manager ready');
-
-  await initializeToolRegistry();
   logger.success('Tool registry loaded');
 
   taskManager = await getPersistentTaskManager();
@@ -95,7 +92,6 @@ export async function handleMessage(
 
   // Type-safety assertions
   const sManager = sessionManager!;
-  // const tManager = taskManager!;
 
   try {
     // Get or create session
@@ -150,6 +146,11 @@ export async function handleMessage(
   }
 }
 
+import { getModeManager } from '../modes/manager.js';
+import { FetchMode } from '../modes/types.js';
+
+// ... existing imports ...
+
 // =============================================================================
 // RESPONSE BUILDING
 // =============================================================================
@@ -159,10 +160,23 @@ export async function handleMessage(
  */
 function buildResponses(response: AgentResponse): string[] {
   const responses: string[] = [];
+  const mm = getModeManager();
+  const state = mm.getState();
+  
+  let emoji = '🟢'; // DEFAULT: ALERT
+  switch(state.mode) {
+      case FetchMode.WORKING: emoji = '🔵'; break;
+      case FetchMode.GUARDING: emoji = '🔴'; break;
+      case FetchMode.WAITING: emoji = '🟡'; break;
+      case FetchMode.RESTING: emoji = '💤'; break;
+  }
 
   // Main text response
   if (response.text) {
-    responses.push(response.text);
+      // Prepend current mode emoji if not already present
+      // Some instincts might include emojis already, but this standardizes it.
+      // Actually, let's just prepend it.
+      responses.push(`${emoji} ${response.text}`);
   }
 
   // Task started notification

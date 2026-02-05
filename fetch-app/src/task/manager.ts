@@ -38,6 +38,8 @@
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { generateTaskId, generateProgressId } from '../utils/id.js';
+import { getModeManager } from '../modes/manager.js';
+import { FetchMode } from '../modes/types.js';
 import { getTaskStore, TaskStore } from './store.js';
 import type {
   Task,
@@ -74,6 +76,7 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   completed: [],
   failed: ['cancelled'],
   cancelled: [],
+  paused: ['running', 'cancelled'],
 };
 
 // ============================================================================
@@ -240,6 +243,17 @@ export class TaskManager extends EventEmitter {
     
     // Persist
     await this.store.saveTask(task);
+    
+    // V3.1: Trigger Guarding Mode for user attention & safety
+    try {
+        const mm = getModeManager();
+        await mm.transitionTo(FetchMode.GUARDING, 'Task requires input', { 
+            action: question,
+            taskId: taskId 
+        });
+    } catch (e) {
+        logger.warn('Failed to set GUARDING mode', e);
+    }
     
     this.emitTaskEvent('task:question', taskId, { question });
 

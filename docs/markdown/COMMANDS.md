@@ -18,15 +18,56 @@ Messages without `@fetch` are silently ignored for security.
 
 ---
 
-## 🧠 Understanding Intents (V2)
+## 🧠 Understanding Modes (V3)
 
-Fetch automatically detects your intent and routes appropriately:
+Fetch operates as a state machine with 5 distinct modes. The background color of the TUI and the emoji in the response indicate the current mode.
 
-| Intent | Description | Handler | Example |
-|--------|-------------|---------|--------|
-| 💬 **Conversation** | Greetings, thanks, general chat | Direct response | `@fetch Hey!` |
-| 📁 **Workspace** | Project management, git operations | 11 orchestrator tools | `@fetch list projects` |
-| 🚀 **Task** | Complex coding work | Harness (Claude/Gemini/Copilot) | `@fetch Build a login page` |
+| Mode | Emoji | Description |
+|------|-------|-------------|
+| **ALERT** | 🟢 | Ready and listening. Default state. |
+| **WORKING** | 🔵 | Actively executing a task. Ignores most chatter, listens for `stop`. |
+| **WAITING** | 🟠 | Paused, waiting for your input (e.g., "Which file?"). |
+| **GUARDING** | 🔴 | Locked. Detected a dangerous action, needs explicit generic approval. |
+| **RESTING** | 💤 | Idle/Sleeping. (Reserved for future autonomy). |
+
+---
+
+## ⚡ Reflex Commands (Fast-Path)
+
+Reflexes are deterministic commands that bypass the AI agent. They work in ANY mode.
+
+| Command | Action |
+|---------|--------|
+| `stop`, `cancel` | **immediately** cancels the current task and returns to ALERT. |
+| `status` | Reports current mode, active task, and last action. |
+| `clear` | Clears conversation context (short-term memory). |
+| `help` | Shows brief help menu. |
+
+---
+
+## 🛠️ Management Commands (V3.1)
+
+### 🎭 Identity Management
+Control Fetch's personality and system prompts.
+
+- `/identity reset` - Force reload of all identity files (`COLLAR.md`, `ALPHA.md`).
+- `/identity collar` - Show the core rules.
+- `/identity alpha` - Show the user profile.
+
+### 🧩 Skill Management
+Manage the "Pack's" capabilities on the fly.
+
+- `/skill list` - Show all loaded skills.
+- `/skill enable <name>` - Enable a specific skill.
+- `/skill disable <name>` - Disable a specific skill.
+- `/skill vars <name>` - Show required environment variables for a skill.
+
+### 🧵 Thread Management
+Switch between different conversation contexts or projects.
+
+- `/thread list` - Show active conversation threads.
+- `/thread switch <id>` - Switch context to a different thread.
+- `/thread archive` - Save and close the current thread.
 
 ---
 

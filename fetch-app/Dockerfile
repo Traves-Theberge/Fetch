@@ -30,8 +30,9 @@ RUN npm run build
 # Production stage
 FROM node:20-slim
 
-# Install dependencies for Puppeteer (whatsapp-web.js requirement) and SQLite runtime
+# Install dependencies for Puppeteer (whatsapp-web.js requirement), SQLite runtime, and whisper.cpp
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
     chromium \
     fonts-liberation \
     libasound2 \
@@ -52,8 +53,28 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     g++ \
+    git \
+    cmake \
+    ffmpeg \
+    wget \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install whisper.cpp for local transcription (100% free, no API)
+# Note: The binary is named 'whisper-cli' after build, we rename it to 'whisper-cpp'
+RUN git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp \
+    && cd /tmp/whisper.cpp \
+    && cmake -B build \
+    && cmake --build build --config Release -j$(nproc) \
+    && cp build/bin/whisper-cli /usr/local/bin/whisper-cpp \
+    && chmod +x /usr/local/bin/whisper-cpp \
+    && rm -rf /tmp/whisper.cpp \
+    && echo '✅ whisper-cpp installed'
+
+# Download the tiny whisper model (fast, ~75MB - good for voice notes)
+RUN mkdir -p /app/models \
+    && wget -q -O /app/models/ggml-tiny.bin \
+       https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin
 
 # Set Puppeteer to use installed Chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true

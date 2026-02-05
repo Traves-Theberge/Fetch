@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-02-05 (The "Responsive Pack" Update 🐕)
+
+### 💾 Persistence & Threads (V3.1 Phase 3)
+- **Threads:** Added `/thread` command to manage multiple conversation contexts.
+- **State Saving:** Active mode (`WORKING`, `ALERT`) and thread state are now persisted to SQLite.
+- **Resume Capability:** Agent can now restart and pick up exactly where it left off, including active tasks.
+
+### 🧠 Memory & Reasoning (V3.1 Phase 5)
+- **Summarization:** Auto-summarizes long conversations (20+ messages) to maintain context without token overload.
+- **Clarification:** Agent now detects ambiguous requests ("fix it") and asks clarifying questions instead of guessing.
+- **Context Injection:** Recent summaries are injected into the System Prompt.
+
+### 🛡️ Advanced Safety (V3.1 Phase 4)
+- **Guarding Mode:** Dangerous operations or tool questions trigger a strict `GUARDING` mode.
+- **Explicit Confirmation:** Agent blocks execution until `yes`/`confirm` is received.
+- **Visual Feedback:** Added state emojis (🟢, 🔵, 🔴) to all responses.
+
 ## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
 
 ### 🗺️ Smart Repo Maps (Issue #9)
