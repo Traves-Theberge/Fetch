@@ -109,14 +109,9 @@ export interface Message {
 // Agent Task
 // ============================================================================
 
-export type TaskStatus =
-  | 'planning'           // Creating execution plan
-  | 'executing'          // Running a tool
-  | 'awaiting_approval'  // Waiting for user yes/no
-  | 'paused'             // User said "pause"
-  | 'completed'          // Goal achieved
-  | 'failed'             // Unrecoverable error
-  | 'aborted';           // User said "stop"
+import type { TaskStatus } from '../task/types.js';
+
+export { TaskStatus };
 
 export type PlanStepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'failed';
 
@@ -157,6 +152,8 @@ export interface AgentTask {
   goal: string;
   /** Current status */
   status: TaskStatus;
+  /** Harness used for execution */
+  harness?: string;
   
   // Planning
   /** Execution plan steps */
@@ -200,8 +197,13 @@ export interface Session {
   id: string;
   /** User's phone number (WhatsApp JID) */
   userId: string;
+  /** Flexible metadata storage (V3.1) */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata: Record<string, any>;
   
   // Conversation
+  /** Current active thread ID (V3.1) */
+  currentThreadId?: string;
   /** Full message history */
   messages: Message[];
   
@@ -239,14 +241,6 @@ export interface Session {
 }
 
 // ============================================================================
-// Database Schema
-// ============================================================================
-
-export interface Database {
-  sessions: Session[];
-}
-
-// ============================================================================
 // Factory Functions
 // ============================================================================
 
@@ -270,6 +264,7 @@ export function createSession(userId: string): Session {
   return {
     id: generateId(),
     userId,
+    metadata: {},
     messages: [],
     currentProject: null,
     availableProjects: [],
@@ -310,7 +305,7 @@ export function createTask(goal: string, maxIterations: number = 25): AgentTask 
   return {
     id: generateId(),
     goal,
-    status: 'planning',
+    status: 'running',
     plan: [],
     currentStepIndex: 0,
     iterations: 0,

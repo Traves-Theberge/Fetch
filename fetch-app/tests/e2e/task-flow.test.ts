@@ -27,7 +27,7 @@ describe('E2E: Task Flow', () => {
 
   describe('Happy Path', () => {
     it('should complete a coding task successfully', async () => {
-      const session = createMockSession({
+      const _session = createMockSession({
         currentProject: createMockProject('my-project'),
       });
 

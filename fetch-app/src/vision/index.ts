@@ -38,18 +38,28 @@ function getClient(): OpenAI {
  * 
  * @param base64Data - Image data in base64 format (no data: URI prefix)
  * @param mimeType - Image MIME type (e.g., image/jpeg)
- * @param prompt - Analysis prompt
+ * @param context - User provided context (caption or message)
  * @returns Text description or analysis of the image
  */
 export async function analyzeImage(
   base64Data: string, 
   mimeType: string, 
-  prompt: string = 'Please describe this image in detail. If it is a screenshot of code or an error, extract the text exactly. If it is a UI design, describe the components.'
+  context: string = ''
 ): Promise<string> {
   try {
     const client = getClient();
     
     logger.info(`🖼️ Analyzing image (${(base64Data.length / 1024 / 1.33).toFixed(1)} KB)...`);
+
+    const systemPrompt = `
+Analyze the provided image.
+${context ? `User context: "${context}"` : ''}
+
+Instructions:
+1. CODE/ERRORS: usage of code, terminal output, or logs MUST be transcribed EXACTLY.
+2. UI/DESIGN: Describe layout, components, and styling in technical terms (e.g. CSS/Tailwind).
+3. GENERAL: Provide a detailed description of the content.
+    `.trim();
 
     // Standard OpenAI Vision format
     const response = await client.chat.completions.create({
@@ -58,7 +68,7 @@ export async function analyzeImage(
         {
           role: 'user',
           content: [
-            { type: 'text', text: prompt },
+            { type: 'text', text: systemPrompt },
             {
               type: 'image_url',
               image_url: {
@@ -85,5 +95,5 @@ export async function analyzeImage(
  * Check if the vision service is available
  */
 export function isVisionAvailable(): boolean {
-  return !!(process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY);
+  return !!process.env.OPENROUTER_API_KEY;
 }

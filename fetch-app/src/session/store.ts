@@ -72,6 +72,32 @@ interface SessionRow {
   last_activity_at: string;
 }
 
+interface MetaRow {
+  key: string;
+  value: string;
+  updated_at: string;
+}
+
+interface SummaryRow {
+  id: string;
+  session_id: string;
+  thread_id?: string;
+  range_start_id: string;
+  range_end_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface ThreadRow {
+    id: string;
+    session_id: string;
+    title: string;
+    status: string;
+    context_snapshot: string;
+    created_at: string;
+    updated_at: string;
+}
+
 // =============================================================================
 // SESSION STORE CLASS
 // =============================================================================
@@ -105,6 +131,18 @@ export class SessionStore {
   private stmtGetAll: Database.Statement | null = null;
   private stmtCount: Database.Statement | null = null;
   private stmtCleanup: Database.Statement | null = null;
+  private stmtGetMeta: Database.Statement | null = null;
+  private stmtSetMeta: Database.Statement | null = null;
+  
+  // Thread Statements
+  private stmtGetThreads: Database.Statement | null = null;
+  private stmtCreateThread: Database.Statement | null = null;
+  private stmtUpdateThread: Database.Statement | null = null;
+  private stmtGetThread: Database.Statement | null = null;
+
+  // Summary Statements
+  private stmtInsertSummary: Database.Statement | null = null;
+  private stmtGetSummaries: Database.Statement | null = null;
 
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     this.dbPath = dbPath;
@@ -137,6 +175,73 @@ export class SessionStore {
         );
         CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions(last_activity_at);
+        
+        -- Memory Facts: Long-term learned facts about users and projects
+        CREATE TABLE IF NOT EXISTS memory_facts (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          session_id TEXT,
+          workspace_path TEXT,
+          category TEXT NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          confidence TEXT DEFAULT 'medium',
+          reinforcement_count INTEGER DEFAULT 1,
+          source TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL,
+          last_used_at TEXT,
+          usage_count INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1,
+          UNIQUE(user_id, workspace_path, category, key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_facts_user_id ON memory_facts(user_id);
+        CREATE INDEX IF NOT EXISTS idx_facts_workspace ON memory_facts(workspace_path);
+        CREATE INDEX IF NOT EXISTS idx_facts_category ON memory_facts(category);
+        CREATE INDEX IF NOT EXISTS idx_facts_active ON memory_facts(is_active);
+        
+        -- Working Context: Short-term memory for active conversations
+        CREATE TABLE IF NOT EXISTS working_context (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          content TEXT NOT NULL,
+          priority TEXT DEFAULT 'normal',
+          relevance REAL DEFAULT 1.0,
+          source_message_id TEXT,
+          metadata TEXT,
+          created_at TEXT NOT NULL,
+          last_relevant_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_context_session ON working_context(session_id);
+        CREATE INDEX IF NOT EXISTS idx_context_relevance ON working_context(relevance);
+        CREATE INDEX IF NOT EXISTS idx_context_type ON working_context(type);
+
+        -- Conversation Summaries (V3.1)
+        CREATE TABLE IF NOT EXISTS conversation_summaries (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          thread_id TEXT, -- Can be null for global/unthreaded history
+          range_start_id TEXT NOT NULL,
+          range_end_id TEXT NOT NULL,
+          content TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_summaries_session ON conversation_summaries(session_id);
+        CREATE INDEX IF NOT EXISTS idx_summaries_thread ON conversation_summaries(thread_id);
+
+        -- Conversation Threads: Persistence for long-running conversations
+        CREATE TABLE IF NOT EXISTS conversation_threads (
+          id TEXT PRIMARY KEY,
+          project_id TEXT,
+          mode TEXT NOT NULL,
+          message_count INTEGER DEFAULT 0,
+          started_at TEXT NOT NULL,
+          last_active_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_threads_project ON conversation_threads(project_id);
       `);
 
       // Prepare statements
@@ -154,6 +259,32 @@ export class SessionStore {
       this.stmtCount = this.db.prepare('SELECT COUNT(*) as count FROM sessions');
       this.stmtCleanup = this.db.prepare('DELETE FROM sessions WHERE last_activity_at < ?');
 
+      // Meta queries
+      this.stmtGetMeta = this.db.prepare('SELECT * FROM meta WHERE key = ?');
+      this.stmtSetMeta = this.db.prepare('INSERT OR REPLACE INTO meta (key, value, updated_at) VALUES (?, ?, ?)');
+
+      // Thread queries
+      this.stmtGetThreads = this.db.prepare('SELECT * FROM conversation_threads WHERE session_id = ? ORDER BY updated_at DESC');
+      this.stmtGetThread = this.db.prepare('SELECT * FROM conversation_threads WHERE id = ?');
+      this.stmtCreateThread = this.db.prepare(`
+        INSERT INTO conversation_threads (id, session_id, title, status, context_snapshot, created_at, updated_at)
+        VALUES (@id, @session_id, @title, @status, @context_snapshot, @created_at, @updated_at)
+      `);
+      this.stmtUpdateThread = this.db.prepare(`
+        UPDATE conversation_threads 
+        SET title = @title, status = @status, context_snapshot = @context_snapshot, updated_at = @updated_at 
+        WHERE id = @id
+      `);
+
+      // Summary
+      this.stmtInsertSummary = this.db.prepare(`
+        INSERT INTO conversation_summaries (id, session_id, thread_id, range_start_id, range_end_id, content, created_at)
+        VALUES (@id, @session_id, @thread_id, @range_start_id, @range_end_id, @content, @created_at)
+      `);
+      this.stmtGetSummaries = this.db.prepare(`
+        SELECT * FROM conversation_summaries WHERE session_id = ? ORDER BY created_at DESC LIMIT ?
+      `);
+      
       this.initialized = true;
       
       const count = (this.stmtCount.get() as { count: number }).count;
@@ -162,6 +293,62 @@ export class SessionStore {
       logger.error('Failed to initialize session store', { error });
       throw error;
     }
+  }
+
+  /**
+   * Get metadata value
+   */
+  public getMeta(key: string): string | null {
+      this.ensureInitialized();
+      const row = this.stmtGetMeta!.get(key) as MetaRow | undefined;
+      return row ? row.value : null;
+  }
+
+  /**
+   * Set metadata value
+   */
+  public setMeta(key: string, value: string): void {
+      this.ensureInitialized();
+      const now = new Date().toISOString();
+      this.stmtSetMeta!.run(key, value, now);
+  }
+
+  // ===========================================================================
+  // THREAD OPERATIONS
+  // ===========================================================================
+
+  public getThreads(sessionId: string): ThreadRow[] {
+      this.ensureInitialized();
+      return this.stmtGetThreads!.all(sessionId) as ThreadRow[];
+  }
+
+  public getThread(id: string): ThreadRow | undefined {
+      this.ensureInitialized();
+      return this.stmtGetThread!.get(id) as ThreadRow | undefined;
+  }
+
+  public createThread(thread: ThreadRow): void {
+      this.ensureInitialized();
+      this.stmtCreateThread!.run(thread);
+  }
+
+  public updateThread(thread: ThreadRow): void {
+      this.ensureInitialized();
+      this.stmtUpdateThread!.run(thread);
+  }
+
+  // ===========================================================================
+  // SUMMARY OPERATIONS (V3.1)
+  // ===========================================================================
+
+  public saveSummary(summary: SummaryRow): void {
+      this.ensureInitialized();
+      this.stmtInsertSummary!.run(summary);
+  }
+
+  public getSummaries(sessionId: string, limit: number = 5): SummaryRow[] {
+      this.ensureInitialized();
+      return this.stmtGetSummaries!.all(sessionId, limit) as SummaryRow[];
   }
 
   /**

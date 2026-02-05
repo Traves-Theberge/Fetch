@@ -78,6 +78,29 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // =============================================================================
+// TASK EVENT INTERFACES
+// =============================================================================
+
+/** Payload shape for task:progress events */
+interface TaskProgressEvent {
+  sessionId?: string;
+  message?: string;
+}
+
+/** Payload shape for task:file_op events */
+interface TaskFileOpEvent {
+  sessionId?: string;
+  operation?: string;
+  path?: string;
+}
+
+/** Payload shape for task:question events */
+interface TaskQuestionEvent {
+  sessionId?: string;
+  question?: string;
+}
+
+// =============================================================================
 // CHROME LOCK CLEANUP
 // =============================================================================
 
@@ -130,6 +153,44 @@ function cleanupChromeLocks(authPath: string): void {
 }
 
 // =============================================================================
+// MESSAGE DEDUPLICATION
+// =============================================================================
+
+/**
+ * Tracks recently processed message IDs to prevent duplicate processing.
+ * WhatsApp's message_create event can fire multiple times for the same message.
+ * Uses a Map with timestamps for automatic TTL-based cleanup.
+ */
+class MessageDeduplicator {
+  private processedMessages = new Map<string, number>();
+  private readonly TTL_MS = 30000; // 30 seconds
+  
+  /**
+   * Check if message was already processed. Returns true if new, false if duplicate.
+   * Automatically cleans up old entries.
+   */
+  isNew(messageId: string): boolean {
+    const now = Date.now();
+    
+    // Cleanup old entries
+    for (const [id, timestamp] of this.processedMessages) {
+      if (now - timestamp > this.TTL_MS) {
+        this.processedMessages.delete(id);
+      }
+    }
+    
+    // Check if already processed
+    if (this.processedMessages.has(messageId)) {
+      return false;
+    }
+    
+    // Mark as processed
+    this.processedMessages.set(messageId, now);
+    return true;
+  }
+}
+
+// =============================================================================
 // BRIDGE CLASS
 // =============================================================================
 
@@ -146,6 +207,7 @@ export class Bridge {
   private client: ClientType;
   private securityGate: SecurityGate;
   private rateLimiter: RateLimiter;
+  private deduplicator = new MessageDeduplicator();
 
   constructor() {
     this.client = new Client({
@@ -244,6 +306,7 @@ export class Bridge {
     // MESSAGE REACTION HANDLER
     // Emoji reactions like 👍, ❤️, etc. on messages
     // ==========================================================================
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js has no typed Reaction export
     this.client.on('message_reaction', async (reaction: any) => {
       try {
         // Only process reactions from owner
@@ -290,6 +353,14 @@ export class Bridge {
     
     // Use message_create to catch ALL messages including self-chat
     this.client.on('message_create', async (message: Message) => {
+      // DEDUPLICATION: WhatsApp fires message_create multiple times for same message
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js Message.id not in type defs
+      const msgId = (message as any).id?._serialized || (message as any).id?.id || String(message.timestamp);
+      if (!this.deduplicator.isNew(msgId)) {
+        logger.debug(`Skipped duplicate message: ${msgId}`);
+        return;
+      }
+      
       logger.debug(`message_create: from=${message.from}, type=${message.type}, fromMe=${message.fromMe}`);
       
       // Handle Voice Notes (PTT)
@@ -343,6 +414,7 @@ export class Bridge {
    */
   private async isReplyToFetchMessage(message: Message): Promise<boolean> {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js getQuotedMessage not in type defs
       const quotedMsg = await (message as any).getQuotedMessage();
       if (!quotedMsg) return false;
       
@@ -380,12 +452,12 @@ export class Bridge {
         return false;
       }
 
-      const analysis = await analyzeImage(media.data, media.mimetype);
+      const originalCaption = message.body || '';
+      const analysis = await analyzeImage(media.data, media.mimetype, originalCaption);
       
       if (!analysis) return false;
 
       // Update message body to include analysis context
-      const originalCaption = message.body || '';
       message.body = `${originalCaption}\n\n[CONTEXT: Image Analysis]\n${analysis}`.trim();
       
       logger.success('🖼️ Image analysis added to message context');
@@ -406,9 +478,9 @@ export class Bridge {
     const lastProgressUpdate = new Map<string, number>();
     const THROTTLE_MS = 3000; // Minimum 3s between general progress updates
 
-    integration.on('task:progress', async (event: any) => {
+    integration.on('task:progress', async (event: TaskProgressEvent) => {
       const { sessionId, message } = event;
-      if (!sessionId) return;
+      if (!sessionId || !message) return;
 
       const now = Date.now();
       const lastUpdate = lastProgressUpdate.get(sessionId) || 0;
@@ -426,7 +498,7 @@ export class Bridge {
       }
     });
 
-    integration.on('task:file_op', async (event: any) => {
+    integration.on('task:file_op', async (event: TaskFileOpEvent) => {
       const { sessionId, operation, path } = event;
       if (!sessionId) return;
 
@@ -440,7 +512,7 @@ export class Bridge {
       }
     });
 
-    integration.on('task:question', async (event: any) => {
+    integration.on('task:question', async (event: TaskQuestionEvent) => {
       const { sessionId, question } = event;
       if (!sessionId || !question) return;
 
@@ -468,15 +540,12 @@ export class Bridge {
       logger.info('🎤 Processing voice note...');
       
       const media = await message.downloadMedia();
-      if (!media) {
-        logger.error('Failed to download voice note media');
-        return false;
-      }
 
       const buffer = Buffer.from(media.data, 'base64');
       const filename = media.filename || `voice-${Date.now()}.ogg`;
       
-      const transcription = await transcribeAudio(buffer, filename);
+      const result = await transcribeAudio(buffer, filename);
+      const transcription = result.text;
       
       if (!transcription || transcription.trim().length === 0) {
         logger.warn('Transcription returned empty text');
@@ -487,7 +556,7 @@ export class Bridge {
       // and inject into the message body for normal processing
       message.body = transcription;
       
-      logger.success(`🎤 Transcribed voice: "${transcription}"`);
+      logger.success(`🎤 Transcribed voice (${result.language || 'unknown'}): "${transcription}"`);
       return true;
     } catch (error) {
       logger.error('Failed to handle voice message', error);
@@ -501,6 +570,7 @@ export class Bridge {
    */
   private async handleIncomingMessage(message: Message, isThreadReply: boolean = false): Promise<void> {
     const senderId = message.from;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js Message.author not in type defs
     const participantId = (message as any).author; // Group message author
     const messageBody = message.body;
     
