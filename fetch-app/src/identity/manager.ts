@@ -3,8 +3,8 @@ import { getSkillManager } from '../skills/manager.js';
 import { getModeManager } from '../modes/manager.js';
 import { FetchMode } from '../modes/types.js';
 import { IdentityLoader } from './loader.js';
+import { IDENTITY_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
-import path from 'path';
 import { logger } from '../utils/logger.js';
 
 // Default "Orchestrator" Identity
@@ -49,21 +49,9 @@ export class IdentityManager {
 
   private constructor() {
     this.identity = { ...DEFAULT_IDENTITY }; // Clone
-    // Assume data is at ../data/identity relative to CWD if we are in fetch-app
-    // Or just look for data/identity in Project Root
-    // const possiblePaths = [
-    //   path.join(process.cwd(), 'data', 'identity'),
-    //   path.join(process.cwd(), '..', 'data', 'identity')
-    // ];
-    
-    // Simplification: Assume 'data/identity' relative to where we run or parent
-    // The Dockerfile or standard run sets CWD.
-    // Let's default to the one that matches the workspace structure
-    const dataDir = path.resolve(process.cwd(), '../data/identity'); 
-    
-    this.loader = new IdentityLoader(dataDir);
+    this.loader = new IdentityLoader(IDENTITY_DIR);
     this.reloadIdentity();
-    this.setupWatchers(dataDir);
+    this.setupWatchers(IDENTITY_DIR);
   }
 
   private setupWatchers(dir: string) {

@@ -7,15 +7,14 @@
  */
 
 import Database from 'better-sqlite3';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 import { mkdir } from 'fs/promises';
 import { Task, TaskId } from './types.js';
 import { logger } from '../utils/logger.js';
+import { TASKS_DB } from '../config/paths.js';
 
 /** Default database file path */
-const DEFAULT_DB_PATH = process.env.DATABASE_PATH 
-  ? join(dirname(process.env.DATABASE_PATH), 'tasks.db')
-  : '/app/data/tasks.db';
+const DEFAULT_DB_PATH = TASKS_DB;
 
 export class TaskStore {
   private db: Database.Database | null = null;

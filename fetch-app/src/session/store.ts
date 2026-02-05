@@ -49,13 +49,14 @@ import {
   createSession 
 } from './types.js';
 import { logger } from '../utils/logger.js';
+import { SESSIONS_DB } from '../config/paths.js';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
 /** Default database file path */
-const DEFAULT_DB_PATH = '/app/data/sessions.db';
+const DEFAULT_DB_PATH = SESSIONS_DB;
 
 /** Session expiry time (7 days in milliseconds) */
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;

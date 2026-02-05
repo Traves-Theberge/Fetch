@@ -16,7 +16,7 @@ Fetch v3 moves beyond simple intent classification to a **State-Machine Driven O
 
 ### The Hierarchy
 
-1.  **The Administrator (User)**: Helper commands, high-level intent.
+1.  **The Alpha (User)**: High-level intent, force overrides, trust management.
 2.  **The Orchestrator (Fetch)**: Maintains context, plans tasks, guards safety, and orchestrates the sub-agents.
 3.  **The Sub-agents (Harnesses)**: Specialized agents (Claude Code, Gemini CLI, Copilot CLI) that perform the actual heavy lifting (coding, terminal execution).
 
@@ -26,11 +26,11 @@ Fetch v3 moves beyond simple intent classification to a **State-Machine Driven O
 
 Fetch's "brain" is composed of layers, processed in order:
 
-### 1. Reflex Layer (System Rules)
-Before LLM processing, message content is checked against deterministic patterns.
+### 1. Instinct Layer (System Rules)
+Before LLM processing, message content is checked against deterministic instinct handlers in `src/instincts/`.
 *   **Speed:** < 5ms
-*   **Function:** Safety, immediate control (`stop`, `status`), mode switching.
-*   **Example:** User types "STOP!" -> System immediately halts current process.
+*   **Function:** Safety (`stop`, `undo`, `clear`), info (`help`, `status`, `commands`), meta (`whoami`, `identity`, `skills`, `tools`), scheduling.
+*   **Example:** User types "/stop" → `stopInstinct` immediately halts current process.
 
 ### 2. Mode System (State Machine)
 The core of the agent is a finite state machine. The current **Mode** determines how the agent perceives and reacts to input.
@@ -80,10 +80,10 @@ Fetch wraps these CLIs in a standardized **Harness Adapter**, handling stdin/std
 - No fear of breaking things
 
 ### 4. Progressive Autonomy
-- Start **supervised** (ask before each action)
-- User can say "auto" to enable autonomous mode
+- Harnesses execute autonomously within sandboxed workspace
 - Agent checks in at milestones, not every step
-- Always interruptible with "stop" or "pause"
+- Always interruptible with `/stop` or `/pause`
+- Fetch orchestrates, harnesses implement
 
 ### 5. Project Awareness
 - Scan `/workspace` for git repositories
@@ -154,22 +154,20 @@ interface ProjectContext {
 }
 ```
 
-### Intent Classification (V2)
+### Intent Classification (V3.1)
 
 ```typescript
-interface IntentClassification {
-  intent: IntentType;
+type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
+
+interface ClassifiedIntent {
+  type: IntentType;
   confidence: number;
-  reasoning: string;
+  reason: string;
+  entities?: ExtractedEntities;
 }
-
-type IntentType = 'conversation' | 'workspace' | 'task';
-
-// Pattern matching for each type:
-const CONVERSATION_PATTERNS = ['hello', 'hi', 'hey', 'thanks', 'thank you'];
-const WORKSPACE_PATTERNS = ['list', 'show', 'projects', 'status', 'switch', 'workspace'];
-const TASK_PATTERNS = ['build', 'create', 'implement', 'refactor', 'fix', 'add'];
 ```
+
+The four-intent system (defined in `agent/intent.ts`) classifies messages using pattern matching with confidence scoring. The `clarify` intent handles ambiguous requests that need user input before routing.
 
 ### Task State
 
@@ -258,45 +256,55 @@ Execute    Skip
 
 ## WhatsApp Commands
 
-### System Commands
+### General
 
 | Command | Description |
 |---------|-------------|
-| `@fetch help` | Show available commands |
-| `@fetch ping` | Connectivity test |
-| `@fetch task` | Show current task status |
+| `@fetch /help` | Show capabilities |
+| `@fetch /status` | Current state |
+| `@fetch /commands` | List all commands |
+| `@fetch /clear` | Reset session |
 
-### Project Commands
-
-| Command | Description |
-|---------|-------------|
-| `@fetch /projects` | List available projects |
-| `@fetch /project <name>` | Switch to project |
-| `@fetch /clone <url>` | Clone a repository |
-| `@fetch /init <name>` | Initialize new project |
-| `@fetch /status` | Git status |
-| `@fetch /diff` | Show uncommitted changes |
-| `@fetch /log [n]` | Show recent commits |
-
-### Control Commands
+### Task Control
 
 | Command | Description |
 |---------|-------------|
-| `@fetch undo` | Revert last change |
-| `@fetch undo all` | Revert all session changes |
-| `@fetch auto` | Toggle autonomous mode |
-| `@fetch supervised` | Return to supervised mode |
-| `@fetch stop` | Cancel current task |
-| `@fetch clear` | Clear conversation history |
+| `@fetch /stop` | Halt current task |
+| `@fetch /pause` | Pause current task |
+| `@fetch /resume` | Resume paused task |
+| `@fetch /undo` | Revert last change |
 
-### Approval Responses
+### Workspace
 
-| Response | Effect |
-|----------|--------|
-| `yes`, `y`, `👍` | Approve pending action |
-| `no`, `n`, `👎` | Reject action |
-| `skip` | Skip and continue |
-| `yes all` | Approve all (switch to autonomous) |
+| Command | Description |
+|---------|-------------|
+| `@fetch /workspace <path>` | Set workspace |
+| `@fetch /workspace` | Show current workspace |
+| `@fetch /project` | Project context |
+
+### Skills & Tools
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /skills` | List available skills |
+| `@fetch /tools` | List available tools |
+| `@fetch /harness <name>` | Use specific harness |
+
+### Identity & Memory
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /identity` | Show identity |
+| `@fetch /remember <fact>` | Store a fact |
+| `@fetch /memory` | Show memory stats |
+
+### Scheduling
+
+| Command | Description |
+|---------|-------------|
+| `@fetch /remind <msg> in <time>` | Set reminder |
+| `@fetch /schedule <msg> at <time>` | Schedule message |
+| `@fetch /cron list` | List scheduled jobs |
 
 ---
 
@@ -350,56 +358,48 @@ Say "undo" to revert.
 
 ### Model Choice
 
-```typescript
-const MODEL = process.env.AGENT_MODEL || 'openai/gpt-4o-mini';
+Fetch uses OpenRouter to access 100+ AI models. The agent model is configured via environment:
+
+```dotenv
+AGENT_MODEL=anthropic/claude-sonnet-4
 ```
-
-**Why OpenRouter?**
-
-OpenRouter provides access to **100+ AI models** through a single API, allowing you to switch models anytime:
 
 | Model | Best For | Cost |
 |-------|----------|------|
-| `openai/gpt-4o-mini` | Fast, affordable, good reasoning | Low |
-| `openai/gpt-4o` | Best overall quality | Medium |
-| `anthropic/claude-3-5-sonnet` | Excellent coding | Medium |
-| `google/gemini-2.0-flash-exp:free` | Free tier | Free |
+| `anthropic/claude-sonnet-4` | Best overall coding | Medium |
+| `anthropic/claude-haiku-4` | Fast, affordable | Low |
+| `openai/gpt-4o` | Strong reasoning | Medium |
+| `google/gemini-2.5-flash` | Free tier available | Free |
 | `deepseek/deepseek-chat` | Very affordable | Very Low |
-| `meta-llama/llama-3.1-70b-instruct` | Open source | Low |
 
 **Switch models via TUI**: Select "🤖 Select Model" from the menu.
 
-### System Prompt Structure
+### System Prompt Architecture
 
-```typescript
-const systemPrompt = `You are Fetch, an AI coding assistant.
+The system prompt is dynamically assembled at runtime by the Identity Loader from:
+- `data/identity/COLLAR.md` — Core personality and directives
+- `data/identity/ALPHA.md` — User profile and preferences
+- `data/identity/AGENTS.md` — Pack member definitions and routing rules
+- Active skills loaded from `data/skills/`
+- Session context (mode, workspace, memory)
 
-## Capabilities
-- Read/edit files in /workspace
-- Run shell commands
-- Manage git
-
-## Context
-- Active files: ${activeFiles}
-- Mode: ${autonomyLevel}
-- Auto-commit: ${autoCommit}
-
-## Repository
-${repoMap}
-
-## Guidelines
-1. Be concise (mobile display)
-2. Show diffs before changes
-3. Run tests after code changes
-4. Commit with clear messages
-5. Ask for clarification when needed`;
-```
+See `agent/prompts.ts` for the prompt assembly logic.
 
 ---
 
 ## Security Considerations
 
-### 5-Layer Protection
+### 7-Layer Security
+
+| Layer | Component |
+|-------|----------|
+| 1 | Owner Verification |
+| 2 | Whitelist Check (Zero Trust Bonding) |
+| 3 | @fetch Trigger Required |
+| 4 | Rate Limiting |
+| 5 | Input Validation |
+| 6 | Path Traversal Protection |
+| 7 | Docker Isolation |
 
 <!-- DIAGRAM:security -->
 
@@ -426,20 +426,21 @@ ${repoMap}
 | File | Purpose |
 |------|---------|
 | `agent/core.ts` | Main orchestrator, routes by intent |
-| `agent/intent.ts` | Intent classification patterns |
-| `agent/conversation.ts` | Conversation mode (no tools) |
-| `agent/inquiry.ts` | Inquiry mode (read-only) |
-| `agent/action.ts` | Action mode (single edit cycle) |
+| `agent/intent.ts` | Intent classification (4 intents) |
 | `agent/prompts.ts` | Centralized system prompts |
 | `agent/format.ts` | WhatsApp message formatting |
 | `agent/whatsapp-format.ts` | Mobile-friendly utilities |
+| `instincts/index.ts` | Instinct registry and routing |
+| `instincts/*.ts` | Individual instinct handlers |
+| `harness/index.ts` | Harness pool and spawner |
+| `harness/executor.ts` | CLI process execution |
 | `session/types.ts` | TypeScript interfaces |
 | `session/store.ts` | SQLite persistence |
 | `session/manager.ts` | Session lifecycle |
-| `session/project.ts` | Project scanner |
+| `security/gate.ts` | Zero Trust Bonding gate |
+| `security/validator.ts` | Input validation |
 | `commands/parser.ts` | Command parsing |
 | `tools/registry.ts` | Tool registration |
-| `tools/*.ts` | Individual tool implementations |
 
 ### Error Handling
 
@@ -460,16 +461,6 @@ try {
 
 ---
 
-## Future Enhancements
-
-| Feature | Priority | Notes |
-|---------|----------|-------|
-| Semantic search | High | Find code by meaning |
-| Multi-file actions | High | Batch related changes |
-| Branch strategies | Medium | Auto-create for risky changes |
-| Long-term memory | Low | Embeddings for project context |
-| Web UI | Low | Optional dashboard |
-
 ---
 
-*Architecture documentation for Fetch v0.2.0*
+*Agentic Architecture for Fetch v3.1.2*

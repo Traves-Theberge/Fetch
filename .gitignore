@@ -11,9 +11,6 @@ dist/
 data/.wwebjs_auth/
 data/.wwebjs_cache/
 
-# Task database (contains conversation history)
-data/tasks.json
-
 # Config directories (contain auth tokens!)
 config/github/
 config/claude/
@@ -38,6 +35,8 @@ logs/
 
 # Go binaries
 manager/fetch-manager
+
+# SQLite databases (runtime-generated)
 *.db
 *.db-shm
 *.db-wal

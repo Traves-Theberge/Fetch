@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "gray-matter": "^4.0.3",
-    "natural": "^8.1.0"
-  },
-  "devDependencies": {
-    "@types/natural": "^5.1.5"
-  }
-}

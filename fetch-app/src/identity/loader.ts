@@ -10,24 +10,34 @@ export class IdentityLoader {
   }
 
   public load(): Partial<AgentIdentity> {
-    const systemPath = path.join(this.dataDir, 'SYSTEM.md');
+    const collarPath = path.join(this.dataDir, 'COLLAR.md');
     let loaded: Partial<AgentIdentity> = {};
 
-    if (fs.existsSync(systemPath)) {
-      const content = fs.readFileSync(systemPath, 'utf-8');
+    if (fs.existsSync(collarPath)) {
+      const content = fs.readFileSync(collarPath, 'utf-8');
       loaded = this.parseSystem(content);
     } else {
-      console.warn(`[IdentityLoader] SYSTEM.md not found at ${systemPath}`);
+      console.warn(`[IdentityLoader] COLLAR.md not found at ${collarPath}`);
     }
 
-    const userPath = path.join(this.dataDir, 'USER.md');
-    if (fs.existsSync(userPath)) {
-        const content = fs.readFileSync(userPath, 'utf-8');
+    const alphaPath = path.join(this.dataDir, 'ALPHA.md');
+    if (fs.existsSync(alphaPath)) {
+        const content = fs.readFileSync(alphaPath, 'utf-8');
         const user = this.parseUser(content);
         // Merge user context
         if (user.context) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             loaded.context = { ...(loaded.context || {}), ...user.context } as any;
+        }
+    }
+
+    const agentsPath = path.join(this.dataDir, 'AGENTS.md');
+    if (fs.existsSync(agentsPath)) {
+        const content = fs.readFileSync(agentsPath, 'utf-8');
+        const agents = this.parseAgents(content);
+        if (agents.pack) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            loaded.context = { ...(loaded.context || {}), pack: agents.pack } as any;
         }
     }
 
@@ -78,26 +88,67 @@ export class IdentityLoader {
           if (line.startsWith('- **Emoji:**')) identity.emoji = this.extractValue(line);
         }
       } else if (title.startsWith('directives')) {
+        // Parse ### subsections: Primary Directives, Operational Guidelines, Behavioral Traits
+        let currentBucket: 'primary' | 'secondary' | 'behavioral' = 'primary';
         for (const line of body) {
-          // Assuming directives are bullets "key: value" or just text
+          // Detect ### subsection headings
+          if (line.startsWith('### ')) {
+            const sub = line.replace('### ', '').toLowerCase();
+            if (sub.includes('primary')) currentBucket = 'primary';
+            else if (sub.includes('operational') || sub.includes('guideline')) currentBucket = 'secondary';
+            else if (sub.includes('behavioral') || sub.includes('personality')) currentBucket = 'behavioral';
+            continue;
+          }
+          // Skip table headers and separator rows
+          if (line.startsWith('|') || line.startsWith('---')) continue;
           const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
-          identity.directives.primary.push(cleaned);
+          if (cleaned.length > 0) {
+            identity.directives[currentBucket].push(cleaned);
+          }
         }
       } else if (title.startsWith('instincts') || title.startsWith('behavior')) {
-         for (const line of body) {
+        for (const line of body) {
+          if (line.startsWith('### ') || line.startsWith('|') || line.startsWith('---')) continue;
           const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
-          identity.directives.behavioral.push(cleaned);
+          if (cleaned.length > 0) identity.directives.behavioral.push(cleaned);
         }
       } else if (title.startsWith('communication style')) {
-        // Map to secondary directives or voice style
         for (const line of body) {
-           const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
-           identity.directives.secondary.push(cleaned);
+          if (line.startsWith('### ') || line.startsWith('|') || line.startsWith('---')) continue;
+          const cleaned = line.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '');
+          if (cleaned.length > 0) identity.directives.secondary.push(cleaned);
         }
       }
     }
 
     return identity;
+  }
+
+  private parseAgents(content: string): { pack: Array<{ name: string; harness: string; role: string; strengths: string }> } {
+    const pack: Array<{ name: string; harness: string; role: string; strengths: string }> = [];
+    const memberBlocks = content.split(/^### /m).slice(1);
+
+    for (const block of memberBlocks) {
+      const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const member: { name: string; harness: string; role: string; strengths: string } = {
+        name: '', harness: '', role: '', strengths: ''
+      };
+
+      for (const line of lines) {
+        if (line.startsWith('- **Harness:**')) member.harness = this.extractValue(line);
+        if (line.startsWith('- **Role:**')) member.role = this.extractValue(line);
+        if (line.startsWith('- **Strengths:**')) member.strengths = this.extractValue(line);
+      }
+
+      // Extract name from heading (e.g., "1. Claude (The Sage)")
+      const heading = lines[0] || '';
+      const nameMatch = heading.match(/\d+\.\s+(.+?)\s*(?:\(|$)/);
+      if (nameMatch) member.name = nameMatch[1].trim();
+
+      if (member.name && member.harness) pack.push(member);
+    }
+
+    return { pack };
   }
 
   private extractValue(line: string): string {

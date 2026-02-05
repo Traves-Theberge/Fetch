@@ -3,13 +3,19 @@ data/.wwebjs_auth
 data/sessions.db
 data/sessions.db-wal
 data/sessions.db-shm
+data/tasks.db
+data/tasks.db-wal
+data/tasks.db-shm
 
 # Git
 .git
 .gitignore
 
 # Manager (Go TUI - not needed in Docker)
-manager
+manager/
+
+# Kennel (separate build context)
+kennel/
 
 # IDE
 .vscode
@@ -19,10 +25,17 @@ manager
 .DS_Store
 Thumbs.db
 
+# Documentation site (served separately)
+docs/
+
 # Test files
 **/*.test.ts
 **/tests
 **/coverage
+
+# Markdown docs at root
+*.md
+!fetch-app/README.md
 
 # Build artifacts
 **/.nyc_output

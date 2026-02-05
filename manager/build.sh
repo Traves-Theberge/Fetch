@@ -8,16 +8,26 @@ echo "🐕 Building Fetch Manager..."
 
 cd "$(dirname "$0")"
 
+# Version info for ldflags injection
+VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "v1.0.0-dev")
+COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+LDFLAGS="-s -w"
+LDFLAGS="${LDFLAGS} -X 'github.com/fetch/manager/internal/components.version=${VERSION}'"
+LDFLAGS="${LDFLAGS} -X 'github.com/fetch/manager/internal/components.buildDate=${BUILD_DATE}'"
+LDFLAGS="${LDFLAGS} -X 'github.com/fetch/manager/internal/components.gitCommit=${COMMIT}'"
+
 # Tidy dependencies
 go mod tidy
 
 # Build for current platform
 echo "Building for current platform..."
-go build -o fetch-manager .
+go build -ldflags "${LDFLAGS}" -o fetch-manager .
 
 # Build for ARM64 (Linux)
 echo "Building for Linux ARM64..."
-GOOS=linux GOARCH=arm64 go build -o fetch-manager-arm64 .
+GOOS=linux GOARCH=arm64 go build -ldflags "${LDFLAGS}" -o fetch-manager-arm64 .
 
 echo "✅ Build complete!"
 echo ""
