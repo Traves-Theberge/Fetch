@@ -132,7 +132,7 @@ src/
 
 ## Docker Architecture
 
-<!-- DIAGRAM:architecture -->
+<!-- DIAGRAM:docker -->
 
 ### Container Communication
 

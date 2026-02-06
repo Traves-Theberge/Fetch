@@ -1349,6 +1349,250 @@ const FetchDiagrams = {
   },
 
   // =====================================================
+  // DIAGRAM: Docker Architecture
+  // =====================================================
+  renderDockerArchitecture(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    const colors = this.getColors();
+    const svg = this.createSVG(container, 800, 520);
+
+    // Title
+    svg.append('text')
+      .attr('x', 400)
+      .attr('y', 35)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '20px')
+      .attr('font-weight', '700')
+      .text('🐳 Docker Architecture');
+
+    // Host machine outline
+    svg.append('rect')
+      .attr('x', 20)
+      .attr('y', 55)
+      .attr('width', 760)
+      .attr('height', 440)
+      .attr('rx', 12)
+      .attr('fill', 'none')
+      .attr('stroke', colors.nodeBorder)
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '8,4');
+    svg.append('text')
+      .attr('x', 40)
+      .attr('y', 78)
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('🖥️ Host Machine');
+
+    // Docker network outline
+    svg.append('rect')
+      .attr('x', 50)
+      .attr('y', 95)
+      .attr('width', 700)
+      .attr('height', 310)
+      .attr('rx', 10)
+      .attr('fill', colors.accent1)
+      .attr('opacity', 0.05);
+    svg.append('rect')
+      .attr('x', 50)
+      .attr('y', 95)
+      .attr('width', 700)
+      .attr('height', 310)
+      .attr('rx', 10)
+      .attr('fill', 'none')
+      .attr('stroke', colors.accent1)
+      .attr('stroke-width', 1.5);
+    svg.append('text')
+      .attr('x', 70)
+      .attr('y', 118)
+      .attr('fill', colors.accent1)
+      .attr('font-size', '12px')
+      .attr('font-weight', '600')
+      .text('fetch-network (bridge)');
+
+    // ── Bridge Container ──
+    const bx = 80, by = 135, bw = 310, bh = 250;
+    svg.append('rect')
+      .attr('x', bx).attr('y', by)
+      .attr('width', bw).attr('height', bh)
+      .attr('rx', 10)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent2)
+      .attr('stroke-width', 2);
+    // Bridge header
+    svg.append('rect')
+      .attr('x', bx).attr('y', by)
+      .attr('width', bw).attr('height', 40)
+      .attr('rx', 10)
+      .attr('fill', colors.accent2)
+      .attr('opacity', 0.2);
+    svg.append('text')
+      .attr('x', bx + bw/2).attr('y', by + 26)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('🌉 fetch-bridge');
+
+    // Bridge internals
+    const bridgeParts = [
+      { label: 'WhatsApp Client', icon: '📱', y: by + 55 },
+      { label: 'Intent Classifier', icon: '🧠', y: by + 80 },
+      { label: 'Session Manager', icon: '💾', y: by + 105 },
+      { label: 'Task Manager', icon: '📋', y: by + 130 },
+      { label: 'Security Gate', icon: '🔒', y: by + 155 },
+      { label: 'Status API :8765', icon: '🔌', y: by + 180 },
+      { label: 'Proactive System', icon: '⏰', y: by + 205 },
+    ];
+    bridgeParts.forEach(p => {
+      svg.append('text')
+        .attr('x', bx + 20).attr('y', p.y)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '11px')
+        .text(`${p.icon} ${p.label}`);
+    });
+
+    // ── Kennel Container ──
+    const kx = 430, ky = 135, kw = 300, kh = 250;
+    svg.append('rect')
+      .attr('x', kx).attr('y', ky)
+      .attr('width', kw).attr('height', kh)
+      .attr('rx', 10)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent3)
+      .attr('stroke-width', 2);
+    // Kennel header
+    svg.append('rect')
+      .attr('x', kx).attr('y', ky)
+      .attr('width', kw).attr('height', 40)
+      .attr('rx', 10)
+      .attr('fill', colors.accent3)
+      .attr('opacity', 0.2);
+    svg.append('text')
+      .attr('x', kx + kw/2).attr('y', ky + 26)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('🏠 fetch-kennel');
+
+    // Kennel internals
+    const kennelParts = [
+      { label: 'Claude Code CLI', icon: '🤖', y: ky + 60 },
+      { label: 'GitHub Copilot CLI', icon: '🐙', y: ky + 85 },
+      { label: 'Gemini CLI', icon: '♊', y: ky + 110 },
+      { label: 'Node.js / npm', icon: '📦', y: ky + 140 },
+      { label: 'Git', icon: '🔀', y: ky + 165 },
+      { label: 'gh CLI', icon: '🐈', y: ky + 190 },
+    ];
+    kennelParts.forEach(p => {
+      svg.append('text')
+        .attr('x', kx + 20).attr('y', p.y)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '11px')
+        .text(`${p.icon} ${p.label}`);
+    });
+
+    // Resource limits badge
+    svg.append('text')
+      .attr('x', kx + kw/2).attr('y', ky + kh - 15)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.warning)
+      .attr('font-size', '10px')
+      .text('⚠️ 2 CPU / 2GB RAM limit');
+
+    // ── docker exec arrow between containers ──
+    svg.append('path')
+      .attr('d', 'M 390 230 L 430 230')
+      .attr('fill', 'none')
+      .attr('stroke', colors.accent4)
+      .attr('stroke-width', 2)
+      .attr('marker-end', 'url(#arrowhead)');
+    svg.append('path')
+      .attr('d', 'M 430 250 L 390 250')
+      .attr('fill', 'none')
+      .attr('stroke', colors.accent4)
+      .attr('stroke-width', 2)
+      .attr('marker-end', 'url(#arrowhead)');
+    svg.append('text')
+      .attr('x', 410).attr('y', 220)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.accent4)
+      .attr('font-size', '9px')
+      .attr('font-weight', '600')
+      .text('docker exec');
+    svg.append('text')
+      .attr('x', 410).attr('y', 268)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.accent4)
+      .attr('font-size', '9px')
+      .text('stdout/stderr');
+
+    // Arrowhead marker
+    svg.append('defs').append('marker')
+      .attr('id', 'arrowhead')
+      .attr('viewBox', '0 0 10 10')
+      .attr('refX', 10).attr('refY', 5)
+      .attr('markerWidth', 6).attr('markerHeight', 6)
+      .attr('orient', 'auto-start-reverse')
+      .append('path')
+      .attr('d', 'M 0 0 L 10 5 L 0 10 z')
+      .attr('fill', colors.accent4);
+
+    // ── Volume mounts at bottom ──
+    const vy = 420;
+    const volumes = [
+      { label: './data', targets: 'Bridge', icon: '💾', x: 100 },
+      { label: './workspace', targets: 'Both', icon: '📂', x: 250 },
+      { label: 'docker.sock', targets: 'Bridge (ro)', icon: '🔌', x: 400 },
+      { label: '~/.config/*', targets: 'Kennel (ro)', icon: '🔑', x: 570 },
+    ];
+
+    svg.append('text')
+      .attr('x', 400).attr('y', vy)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '13px')
+      .attr('font-weight', '600')
+      .text('📁 Volume Mounts');
+
+    volumes.forEach(v => {
+      // Volume box
+      svg.append('rect')
+        .attr('x', v.x - 55).attr('y', vy + 10)
+        .attr('width', 130).attr('height', 50)
+        .attr('rx', 6)
+        .attr('fill', colors.nodeBg)
+        .attr('stroke', colors.nodeBorder)
+        .attr('stroke-width', 1);
+      svg.append('text')
+        .attr('x', v.x + 10).attr('y', vy + 33)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.text)
+        .attr('font-size', '11px')
+        .attr('font-weight', '600')
+        .text(`${v.icon} ${v.label}`);
+      svg.append('text')
+        .attr('x', v.x + 10).attr('y', vy + 49)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '9px')
+        .text(`→ ${v.targets}`);
+    });
+
+    // Port exposure annotation
+    svg.append('text')
+      .attr('x', 400).attr('y', 505)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '11px')
+      .text('Port 8765 exposed to host for Status API + Docs Site');
+  },
+
+  // =====================================================
   // Initialize all diagrams on page
   // =====================================================
   initAll() {
@@ -1382,6 +1626,9 @@ const FetchDiagrams = {
           break;
         case 'harness':
           this.renderHarnessSystem(container.id);
+          break;
+        case 'docker':
+          this.renderDockerArchitecture(container.id);
           break;
       }
     });
