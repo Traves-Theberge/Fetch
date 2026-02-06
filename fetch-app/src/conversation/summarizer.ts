@@ -12,7 +12,8 @@ import { Session, Message } from '../session/types.js';
 import { logger } from '../utils/logger.js';
 
 // Configuration
-const SUMMARY_THRESHOLD = 20; // Summarize every N messages
+import { pipeline } from '../config/pipeline.js';
+const SUMMARY_THRESHOLD = pipeline.compactionThreshold;
 import { env } from '../config/env.js';
 
 const SUMMARY_MODEL = env.SUMMARY_MODEL;
@@ -110,7 +111,7 @@ export class ConversationSummarizer {
         { role: "system", content: "You are a technical aide summarizing a developer's session." },
         { role: "user", content: prompt }
       ],
-      max_tokens: 500
+      max_tokens: pipeline.compactionMaxTokens
     });
 
     const content = response.choices[0].message.content || "No summary generated.";

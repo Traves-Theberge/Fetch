@@ -50,6 +50,7 @@ import {
 import { SessionStore, getSessionStore } from './store.js';
 import { ThreadManager, Thread } from './thread-manager.js';
 import { summarizer } from '../conversation/summarizer.js';
+import { pipeline } from '../config/pipeline.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -328,14 +329,14 @@ export class SessionManager {
   /**
    * Get recent messages (for context window)
    */
-  getRecentMessages(session: Session, limit: number = 50): Message[] {
+  getRecentMessages(session: Session, limit: number = pipeline.recentMessageLimit): Message[] {
     return session.messages.slice(-limit);
   }
 
   /**
    * Truncate message history to save memory
    */
-  async truncateMessages(session: Session, keepLast: number = 100): Promise<void> {
+  async truncateMessages(session: Session, keepLast: number = pipeline.truncationLimit): Promise<void> {
     if (session.messages.length > keepLast) {
       session.messages = session.messages.slice(-keepLast);
       await this.store.update(session);
@@ -410,8 +411,7 @@ export class SessionManager {
     if (!session.repoMapUpdatedAt) return true;
     
     const updatedAt = new Date(session.repoMapUpdatedAt).getTime();
-    const fiveMinutes = 5 * 60 * 1000;
-    return Date.now() - updatedAt > fiveMinutes;
+    return Date.now() - updatedAt > pipeline.repoMapTtl;
   }
 
   /**

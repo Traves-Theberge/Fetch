@@ -207,6 +207,67 @@ services:
 | **Slow harness (large repos)** | `FETCH_HARNESS_TIMEOUT`, `FETCH_TASK_TIMEOUT` | 600000, 600000 |
 | **Minimal resource usage** | All token limits | halve each |
 
+### 0.6 — TUI Pipeline Tuning (Go Manager)
+
+> **Goal:** Let the Alpha tune pipeline parameters from the Fetch TUI without editing `.env` by hand. Same fields, same env vars, same file — just a nicer UI.
+
+**File:** `manager/internal/config/editor.go`
+
+**How it works:** The TUI config editor already reads/writes `.env` via `ConfigField{Key, Value, Label, Help, Masked}`. Pipeline tuning = add new `ConfigField` entries with `FETCH_*` keys. The Node.js `config/pipeline.ts` reads the same env vars from the same `.env` file that Docker Compose passes through.
+
+**New fields added to `NewEditor()`:**
+
+```go
+// ─── Pipeline Tuning ──────────────────────────────────────
+{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window (default: 20)"},
+{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this (default: 40)"},
+{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses (default: 300)"},
+{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses (default: 500)"},
+{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0 (default: 0.7)"},
+{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0 (default: 0.3)"},
+{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message (default: 5)"},
+{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window (default: 30)"},
+{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout (default: 300000)"},
+{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout (default: 300000)"},
+```
+
+**Rendering:** The existing `View()` method renders all fields in a list. To visually separate pipeline tuning from core config, we add a **section separator** — a disabled `ConfigField` with `IsSeparator: true` that renders as `─── Pipeline Tuning ───` instead of a key-value pair.
+
+**View change in `editor.go`:**
+```go
+type ConfigField struct {
+    Key         string
+    Value       string
+    Label       string
+    Help        string
+    Masked      bool
+    IsSeparator bool  // NEW — renders as section header, not editable
+}
+```
+
+In `View()`:
+```go
+if field.IsSeparator {
+    s += "\n" + separatorStyle.Render(field.Label) + "\n"
+    continue
+}
+```
+
+In `Update()` — skip separators during navigation:
+```go
+case "up", "k":
+    for i := e.cursor - 1; i >= 0; i-- {
+        if !e.fields[i].IsSeparator { e.cursor = i; break }
+    }
+```
+
+**Data flow:**
+```
+TUI Editor → saves → .env file → Docker Compose reads → process.env → config/pipeline.ts → all consumers
+```
+
+No new data path. The `.env` file IS the configuration layer. The TUI just makes it user-friendly.
+
 ---
 
 ## Phase 0 Checklist
@@ -221,6 +282,7 @@ services:
 - [ ] **0.8** `task/types.ts` + `task/manager.ts` — Replace timeout defaults with `pipeline.taskTimeout`
 - [ ] **0.9** `harness/types.ts` — Replace harness timeout with `pipeline.harnessTimeout`
 - [ ] **0.10** `validation/common.ts` — Replace validation limits with `pipeline.*`
+- [ ] **0.11** `manager/internal/config/editor.go` — Add `IsSeparator` field, pipeline `FETCH_*` fields, skip-separator navigation
 - [ ] **0.T** Unit test: verify defaults, verify env var overrides
 - [ ] **0.R** Update `docker-compose.yml` with commented-out tuning examples
 

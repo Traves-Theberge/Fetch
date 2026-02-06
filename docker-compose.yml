@@ -11,6 +11,23 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # ─── Pipeline Tuning (uncomment to override defaults) ─────
+    # environment:
+    #   # Context Window
+    #   - FETCH_HISTORY_WINDOW=20              # Messages in sliding window
+    #   - FETCH_COMPACTION_THRESHOLD=40        # Compact when messages exceed this
+    #   # Agent LLM
+    #   - FETCH_CHAT_MAX_TOKENS=300            # Token budget for chat responses
+    #   - FETCH_TOOL_MAX_TOKENS=500            # Token budget for tool responses
+    #   - FETCH_CHAT_TEMPERATURE=0.7           # Chat creativity (0.0-1.0)
+    #   - FETCH_TOOL_TEMPERATURE=0.3           # Tool precision (0.0-1.0)
+    #   - FETCH_MAX_TOOL_CALLS=5               # Tool call rounds per message
+    #   # Rate Limiting
+    #   - FETCH_RATE_LIMIT_MAX=30              # Requests per window
+    #   - FETCH_RATE_LIMIT_WINDOW=60000        # Window duration (ms)
+    #   # Timeouts
+    #   - FETCH_TASK_TIMEOUT=300000            # Task execution (ms)
+    #   - FETCH_HARNESS_TIMEOUT=300000         # AI harness (ms)
     ports:
       # Status API for Go TUI (also serves docs)
       - "8765:8765"

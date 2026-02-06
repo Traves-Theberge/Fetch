@@ -150,7 +150,8 @@ export interface PoolConfig {
 /**
  * Default timeout for harness execution
  */
-export const DEFAULT_HARNESS_TIMEOUT_MS = 300000; // 5 minutes
+import { pipeline } from '../config/pipeline.js';
+export const DEFAULT_HARNESS_TIMEOUT_MS = pipeline.harnessTimeout;
 
 // ============================================================================
 // Harness Adapters
