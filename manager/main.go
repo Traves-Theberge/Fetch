@@ -92,6 +92,7 @@ type model struct {
 	actionMessage    string
 	actionSuccess    bool
 	logLines         []string
+	logViewer        *components.LogViewer
 	configEditor     *config.Editor
 	modelSelector    *models.Selector
 	whitelistManager *config.WhitelistManager
@@ -120,6 +121,7 @@ func initialModel() model {
 		screen:         screenSplash,
 		statusClient:   status.NewClient(),
 		versionInfo:    components.DefaultVersionInfo(),
+		logViewer:      components.NewLogViewer(80, 24),
 		qrProgress:     prog,
 		qrCountdown:    qrCountdown,
 		qrMaxCountdown: qrCountdown,
@@ -186,6 +188,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.logViewer != nil {
+			m.logViewer.SetSize(msg.Width, msg.Height)
+		}
 		return m, nil
 
 	case splashDoneMsg:
@@ -205,6 +210,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case logMsg:
 		m.logLines = msg.lines
+		if m.logViewer != nil {
+			entries := make([]components.LogEntry, 0, len(msg.lines))
+			for _, line := range msg.lines {
+				entries = append(entries, logs.ParseLogLine(line, "bridge"))
+			}
+			m.logViewer.SetLogs(entries)
+		}
 		return m, nil
 
 	case bridgeStatusMsg:
@@ -421,8 +433,10 @@ func (m model) updateLogs(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.screen = screenMenu
 		return m, nil
-	case "r":
-		return m, fetchLogs
+	}
+	// Delegate all other keys to LogViewer (scroll, copy, wrap, etc.)
+	if m.logViewer != nil {
+		m.logViewer, _ = m.logViewer.Update(msg)
 	}
 	return m, nil
 }
@@ -472,7 +486,7 @@ func stopFetchCmd() tea.Cmd {
 }
 
 func fetchLogs() tea.Msg {
-	lines := logs.GetRecentLogs("fetch-bridge", 20)
+	lines := logs.GetRecentLogs("fetch-bridge", 200)
 	return logMsg{lines: lines}
 }
 
@@ -839,7 +853,12 @@ func (m model) viewLogs() string {
 		height = 24
 	}
 
-	// Title
+	if m.logViewer != nil {
+		m.logViewer.SetSize(width, height)
+		return m.logViewer.View()
+	}
+
+	// Fallback if logViewer not initialized
 	title := layout.SectionHeader("📜 Recent Logs", width-4)
 
 	var content strings.Builder
@@ -851,27 +870,14 @@ func (m model) viewLogs() string {
 		}
 	}
 
-	// Help bar
 	helpBar := components.HelpBar(
-		[]string{"r Refresh", "Esc Back"},
+		[]string{"Esc Back"},
 		width,
 	)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	logContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(logContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		logContent,
+		title,
+		content.String(),
 		helpBar,
 	)
 }

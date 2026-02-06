@@ -62,14 +62,18 @@ RUN apt-get update && apt-get install -y \
 
 # Build and install whisper.cpp for local transcription (100% free, no API)
 # Note: The binary is named 'whisper-cli' after build, we rename it to 'whisper-cpp'
+# Must also copy shared libraries (libwhisper.so, libggml.so) and run ldconfig
 RUN git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git /tmp/whisper.cpp \
     && cd /tmp/whisper.cpp \
-    && cmake -B build \
+    && cmake -B build -DBUILD_SHARED_LIBS=ON \
     && cmake --build build --config Release -j$(nproc) \
     && cp build/bin/whisper-cli /usr/local/bin/whisper-cpp \
     && chmod +x /usr/local/bin/whisper-cpp \
+    && cp build/src/libwhisper.so* /usr/local/lib/ 2>/dev/null || true \
+    && cp build/ggml/src/libggml*.so* /usr/local/lib/ 2>/dev/null || true \
+    && ldconfig \
     && rm -rf /tmp/whisper.cpp \
-    && echo '✅ whisper-cpp installed'
+    && echo '✅ whisper-cpp installed with shared libraries'
 
 # Download the tiny whisper model (fast, ~75MB - good for voice notes)
 RUN mkdir -p /app/models \
