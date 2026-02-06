@@ -1,8 +1,10 @@
 # 🧠 Context Pipeline — Iron-Clad Implementation Plan
 
-> **Goal:** Make Fetch context-aware across turns — tool call memory, task completion hooks, last 20 messages, summarization triggers, and OpenAI-standard multi-turn format.
+> **Goal:** Make Fetch context-aware across turns — tool call memory, task completion hooks, 20-message sliding window with compaction, and OpenAI-standard multi-turn format.
 >
 > **Industry Standard:** OpenAI Function Calling Protocol — `assistant` messages carry `tool_calls`, `tool` messages carry results with matching `tool_call_id`. This is how ChatGPT, Claude API, and every production agent framework (LangChain, Vercel AI SDK, AutoGen) maintain multi-turn tool state.
+>
+> **Key Principle:** Tool calls are internal plumbing — the LLM sees them in history for context, but WhatsApp responses only contain the final text. The user never sees raw tool call data.
 
 ---
 
@@ -28,17 +30,19 @@ WhatsApp → handler/index.ts → session.messages.push({role, content})  ← BA
 WhatsApp → handler/index.ts → sManager.addUserMessage(session, text)
                 ↓
          agent/core.ts → buildMessageHistory() → FULL OpenAI format with tool_calls + tool results
-                ↓
+                ↓                                  (internal only — never sent to WhatsApp)
          OpenAI API → tool_calls → execute → sManager.addAssistantToolCallMessage() + sManager.addToolMessage()
                 ↓
          handler/index.ts → sManager.addAssistantMessage(session, response.text)
                 ↓
-         Summarizer fires automatically at threshold (every 20 messages)
+         Compaction triggers when messages > 40 → condense older messages into summary → shrink array
                 ↓
          Task completion → event listener → sManager.addAssistantMessage() → WhatsApp notification
+                ↓
+         WhatsApp ← only response.text + task notifications (NEVER raw tool call data)
 ```
 
-**Result:** Full conversation graph persisted. LLM sees what tools were called, what they returned, and what tasks completed — across turns.
+**Result:** Full conversation graph persisted internally. LLM sees what tools were called, what they returned, and what tasks completed — across turns. User sees only clean natural language responses.
 
 ---
 
@@ -50,7 +54,7 @@ WhatsApp → handler/index.ts → sManager.addUserMessage(session, text)
 | 2 | `buildMessageHistory()` strips tool data | `agent/core.ts` | 688-693 | LLM sees only `{role, content}`, no tool memory |
 | 3 | Tool call results live in local array only | `agent/core.ts` | 546, 606-609 | Results vanish after response |
 | 4 | `maxMessages` defaults to 10 (5 turns) | `agent/core.ts` | 687 | Context permanently lost after 5 exchanges |
-| 5 | Summarizer never fires | `session/manager.ts` | 269 | Only triggered via `addUserMessage()` which handler never calls |
+| 5 | No compaction / memory management | `session/manager.ts` | 269 | Messages grow unbounded, no condensation of older context |
 | 6 | Task completions not in session | `task/integration.ts` | 252-258 | User never learns task finished unless they ask |
 | 7 | No WhatsApp notification on task complete | `task/integration.ts` | 252 | Event emitted, nobody listens to send message |
 | 8 | `sessionId` not passed to tools | `agent/core.ts` | 604 | Tasks created with `sessionId: 'unknown'` |
@@ -346,16 +350,80 @@ const task = await manager.createTask({ goal: framedGoal, agent, workspace, time
 
 ---
 
-### 1.7 — Summarizer Threshold Alignment
+### 1.7 — Compaction (Claude Code Model)
 
-**File:** `conversation/summarizer.ts`
-**Line:** 15
+> **Design:** Replace the current rolling-summaries approach with a compaction model.
+> When messages exceed a threshold, condense everything before the sliding window
+> into a single summary. The summary replaces those messages — the array shrinks.
+> One summary, refreshed each compaction cycle.
 
-**Current:** `SUMMARY_THRESHOLD = 20`
+**Why compaction over rolling summaries:**
+- **Simpler** — no separate `conversation_summaries` table, summary lives in `session.metadata`
+- **Self-managing** — message array never grows unbounded
+- **Token-bounded** — context is always: system prompt + compaction summary (~500 tok) + last 20 messages
+- **Industry standard** — this is how Claude Code, Cursor, and Windsurf manage long conversations
 
-This is already aligned with our new 20-message window. The summarizer will fire every 20 messages, creating a compressed memory of older conversation. The `buildContextSection()` in `prompts.ts` already injects the last 2 summaries into the system prompt.
+**File:** `session/manager.ts` — New `compactIfNeeded()` method
 
-**No code change needed** — just verify it works once 1.1 is done (since `addUserMessage` triggers `checkAndSummarize`).
+```typescript
+const COMPACTION_THRESHOLD = 40; // Compact when messages exceed this
+const KEEP_RECENT = 20;          // Always keep last 20 verbatim
+
+async compactIfNeeded(session: Session): Promise<void> {
+  if (session.messages.length <= COMPACTION_THRESHOLD) return;
+
+  const oldMessages = session.messages.slice(0, -KEEP_RECENT);
+  const recentMessages = session.messages.slice(-KEEP_RECENT);
+
+  // Build transcript of old messages for summarization
+  const transcript = oldMessages.map(m => {
+    const role = m.role.toUpperCase();
+    let content = m.content;
+    if (m.toolCalls) content += ` [Tools: ${m.toolCalls.map(t => t.name).join(', ')}]`;
+    if (m.toolCall) content = `[${m.toolCall.name}]: ${m.toolCall.result ?? 'no result'}`;
+    return `${role}: ${content}`;
+  }).join('\n');
+
+  // LLM-generate compact summary
+  const summary = await this.generateCompactionSummary(transcript, session);
+
+  // Replace old messages with summary in metadata
+  session.metadata.compactionSummary = summary;
+  session.metadata.compactedAt = new Date().toISOString();
+  session.metadata.compactedMessageCount = (session.metadata.compactedMessageCount ?? 0) + oldMessages.length;
+  session.messages = recentMessages;
+
+  await this.store.update(session);
+  logger.info('Compacted session', {
+    removed: oldMessages.length,
+    remaining: recentMessages.length,
+    totalCompacted: session.metadata.compactedMessageCount
+  });
+}
+```
+
+**Trigger:** Called from `addUserMessage()` and `addAssistantMessage()` — replaces the current `summarizer.checkAndSummarize()` call.
+
+**File:** `agent/prompts.ts` `buildContextSection()` — Replace summaries block
+
+```typescript
+// Compaction summary (replaces V3.1 rolling summaries)
+if (session.metadata?.compactionSummary) {
+  parts.push('\n## Conversation History 🧠');
+  parts.push(session.metadata.compactionSummary);
+  parts.push(`_(${session.metadata.compactedMessageCount} earlier messages condensed)_`);
+}
+```
+
+**Token budget impact:**
+- Compaction summary: ~500 tokens (one summary, refreshed each cycle)
+- Replaces: 2 × 500 = 1,000 tokens of rolling summaries
+- **Net savings: ~500 tokens** while providing better coverage
+
+**What happens to the existing summarizer:**
+- `conversation/summarizer.ts` becomes dead code — remove or keep as fallback
+- `conversation_summaries` table stays in schema for backward compat but is no longer written to
+- `buildContextSection()` reads from `session.metadata.compactionSummary` instead of `store.getSummaries()`
 
 ---
 
@@ -371,15 +439,19 @@ This is already aligned with our new 20-message window. The summarizer will fire
 - [ ] **1.5b** `handler/index.ts` — Add `registerWhatsAppSender()` function
 - [ ] **1.5c** `bridge/client.ts` — Call `registerWhatsAppSender()` during init
 - [ ] **1.6** `tools/task.ts` — Call `frameTaskGoal()` before dispatching to harness
-- [ ] **1.7** Verify summarizer fires after 20 messages (integration test)
-- [ ] **1.T** Write/update unit tests for `buildMessageHistory()`, tool persistence, task completion hooks
+- [ ] **1.7a** `session/manager.ts` — Add `compactIfNeeded()` method (LLM-summarize old messages, shrink array)
+- [ ] **1.7b** `session/manager.ts` — Replace `summarizer.checkAndSummarize()` call with `this.compactIfNeeded()` in `addUserMessage()`
+- [ ] **1.7c** `agent/prompts.ts` — Replace `store.getSummaries()` block with `session.metadata.compactionSummary` read
+- [ ] **1.T** Write/update unit tests for `buildMessageHistory()`, tool persistence, compaction, task completion hooks
 - [ ] **1.R** Rebuild Docker, test full flow: message → tool call → task create → task complete → WhatsApp notification
 
 ---
 
-## Phase 2: BM25 Memory & Retrieval
+## Phase 2: BM25 Memory & Precision Recall
 
-> **Goal:** When the 20-message window isn't enough, retrieve relevant older context via full-text search. SQLite FTS5 with BM25 ranking — zero external dependencies.
+> **Goal:** Compaction gives you the gist of older conversation, but sometimes you need *specific* details ("what was the port number we chose?"). BM25 retrieval provides precision recall from the full message history — even messages that were compacted away.
+>
+> **How it complements compaction:** Messages are indexed in FTS5 *before* being compacted. The compaction summary gives the LLM general awareness; BM25 recall gives it specific facts when the current query demands them.
 >
 > **Estimated effort:** 3 new files, 2 modified files, ~400 lines
 >
@@ -446,19 +518,19 @@ async addUserMessage(session: Session, content: string): Promise<Message> {
   session.messages.push(message);
   await this.store.update(session);
   
-  // Index in FTS5
+  // Index in FTS5 BEFORE compaction (so compacted messages are still searchable)
   await memoryManager.index({
     content, sourceType: 'message', sourceId: message.id,
     sessionId: session.id, timestamp: message.timestamp
   });
   
-  // Existing summarizer trigger
-  summarizer.checkAndSummarize(session).catch(...);
+  // Compaction check (Phase 1)
+  await this.compactIfNeeded(session);
   return message;
 }
 ```
 
-Same pattern for `addToolMessage()`, `addAssistantMessage()`, and summary generation.
+Same pattern for `addToolMessage()`, `addAssistantMessage()`. Key: FTS5 indexing happens *before* compaction — this is how BM25 can recall details from compacted messages.
 
 ---
 
@@ -487,7 +559,7 @@ if (recalled) {
 - [ ] **2.2** Create `memory/manager.ts` with `MemoryManager` class (index, search, recall)
 - [ ] **2.3** Create `memory/types.ts` with `MemoryEntry`, `MemoryResult`, `RecallOptions`
 - [ ] **2.4** `session/manager.ts` — Add `memoryManager.index()` calls in all `add*Message()` methods
-- [ ] **2.5** `conversation/summarizer.ts` — Index generated summaries in FTS5
+- [ ] **2.5** `session/manager.ts` — Index compaction summaries in FTS5 (so even summaries are searchable)
 - [ ] **2.6** `agent/prompts.ts` `buildContextSection()` — Add `currentMessage` param, inject recalled memory
 - [ ] **2.7** `agent/core.ts` — Pass current message to `buildContextSection(session, message)`
 - [ ] **2.8** Migration: Backfill existing session messages into FTS5 index on first startup
@@ -581,16 +653,32 @@ Phase 3 (vectors) ─────────────────── Afte
 
 ## Token Budget Analysis
 
+### Phase 1 Budget (Compaction Model)
+
 | Component | Tokens (est.) | Notes |
 |-----------|---------------|-------|
-| System prompt (identity + context) | ~800 | Already exists |
-| 20 messages (user + assistant) | ~4,000 | Assuming 200 tokens/message avg |
-| Tool call messages (5 rounds) | ~2,000 | tool_calls + tool results |
-| 2 summaries | ~1,000 | 500 tokens each |
-| BM25 recalled context (Phase 2) | ~1,500 | Top 5 results, 300 tokens each |
-| Repo map | ~500 | Already exists |
-| **Total context** | **~9,800** | Well within 128K context models |
-| **Available for response** | **118K+** | Plenty of headroom |
+| System prompt (identity + context) | ~800 | Identity, skills, project state |
+| Compaction summary | ~500 | One summary, refreshed each cycle |
+| Sliding window (20 messages) | ~4,000 | Mix of user, assistant, tool messages |
+| Tool call messages in window | ~2,000 | `tool_calls` + `tool` results (part of the 20) |
+| Repo map + project context | ~500 | Already exists |
+| **Phase 1 total** | **~7,800** | ~6% of 128K context |
+
+### Phase 2 Budget (+ BM25 Recall)
+
+| Component | Tokens (est.) | Notes |
+|-----------|---------------|-------|
+| Phase 1 total | ~7,800 | All of the above |
+| BM25 recalled context | ~1,500 | Top 5 results, 300 tokens each |
+| **Phase 2 total** | **~9,300** | ~7% of 128K context |
+
+### Why This Works
+
+- **WhatsApp messages are short** — avg 20-50 tokens per user message, not 200
+- **Tool results are the biggest items** — but they're bounded by `max_tokens: 500`
+- **Compaction is aggressive** — once you pass 40 messages, everything before the window becomes ~500 tokens
+- **Massive headroom** — 7-9K out of 128K leaves 93%+ for the LLM response and future features
+- **No risk of context overflow** — even at 32K model limits, 9K is under 30%
 
 ---
 
@@ -598,7 +686,7 @@ Phase 3 (vectors) ─────────────────── Afte
 
 | Risk | Mitigation |
 |------|------------|
-| Tool call messages bloat session JSON | Truncation already at 100 messages in SessionManager; summarizer compresses older context |
+| Tool call messages bloat session JSON | Compaction at 40 messages condenses old context; array never exceeds ~20 messages after compaction |
 | FTS5 index grows unbounded | Periodic pruning: delete entries older than 30 days for inactive sessions |
 | `buildMessageHistory` format rejected by API | Validate format in unit tests against OpenAI's `ChatCompletionMessageParam` type |
 | Task completion event fires before session loaded | Queue events, process after session manager is initialized |
@@ -612,7 +700,7 @@ Phase 3 (vectors) ─────────────────── Afte
 ### Phase 1 Complete When:
 1. ✅ Send "select test-api" → tool calls `workspace_select` → send "what workspace am I in?" → LLM answers correctly from tool history (not asking again)
 2. ✅ Send "create an Express API" → task starts → task completes → WhatsApp notification received without asking
-3. ✅ Send 6+ messages → summarizer fires → summary visible in system prompt context
+3. ✅ Send 40+ messages → compaction fires → old messages condensed → summary visible in system prompt context → array shrinks to ~20
 4. ✅ All 177+ existing tests still pass + new tests for `buildMessageHistory`, tool persistence, task hooks
 
 ### Phase 2 Complete When:
@@ -629,7 +717,7 @@ Phase 3 (vectors) ─────────────────── Afte
 
 ## Files Changed Summary
 
-### Phase 1 (6 files modified)
+### Phase 1 (7 files modified)
 
 | File | Change | Lines |
 |------|--------|-------|
@@ -638,7 +726,8 @@ Phase 3 (vectors) ─────────────────── Afte
 | `tools/registry.ts` | Add `context` parameter to `execute()` | ~10 |
 | `tools/task.ts` | Accept `context`, use `frameTaskGoal()` | ~20 |
 | `bridge/client.ts` | Call `registerWhatsAppSender()` | ~5 |
-| `session/manager.ts` | No changes needed (API already correct) | 0 |
+| `session/manager.ts` | Add `compactIfNeeded()`, replace summarizer trigger | ~60 |
+| `agent/prompts.ts` | Read compaction summary from `session.metadata` instead of `store.getSummaries()` | ~10 |
 
 ### Phase 2 (3 new files, 3 modified)
 
@@ -647,8 +736,7 @@ Phase 3 (vectors) ─────────────────── Afte
 | `memory/schema.ts` | NEW — FTS5 table creation | ~40 |
 | `memory/manager.ts` | NEW — MemoryManager class | ~200 |
 | `memory/types.ts` | NEW — Types for memory system | ~50 |
-| `session/manager.ts` | Add FTS5 indexing in `add*Message()` methods | ~30 |
-| `conversation/summarizer.ts` | Index summaries in FTS5 | ~10 |
+| `session/manager.ts` | Add FTS5 indexing in `add*Message()` methods + index compaction summaries | ~40 |
 | `agent/prompts.ts` | Inject recalled memory in context | ~20 |
 
 ### Phase 3 (2 new files, 3 modified)
