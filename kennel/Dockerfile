@@ -46,6 +46,13 @@ RUN gh extension install github/gh-copilot || true
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # ============================================
+# Configure git identity for init/commit operations
+# ============================================
+RUN git config --global user.email "fetch@kennel.local" \
+    && git config --global user.name "Fetch" \
+    && git config --global init.defaultBranch main
+
+# ============================================
 # Create workspace directory
 # ============================================
 RUN mkdir -p /workspace && chmod 777 /workspace
