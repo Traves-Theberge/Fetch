@@ -9,7 +9,7 @@
  * @module tests/unit/pipeline-config.test
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 
 // We need to re-import pipeline fresh for each test to pick up env changes.
 // Vitest module cache means we need dynamic import + resetModules.

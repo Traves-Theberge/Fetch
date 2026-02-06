@@ -8,7 +8,7 @@
  * - Task completion event handling
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createMessage, createSession } from '../../src/session/types.js';
 
 // ============================================================================
@@ -195,7 +195,7 @@ describe('Context Pipeline: Compaction', () => {
       delete: vi.fn(),
       cleanup: vi.fn(),
     };
-    const manager = new SessionManager(mockStore as any);
+    const manager = new SessionManager(mockStore as unknown as import('../../src/session/store.js').SessionStore);
 
     const session = createSession('test-user');
     // Add 10 messages (well below threshold of 40)
@@ -221,7 +221,7 @@ describe('Context Pipeline: Compaction', () => {
       delete: vi.fn(),
       cleanup: vi.fn(),
     };
-    const manager = new SessionManager(mockStore as any);
+    const manager = new SessionManager(mockStore as unknown as import('../../src/session/store.js').SessionStore);
 
     const session = createSession('test-user');
     // Add 45 messages (above threshold of 40)
