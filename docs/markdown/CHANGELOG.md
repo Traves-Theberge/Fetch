@@ -5,46 +5,108 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-02-06 (Deep Refinement 🏗️)
+
+### 🏗️ Phase 4 — Architecture Simplification
+- **Unified Dual Task System (4.1):** Deleted `SessionTask` from session types. `session/manager.ts` task methods now delegate to `task/manager.ts` — single source of truth for task state. Eliminated `taskApproval` session system.
+- **Eliminated Redundant Task Queue (4.2):** Deleted `task/queue.ts` (267 lines). Exposed `getRunningTask()` / `hasRunningTask()` on `TaskManager`. All consumers use TaskManager directly.
+- **Centralized Env Config (4.3):** Created `config/env.ts` with Zod schema validating all 13 env vars at startup. Proxy-based lazy access for test compatibility. All files import from `env.ts` instead of reading `process.env` directly.
+- **Harness Base Class (4.4):** Extracted `AbstractHarnessAdapter` with shared `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`. Claude, Gemini, Copilot adapters extend it — ~200 lines of duplication eliminated.
+- **Fixed Dual Harness Registration (4.5):** Executor now looks up adapters from the single `HarnessRegistry` instead of maintaining its own parallel Map.
+- **Split Command Parser (4.6):** Decomposed 1,096-line god module into ~240-line router + 5 handler modules (`task.ts`, `context.ts`, `project.ts`, `settings.ts`, `identity-commands.ts`).
+- **Single Formatting Point (4.7):** Removed `formatForWhatsApp()` from `agent/core.ts`. Formatting now happens only in `handler/index.ts` after receiving the raw response.
+- **Intent Collapse (4.8):** Merged `workspace` and `task` intents into single `action` intent — the distinction served no purpose since both took the identical LLM+tools path.
+
+### ⚙️ Phase 5 — Infrastructure & Reliability
+- **WhatsApp Reconnection (5.1):** Implemented exponential backoff reconnection (5s base, 5min cap, jitter) with fresh `Client` instance. Max 10 retries. Resets on successful reconnect.
+- **Graceful Shutdown (5.2):** Ordered cleanup sequence: proactive system → harness `killAll()` → bridge destroy → SQLite `close()`. Module-scoped bridge reference. `TaskStore.close()` and `HarnessSpawner.killAll()` methods added.
+- **Unhandled Rejection Handler (5.3):** Global `unhandledRejection` / `uncaughtException` handlers trigger graceful shutdown. Spawner error handler attached immediately after `spawn()` (fixes ENOENT crash).
+- **LOG_LEVEL Filtering (5.4):** Added `LOG_LEVEL` env var (debug/info/warn/error). Logger now filters output below configured severity threshold.
+- **Transcription Availability Fix (5.6):** `isTranscriptionAvailable()` now checks `existsSync()` for whisper binary and model instead of hardcoded `return true`.
+- **Rate Limiter Rewrite (5.7):** Replaced fixed-window (mislabeled as sliding) with true sliding window using per-key timestamp arrays. Added periodic eviction sweep (2× window interval).
+- **Dedup Optimization (5.8):** `MessageDeduplicator` switched from O(n) per-message Map scan to interval-based eviction. `isNew()` is now O(1).
+
+### 📡 Phase 6 — Proactive System Completion
+- **Wired Proactive Commands (6.1):** `/remind`, `/schedule`, `/cron` (list/remove) now routed through the command parser to proactive handlers.
+- **One-Shot Reminders (6.2):** Added `oneShot` flag to `CronJob` interface. Scheduler auto-deletes one-shot jobs after first execution. `/remind` sets `oneShot: true`.
+- **Watcher Events (6.3):** `WatcherService` now extends `EventEmitter` with typed events (`file:add`, `file:change`, `file:remove`, `git:behind`). Events are emitted instead of dead-ending into logger.
+- **`/schedule list` (6.4):** Implemented sub-command parsing in `handleScheduleCommand` — `list`/`ls` routes to `handleCronList()`.
+
+### 🧪 Phase 7 — Test Coverage & Strictness
+- **Command Parser Tests (7.1):** 27 tests covering passthrough, unknown commands, help/aliases, status, version, settings (verbose/autocommit/auto/mode), project, context, proactive (remind/schedule/cron), task control, and aliases.
+- **Security Tests (7.2):** 41 tests covering `InputValidator` (14), `sanitizePath` (4), `RateLimiter` (6), and `SecurityGate` (17) — including injection detection, authorization flows, group behavior, and broadcast handling.
+- **Renamed e2e → integration (7.3):** Moved all test files from `tests/e2e/` to `tests/integration/`. Removed `test:e2e` script. Fixed flaky timing threshold (100ms → 90ms).
+- **Strict tsconfig (7.5):** Enabled `noUnusedLocals` and `noUnusedParameters`. Fixed 4 violations (dead import, dead method, unused params).
+
+### 📊 Stats
+- **Test suite:** 13 files, 177 tests, 0 failures (up from 11 files / 109 tests)
+- **New files:** 10 (5 command handlers, base class, env config, command types, 2 test suites)
+- **Deleted files:** `task/queue.ts` (267 lines), `tests/e2e/` directory (moved)
+- **Net impact:** ~1,400 lines deleted, ~1,800 lines changed/added
+
 ## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
 
 ### 🔴 Runtime Crash Fixes (P0)
-- **Session Store DDL:** Fixed `conversation_threads` table column mismatch vs prepared statements. Added missing `meta` table DDL. Removed dead `memory_facts`/`working_context` tables.
-- **Harness Executor:** `sendInput()` and `kill()` rewired through pool/spawner (were reading from unpopulated Map).
-- **Task Respond:** Actually delivers user response to harness via `executor.sendInput()` (was a TODO).
-- **Env Validation:** Moved before subsystem init so missing API keys fail fast.
+- **Session Store DDL:** Fixed `conversation_threads` table DDL that had completely mismatched columns vs prepared statements (would crash on first thread operation). Added missing `meta` table DDL. Removed dead `memory_facts` and `working_context` tables (zero readers/writers).
+- **Harness Executor:** `sendInput()` and `kill()` were reading from a `processes` Map that the pool-based execution path never populated — every call threw "Harness not found". Rewired both through `pool.sendInput()` → `spawner.sendInput()` using the actual ChildProcess stdin.
+- **Task Respond:** `handleTaskRespond()` had a `// TODO: Send response to harness via stdin` — it resumed task state but never actually delivered the user's response. Now wired through `executor.sendInput()`.
+- **Env Validation Order:** `validateEnvironment()` ran *after* 3 subsystems had already started. Moved to first line of `main()` so missing API keys fail fast.
 
 ### 🔒 Security Hardening (P1)
-- Shell injection fixed in custom tools (shell-escaped params), workspace manager (name validation + heredocs), command parser (SHA validation + `execFile`).
-- `/api/logout` now requires bearer token authentication.
-- Removed backtick pattern from input validator that blocked inline code.
+- **Shell Injection — Custom Tools:** `tools/registry.ts` `createShellHandler()` did raw `{{param}}` string interpolation into shell commands. Now escapes values with single-quote wrapping.
+- **Shell Injection — Workspace Manager:** Workspace names passed directly into `sh -c` strings. Added `^[a-zA-Z0-9._-]+$` validation and switched to heredoc-based template creation.
+- **Shell Injection — Command Parser:** Git commit SHAs passed unsanitized to `exec()`. Added `/^[0-9a-f]{7,40}$/i` validation. Git clone switched from `exec()` to `execFile()` with args array.
+- **Unauthenticated Logout:** `POST /api/logout` had zero authentication — any HTTP client on the Docker network could disconnect WhatsApp. Added bearer token auth (auto-generated or via `ADMIN_TOKEN` env var).
+- **Validator Blocks Code:** The backtick pattern `/`.*`/` in `SUSPICIOUS_PATTERNS` rejected any message containing inline code. Removed — Docker isolation is the real protection.
 
-### 🧹 Dead Code Purge (~880 lines removed)
-- `whatsapp-format.ts`: 628 → 96 lines (8 dead exports removed)
-- `harness/executor.ts`: 596 → 403 lines (dead `spawnAndWait`, `getOutputBuffer`)
-- Misc: unused logger bg colors, `box()`, `MEMORY_DIR`
+### 🧹 Dead Code Purge (~880 lines)
+- **`whatsapp-format.ts`:** Removed 8 dead exports (`formatMobileResponse`, `formatCode`, `formatDiff`, `formatCompactDiff`, `formatError`, `formatFileList`, `formatProgressBar`, `formatToolAction`) plus 5 helper functions. Kept only `formatForWhatsApp()`. File: 628 → 96 lines (−532).
+- **`harness/executor.ts`:** Removed `spawnAndWait()` (130-line dead method), `getOutputBuffer()`, `processes` Map, unused `child_process`/`output-parser` imports. File: 596 → 403 lines (−193).
+- **`utils/logger.ts`:** Removed 4 unused background color constants and dead `box()` function.
+- **`config/paths.ts`:** Removed `MEMORY_DIR` export (no memory system exists).
 
 ### 📦 Infrastructure
-- Added test scripts to package.json (`test`, `test:run`, `test:unit`, `test:e2e`, `test:integration`)
-- Added `sendInput()` to `HarnessSpawner` and `HarnessPool`
+- **Test Scripts:** Added `test`, `test:run`, `test:unit`, `test:e2e`, `test:integration` to package.json.
+- **Pool stdin:** Added `sendInput()` to `HarnessSpawner` and `HarnessPool` for proper stdin passthrough.
+
+### Files Changed (25 files, +227/−880)
+- `session/store.ts`, `harness/executor.ts`, `harness/spawner.ts`, `harness/pool.ts`, `tools/task.ts`, `index.ts`, `tools/registry.ts`, `workspace/manager.ts`, `commands/parser.ts`, `api/status.ts`, `security/validator.ts`, `agent/whatsapp-format.ts`, `utils/logger.ts`, `config/paths.ts`, plus 11 doc files
 
 ## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
 
 ### 🧬 Unified Identity Pipeline
-- **Single Source of Truth:** `IdentityManager.buildSystemPrompt()` is now the only system prompt builder. Deleted static prompt constants and 5 dead prompt functions from `agent/prompts.ts` — 418 lines removed.
-- **Session Context Wired:** `buildContextSection()` now injected into both conversation and tool code paths.
+- **Single Source of Truth:** `IdentityManager.buildSystemPrompt()` is now the only system prompt builder. Deleted the static `CORE_IDENTITY`, `CAPABILITIES`, `TOOL_REFERENCE`, `UNDERSTANDING_PATTERNS` constants and 5 dead prompt functions (`buildOrchestratorPrompt`, `buildIntentPrompt`, `buildSummarizePrompt`, `buildErrorRecoveryPrompt`, `buildConversationPrompt`) from `agent/prompts.ts` — 418 lines of dead code removed.
+- **Session Context Wired:** `buildContextSection()` (workspace, task, git state, summaries, repo map) was defined but never called in a live code path. Now injected into both `handleConversation()` and `handleWithTools()` so the LLM always sees session state.
 
 ### 🧩 Skill Discovery → Activation Pattern
-- **Two-Phase Skills:** `<available_skills>` for discovery, `<activated_skill>` with full instruction body for activation.
-- **`<location>` Field:** Skill summaries now include source path, following AgentSkills spec.
+- **Two-Phase Skills:** Available skills are listed in `<available_skills>` XML (discovery). When a skill's triggers match the user's message, its full instruction body is injected as `<activated_skill>` (activation). Previously, skill `.instructions` were loaded but never surfaced to the LLM.
+- **`<location>` Field:** Each skill summary now includes `<location>` pointing to its `SKILL.md` file, following the AgentSkills spec pattern.
 
 ### 🐺 Pack Agent Sub-Files
-- **Individual Profiles:** `data/identity/AGENTS.md` → `data/agents/{claude,gemini,copilot}.md` with YAML frontmatter.
-- **`PackMember` Interface:** 13-field structured type with `<available_agents>` XML in system prompt.
-- **Hot-Reload:** Watches both `data/identity/` and `data/agents/`.
+- **Individual Agent Profiles:** Monolithic `data/identity/AGENTS.md` replaced by individual files in `data/agents/` — `claude.md`, `gemini.md`, `copilot.md` — each with YAML frontmatter parsed by gray-matter.
+- **Structured Pack Data:** New `PackMember` interface (13 fields: name, alias, emoji, harness, cli, role, fallback_priority, triggers, avoid, body, sourcePath). System prompt now includes `<available_agents>` XML with routing info.
+- **Routing Rules:** `data/agents/ROUTING.md` documents cross-cutting routing behavior (manual override, fallback chain, delegation protocol).
+- **Hot-Reload:** `IdentityManager` now watches `data/agents/` for changes alongside `data/identity/`.
 
 ### 🧹 Legacy Cleanup
-- Removed dead code, updated JSDoc, fixed all broken tests (109/109 pass).
-- Deprecated `data/identity/AGENTS.md` with migration header.
+- **Dead Code Removed:** `agent/prompts.ts` gutted from 571 → 153 lines. Removed `SystemPromptConfig` interface (unused). Deleted 2 dead commented-out functions (`getCurrentMode`, `buildConversationPrompt`) from `agent/core.ts`.
+- **JSDoc Updated:** All modified files have current `@fileoverview` and `@see` references. Removed stale references to `AGENTS.md`, `buildOrchestratorPrompt`, legacy tool wrapper comments.
+- **Tests Fixed:** Rewrote `tool-registry.test.ts` to use actual ToolRegistry API (`list()`, `get()`, `execute()`). Was calling nonexistent methods (`getToolNames`, `has`, `getAll`, `toClaudeFormat`) and using `new ToolRegistry()` against a private constructor. Fixed `identity-loader.test.ts` "Canid" → "Orchestrator" assertion and parameterized `agentsDir` for test isolation. Added pack member loading test. All **109 tests pass**.
+- **Deprecated:** `data/identity/AGENTS.md` — kept as human-readable reference with deprecation header.
+
+### Files Changed
+- `agent/core.ts` — Wired skill activation + session context into both LLM code paths, removed dead functions
+- `agent/prompts.ts` — 571 → 153 lines, kept only `buildTaskFramePrompt()` + `buildContextSection()`
+- `identity/manager.ts` — Accepts `activatedSkillsContext` + `sessionContext`, builds pack XML, watches agents dir
+- `identity/loader.ts` — `loadAgents()` reads `data/agents/*.md` via gray-matter, configurable `agentsDir`
+- `identity/types.ts` — Added `PackMember` interface, `pack` field on `AgentIdentity`, removed `SystemPromptConfig`
+- `skills/manager.ts` — `<available_skills>` XML with `<location>`, new `buildActivatedSkillsContext()`
+- `config/paths.ts` — Added `AGENTS_DIR`
+- `tools/registry.ts` — Updated JSDoc, removed legacy comments
+- `tests/unit/tool-registry.test.ts` — Full rewrite against actual API
+- `tests/unit/identity-loader.test.ts` — Fixed assertions, added pack test
+- `data/agents/claude.md`, `gemini.md`, `copilot.md` — New agent profiles with YAML frontmatter
+- `data/agents/ROUTING.md` — Pack routing rules reference
 
 ## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
 

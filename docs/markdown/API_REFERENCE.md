@@ -1,663 +1,235 @@
-# Fetch - API Reference
+# API Reference
 
-Complete API documentation for Fetch's tools, endpoints, and integrations.
+## Status API
+
+The Bridge exposes an HTTP API on port 8765.
+
+### GET /api/status
+
+Returns system health and WhatsApp connection state.
+
+**Response:**
+```json
+{
+  "state": "connected",
+  "uptime": 3600,
+  "messageCount": 42,
+  "qrCode": null,
+  "lastError": null
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `state` | string | `initializing`, `qr_ready`, `connected`, `disconnected` |
+| `uptime` | number | Seconds since start |
+| `messageCount` | number | Messages processed this session |
+| `qrCode` | string\|null | Base64 QR code when `state` is `qr_ready` |
+| `lastError` | string\|null | Most recent error message |
+
+### POST /api/logout
+
+Disconnects the WhatsApp session. Requires authentication.
+
+**Headers:**
+```
+Authorization: Bearer <ADMIN_TOKEN>
+```
+
+**Response:** `{ "success": true }`
+
+The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via the `ADMIN_TOKEN` environment variable.
 
 ---
 
-## Table of Contents
+## Orchestrator Tools
 
-1. [Orchestrator Tools (11)](#1-orchestrator-tools-11)
-2. [WhatsApp Protocol](#2-whatsapp-protocol)
-3. [Security API](#3-security-api)
-4. [Agent API](#4-agent-api)
-5. [Harness System](#5-harness-system)
-6. [Session API](#6-session-api)
-7. [Status API](#7-status-api)
-8. [Instinct API](#8-instinct-api)
-9. [Environment Variables](#9-environment-variables)
-10. [Error Codes](#10-error-codes)
+These are the 11 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/tools/`.
 
----
-
-## 1. Orchestrator Tools (11)
-
-Fetch uses **11 orchestrator tools** organized into three categories:
-
-### 1.1 Workspace Tools (5)
-
-| Tool | Description | Parameters | Auto-Approve |
-|------|-------------|------------|--------------|
-| `workspace_list` | List all projects in /workspace | — | ✅ |
-| `workspace_select` | Select active project | `name: string` | ✅ |
-| `workspace_status` | Get git status, branch, changes | — | ✅ |
-| `workspace_create` | Create new project | `name`, `template?`, `description?`, `initGit?` | ❌ |
-| `workspace_delete` | Delete a project | `name`, `confirm: true` (required) | ❌ |
+### Workspace Tools
 
 #### workspace_list
+List all projects in the workspace directory.
 
-Lists all available workspaces/projects in the `/workspace` directory.
+**Parameters:** none
 
-```typescript
-// Input
-interface WorkspaceListInput {
-  // No parameters required
-}
-
-// Output
-{
-  success: true,
-  output: "📁 Available projects:\n• my-app\n• api-server\n• web-client"
-}
-```
+**Returns:** `{ projects: string[] }`
 
 #### workspace_select
+Switch the active project.
 
-Selects a workspace as the active project for subsequent operations.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | ✅ | Project directory name |
 
-```typescript
-// Input
-interface WorkspaceSelectInput {
-  name: string;  // Project name (must exist in /workspace)
-}
-
-// Output
-{
-  success: true,
-  output: "✅ Switched to my-app\n🌿 Branch: main\n📝 3 uncommitted changes"
-}
-```
+**Returns:** `{ selected: string, path: string }`
 
 #### workspace_status
+Get the active project's git status and file overview.
 
-Gets the current git status of the active workspace.
+**Parameters:** none
 
-```typescript
-// Input
-interface WorkspaceStatusInput {
-  // No parameters required (uses active workspace)
-}
-
-// Output
-{
-  success: true,
-  output: "📂 my-app\n🌿 main\n📝 Modified: src/index.ts, package.json"
-}
-```
+**Returns:** `{ project: string, branch: string, status: string, recentFiles: string[] }`
 
 #### workspace_create
+Initialize a new project in the workspace.
 
-Creates a new project with optional template scaffolding.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | ✅ | Project name (alphanumeric, hyphens, underscores) |
+| `template` | string | — | Template to use |
 
-```typescript
-// Input
-interface WorkspaceCreateInput {
-  name: string;        // Project name
-  template?: string;   // Template: empty, node, python, rust, go, react, next
-  description?: string; // Optional project description
-  initGit?: boolean;   // Initialize git repo (default: true)
-}
-
-// Templates available:
-// - empty: Just README.md
-// - node: package.json, index.js, .gitignore
-// - python: main.py, requirements.txt
-// - rust: Cargo.toml, src/main.rs
-// - go: go.mod, main.go
-// - react: Vite React project scaffold
-// - next: Next.js project scaffold
-
-// Output
-{
-  success: true,
-  output: "✅ Created my-app with node template\n📁 /workspace/my-app\n🌿 Git initialized"
-}
-```
+**Returns:** `{ created: string, path: string }`
 
 #### workspace_delete
+Remove a project from the workspace.
 
-Deletes a project permanently. Requires explicit confirmation.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | ✅ | Project to delete |
 
-```typescript
-// Input
-interface WorkspaceDeleteInput {
-  name: string;      // Project name to delete
-  confirm: true;     // MUST be true (safety check)
-}
+**Returns:** `{ deleted: string }`
 
-// Output
-{
-  success: true,
-  output: "✅ Deleted my-app"
-}
-
-// Error (if confirm !== true)
-{
-  success: false,
-  error: "Deletion requires explicit confirmation"
-}
-```
-
----
-
-### 1.2 Task Tools (4)
-
-| Tool | Description | Parameters | Auto-Approve |
-|------|-------------|------------|--------------|
-| `task_create` | Start a coding task | `goal: string`, `agent?`, `files?` | ❌ |
-| `task_status` | Get task progress | `taskId?` | ✅ |
-| `task_cancel` | Cancel running task | `taskId?` | ❌ |
-| `task_respond` | Answer agent question | `response: string` | ✅ |
+### Task Tools
 
 #### task_create
+Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot).
 
-Creates a new coding task and delegates to a harness (Claude, Gemini, or Copilot).
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `goal` | string | ✅ | What to accomplish |
+| `harness` | string | — | Preferred harness (`claude`, `gemini`, `copilot`) |
 
-```typescript
-// Input
-interface TaskCreateInput {
-  goal: string;        // Task description/goal
-  agent?: string;      // Preferred agent: 'claude' | 'gemini' | 'copilot'
-  files?: string[];    // Files to include in context
-}
-
-// Output
-{
-  success: true,
-  output: "🚀 Task started: tsk_abc123\nGoal: Add authentication to the API\nAgent: claude"
-}
-```
+**Returns:** `{ taskId: string, status: string, harness: string }`
 
 #### task_status
+Check the status of a running task.
 
-Gets the current status of an active or recent task.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `taskId` | string | — | Specific task (defaults to active) |
 
-```typescript
-// Input
-interface TaskStatusInput {
-  taskId?: string;   // Optional task ID (defaults to current task)
-}
-
-// Output
-{
-  success: true,
-  output: "📊 Task: tsk_abc123\nStatus: running\nProgress: 45%\nCurrent: Creating auth middleware..."
-}
-```
+**Returns:** `{ taskId: string, status: string, output: string }`
 
 #### task_cancel
+Cancel a running task.
 
-Cancels a running task.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `taskId` | string | — | Specific task (defaults to active) |
 
-```typescript
-// Input
-interface TaskCancelInput {
-  taskId?: string;   // Optional task ID (defaults to current task)
-}
-
-// Output
-{
-  success: true,
-  output: "⏹️ Task tsk_abc123 cancelled"
-}
-```
+**Returns:** `{ cancelled: string }`
 
 #### task_respond
+Send user input to a task that is waiting for a response.
 
-Responds to a question from the agent during task execution.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `response` | string | ✅ | User's response text |
+| `taskId` | string | — | Specific task |
 
-```typescript
-// Input
-interface TaskRespondInput {
-  response: string;  // Answer to the agent's question
-}
+**Returns:** `{ delivered: boolean }`
 
-// Output
-{
-  success: true,
-  output: "✅ Response sent to agent"
-}
-```
-
----
-
-### 1.3 Interaction Tools (2)
-
-| Tool | Description | Parameters | Auto-Approve |
-|------|-------------|------------|--------------|
-| `ask_user` | Ask user a clarifying question | `question: string`, `options?` | ✅ |
-| `report_progress` | Report task progress | `message: string`, `percent?`, `files?` | ✅ |
+### Interaction Tools
 
 #### ask_user
+Send a question to the user via WhatsApp and wait for a reply.
 
-Asks the user a clarifying question during task processing.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `question` | string | ✅ | Question to ask |
 
-```typescript
-// Input
-interface AskUserInput {
-  question: string;    // Question to ask
-  options?: string[];  // Optional multiple choice options
-}
-
-// Output (sent to WhatsApp)
-"🐕 Quick question!\n\nShould I use JWT or session-based auth?\n\n1. JWT\n2. Sessions"
-```
+**Returns:** `{ answer: string }`
 
 #### report_progress
+Send a progress update to the user.
 
-Reports progress during long-running tasks.
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `message` | string | ✅ | Progress message |
 
-```typescript
-// Input
-interface ReportProgressInput {
-  message: string;     // Progress message
-  percent?: number;    // Optional progress percentage (0-100)
-  files?: string[];    // Optional list of files changed
-}
-
-// Output (sent to WhatsApp)
-"📊 Progress: 60%\n\nCreating user model...\n\n📁 Changed: src/models/user.ts"
-```
+**Returns:** `{ sent: boolean }`
 
 ---
 
-## 2. WhatsApp Protocol
+## Security Interfaces
 
-### 2.1 Message Format
+### SecurityGate
 
-```typescript
-interface IncomingMessage {
-  from: string;          // Sender JID (e.g., "15551234567@c.us")
-  body: string;          // Message text
-  timestamp: number;     // Unix timestamp
-  isGroupMsg: boolean;   // True if from group chat
-  participant?: string;  // Sender in group (for verification)
-}
-```
+Controls message authorization.
 
-### 2.2 @fetch Trigger
+| Method | Description |
+|--------|-------------|
+| `authorize(message)` | Returns `{ allowed: boolean, reason?: string }` |
+| `isOwnerMessage(message)` | Checks if sender is `OWNER_PHONE_NUMBER` |
+| `stripTrigger(text)` | Removes `@fetch` prefix |
 
-All messages must start with `@fetch` (case-insensitive):
+### RateLimiter
 
-```typescript
-const TRIGGER = '@fetch';
+Sliding window rate limiter.
 
-// Validation
-const isFetchMessage = (body: string): boolean => {
-  return body.toLowerCase().startsWith(TRIGGER);
-};
+| Method | Description |
+|--------|-------------|
+| `isAllowed(key)` | Returns `boolean` — checks if under rate limit |
+| `remaining(key)` | Returns `number` — remaining requests in window |
+| `clear(key)` | Reset a specific key's history |
+| `clearAll()` | Reset all rate limit state |
 
-// Command extraction
-const extractCommand = (body: string): string => {
-  return body.slice(TRIGGER.length).trim();
-};
-```
+**Default config:** 30 requests per 60-second sliding window.
 
-### 2.3 Response Formatting
+### InputValidator
 
-Responses are formatted for WhatsApp readability:
+Validates and sanitizes user input.
 
-```
-[Status emoji] [One-line summary]
+| Method | Description |
+|--------|-------------|
+| `validate(input)` | Returns `{ valid: boolean, sanitized: string, reason?: string }` |
 
-[Key details - 2-3 lines max]
-
-[Next action or question]
-```
+Blocks: command substitution (`$()`), `rm -rf` patterns, pipe-to-shell, `eval()`, prototype pollution, null bytes, control characters. Allows backticks (for code discussion).
 
 ---
 
-## 3. Security API
-
-### 3.1 Security Gate
-
-**File:** `fetch-app/src/security/gate.ts`
-
-```typescript
-class SecurityGate {
-  constructor(ownerNumber: string)
-  
-  // Check if message should be processed
-  isAllowed(message: Message): boolean
-  
-  // Check if sender is the owner
-  isOwner(senderId: string, participantId?: string): boolean
-}
-```
-
-### 3.2 Rate Limiter
-
-**File:** `fetch-app/src/security/rateLimiter.ts`
-
-```typescript
-class RateLimiter {
-  constructor(maxRequests: number = 30, windowMs: number = 60000)
-  
-  isAllowed(key: string): boolean
-  getRemainingRequests(key: string): number
-  reset(key: string): void
-}
-```
-
-| Setting | Default |
-|---------|---------|
-| Max Requests | 30 per minute |
-| Window | 60 seconds |
-
-### 3.3 Input Validator
-
-**Blocked Patterns:**
-
-| Pattern | Risk |
-|---------|------|
-| `$(...)` | Command substitution |
-| `` `...` `` | Backtick execution |
-| `; rm`, `&& rm` | Shell injection |
-| `\| sh`, `\| bash` | Pipe to shell |
-| `../` | Path traversal |
-| `eval(` | JavaScript eval |
-| `__proto__` | Prototype pollution |
-
----
-
-## 4. Agent API
-
-### 4.1 Intent Classification
-
-**File:** `fetch-app/src/agent/intent.ts`
-
-```typescript
-type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
-
-interface IntentClassification {
-  intent: IntentType;
-  confidence: number;
-  reasoning: string;
-}
-
-function classifyIntent(message: string): IntentClassification
-```
-
-**Intent Types:**
-
-| Intent | Description | Examples |
-|--------|-------------|----------|
-| `conversation` | Casual chat, greetings | "Hello!", "Thanks" |
-| `workspace` | Project management | "List projects", "Status" |
-| `task` | Complex coding work | "Build a REST API", "Fix this bug" |
-| `clarify` | Ambiguous request requiring user input | "Do the thing", "Fix it" |
-
-### 4.2 Agent Core (Orchestrator)
-
-**File:** `fetch-app/src/agent/core.ts`
-
-```typescript
-class AgentCore {
-  constructor(session: Session, toolRegistry: ToolRegistry)
-  
-  // Process a user message through intent classification
-  async processMessage(message: string): Promise<string[]>
-}
-```
-
-### 4.3 Prompts
-
-**File:** `fetch-app/src/agent/prompts.ts`
-
-| Constant | Purpose |
-|----------|---------|
-| `CORE_IDENTITY` | Fetch's personality and ethics |
-| `CAPABILITIES` | What Fetch can do |
-| `TOOL_REFERENCE` | Complete tool documentation |
-| `UNDERSTANDING_PATTERNS` | How to interpret vague requests |
-
----
-
-## 5. Harness System
-
-### 5.1 Harness Interface
-
-**File:** `fetch-app/src/harness/types.ts`
-
-```typescript
-interface HarnessAdapter {
-  name: string;
-  executable: string;
-  
-  buildConfig(task: TaskConfig): HarnessConfig;
-  parseOutputLine(line: string): ParsedOutput;
-  detectQuestion(line: string): boolean;
-  extractSummary(output: string): string;
-}
-```
-
-### 5.2 Available Harnesses
-
-| Harness | CLI | Description | Best For |
-|---------|-----|-------------|----------|
-| `claude` | `claude --print` | Anthropic Claude Code | Complex refactoring, multi-file |
-| `gemini` | `gemini` | Google Gemini CLI | Quick edits, explanations |
-| `copilot` | `gh copilot suggest` | GitHub Copilot | Suggestions, commands |
-
-### 5.3 Harness Registry
-
-**File:** `fetch-app/src/harness/registry.ts`
-
-```typescript
-class HarnessRegistry {
-  get(name: string): HarnessAdapter | undefined;
-  has(name: string): boolean;
-  execute(name: string, config: HarnessConfig): Promise<HarnessResult>;
-  listAdapters(): HarnessAdapter[];
-}
-```
-
-### 5.4 Harness Execution
-
-**File:** `fetch-app/src/harness/executor.ts`
-
-```typescript
-class HarnessExecutor extends EventEmitter {
-  registerAdapter(adapter: HarnessAdapter): void;
-  execute(execution: HarnessExecution): Promise<HarnessResult>;
-  sendInput(executionId: string, input: string): void;
-  cancel(executionId: string): void;
-}
-```
-
----
-
-## 6. Session API
-
-### 6.1 Session Store
-
-**File:** `fetch-app/src/session/store.ts`
-
-```typescript
-class SessionStore {
-  constructor(dbPath: string = '/app/data/sessions.db')
-  
-  init(): Promise<void>
-  getOrCreate(userId: string): Promise<Session>
-  getById(sessionId: string): Promise<Session | undefined>
-  getByUserId(userId: string): Promise<Session | undefined>
-  update(session: Session): Promise<void>
-  delete(sessionId: string): Promise<boolean>
-  clear(sessionId: string): Promise<Session | undefined>
-  cleanup(): Promise<number>
-  getAll(): Promise<Session[]>
-  count(): Promise<number>
-  close(): void
-}
-```
-
-### 6.2 Session Interface
+## Session Types
 
 ```typescript
 interface Session {
-  id: string;                    // WhatsApp JID
-  startedAt: string;             // ISO timestamp
-  lastActivity: string;
-  messages: Message[];           // Last 30 in context
-  currentTask?: Task;
-  currentProject?: ProjectContext;
-  availableProjects?: string[];
-}
-
-interface ProjectContext {
-  name: string;
-  path: string;
-  gitBranch?: string;
-  hasUncommitted?: boolean;
+  id: string;                    // ses_<timestamp>
+  userId: string;                // Phone number
+  metadata: SessionMetadata;     // Created/updated timestamps
+  messages: Message[];           // Conversation history
+  project: ProjectContext | null;// Active project
+  activeFiles: string[];         // Files in context
+  repoMap: string | null;        // Cached repo map
+  preferences: UserPreferences;  // Autonomy, verbose, autocommit
+  activeTaskId: string | null;   // Currently running task
+  gitStartCommit: string | null; // Commit SHA for undo boundary
 }
 ```
 
----
-
-## 7. Status API
-
-### 7.1 Endpoints
-
-**Base URL:** `http://localhost:8765`
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/status` | GET | System status |
-| `/health` | GET | Health check |
-| `/logout` | POST | Disconnect WhatsApp |
-| `/docs` | GET | Documentation site |
-
-### 7.2 Status Response
+## Task Types
 
 ```typescript
-interface StatusResponse {
-  status: 'healthy' | 'degraded' | 'unhealthy';
-  whatsapp: {
-    connected: boolean;
-    authenticated: boolean;
-    qrPending?: boolean;
-  };
-  uptime: number;
-  version: string;
+interface Task {
+  id: string;
+  sessionId: string;
+  goal: string;
+  status: TaskStatus;  // pending → running → completed | failed | cancelled
+  harness: string;
+  createdAt: string;
+  updatedAt: string;
+  result?: TaskResult;
+  iterations: number;
+  maxIterations: number;
 }
 ```
 
-### 7.3 Example Requests
-
-```bash
-# Get status
-curl http://localhost:8765/status
-
-# Health check  
-curl http://localhost:8765/health
-
-# Disconnect WhatsApp
-curl -X POST http://localhost:8765/logout
-
-# Access documentation
-open http://localhost:8765/docs
-```
-
----
-
-## 8. Instinct API
-
-Instincts are deterministic, regex-based rules that bypass the LLM for high-speed interactions. They are checked **before** intent classification — if matched, they return a response without any LLM call.
-
-**File:** `fetch-app/src/instincts/index.ts`
-
-### 8.1 Instinct Categories
-
-Fetch registers **12 instinct handlers** organized into three categories:
-
-#### Safety Instincts (Highest Priority)
-
-| Instinct | Triggers | Description | Priority |
-|----------|----------|-------------|----------|
-| `stop` | `/stop`, `cancel`, `abort`, `halt` | Immediately halt current task | 100 |
-| `undo` | `/undo`, `revert`, `rollback` | Revert last change (git reset) | 90 |
-| `clear` | `/clear`, `reset` | Clear conversation history | 80 |
-
-#### Info Instincts
-
-| Instinct | Triggers | Description | Priority |
-|----------|----------|-------------|----------|
-| `help` | `/help`, `hello`, `hi`, `?` | Returns complete capabilities list | 10 |
-| `status` | `/status`, `state` | Returns current system state (dynamic) | 10 |
-| `commands` | `/commands`, `/cmds` | Returns available slash commands | 10 |
-
-#### Meta Instincts
-
-| Instinct | Triggers | Description | Priority |
-|----------|----------|-------------|----------|
-| `whoami` | `/whoami`, `who am i` | Returns session and user info | 5 |
-| `identity` | `/identity` | Inspect/modify agent persona | 10 |
-| `thread` | `/thread`, `/t` | Manage conversation threads | 50 |
-| `skills` | `/skill`, `/skills` | Manage skills system | 10 |
-| `tools` | `/tool`, `/tools` | Manage tools system | 10 |
-| `scheduling` | `/remind`, `/schedule`, `/cron` | Manage reminders and schedules | 10 |
-
-### 8.2 Instinct Interface
-
-**File:** `fetch-app/src/instincts/types.ts`
-
-```typescript
-interface Instinct {
-  name: string;
-  description: string;
-  triggers: string[];          // Exact match strings
-  patterns?: RegExp[];         // Regex patterns for fuzzy matching
-  priority: number;            // Higher = checked first
-  enabled: boolean;
-  category: string;            // 'safety' | 'info' | 'meta' | 'system' | 'control'
-  handler: (ctx: InstinctContext) => InstinctResponse | Promise<InstinctResponse>;
-}
-```
-
-### 8.3 Matching Order
-
-1. Instincts are sorted by priority (highest first)
-2. Exact trigger match is checked first (case-insensitive)
-3. Regex patterns are checked if no trigger matched
-4. First matching instinct wins — no further processing
-
----
-
-## 9. Environment Variables
-
-### Required
-
-| Variable | Description | Example |
-|----------|-------------|----------|
-| `OWNER_PHONE_NUMBER` | Your WhatsApp number | `15551234567` |
-| `OPENROUTER_API_KEY` | OpenRouter API key | `sk-or-v1-xxx` |
-
-### Optional
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MODEL` | `openai/gpt-4o-mini` | OpenRouter model ID for orchestration |
-| `ENABLE_CLAUDE` | `false` | Enable Claude CLI harness |
-| `ENABLE_GEMINI` | `false` | Enable Gemini CLI harness |
-| `ENABLE_COPILOT` | `true` | Enable Copilot CLI harness |
-| `LOG_LEVEL` | `info` | Logging level (debug/info/warn/error) |
-| `PORT` | `8765` | Status API port |
-
----
-
-## 10. Error Codes
-
-| Code | Description | Resolution |
-|------|-------------|------------|
-| `AUTH_FAILED` | Whitelist check failed | Use authorized phone number |
-| `RATE_LIMITED` | Too many requests | Wait 60 seconds |
-| `INVALID_INPUT` | Blocked pattern detected | Remove shell injection patterns |
-| `VALIDATION_ERROR` | Schema validation failed | Check tool parameters |
-| `TOOL_FAILED` | Tool execution error | Check tool-specific error |
-| `TASK_FAILED` | Task execution failed | Check harness logs |
-| `TIMEOUT` | Execution timeout (5 min) | Simplify task scope |
-| `LLM_ERROR` | OpenRouter API error | Check API key/quota |
-| `HARNESS_ERROR` | CLI tool error | Check harness authentication |
-
----
-
-*Fetch API Reference v3.2.0 - Last updated: February 5, 2026*
+Task status transitions: `pending` → `running` → `waiting_input` → `running` → `completed` | `failed` | `cancelled`

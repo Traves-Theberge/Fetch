@@ -1,482 +1,203 @@
-# 🐕 Fetch — Configuration Reference
+# Configuration
 
-> Complete reference for all configuration options: environment variables, Docker Compose,
-> identity files, skill definitions, tool definitions, polling config, and path resolution.
+## Environment Variables
 
----
+All environment variables are validated at startup by a Zod schema in `src/config/env.ts`. Invalid or missing required values cause an immediate exit with a clear error message.
 
-## Table of Contents
+### Required
 
-1. [Environment Variables](#1-environment-variables)
-2. [Docker Compose Configuration](#2-docker-compose-configuration)
-3. [Identity Files](#3-identity-files)
-4. [Skill Definitions](#4-skill-definitions)
-5. [Tool Definitions](#5-tool-definitions)
-6. [Polling Configuration](#6-polling-configuration)
-7. [Path Resolution](#7-path-resolution)
+| Variable | Type | Description |
+|----------|------|-------------|
+| `OPENROUTER_API_KEY` | string | API key from [OpenRouter](https://openrouter.ai) |
+| `OWNER_PHONE_NUMBER` | string | Your WhatsApp number in E.164 format (e.g. `15551234567`) |
 
----
+### Optional (with defaults)
 
-## 1. Environment Variables
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `AGENT_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for agent reasoning and tool use |
+| `SUMMARY_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for conversation summarization |
+| `VISION_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for image/screenshot analysis |
+| `WHISPER_MODEL` | string | `/app/models/ggml-tiny.bin` | Path to whisper.cpp model for voice transcription |
+| `WORKSPACE_ROOT` | string | `/workspace` | Root directory for project workspaces |
+| `LOG_LEVEL` | enum | `debug` | Minimum log level: `debug`, `info`, `warn`, `error` |
 
-All environment variables are set in the `.env` file at the project root.
+### Optional (no default)
 
-### 1.1 Required
+| Variable | Type | Description |
+|----------|------|-------------|
+| `DATA_DIR` | string | Override data directory (default: `./data`) |
+| `DATABASE_PATH` | string | Override sessions database path |
+| `TASKS_DB_PATH` | string | Override tasks database path |
+| `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
+| `TRUSTED_PHONE_NUMBERS` | string | Comma-separated phone numbers for initial whitelist |
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `OWNER_PHONE_NUMBER` | Your WhatsApp number. Country code, no `+`, no spaces, no dashes. | `15551234567` |
-| `OPENROUTER_API_KEY` | OpenRouter API key for LLM orchestration. Get one at [openrouter.ai/keys](https://openrouter.ai/keys). | `sk-or-v1-abc...` |
+### Env Proxy Pattern
 
-### 1.2 LLM Configuration
+Environment variables are accessed via a Proxy object that reads `process.env` on every access (not snapshotted at import time). This ensures test overrides work correctly:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AGENT_MODEL` | `openai/gpt-4o-mini` | OpenRouter model ID for orchestration (intent classification, tool calling, reasoning). |
-| `SUMMARY_MODEL` | `openai/gpt-4o-mini` | Model for conversation summarization. Can be cheaper/faster than AGENT_MODEL. |
+```typescript
+import { env } from '../config/env.js';
 
-### 1.3 Harness Toggles
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENABLE_CLAUDE` | `false` | Enable Claude Code CLI harness. Requires `claude` CLI authenticated in Kennel. |
-| `ENABLE_GEMINI` | `false` | Enable Gemini CLI harness. Requires `gemini` CLI authenticated in Kennel. |
-| `ENABLE_COPILOT` | `true` | Enable GitHub Copilot CLI harness. Requires `gh copilot` authenticated in Kennel. |
-
-### 1.4 API Keys (Optional)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | _(empty)_ | Not required when using OpenRouter. Only needed for direct OpenAI API access. |
-| `ANTHROPIC_API_KEY` | _(empty)_ | For direct Anthropic API access (bypassing OpenRouter). |
-| `GEMINI_API_KEY` | _(empty)_ | For direct Google Gemini API access (bypassing OpenRouter). |
-
-### 1.5 Security
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TRUSTED_PHONE_NUMBERS` | _(empty)_ | Comma-separated phone numbers allowed to use `@fetch`. Owner is always trusted. |
-
-### 1.6 System
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `info` | Logging verbosity: `debug`, `info`, `warn`, `error`. |
-| `PORT` | `8765` | Port for the Status API and documentation server. |
-| `TZ` | `UTC` | Timezone for logging and scheduled tasks. |
-| `DATA_DIR` | `/app/data` (Docker) | Override the data directory path. See [Path Resolution](#7-path-resolution). |
-| `NODE_ENV` | `production` | Node.js environment. Set to `development` for extra logging. |
-
-### 1.7 Complete .env Example
-
-```dotenv
-# === Required ===
-OWNER_PHONE_NUMBER=15551234567
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
-
-# === LLM Models ===
-AGENT_MODEL=openai/gpt-4o-mini
-SUMMARY_MODEL=openai/gpt-4o-mini
-
-# === Harness Toggles ===
-ENABLE_COPILOT=true
-ENABLE_CLAUDE=false
-ENABLE_GEMINI=false
-
-# === Security ===
-TRUSTED_PHONE_NUMBERS=15559876543,15551112222
-
-# === System ===
-LOG_LEVEL=info
-PORT=8765
-TZ=America/New_York
+// Reads process.env.AGENT_MODEL live, with Zod-validated defaults
+const model = env.AGENT_MODEL; // 'openai/gpt-4.1-nano'
 ```
 
 ---
 
-## 2. Docker Compose Configuration
+## Docker Compose
 
-### 2.1 Service: fetch-bridge
+The `docker-compose.yml` defines two services:
+
+### fetch-bridge
 
 ```yaml
-fetch-bridge:
-  build:
-    context: .
-    dockerfile: fetch-app/Dockerfile
-  container_name: fetch-bridge
-  restart: unless-stopped
-  ports:
-    - "${PORT:-8765}:8765"        # Status API + Documentation
-  volumes:
-    - ./data:/app/data             # Persistent data (sessions, identity, skills)
-    - /var/run/docker.sock:/var/run/docker.sock:ro  # Container management
-  env_file: .env
-  depends_on:
-    - fetch-kennel
+build: ./fetch-app
+ports:
+  - "8765:8765"           # Status API
+volumes:
+  - ./data:/app/data      # Persistent data (SQLite, WhatsApp auth, identity)
+  - /var/run/docker.sock:/var/run/docker.sock:ro  # For docker exec into kennel
+  - ./workspace:/workspace # Shared workspace
+depends_on:
+  - fetch-kennel
 ```
 
-**Key points:**
-- Port mapping uses `PORT` env var with 8765 default
-- Docker socket is read-only — Bridge can exec into Kennel but can't modify host Docker
-- `./data` mount contains all persistent state
-
-### 2.2 Service: fetch-kennel
+### fetch-kennel
 
 ```yaml
-fetch-kennel:
-  build:
-    context: .
-    dockerfile: kennel/Dockerfile
-  container_name: fetch-kennel
-  restart: unless-stopped
-  volumes:
-    - ./workspace:/workspace                        # Code sandbox
-    - ./config/github:/root/.config/gh:ro          # GitHub CLI auth (read-only)
-    - ./config/claude:/root/.config/claude:ro      # Claude CLI auth (read-only)
-  deploy:
-    resources:
-      limits:
-        memory: 2G
-        cpus: '2'
-  stdin_open: true
-  tty: true
+build: ./kennel
+volumes:
+  - ./workspace:/workspace           # Shared workspace (read-write)
+  - ~/.config/gh:/root/.config/gh:ro # GitHub Copilot auth (read-only)
+  - ~/.config/claude-code:/root/.config/claude-code:ro  # Claude auth
+  - ~/.gemini:/root/.gemini:ro       # Gemini auth
+deploy:
+  resources:
+    limits:
+      memory: 2G
+      cpus: "2"
+command: tail -f /dev/null          # Keep alive for docker exec
 ```
-
-**Key points:**
-- Auth configs are read-only — Kennel can use them but not modify
-- Resource limits prevent runaway AI processes
-- `stdin_open` + `tty` enable interactive CLI sessions via Docker exec
-
-### 2.3 Resource Tuning
-
-| Setting | Default | Recommended for Heavy Use |
-|---------|---------|---------------------------|
-| Kennel memory | 2 GB | 4 GB |
-| Kennel CPUs | 2 | 4 |
-| Bridge memory | (unlimited) | 1 GB |
-
-Adjust in `docker-compose.yml` under `deploy.resources.limits`.
 
 ---
 
-## 3. Identity Files
+## Identity Files
 
-Identity files live in `data/identity/` and are hot-reloaded on change.
+Fetch's personality is defined by hot-reloaded Markdown files.
 
-### 3.1 COLLAR.md — Core Identity
+### data/identity/COLLAR.md — System Instructions
 
-Defines Fetch's personality, directives, and communication protocols.
+Core behavioral rules for the agent. This is injected as the foundation of the system prompt. Modify to change Fetch's personality, tone, and behavioral constraints.
 
-**Required sections:**
+### data/identity/ALPHA.md — Owner Info
 
-| Section | Maps To | Description |
-|---------|---------|-------------|
-| `## Core Identity` | `identity.name`, `.role`, `.emoji`, `.voice.tone` | Basic profile fields |
-| `## Directives` | `identity.directives.*` | Behavioral rules |
-| `### Primary Directives` | `identity.directives.primary[]` | Unbreakable rules |
-| `### Operational Guidelines` | `identity.directives.secondary[]` | How to work |
-| `### Behavioral Traits` | `identity.directives.behavioral[]` | Personality |
-| `## Communication Style` | `identity.directives.secondary[]` | Tone and formatting |
-| `## Instincts` | `identity.directives.behavioral[]` | Automatic behaviors |
+Information about the owner (you). Communication preferences, timezone, technical level. The agent uses this to personalize responses.
 
-**Format for Core Identity:**
+### data/agents/*.md — Pack Profiles
 
-```markdown
-## Core Identity
-- **Name:** Fetch
-- **Role:** Autonomous Software Engineering Orchestrator
-- **Emoji:** 🐕
-- **Voice:** Confident, concise, warm
-```
-
-**Format for Directives:**
-
-```markdown
-## Directives
-
-### Primary Directives (Unbreakable Rules)
-1. Never execute destructive operations without confirmation.
-2. Never hallucinate file contents or command outputs.
-
-### Operational Guidelines (How to Work)
-1. Check workspace status before creating tasks.
-2. Keep responses WhatsApp-sized (2-6 lines).
-
-### Behavioral Traits (Personality)
-1. Eager but disciplined.
-2. Loyal to a fault.
-```
-
-### 3.2 ALPHA.md — Owner Profile
-
-Defines the owner's name and preferences.
-
-**Required sections:**
-
-| Section | Maps To | Description |
-|---------|---------|-------------|
-| `## User Profile` or `## Administrator` | `identity.context.owner` | Owner name extracted from `- **Name:** value` |
-
-**Format:**
-
-```markdown
-## User Profile
-- **Name:** Traves
-- **Role:** Developer & Project Lead
-```
-
-### 3.3 Agent Sub-Files — Pack Registry (`data/agents/*.md`)
-
-> **Migrated in v3.2.0:** The monolithic `data/identity/AGENTS.md` is deprecated.
-> Each pack member now has its own file in `data/agents/` with YAML frontmatter.
-> Routing rules live in `data/agents/ROUTING.md`.
-
-Defines harness members as individual Markdown files parsed by `gray-matter`.
-
-**File structure:** `data/agents/{claude,gemini,copilot}.md`
-
-**YAML frontmatter fields (→ `PackMember` interface):**
-
-| Field | Type | Maps To | Example |
-|-------|------|---------|--------|
-| `name` | string | `pack[].name` | `Claude` |
-| `emoji` | string | `pack[].emoji` | `🦉` |
-| `harness` | string | `pack[].harness` | `claude` |
-| `cli` | string | `pack[].cli` | `claude` |
-| `title` | string | `pack[].title` | `The Sage` |
-| `role` | string | `pack[].role` | `Architect / Complex Problem Solver` |
-| `strengths` | string[] | `pack[].strengths` | `["Massive context window", ...]` |
-| `weaknesses` | string[] | `pack[].weaknesses` | `["Slower response time", ...]` |
-| `bestFor` | string[] | `pack[].bestFor` | `["Multi-file refactoring", ...]` |
-| `avoidFor` | string[] | `pack[].avoidFor` | `["Quick one-line fixes", ...]` |
-| `personality` | string | `pack[].personality` | `Calm, wise, thorough` |
-
-**Example file** (`data/agents/claude.md`):
+Individual agent profiles with YAML frontmatter:
 
 ```markdown
 ---
 name: Claude
+alias: The Sage
 emoji: "🦉"
 harness: claude
 cli: claude
-title: The Sage
-role: Architect / Complex Problem Solver / Multi-file Refactorer
-strengths:
-  - Massive context window (200K tokens)
-  - Deep reasoning chains
-weaknesses:
-  - Slower response time
-  - Can be verbose
-bestFor:
-  - Refactoring across 5+ files simultaneously
-  - Architectural decisions
-avoidFor:
-  - Quick one-line fixes
-  - Formatting-only changes
-personality: "Calm, wise, thorough. Takes time to think but delivers high-quality results."
+role: Architect / Complex Problem Solver
+fallback_priority: 1
+triggers:
+  - refactor
+  - architect
+  - multi-file
+avoid:
+  - quick fix
+  - one-liner
 ---
 
-# Claude — The Sage 🦉
-
-(Optional body content for human reference — not parsed by the loader.)
+Claude is the deep thinker of the pack...
 ```
 
-**Routing rules** (`data/agents/ROUTING.md`): Contains the general routing logic
-for when to select each harness. Injected into the system prompt as-is.
+Each file defines a `PackMember` with routing triggers and capabilities. The Identity Manager watches this directory and hot-reloads on changes.
 
 ---
 
-## 4. Skill Definitions
+## Skills
 
-Skills are defined in `SKILL.md` files with YAML frontmatter.
+Skills are Markdown files in `data/skills/` that teach Fetch domain-specific capabilities.
 
-### 4.1 Locations
-
-| Location | Type | Hot-Reloaded |
-|----------|------|--------------|
-| `fetch-app/src/skills/builtin/<name>/SKILL.md` | Built-in | No (bundled in Docker image) |
-| `data/skills/<name>/SKILL.md` | User-defined | ✅ Yes |
-
-### 4.2 SKILL.md Format
+### Skill File Format
 
 ```markdown
 ---
-name: My Skill
-description: What this skill does
-version: 1.0.0
+name: React Development
+description: Best practices for React component development
 triggers:
-  - keyword1
-  - keyword2
-  - phrase trigger
-requirements:
-  binaries:
-    - node
-    - npm
-  envVars:
-    - API_KEY
-  platform:
-    - linux
-    - darwin
+  - react
+  - component
+  - jsx
+  - hook
 enabled: true
 ---
 
-# Skill Instructions
+## Instructions
 
-Your specialized prompt content here. This entire section
-(everything below the frontmatter) is injected into the
-system prompt when the skill is activated.
+When working on React components:
+1. Use functional components with hooks
+2. ...
 ```
 
-### 4.3 Frontmatter Fields
+### Discovery and Activation
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | string | ✅ | — | Display name |
-| `description` | string | ✅ | — | Short description |
-| `version` | string | No | `1.0.0` | Semantic version |
-| `triggers` | string[] | No | `[]` | Keywords that activate this skill |
-| `requirements.binaries` | string[] | No | — | Required CLI tools |
-| `requirements.envVars` | string[] | No | — | Required environment variables |
-| `requirements.platform` | string[] | No | — | OS restrictions (`linux`, `darwin`, `win32`) |
-| `enabled` | boolean | No | `true` | Whether the skill is active |
+- **Discovery:** All skills are listed in the system prompt as `<available_skills>` with name, description, and triggers
+- **Activation:** When a message matches a skill's triggers, the full instruction body is injected as `<activated_skill>` into the LLM context
+
+### Managing Skills
+
+```
+/skill list              # Show all skills
+/skill enable <name>     # Enable a skill
+/skill disable <name>    # Disable a skill
+```
 
 ---
 
-## 5. Tool Definitions
+## Custom Tools
 
-Custom tools are JSON files in `data/tools/`. Hot-reloaded on change.
-
-### 5.1 Tool JSON Format
+Define custom tools in `data/tools/` as JSON files:
 
 ```json
 {
   "name": "deploy_staging",
-  "description": "Deploy the current project to the staging environment",
-  "command": "bash /workspace/scripts/deploy.sh {{environment}}",
-  "cwd": "/workspace",
-  "danger": "dangerous",
-  "timeout": 300000,
-  "parameters": [
-    {
-      "name": "environment",
+  "description": "Deploy current project to staging",
+  "command": "cd /workspace/{{project}} && npm run deploy:staging",
+  "parameters": {
+    "project": {
       "type": "string",
-      "description": "Target environment (staging, production)",
-      "required": true,
-      "enum": ["staging", "production"]
+      "description": "Project to deploy",
+      "required": true
     }
-  ]
+  },
+  "dangerLevel": "high"
 }
 ```
 
-### 5.2 Tool Fields
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `name` | string | ✅ | — | Tool name (snake_case, used in LLM function calling) |
-| `description` | string | ✅ | — | What the tool does (shown to LLM) |
-| `command` | string | ✅ | — | Shell command to execute. Use `{{param}}` for parameter substitution. |
-| `cwd` | string | No | `/workspace` | Working directory for command execution |
-| `danger` | string | No | `safe` | Danger level: `safe`, `moderate`, `dangerous` |
-| `timeout` | number | No | `300000` | Timeout in milliseconds (default: 5 minutes) |
-| `parameters` | array | No | `[]` | Parameter definitions for the tool |
-
-### 5.3 Parameter Fields
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | ✅ | Parameter name |
-| `type` | string | ✅ | Type: `string`, `number`, `boolean` |
-| `description` | string | ✅ | Description (shown to LLM) |
-| `required` | boolean | No | Whether the parameter is required (default: false) |
-| `enum` | string[] | No | Allowed values |
-| `default` | any | No | Default value if not provided |
+Parameters are shell-escaped before substitution to prevent injection.
 
 ---
 
-## 6. Polling Configuration
+## Path Resolution
 
-Polling tasks are defined in `data/POLLING.md`. Hot-reloaded on change.
+All paths are centralized in `src/config/paths.ts`:
 
-### 6.1 Format
-
-```markdown
-# Polling Configuration
-
-## Tasks
-
-### Git Status Check
-- **Schedule:** */5 * * * *
-- **Command:** git status --porcelain
-- **Workspace:** my-api
-- **Notify:** true
-
-### Health Check
-- **Schedule:** 0 */1 * * *
-- **Command:** curl -s http://localhost:3000/health
-- **Notify on failure:** true
-```
-
-### 6.2 Schedule Format
-
-Uses standard cron syntax parsed by `cron-parser`:
-
-```
-┌────────── minute (0-59)
-│ ┌──────── hour (0-23)
-│ │ ┌────── day of month (1-31)
-│ │ │ ┌──── month (1-12)
-│ │ │ │ ┌── day of week (0-7, 0 and 7 = Sunday)
-│ │ │ │ │
-* * * * *
-```
-
-| Pattern | Meaning |
-|---------|---------|
-| `*/5 * * * *` | Every 5 minutes |
-| `0 */1 * * *` | Every hour |
-| `0 9 * * 1-5` | 9 AM weekdays |
-| `0 0 * * *` | Midnight daily |
-
----
-
-## 7. Path Resolution
-
-### 7.1 Centralized Path Config
-
-All data paths are resolved through `fetch-app/src/config/paths.ts`:
-
-```typescript
-// Resolution chain (first existing directory wins):
-// 1. DATA_DIR environment variable
-// 2. /app/data (Docker WORKDIR default)
-// 3. ./data (project root)
-// 4. ../data (from fetch-app/ directory)
-```
-
-### 7.2 Exported Paths
-
-| Export | Resolves To | Purpose |
-|--------|-------------|---------|
-| `DATA_DIR` | `data/` | Base data directory |
-| `IDENTITY_DIR` | `data/identity/` | COLLAR.md, ALPHA.md |
-| `AGENTS_DIR` | `data/agents/` | Pack member sub-files (claude.md, gemini.md, copilot.md, ROUTING.md) |
-| `SKILLS_DIR` | `data/skills/` | User-defined skills |
-| `TOOLS_DIR` | `data/tools/` | Custom tool JSON files |
-| `POLLING_FILE` | `data/POLLING.md` | Polling configuration |
-| `SESSIONS_DB` | `data/sessions.db` | Session persistence |
-| `TASKS_DB` | `data/tasks.db` | Task persistence |
-
-### 7.3 Docker vs Local Development
-
-| Environment | `DATA_DIR` | Resolution |
-|-------------|-----------|------------|
-| Docker | `/app/data` | Volume mount `./data:/app/data` |
-| Local (from fetch-app/) | `../data` | Relative path to project root |
-| Local (from project root) | `./data` | Direct path |
-| Custom | `$DATA_DIR` | Environment variable override |
-
-**Why this matters:** Before centralized paths, each module resolved paths independently using `path.resolve(process.cwd(), '../data/...')`. In Docker (`WORKDIR=/app`), `../data` resolves to `/data/` (outside the container's app directory). The centralized resolver detects Docker by checking if `/app/data` exists.
-
----
-
-*Configuration Reference for Fetch v3.2.0*
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `DATA_DIR` | `./data` | Persistent data root |
+| `DB_PATH` | `./data/sessions.db` | Sessions SQLite database |
+| `TASKS_DB_PATH` | `./data/tasks.db` | Tasks SQLite database |
+| `IDENTITY_DIR` | `./data/identity` | Identity files |
+| `AGENTS_DIR` | `./data/agents` | Pack agent profiles |
+| `SKILLS_DIR` | `./data/skills` | Skill definitions |
+| `TOOLS_DIR` | `./data/tools` | Custom tool definitions |
+| `WHISPER_BIN` | `/usr/local/bin/whisper` | Whisper binary path |
