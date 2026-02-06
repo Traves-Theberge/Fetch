@@ -272,7 +272,7 @@ const FetchDiagrams = {
       .attr('font-size', '11px')
       .text('(Node.js)');
 
-    const bridgeFeatures = ['WhatsApp Client', 'Security Gate', 'Agent Core', 'Tool Registry', 'Status API :8765'];
+    const bridgeFeatures = ['WhatsApp Client', 'Security Gate', 'Agent Core', 'Context Pipeline', 'Tool Registry', 'Status API :8765'];
     bridgeFeatures.forEach((f, i) => {
       svg.append('text')
         .attr('x', 430)
@@ -387,7 +387,7 @@ const FetchDiagrams = {
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
       .attr('font-size', '12px')
-      .text('🏗️ V3.3 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
+      .text('🏗️ V3.4 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
   },
 
   // =====================================================
@@ -724,15 +724,17 @@ const FetchDiagrams = {
     container.innerHTML = '';
     
     const colors = this.getColors();
-    const svg = this.createSVG(container, 500, 600);
+    const svg = this.createSVG(container, 500, 750);
 
     const steps = [
       { label: 'WhatsApp Message', icon: '📱', desc: '@fetch fix the bug in auth.ts' },
       { label: 'Security Gate', icon: '🔐', desc: 'Verify @fetch + owner phone' },
-      { label: 'Rate Limiter', icon: '⏱️', desc: 'Check 30 req/min limit' },
-      { label: 'Input Validator', icon: '🛡️', desc: 'Sanitize dangerous patterns' },
-      { label: 'Agent Core', icon: '🤖', desc: 'GPT-4.1-nano ReAct loop' },
-      { label: 'Tool Registry', icon: '🛠️', desc: 'Execute file/code/git tools' },
+      { label: 'Session Manager', icon: '💾', desc: 'addUserMessage() → persist to session' },
+      { label: 'Build History', icon: '🧠', desc: 'OpenAI multi-turn format + compaction' },
+      { label: 'Agent Core', icon: '🤖', desc: 'LLM ReAct loop with tool_calls' },
+      { label: 'Tool Registry', icon: '🛠️', desc: 'Execute with ToolContext { sessionId }' },
+      { label: 'Persist Results', icon: '🔗', desc: 'addToolMessage() + addAssistantToolCall()' },
+      { label: 'Compaction Check', icon: '🗜️', desc: 'Compact if messages > threshold (40)' },
       { label: 'Response', icon: '✅', desc: 'Send result via WhatsApp' },
     ];
 
@@ -762,7 +764,7 @@ const FetchDiagrams = {
         .attr('cx', x + 35)
         .attr('cy', y + boxHeight / 2)
         .attr('r', 20)
-        .attr('fill', [colors.accent1, colors.accent2, colors.accent3, colors.accent4, colors.accent5, colors.accent1, colors.success][i])
+        .attr('fill', [colors.accent1, colors.accent2, colors.accent3, colors.accent1, colors.accent5, colors.accent4, colors.accent2, colors.accent5, colors.success][i])
         .attr('opacity', 0.2);
 
       // Icon
@@ -838,9 +840,10 @@ const FetchDiagrams = {
 
     const sections = [
       { title: 'Identity', items: ['userId (phone)', 'sessionId'], x: 60, color: colors.accent1 },
-      { title: 'Conversation', items: ['messages[]', 'threads[]'], x: 220, color: colors.accent2 },
-      { title: 'Preferences', items: ['autonomyLevel', 'autoCommit', 'verboseMode'], x: 390, color: colors.accent3 },
-      { title: 'Task State', items: ['activeTaskId', 'gitStartCommit'], x: 560, color: colors.accent4 },
+      { title: 'Conversation', items: ['messages[]', 'threads[]'], x: 195, color: colors.accent2 },
+      { title: 'Compaction', items: ['compactionSummary', 'compactedAt', 'compactedCount'], x: 330, color: colors.accent5 },
+      { title: 'Preferences', items: ['autonomyLevel', 'autoCommit', 'verboseMode'], x: 475, color: colors.accent3 },
+      { title: 'Task State', items: ['activeTaskId', 'gitStartCommit'], x: 600, color: colors.accent4 },
     ];
 
     sections.forEach(section => {
@@ -848,14 +851,14 @@ const FetchDiagrams = {
       svg.append('rect')
         .attr('x', section.x)
         .attr('y', 95)
-        .attr('width', 140)
+        .attr('width', 120)
         .attr('height', 35)
         .attr('rx', 6)
         .attr('fill', section.color)
         .attr('opacity', 0.2);
 
       svg.append('text')
-        .attr('x', section.x + 70)
+        .attr('x', section.x + 60)
         .attr('y', 118)
         .attr('text-anchor', 'middle')
         .attr('fill', colors.text)
@@ -866,7 +869,7 @@ const FetchDiagrams = {
       // Items
       section.items.forEach((item, i) => {
         svg.append('text')
-          .attr('x', section.x + 12)
+          .attr('x', section.x + 8)
           .attr('y', 160 + i * 28)
           .attr('fill', colors.textMuted)
           .attr('font-size', '11px')
@@ -1441,11 +1444,11 @@ const FetchDiagrams = {
     const bridgeParts = [
       { label: 'WhatsApp Client', icon: '📱', y: by + 55 },
       { label: 'Intent Classifier', icon: '🧠', y: by + 80 },
-      { label: 'Session Manager', icon: '💾', y: by + 105 },
-      { label: 'Task Manager', icon: '📋', y: by + 130 },
-      { label: 'Security Gate', icon: '🔒', y: by + 155 },
-      { label: 'Status API :8765', icon: '🔌', y: by + 180 },
-      { label: 'Proactive System', icon: '⏰', y: by + 205 },
+      { label: 'Context Pipeline', icon: '🔌', y: by + 105 },
+      { label: 'Session Manager', icon: '💾', y: by + 130 },
+      { label: 'Task Manager', icon: '📋', y: by + 155 },
+      { label: 'Security Gate', icon: '🔒', y: by + 180 },
+      { label: 'Status API :8765', icon: '🔌', y: by + 205 },
     ];
     bridgeParts.forEach(p => {
       svg.append('text')
@@ -1593,6 +1596,298 @@ const FetchDiagrams = {
   },
 
   // =====================================================
+  // DIAGRAM: Context Pipeline (v3.4.0)
+  // =====================================================
+  renderContextPipeline(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    const colors = this.getColors();
+    const svg = this.createSVG(container, 900, 580);
+
+    // Title
+    svg.append('text')
+      .attr('x', 450)
+      .attr('y', 35)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '20px')
+      .attr('font-weight', '700')
+      .text('🧠 Context Pipeline — Multi-Turn Memory');
+
+    svg.append('text')
+      .attr('x', 450)
+      .attr('y', 60)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('OpenAI Function Calling Protocol • Sliding Window • Compaction');
+
+    // ── Left column: Message Lifecycle ──
+    const leftX = 50;
+    const stages = [
+      { label: 'User Message', icon: '📱', desc: 'addUserMessage()', color: colors.accent1, y: 90 },
+      { label: 'Build History', icon: '📜', desc: 'buildMessageHistory()', color: colors.accent2, y: 170 },
+      { label: 'LLM Call', icon: '🤖', desc: 'OpenAI tool_calls format', color: colors.accent3, y: 250 },
+      { label: 'Tool Execution', icon: '⚡', desc: 'ToolContext { sessionId }', color: colors.accent4, y: 330 },
+      { label: 'Persist Results', icon: '💾', desc: 'addToolMessage()', color: colors.accent5, y: 410 },
+      { label: 'Response', icon: '✅', desc: 'addAssistantMessage()', color: colors.success, y: 490 },
+    ];
+
+    stages.forEach((stage, i) => {
+      // Stage box
+      svg.append('rect')
+        .attr('x', leftX)
+        .attr('y', stage.y)
+        .attr('width', 250)
+        .attr('height', 55)
+        .attr('rx', 10)
+        .attr('fill', colors.nodeBg)
+        .attr('stroke', stage.color)
+        .attr('stroke-width', 2);
+
+      // Icon
+      svg.append('text')
+        .attr('x', leftX + 30)
+        .attr('y', stage.y + 32)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '20px')
+        .text(stage.icon);
+
+      // Label
+      svg.append('text')
+        .attr('x', leftX + 55)
+        .attr('y', stage.y + 24)
+        .attr('fill', colors.text)
+        .attr('font-size', '13px')
+        .attr('font-weight', '600')
+        .text(stage.label);
+
+      // Description
+      svg.append('text')
+        .attr('x', leftX + 55)
+        .attr('y', stage.y + 42)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '10px')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .text(stage.desc);
+
+      // Arrow to next
+      if (i < stages.length - 1) {
+        svg.append('text')
+          .attr('x', leftX + 125)
+          .attr('y', stage.y + 67)
+          .attr('text-anchor', 'middle')
+          .attr('fill', colors.arrow)
+          .attr('font-size', '14px')
+          .text('↓');
+      }
+    });
+
+    // ── Right column: Memory Systems ──
+    const rightX = 400;
+
+    // Sliding Window box
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 90)
+      .attr('width', 450)
+      .attr('height', 160)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent1)
+      .attr('stroke-width', 2);
+
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 90)
+      .attr('width', 450)
+      .attr('height', 38)
+      .attr('rx', 12)
+      .attr('fill', colors.accent1)
+      .attr('opacity', 0.15);
+
+    svg.append('text')
+      .attr('x', rightX + 225)
+      .attr('y', 116)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('📜 Sliding Window (historyWindow: 20)');
+
+    // Message format examples
+    const formats = [
+      { role: 'user', content: '"Add dark mode"', color: colors.accent1 },
+      { role: 'assistant', content: 'tool_calls: [workspace_select]', color: colors.accent2 },
+      { role: 'tool', content: 'tool_call_id → "Selected project"', color: colors.accent4 },
+      { role: 'assistant', content: 'tool_calls: [task_create]', color: colors.accent2 },
+      { role: 'tool', content: 'tool_call_id → "Task tsk_abc started"', color: colors.accent4 },
+    ];
+
+    formats.forEach((fmt, i) => {
+      const fy = 140 + i * 20;
+      svg.append('rect')
+        .attr('x', rightX + 12)
+        .attr('y', fy - 12)
+        .attr('width', 60)
+        .attr('height', 16)
+        .attr('rx', 4)
+        .attr('fill', fmt.color)
+        .attr('opacity', 0.2);
+      svg.append('text')
+        .attr('x', rightX + 42)
+        .attr('y', fy)
+        .attr('text-anchor', 'middle')
+        .attr('fill', fmt.color)
+        .attr('font-size', '9px')
+        .attr('font-weight', '600')
+        .text(fmt.role);
+      svg.append('text')
+        .attr('x', rightX + 82)
+        .attr('y', fy)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '9px')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .text(fmt.content);
+    });
+
+    // Compaction Engine box
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 280)
+      .attr('width', 450)
+      .attr('height', 130)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent5)
+      .attr('stroke-width', 2);
+
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 280)
+      .attr('width', 450)
+      .attr('height', 38)
+      .attr('rx', 12)
+      .attr('fill', colors.accent5)
+      .attr('opacity', 0.15);
+
+    svg.append('text')
+      .attr('x', rightX + 225)
+      .attr('y', 306)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('🗜️ Compaction Engine (threshold: 40)');
+
+    const compSteps = [
+      '1. Messages exceed compactionThreshold (default 40)',
+      '2. Build transcript from old messages (before window)',
+      '3. LLM summarizes → session.metadata.compactionSummary',
+      '4. Trim messages[] to last historyWindow (20)',
+    ];
+    compSteps.forEach((step, i) => {
+      svg.append('text')
+        .attr('x', rightX + 20)
+        .attr('y', 332 + i * 18)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '11px')
+        .text(step);
+    });
+
+    // Task Completion Hooks box
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 440)
+      .attr('width', 450)
+      .attr('height', 100)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.success)
+      .attr('stroke-width', 2);
+
+    svg.append('rect')
+      .attr('x', rightX)
+      .attr('y', 440)
+      .attr('width', 450)
+      .attr('height', 38)
+      .attr('rx', 12)
+      .attr('fill', colors.success)
+      .attr('opacity', 0.15);
+
+    svg.append('text')
+      .attr('x', rightX + 225)
+      .attr('y', 466)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.text)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('🔔 Task Completion Hooks');
+
+    const hookSteps = [
+      'task:completed → addAssistantMessage() → WhatsApp notification',
+      'task:failed → addAssistantMessage() → WhatsApp notification',
+      'frameTaskGoal() → self-contained goals for harness dispatch',
+    ];
+    hookSteps.forEach((step, i) => {
+      svg.append('text')
+        .attr('x', rightX + 20)
+        .attr('y', 492 + i * 18)
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '11px')
+        .text(step);
+    });
+
+    // Connecting arrows from left to right
+    // Build History → Sliding Window
+    svg.append('path')
+      .attr('d', `M 300 197 L ${rightX - 5} 170`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,3')
+      .attr('marker-end', 'url(#arrowhead)');
+
+    // Persist Results → Compaction
+    svg.append('path')
+      .attr('d', `M 300 437 L ${rightX - 5} 345`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,3')
+      .attr('marker-end', 'url(#arrowhead)');
+
+    // Response → Hooks
+    svg.append('path')
+      .attr('d', `M 300 517 L ${rightX - 5} 490`)
+      .attr('fill', 'none')
+      .attr('stroke', colors.arrow)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '4,3')
+      .attr('marker-end', 'url(#arrowhead)');
+
+    // Config badge
+    svg.append('rect')
+      .attr('x', rightX + 100)
+      .attr('y', 555)
+      .attr('width', 250)
+      .attr('height', 22)
+      .attr('rx', 11)
+      .attr('fill', colors.accent3)
+      .attr('opacity', 0.15);
+    svg.append('text')
+      .attr('x', rightX + 225)
+      .attr('y', 570)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.accent3)
+      .attr('font-size', '10px')
+      .attr('font-weight', '600')
+      .text('⚙️ All params tunable via config/pipeline.ts (44 settings)');
+  },
+
+  // =====================================================
   // Initialize all diagrams on page
   // =====================================================
   initAll() {
@@ -1629,6 +1924,9 @@ const FetchDiagrams = {
           break;
         case 'docker':
           this.renderDockerArchitecture(container.id);
+          break;
+        case 'contextpipeline':
+          this.renderContextPipeline(container.id);
           break;
       }
     });

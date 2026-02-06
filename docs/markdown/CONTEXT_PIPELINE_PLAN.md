@@ -6,6 +6,8 @@
 >
 > **Key Principle:** Tool calls are internal plumbing — the LLM sees them in history for context, but WhatsApp responses only contain the final text. The user never sees raw tool call data.
 
+<!-- DIAGRAM:contextpipeline -->
+
 ---
 
 ## Architecture: Before → After
