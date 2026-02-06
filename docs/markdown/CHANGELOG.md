@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
+
+### 🔴 Runtime Crash Fixes (P0)
+- **Session Store DDL:** Fixed `conversation_threads` table column mismatch vs prepared statements. Added missing `meta` table DDL. Removed dead `memory_facts`/`working_context` tables.
+- **Harness Executor:** `sendInput()` and `kill()` rewired through pool/spawner (were reading from unpopulated Map).
+- **Task Respond:** Actually delivers user response to harness via `executor.sendInput()` (was a TODO).
+- **Env Validation:** Moved before subsystem init so missing API keys fail fast.
+
+### 🔒 Security Hardening (P1)
+- Shell injection fixed in custom tools (shell-escaped params), workspace manager (name validation + heredocs), command parser (SHA validation + `execFile`).
+- `/api/logout` now requires bearer token authentication.
+- Removed backtick pattern from input validator that blocked inline code.
+
+### 🧹 Dead Code Purge (~880 lines removed)
+- `whatsapp-format.ts`: 628 → 96 lines (8 dead exports removed)
+- `harness/executor.ts`: 596 → 403 lines (dead `spawnAndWait`, `getOutputBuffer`)
+- Misc: unused logger bg colors, `box()`, `MEMORY_DIR`
+
+### 📦 Infrastructure
+- Added test scripts to package.json (`test`, `test:run`, `test:unit`, `test:e2e`, `test:integration`)
+- Added `sendInput()` to `HarnessSpawner` and `HarnessPool`
+
 ## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
 
 ### 🧬 Unified Identity Pipeline

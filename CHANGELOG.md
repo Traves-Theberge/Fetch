@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
+
+### 🔴 Runtime Crash Fixes (P0)
+- **Session Store DDL:** Fixed `conversation_threads` table DDL that had completely mismatched columns vs prepared statements (would crash on first thread operation). Added missing `meta` table DDL. Removed dead `memory_facts` and `working_context` tables (zero readers/writers).
+- **Harness Executor:** `sendInput()` and `kill()` were reading from a `processes` Map that the pool-based execution path never populated — every call threw "Harness not found". Rewired both through `pool.sendInput()` → `spawner.sendInput()` using the actual ChildProcess stdin.
+- **Task Respond:** `handleTaskRespond()` had a `// TODO: Send response to harness via stdin` — it resumed task state but never actually delivered the user's response. Now wired through `executor.sendInput()`.
+- **Env Validation Order:** `validateEnvironment()` ran *after* 3 subsystems had already started. Moved to first line of `main()` so missing API keys fail fast.
+
+### 🔒 Security Hardening (P1)
+- **Shell Injection — Custom Tools:** `tools/registry.ts` `createShellHandler()` did raw `{{param}}` string interpolation into shell commands. Now escapes values with single-quote wrapping.
+- **Shell Injection — Workspace Manager:** Workspace names passed directly into `sh -c` strings. Added `^[a-zA-Z0-9._-]+$` validation and switched to heredoc-based template creation.
+- **Shell Injection — Command Parser:** Git commit SHAs passed unsanitized to `exec()`. Added `/^[0-9a-f]{7,40}$/i` validation. Git clone switched from `exec()` to `execFile()` with args array.
+- **Unauthenticated Logout:** `POST /api/logout` had zero authentication — any HTTP client on the Docker network could disconnect WhatsApp. Added bearer token auth (auto-generated or via `ADMIN_TOKEN` env var).
+- **Validator Blocks Code:** The backtick pattern `/`.*`/` in `SUSPICIOUS_PATTERNS` rejected any message containing inline code. Removed — Docker isolation is the real protection.
+
+### 🧹 Dead Code Purge (~880 lines)
+- **`whatsapp-format.ts`:** Removed 8 dead exports (`formatMobileResponse`, `formatCode`, `formatDiff`, `formatCompactDiff`, `formatError`, `formatFileList`, `formatProgressBar`, `formatToolAction`) plus 5 helper functions. Kept only `formatForWhatsApp()`. File: 628 → 96 lines (−532).
+- **`harness/executor.ts`:** Removed `spawnAndWait()` (130-line dead method), `getOutputBuffer()`, `processes` Map, unused `child_process`/`output-parser` imports. File: 596 → 403 lines (−193).
+- **`utils/logger.ts`:** Removed 4 unused background color constants and dead `box()` function.
+- **`config/paths.ts`:** Removed `MEMORY_DIR` export (no memory system exists).
+
+### 📦 Infrastructure
+- **Test Scripts:** Added `test`, `test:run`, `test:unit`, `test:e2e`, `test:integration` to package.json.
+- **Pool stdin:** Added `sendInput()` to `HarnessSpawner` and `HarnessPool` for proper stdin passthrough.
+
+### Files Changed (25 files, +227/−880)
+- `session/store.ts`, `harness/executor.ts`, `harness/spawner.ts`, `harness/pool.ts`, `tools/task.ts`, `index.ts`, `tools/registry.ts`, `workspace/manager.ts`, `commands/parser.ts`, `api/status.ts`, `security/validator.ts`, `agent/whatsapp-format.ts`, `utils/logger.ts`, `config/paths.ts`, plus 11 doc files
+
 ## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
 
 ### 🧬 Unified Identity Pipeline
