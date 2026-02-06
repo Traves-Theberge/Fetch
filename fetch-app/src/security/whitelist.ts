@@ -40,6 +40,7 @@ import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -106,7 +107,7 @@ export class WhitelistStore {
    * Format: comma-separated phone numbers (e.g., "15551234567,15559876543")
    */
   private async loadFromEnv(): Promise<void> {
-    const envNumbers = process.env.TRUSTED_PHONE_NUMBERS;
+    const envNumbers = env.TRUSTED_PHONE_NUMBERS;
     
     if (!envNumbers || envNumbers.trim() === '') {
       logger.debug('No TRUSTED_PHONE_NUMBERS in environment');

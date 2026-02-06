@@ -42,11 +42,9 @@
 import { 
   Session, 
   Message, 
-  AgentTask,
   UserPreferences,
   AutonomyLevel,
   createMessage,
-  createTask,
   ToolCall
 } from './types.js';
 import { SessionStore, getSessionStore } from './store.js';
@@ -177,7 +175,7 @@ export class SessionManager {
     // Snapshot current state
     const snapshot = {
       messages: session.messages,
-      currentTask: session.currentTask,
+      activeTaskId: session.activeTaskId,
       activeFiles: session.activeFiles,
       repoMap: session.repoMap,
       project: session.currentProject
@@ -194,7 +192,7 @@ export class SessionManager {
     // Clear session state (except persistent preferences)
     session.metadata.activeThreadId = undefined;
     session.messages = [];
-    session.currentTask = null;
+    session.activeTaskId = null;
     session.activeFiles = [];
     // We keep repoMap/Project as they might be relevant to the next thread 
     // or just general workspace state, but for "clean slate" thread switching,
@@ -219,7 +217,7 @@ export class SessionManager {
       // Restore state
       const snapshot = thread.contextSnapshot || {};
       session.messages = snapshot.messages || [];
-      session.currentTask = snapshot.currentTask || null;
+      session.activeTaskId = snapshot.activeTaskId || null;
       session.activeFiles = snapshot.activeFiles || [];
       session.repoMap = snapshot.repoMap || null;
       session.currentProject = snapshot.project || null;
@@ -467,203 +465,6 @@ export class SessionManager {
     const newValue = !session.preferences.verboseMode;
     await this.updatePreferences(session, { verboseMode: newValue });
     return newValue;
-  }
-
-  // ============================================================================
-  // Task Management
-  // ============================================================================
-
-  /**
-   * Start a new agent task
-   */
-  async startTask(session: Session, goal: string): Promise<AgentTask> {
-    if (session.currentTask && 
-        !['completed', 'failed', 'aborted'].includes(session.currentTask.status)) {
-      throw new Error('A task is already in progress. Use /stop to cancel it first.');
-    }
-
-    const task = createTask(goal, session.preferences.maxIterations);
-    session.currentTask = task;
-    await this.store.update(session);
-    
-    logger.info('Started new task', { 
-      sessionId: session.id, 
-      taskId: task.id, 
-      goal 
-    });
-    
-    return task;
-  }
-
-  /**
-   * Update the current task
-   */
-  async updateTask(session: Session, updates: Partial<AgentTask>): Promise<void> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    session.currentTask = { ...session.currentTask, ...updates };
-    await this.store.update(session);
-  }
-
-  /**
-   * Complete the current task
-   */
-  async completeTask(session: Session, output: string): Promise<AgentTask> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    session.currentTask.status = 'completed';
-    session.currentTask.output = output;
-    session.currentTask.completedAt = new Date().toISOString();
-    
-    await this.store.update(session);
-    
-    logger.info('Task completed', { 
-      sessionId: session.id, 
-      taskId: session.currentTask.id 
-    });
-
-    const completedTask = session.currentTask;
-    session.currentTask = null;
-    await this.store.update(session);
-    
-    return completedTask;
-  }
-
-  /**
-   * Fail the current task
-   */
-  async failTask(session: Session, error: string): Promise<AgentTask> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    session.currentTask.status = 'failed';
-    session.currentTask.error = error;
-    session.currentTask.completedAt = new Date().toISOString();
-    
-    await this.store.update(session);
-    
-    logger.error('Task failed', { 
-      sessionId: session.id, 
-      taskId: session.currentTask.id,
-      error 
-    });
-
-    const failedTask = session.currentTask;
-    session.currentTask = null;
-    await this.store.update(session);
-    
-    return failedTask;
-  }
-
-  /**
-   * Abort the current task (user requested)
-   */
-  async abortTask(session: Session): Promise<AgentTask | null> {
-    if (!session.currentTask) {
-      return null;
-    }
-
-    session.currentTask.status = 'cancelled';
-    session.currentTask.completedAt = new Date().toISOString();
-    
-    await this.store.update(session);
-    
-    logger.info('Task cancelled', { 
-      sessionId: session.id, 
-      taskId: session.currentTask.id 
-    });
-
-    const abortedTask = session.currentTask;
-    session.currentTask = null;
-    await this.store.update(session);
-    
-    return abortedTask;
-  }
-
-  /**
-   * Pause the current task
-   */
-  async pauseTask(session: Session): Promise<void> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    session.currentTask.status = 'paused';
-    await this.store.update(session);
-    
-    logger.info('Task paused', { 
-      sessionId: session.id, 
-      taskId: session.currentTask.id 
-    });
-  }
-
-  /**
-   * Resume a paused task
-   */
-  async resumeTask(session: Session): Promise<void> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    if (session.currentTask.status !== 'paused') {
-      throw new Error('Task is not paused');
-    }
-
-    session.currentTask.status = 'running';
-    await this.store.update(session);
-    
-    logger.info('Task resumed', {  
-      sessionId: session.id, 
-      taskId: session.currentTask.id 
-    });
-  }
-
-  /**
-   * Set pending approval on task
-   */
-  async setPendingApproval(
-    session: Session,
-    tool: string,
-    args: Record<string, unknown>,
-    description: string,
-    diff?: string,
-    toolCallId?: string
-  ): Promise<void> {
-    if (!session.currentTask) {
-      throw new Error('No active task');
-    }
-
-    session.currentTask.status = 'waiting_input';
-    session.currentTask.pendingApproval = {
-      tool,
-      args,
-      description,
-      diff,
-      toolCallId,
-      createdAt: new Date().toISOString()
-    };
-    
-    await this.store.update(session);
-  }
-
-  /**
-   * Clear pending approval
-   */
-  async clearPendingApproval(session: Session, _approved: boolean): Promise<void> {
-    if (!session.currentTask?.pendingApproval) {
-      return;
-    }
-
-    session.currentTask.pendingApproval = null;
-    session.currentTask.status = 'running';
-    
-    // Note: Don't record tool message here - caller will do it with proper toolCallId
-    await this.store.update(session);
   }
 
   // ============================================================================

@@ -12,6 +12,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { env } from './env.js';
 
 /**
  * Resolve the root data directory.
@@ -22,8 +23,8 @@ import fs from 'fs';
  */
 function resolveDataDir(): string {
   // Explicit override
-  if (process.env.DATA_DIR) {
-    return path.resolve(process.env.DATA_DIR);
+  if (env.DATA_DIR) {
+    return path.resolve(env.DATA_DIR);
   }
 
   // Docker: /app/data exists as a mounted volume
@@ -67,7 +68,7 @@ export const TOOLS_DIR = path.join(DATA_DIR, 'tools');
 export const POLLING_FILE = path.join(DATA_DIR, 'POLLING.md');
 
 /** Sessions database */
-export const SESSIONS_DB = process.env.DATABASE_PATH || path.join(DATA_DIR, 'sessions.db');
+export const SESSIONS_DB = env.DATABASE_PATH || path.join(DATA_DIR, 'sessions.db');
 
 /** Tasks database */
-export const TASKS_DB = process.env.TASKS_DB_PATH || path.join(DATA_DIR, 'tasks.db');
+export const TASKS_DB = env.TASKS_DB_PATH || path.join(DATA_DIR, 'tasks.db');

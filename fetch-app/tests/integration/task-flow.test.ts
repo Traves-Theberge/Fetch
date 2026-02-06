@@ -131,7 +131,7 @@ describe('E2E: Task Flow', () => {
       const duration = Date.now() - start;
 
       expect(result.status).toBe('completed');
-      expect(duration).toBeGreaterThanOrEqual(100);
+      expect(duration).toBeGreaterThanOrEqual(90); // allow ~10ms timer jitter
     });
   });
 

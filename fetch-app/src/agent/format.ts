@@ -5,10 +5,11 @@
  * 
  * @module agent/format
  * @see {@link module:agent/whatsapp-format} For low-level WhatsApp formatting utilities
- * @see {@link module:session/types} For AgentTask and Session types
+ * @see {@link module:session/types} For Session types
  */
 
 import { Session } from '../session/types.js';
+import { getTaskManager } from '../task/manager.js';
 
 /**
  * Format session status display.
@@ -19,16 +20,20 @@ import { Session } from '../session/types.js';
  * @param {Session} session - The user session to display
  * @returns {string} Formatted status overview
  */
-export function formatStatus(session: Session): string {
+export async function formatStatus(session: Session): Promise<string> {
   let message = `📊 *Fetch Status*\n\n`;
   
-  // Current task
-  if (session.currentTask) {
-    const task = session.currentTask;
-    message += `🎯 *Current Task:*\n`;
-    message += `${task.goal.substring(0, 50)}${task.goal.length > 50 ? '...' : ''}\n`;
-    message += `Status: ${formatTaskStatus(task.status)}\n`;
-    message += `Progress: ${task.iterations}/${task.maxIterations} iterations\n\n`;
+  // Current task (V3.3 — fetched from TaskManager)
+  if (session.activeTaskId) {
+    const taskManager = await getTaskManager();
+    const task = taskManager.getTask(session.activeTaskId);
+    if (task) {
+      message += `🎯 *Current Task:*\n`;
+      message += `${task.goal.substring(0, 50)}${task.goal.length > 50 ? '...' : ''}\n`;
+      message += `Status: ${formatTaskStatus(task.status)}\n\n`;
+    } else {
+      message += `No active task\n\n`;
+    }
   } else {
     message += `No active task\n\n`;
   }

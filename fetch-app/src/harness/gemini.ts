@@ -32,10 +32,10 @@
 
 import type { AgentType } from '../task/types.js';
 import type {
-  HarnessAdapter,
   HarnessConfig,
   HarnessOutputEventType,
 } from './types.js';
+import { AbstractHarnessAdapter } from './base.js';
 
 // ============================================================================
 // Constants
@@ -107,7 +107,7 @@ const ERROR_PATTERN = /^Error:\s+(.+)$/m;
  * // config.args = ['--sandbox=none', '-p', 'Add dark mode']
  * ```
  */
-export class GeminiAdapter implements HarnessAdapter {
+export class GeminiAdapter extends AbstractHarnessAdapter {
   /**
    * Agent type this adapter handles
    */
@@ -180,56 +180,31 @@ export class GeminiAdapter implements HarnessAdapter {
   }
 
   /**
-   * Detect if Gemini is asking a question
-   *
-   * @param output - Recent output buffer
-   * @returns Question text if detected, null otherwise
+   * Gemini-specific question pattern: `> Should I continue?`
+   */
+  protected getAdapterQuestionPattern(): RegExp {
+    return QUESTION_PATTERN;
+  }
+
+  /**
+   * Gemini extends base question detection with choose/select/pick patterns
    */
   detectQuestion(output: string): string | null {
-    const match = output.match(QUESTION_PATTERN);
-    if (match) {
-      return match[1].trim();
-    }
+    const base = super.detectQuestion(output);
+    if (base) return base;
 
-    // Check for common question patterns in last lines
+    // Gemini-specific: selection prompts
     const lines = output.trim().split('\n');
-    const lastLines = lines.slice(-3);
-
-    for (const line of lastLines) {
-      // Direct question
-      if (line.trim().endsWith('?')) {
-        return line.trim();
-      }
-
-      // Yes/No prompt
-      if (/\[y\/n\]/i.test(line) || /\(yes\/no\)/i.test(line)) {
-        return line.trim();
-      }
-
-      // Continue prompt
-      if (/continue\?|proceed\?|confirm/i.test(line)) {
-        return line.trim();
-      }
-
-      // Selection prompt
+    const tail = lines.slice(-3);
+    for (const line of tail) {
       if (/choose|select|pick|which/i.test(line) && line.includes('?')) {
         return line.trim();
       }
     }
-
     return null;
   }
 
-  /**
-   * Format user response for Gemini stdin
-   *
-   * @param response - User's response
-   * @returns Formatted response with newline
-   */
-  formatResponse(response: string): string {
-    // Gemini expects responses followed by newline
-    return response.trim() + '\n';
-  }
+  // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
    * Extract file operations from output
@@ -275,38 +250,13 @@ export class GeminiAdapter implements HarnessAdapter {
   }
 
   /**
-   * Extract summary from Gemini output
-   *
-   * Attempts to find a completion summary in the output.
-   *
-   * @param output - Full output buffer
-   * @returns Summary text or default message
+   * Progress pattern for summary paragraph filtering
    */
-  extractSummary(output: string): string {
-    // Look for explicit summary section
-    const summaryMatch = output.match(/##?\s*Summary\s*\n([\s\S]+?)(?=\n##|$)/i);
-    if (summaryMatch) {
-      return summaryMatch[1].trim();
-    }
-
-    // Look for "Done" or "Complete" message with context
-    const doneMatch = output.match(/(Done|Complete|Finished)[.:!]?\s*(.+)?$/im);
-    if (doneMatch && doneMatch[2]) {
-      return doneMatch[2].trim();
-    }
-
-    // Extract last meaningful paragraph
-    const paragraphs = output
-      .split(/\n\n+/)
-      .filter((p) => p.trim().length > 20)
-      .filter((p) => !PROGRESS_PATTERN.test(p));
-
-    if (paragraphs.length > 0) {
-      return paragraphs[paragraphs.length - 1].trim().substring(0, 500);
-    }
-
-    return 'Task completed.';
+  protected getProgressPattern(): RegExp {
+    return PROGRESS_PATTERN;
   }
+
+  // extractSummary() inherited from AbstractHarnessAdapter
 }
 
 // ============================================================================

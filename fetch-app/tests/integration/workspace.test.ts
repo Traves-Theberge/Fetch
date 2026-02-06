@@ -20,7 +20,7 @@ describe('E2E: Workspace Management', () => {
 
       for (const request of listRequests) {
         const intent = classifyIntent(request, session);
-        expect(intent.type).toBe('workspace');
+        expect(intent.type).toBe('action');
       }
     });
   });
@@ -38,7 +38,7 @@ describe('E2E: Workspace Management', () => {
 
       for (const request of selectRequests) {
         const intent = classifyIntent(request, session);
-        expect(intent.type).toBe('workspace');
+        expect(intent.type).toBe('action');
       }
     });
   });
@@ -58,7 +58,7 @@ describe('E2E: Workspace Management', () => {
 
       for (const request of statusRequests) {
         const intent = classifyIntent(request, session);
-        expect(intent.type).toBe('workspace');
+        expect(intent.type).toBe('action');
       }
     });
 
@@ -68,7 +68,7 @@ describe('E2E: Workspace Management', () => {
       });
 
       const intent = classifyIntent('show status', session);
-      expect(intent.type).toBe('workspace');
+      expect(intent.type).toBe('action');
     });
   });
 

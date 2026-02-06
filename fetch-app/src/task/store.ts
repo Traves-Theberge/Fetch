@@ -135,6 +135,17 @@ export class TaskStore {
       await this.init();
     }
   }
+
+  /**
+   * Close the database connection and flush the WAL.
+   */
+  close(): void {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+      this.initialized = false;
+    }
+  }
 }
 
 let storeInstance: TaskStore | null = null;

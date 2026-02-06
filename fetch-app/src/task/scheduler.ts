@@ -87,6 +87,13 @@ export class TaskScheduler {
       if (job.nextRun && now >= job.nextRun) {
         await this.triggerJob(job.id);
         
+        // One-shot jobs self-clean after first execution
+        if (job.oneShot) {
+          this.jobs.delete(job.id);
+          logger.info(`One-shot job removed after execution: ${job.id}`);
+          continue;
+        }
+
         // Schedule next run
         job.lastRun = now;
         job.nextRun = this.calculateNextRun(job.schedule);

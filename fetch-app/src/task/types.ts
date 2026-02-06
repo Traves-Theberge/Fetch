@@ -60,6 +60,8 @@ export interface CronJob {
   enabled: boolean;
   lastRun?: number;
   nextRun?: number;
+  /** If true, job is automatically removed after the first execution. */
+  oneShot?: boolean;
 }
 
 /**

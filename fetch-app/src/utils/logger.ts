@@ -121,7 +121,25 @@ function formatData(data: unknown): string {
   }
 }
 
+/** Numeric severity for filtering (higher = more severe) */
+const SEVERITY: Record<string, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  success: 1,  // same as info
+  message: 1,  // same as info
+};
+
+/** Read LOG_LEVEL lazily so test overrides work */
+function getMinSeverity(): number {
+  return SEVERITY[process.env.LOG_LEVEL || 'debug'] ?? 0;
+}
+
 function log(level: LogLevel, message: string, data?: unknown): void {
+  // Level gate — skip messages below the configured threshold
+  if ((SEVERITY[level] ?? 0) < getMinSeverity()) return;
+
   const config = levelConfig[level];
   const time = formatTime();
   const dataStr = formatData(data);

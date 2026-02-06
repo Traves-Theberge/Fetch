@@ -9,7 +9,7 @@ export class GuardingMode implements ModeHandler {
   private pendingAction: string | null = null;
   private pendingTaskId: TaskId | null = null;
 
-  async enter(previous: FetchMode, data?: { action: string, taskId?: string }): Promise<void> {
+  async enter(_previous: FetchMode, data?: { action: string, taskId?: string }): Promise<void> {
     this.pendingAction = data?.action || 'Unknown Action';
     this.pendingTaskId = (data?.taskId as TaskId) || null;
     logger.warn(`[${this.name}] SECURITY LOCK: Pending authorization for '${this.pendingAction}'`);

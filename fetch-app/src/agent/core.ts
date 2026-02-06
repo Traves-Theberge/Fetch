@@ -18,18 +18,18 @@
 import OpenAI from 'openai';
 import { Session, Message } from '../session/types.js';
 import { logger } from '../utils/logger.js';
-import { classifyIntent, type IntentType } from './intent.js';
+import { classifyIntent } from './intent.js';
 import {
   buildTaskFramePrompt,
   buildContextSection,
 } from './prompts.js';
 import { getToolRegistry } from '../tools/registry.js';
-import { formatForWhatsApp } from './whatsapp-format.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
 import { getInstinctRegistry, FetchMode, type InstinctAction } from '../instincts/index.js';
 import { getIdentityManager } from '../identity/manager.js';
 import { getSkillManager } from '../skills/manager.js';
+import { env } from '../config/env.js';
 import { modeDetector } from '../conversation/detector.js'; // Phase 8: Mode Detection
 import { threadManager } from '../conversation/thread.js'; // Phase 8: Threading
 
@@ -66,7 +66,7 @@ export interface ToolCallRecord {
 // CONSTANTS
 // =============================================================================
 
-const MODEL = process.env.AGENT_MODEL ?? 'openai/gpt-4o-mini';
+const MODEL = env.AGENT_MODEL;
 const MAX_TOOL_CALLS = 5;
 const MAX_CONSECUTIVE_ERRORS = 3;
 const ERROR_BACKOFF_MS = [1000, 5000, 30000];
@@ -218,7 +218,7 @@ let openaiClient: OpenAI | null = null;
 
 function getOpenAI(): OpenAI {
   if (!openaiClient) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = env.OPENROUTER_API_KEY;
     if (!apiKey) {
       throw new Error('OPENROUTER_API_KEY not set');
     }
@@ -244,13 +244,15 @@ async function handleInstinctAction(
 ): Promise<void> {
   switch (action.type) {
     case 'stop':
-      // Cancel current task if any
-      if (session.currentTask) {
-        logger.info('Instinct action: stopping task', { taskId: session.currentTask.id });
-        session.currentTask = {
-          ...session.currentTask,
-          status: 'cancelled',
-        };
+      // Cancel current task if any (V3.3: use TaskManager)
+      if (session.activeTaskId) {
+        const { getTaskManager } = await import('../task/manager.js');
+        const tm = await getTaskManager();
+        try {
+          await tm.cancelTask(session.activeTaskId);
+        } catch { /* may already be cancelled */ }
+        session.activeTaskId = null;
+        logger.info('Instinct action: stopping task');
         await sManager.updateSession(session);
       }
       break;
@@ -266,7 +268,7 @@ async function handleInstinctAction(
       session.messages = [];
       session.activeFiles = [];
       session.repoMap = null;
-      session.currentTask = null;
+      session.activeTaskId = null;
       await sManager.updateSession(session);
       break;
       
@@ -341,16 +343,23 @@ export async function processMessage(
     const instinctRegistry = getInstinctRegistry();
     // Phase 8: Use ModeDetector first
     const detectedMode = modeDetector.detect(message);
-    const activeTask = session.currentTask 
-      ? {
-          id: session.currentTask.id,
-          status: session.currentTask.status,
-          description: session.currentTask.goal,
-          goal: session.currentTask.goal,
-          harness: session.currentTask.harness,
-          startedAt: session.currentTask.startedAt,
-        }
-      : undefined;
+    // Build active task context from TaskManager (V3.3)
+    let activeTask: { id: string; status: import('../task/types.js').TaskStatus; description: string; goal: string; harness?: string; startedAt?: string } | undefined;
+    if (session.activeTaskId) {
+      const { getTaskManager } = await import('../task/manager.js');
+      const tm = await getTaskManager();
+      const tmTask = tm.getTask(session.activeTaskId);
+      if (tmTask) {
+        activeTask = {
+          id: tmTask.id,
+          status: tmTask.status,
+          description: tmTask.goal,
+          goal: tmTask.goal,
+          harness: tmTask.agent,
+          startedAt: tmTask.startedAt,
+        };
+      }
+    }
     
     // Use the explicit mode if instincts don't override
     const instinctContextMode: FetchMode = (detectedMode.mode === 'TASK' && activeTask?.status === 'running') 
@@ -409,10 +418,9 @@ export async function processMessage(
         );
         break;
 
-      case 'workspace':
-      case 'task':
+      case 'action':
         response = await handleWithRetry(
-          (attempt) => handleWithTools(message, session, intent.type, attempt),
+          (attempt) => handleWithTools(message, session, attempt),
           session.id,
           onProgress
         );
@@ -488,7 +496,7 @@ async function handleConversation(
   const activatedContext = skillManager.buildActivatedSkillsContext(matchedSkills);
 
   // Build session context (workspace, task, git state, summaries)
-  const sessionContext = buildContextSection(session);
+  const sessionContext = await buildContextSection(session);
 
   const history = buildMessageHistory(session);
   
@@ -515,7 +523,7 @@ async function handleConversation(
   const text = response.choices[0]?.message?.content ?? "Hey! 🐕";
 
   return {
-    text: formatForWhatsApp(text),
+    text,
   };
 }
 
@@ -529,7 +537,6 @@ async function handleConversation(
 async function handleWithTools(
   message: string,
   session: Session,
-  _intent: IntentType,
   attempt: number = 1
 ): Promise<AgentResponse> {
   const openai = getOpenAI();
@@ -543,7 +550,7 @@ async function handleWithTools(
   const activatedContext = skillManager.buildActivatedSkillsContext(matchedSkills);
 
   // Build session context (workspace, task, git state, summaries)
-  const sessionContext = buildContextSection(session);
+  const sessionContext = await buildContextSection(session);
 
   const history = buildMessageHistory(session);
   
@@ -659,7 +666,7 @@ async function handleWithTools(
       : undefined;
 
   return {
-    text: formatForWhatsApp(text),
+    text,
     toolCalls,
     taskStarted: !!taskCall,
     taskId,

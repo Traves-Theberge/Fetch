@@ -18,6 +18,7 @@ import { IdentityLoader } from './loader.js';
 import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 // Default "Orchestrator" Identity
 const DEFAULT_IDENTITY: AgentIdentity = {
@@ -47,7 +48,7 @@ const DEFAULT_IDENTITY: AgentIdentity = {
     ]
   },
   context: {
-    owner: process.env.OWNER_PHONE_NUMBER || 'Admin',
+    owner: env.OWNER_PHONE_NUMBER || 'Admin',
     projectRoot: process.cwd(),
     platform: 'Linux'
   },

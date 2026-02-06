@@ -33,7 +33,8 @@ export async function handleRemindCommand(args: string): Promise<string> {
     schedule: cronExpression,
     command: `echo "REMINDER: ${message.trim()}"`, // Placeholder for actual notification logic
     description: `Reminder: ${message.trim()}`,
-    enabled: true
+    enabled: true,
+    oneShot: true,
   });
 
   return `✅ **Reminder set!**\nI'll remind you to "${message.trim()}" at ${targetTime.toLocaleTimeString()}.`;
@@ -41,11 +42,18 @@ export async function handleRemindCommand(args: string): Promise<string> {
 
 /**
  * Handle /schedule command
- * Format: /schedule [task] at [cron/time]
+ * Sub-commands: /schedule list, /schedule <task> at <time>
  */
-export async function handleScheduleCommand(_args: string): Promise<string> {
-  // Placeholder - complex parsing required for natural language time
-  return "Schedule command implementation pending closer integration with natural date parser.";
+export async function handleScheduleCommand(args: string): Promise<string> {
+  const sub = args.trim().toLowerCase();
+
+  // /schedule list — alias for /cron list
+  if (!sub || sub === 'list' || sub === 'ls') {
+    return handleCronList();
+  }
+
+  // Future: natural language parsing for "/schedule deploy at 3pm"
+  return "Usage: /schedule list  —  or  /remind <message> in <time>";
 }
 
 /**

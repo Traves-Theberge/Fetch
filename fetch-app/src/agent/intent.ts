@@ -3,8 +3,7 @@
  *
  * Classifies user messages into intents:
  * - conversation: Chat that doesn't need tools
- * - workspace: Project/workspace management
- * - task: Coding work that needs a harness
+ * - action: Any work requiring tools (workspace mgmt, coding tasks, etc.)
  * - clarify: Ambiguous request requiring user input
  *
  * @module agent/intent
@@ -18,9 +17,12 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /**
- * Intent types (4 categories now)
+ * Intent types — 3 categories
+ *
+ * Previously split workspace/task, but both route to the same
+ * tool-enabled handler, so they are now unified as 'action'.
  */
-export type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
+export type IntentType = 'conversation' | 'action' | 'clarify';
 
 /**
  * Classification result
@@ -340,7 +342,7 @@ export function classifyIntent(
   for (const pattern of AMBIGUOUS_PATTERNS) {
       if (pattern.test(trimmed)) {
           // If we have an active task, this might refer to it, so check context
-          if (!session.currentTask) {
+          if (!session.activeTaskId) {
               logger.debug(`Intent: clarify (ambiguous)`, { message: trimmed.substring(0, 50) });
               return {
                   type: 'clarify',
@@ -378,9 +380,9 @@ export function classifyIntent(
   for (const [category, patterns] of Object.entries(WORKSPACE_PATTERNS)) {
     for (const pattern of patterns) {
       if (pattern.test(trimmed)) {
-        logger.debug(`Intent: workspace (${category})`, { message: trimmed.substring(0, 50) });
+        logger.debug(`Intent: action/workspace (${category})`, { message: trimmed.substring(0, 50) });
         return {
-          type: 'workspace',
+          type: 'action',
           confidence: 0.9,
           reason: `workspace_${category}`,
           entities,
@@ -399,18 +401,18 @@ export function classifyIntent(
       if (pattern.test(trimmed)) {
         // Extra validation for destructive actions
         if (category === 'destructive') {
-          logger.debug('Intent: task (destructive - will confirm)', { message: trimmed.substring(0, 50) });
+          logger.debug('Intent: action/task (destructive - will confirm)', { message: trimmed.substring(0, 50) });
           return {
-            type: 'task',
+            type: 'action',
             confidence: 0.85,
             reason: 'task_destructive',
             entities: { ...entities, isDestructive: true },
           };
         }
 
-        logger.debug(`Intent: task (${category})`, { message: trimmed.substring(0, 50) });
+        logger.debug(`Intent: action/task (${category})`, { message: trimmed.substring(0, 50) });
         return {
-          type: 'task',
+          type: 'action',
           confidence: 0.85,
           reason: `task_${category}`,
           entities,
@@ -428,13 +430,13 @@ export function classifyIntent(
   const hasCodeIndicators = CODE_INDICATORS.some(p => p.test(trimmed));
 
   if (hasFileContext || hasCodeIndicators) {
-    logger.debug('Intent: task (code context detected)', { 
+    logger.debug('Intent: action (code context detected)', { 
       message: trimmed.substring(0, 50),
       hasFileContext,
       hasCodeIndicators,
     });
     return {
-      type: 'task',
+      type: 'action',
       confidence: 0.7,
       reason: 'code_context',
       entities,
@@ -475,12 +477,12 @@ export function classifyIntent(
 
   if (session.currentProject) {
     // User has a project selected - they're probably trying to do work
-    logger.debug('Intent: task (has active workspace)', { 
+    logger.debug('Intent: action (has active workspace)', { 
       message: trimmed.substring(0, 50),
       workspace: session.currentProject.name,
     });
     return {
-      type: 'task',
+      type: 'action',
       confidence: 0.5,
       reason: 'active_workspace_context',
       entities,
@@ -501,43 +503,4 @@ export function classifyIntent(
   };
 }
 
-// =============================================================================
-// LLM-BASED CLASSIFICATION (for ambiguous cases)
-// =============================================================================
 
-/**
- * Parse LLM response into intent
- *
- * @param response - LLM response (should be just the intent word)
- * @returns Parsed intent or null
- */
-export function parseIntentResponse(response: string): IntentType | null {
-  const cleaned = response.trim().toLowerCase();
-
-  if (cleaned === 'conversation' || cleaned.startsWith('conversation')) {
-    return 'conversation';
-  }
-  if (cleaned === 'workspace' || cleaned.startsWith('workspace')) {
-    return 'workspace';
-  }
-  if (cleaned === 'task' || cleaned.startsWith('task')) {
-    return 'task';
-  }
-
-  return null;
-}
-
-/**
- * Get intent with LLM fallback
- *
- * For low-confidence classifications, this can be used to get
- * an LLM-based classification instead.
- *
- * @param patternResult - Pattern-based classification result
- * @returns Whether to use LLM fallback
- */
-export function shouldUseLLMFallback(patternResult: ClassifiedIntent): boolean {
-  // Use LLM for low confidence OR when entities suggest complexity
-  return patternResult.confidence < 0.6 || 
-         (patternResult.entities?.isDestructive === true);
-}

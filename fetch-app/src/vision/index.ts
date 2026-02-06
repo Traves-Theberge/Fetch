@@ -9,6 +9,7 @@
 
 import OpenAI from 'openai';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 let openaiClient: OpenAI | null = null;
 
@@ -19,7 +20,7 @@ function getClient(): OpenAI {
   if (openaiClient) return openaiClient;
 
   // We strictly use OpenRouter for all AI services
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = env.OPENROUTER_API_KEY;
   
   if (!apiKey) {
     throw new Error('Missing OPENROUTER_API_KEY for vision analysis');
@@ -63,7 +64,7 @@ Instructions:
 
     // Standard OpenAI Vision format
     const response = await client.chat.completions.create({
-      model: process.env.VISION_MODEL || 'openai/gpt-4o-mini',
+      model: env.VISION_MODEL,
       messages: [
         {
           role: 'user',
@@ -95,5 +96,5 @@ Instructions:
  * Check if the vision service is available
  */
 export function isVisionAvailable(): boolean {
-  return !!process.env.OPENROUTER_API_KEY;
+  return !!env.OPENROUTER_API_KEY;
 }
