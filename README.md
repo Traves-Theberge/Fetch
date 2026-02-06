@@ -214,9 +214,10 @@ Fetch is designed with security as a top priority:
 - **Whitelist Only**: Owner always trusted, others must be added via `/trust` commands
 - **@fetch Trigger**: All messages must start with `@fetch` prefix
 - **Zod Validation**: Runtime type checking for all tool arguments
-- **No Shell Injection**: Commands use array-based argument passing
+- **Shell Injection Prevention**: Workspace names validated, git args use `execFile()`, custom tool params shell-escaped
+- **Authenticated Admin API**: `/api/logout` requires bearer token (auto-generated or via `ADMIN_TOKEN` env var)
 - **Rate Limiting**: 30 requests per minute maximum
-- **Input Validation**: Sanitizes all user input
+- **Input Validation**: Sanitizes all user input (code-friendly — no false positives on backticks)
 - **Path Traversal Protection**: Blocks `..` in file paths
 - **Docker Isolation**: AI agents run in sandboxed containers
 - **Read-Only Configs**: Auth tokens mounted as read-only
@@ -272,7 +273,8 @@ fetch/
 │   ├── claude/
 │   └── github/
 ├── data/                   # Persistent data
-│   ├── identity/           # Persona files (COLLAR.md, ALPHA.md, AGENTS.md)
+│   ├── identity/           # Persona files (COLLAR.md, ALPHA.md)
+│   ├── agents/             # Pack profiles (claude.md, gemini.md, copilot.md)
 │   ├── skills/             # User-defined skill files
 │   └── tools/              # Custom tool definitions
 ├── docs/                   # Documentation site
