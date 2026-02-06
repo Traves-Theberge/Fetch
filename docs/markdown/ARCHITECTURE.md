@@ -133,6 +133,8 @@ src/
 
 ## Context Pipeline
 
+<!-- DIAGRAM:contextpipeline -->
+
 The context pipeline ensures the LLM has full conversational memory across turns:
 
 1. **Message Persistence** — All messages (user, assistant, tool calls, tool results) are persisted through `SessionManager` methods, not bare array pushes
