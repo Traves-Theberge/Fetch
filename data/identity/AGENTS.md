@@ -1,7 +1,11 @@
 # 🐺 The Pack — Harness Registry
-> **Purpose:** This file defines the available AI harnesses (Pack members) and their
-> specializations, routing rules, and interaction protocols. It is parsed by the Identity
-> Loader and used by the orchestrator when selecting which harness to delegate tasks to.
+
+> **⚠️ DEPRECATED:** Individual agent profiles have moved to `data/agents/*.md`.
+> Each agent now has its own file with YAML frontmatter (gray-matter compatible).
+> Routing rules live in `data/agents/ROUTING.md`.
+>
+> This file is kept as a human-readable reference only.
+> The Identity Loader no longer parses this file.
 
 ---
 

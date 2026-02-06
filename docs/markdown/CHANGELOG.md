@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
+
+### 🧬 Unified Identity Pipeline
+- **Single Source of Truth:** `IdentityManager.buildSystemPrompt()` is now the only system prompt builder. Deleted static prompt constants and 5 dead prompt functions from `agent/prompts.ts` — 418 lines removed.
+- **Session Context Wired:** `buildContextSection()` now injected into both conversation and tool code paths.
+
+### 🧩 Skill Discovery → Activation Pattern
+- **Two-Phase Skills:** `<available_skills>` for discovery, `<activated_skill>` with full instruction body for activation.
+- **`<location>` Field:** Skill summaries now include source path, following AgentSkills spec.
+
+### 🐺 Pack Agent Sub-Files
+- **Individual Profiles:** `data/identity/AGENTS.md` → `data/agents/{claude,gemini,copilot}.md` with YAML frontmatter.
+- **`PackMember` Interface:** 13-field structured type with `<available_agents>` XML in system prompt.
+- **Hot-Reload:** Watches both `data/identity/` and `data/agents/`.
+
+### 🧹 Legacy Cleanup
+- Removed dead code, updated JSDoc, fixed all broken tests (109/109 pass).
+- Deprecated `data/identity/AGENTS.md` with migration header.
+
 ## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
 
 ### 🧹 Comprehensive Code Audit

@@ -1,9 +1,21 @@
+/**
+ * @fileoverview Identity Manager — Single Source of Truth for System Prompt
+ *
+ * Manages Fetch's identity lifecycle:
+ * - Loads persona from COLLAR.md (system) and ALPHA.md (user)
+ * - Loads pack members from data/agents/*.md (YAML frontmatter)
+ * - Builds the complete system prompt (identity + skills + pack + session context + mode)
+ * - Hot-reloads on file changes via chokidar watchers
+ *
+ * @module identity/manager
+ */
+
 import { AgentIdentity } from './types.js';
 import { getSkillManager } from '../skills/manager.js';
 import { getModeManager } from '../modes/manager.js';
 import { FetchMode } from '../modes/types.js';
 import { IdentityLoader } from './loader.js';
-import { IDENTITY_DIR } from '../config/paths.js';
+import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
 
@@ -38,7 +50,8 @@ const DEFAULT_IDENTITY: AgentIdentity = {
     owner: process.env.OWNER_PHONE_NUMBER || 'Admin',
     projectRoot: process.cwd(),
     platform: 'Linux'
-  }
+  },
+  pack: []
 };
 
 export class IdentityManager {
@@ -52,6 +65,7 @@ export class IdentityManager {
     this.loader = new IdentityLoader(IDENTITY_DIR);
     this.reloadIdentity();
     this.setupWatchers(IDENTITY_DIR);
+    this.setupWatchers(AGENTS_DIR);
   }
 
   private setupWatchers(dir: string) {
@@ -93,6 +107,12 @@ export class IdentityManager {
              this.identity.directives.behavioral = loaded.directives.behavioral;
         }
 
+        // Pack members from data/agents/*.md
+        if (loaded.pack?.length) {
+            this.identity.pack = loaded.pack;
+            logger.info(`Pack loaded: ${loaded.pack.map(m => m.name).join(', ')}`);
+        }
+
         logger.info(`Identity loaded: ${this.identity.name}`);
     } catch (error) {
         logger.error('Failed to reload identity', error);
@@ -111,12 +131,24 @@ export class IdentityManager {
   }
 
   /**
-   * Build the complete System Prompt for the LLM
+   * Build the complete System Prompt for the LLM.
+   * This is the SINGLE source of truth for Fetch's system prompt.
+   * Identity comes from COLLAR.md/ALPHA.md, skills from SkillManager,
+   * session context from the caller, mode from ModeManager.
+   * 
+   * @param activatedSkillsContext - Optional pre-built context from matched skills
+   * @param sessionContext - Optional pre-built session context (workspace, task, git, etc.)
    */
-  public buildSystemPrompt(): string {
+  public buildSystemPrompt(activatedSkillsContext?: string, sessionContext?: string): string {
     const skills = getSkillManager().buildSkillsSummary();
     const mode = getModeManager().getState();
     const date = new Date().toISOString();
+
+    const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as expert procedural guidance.\n- If no skill applies, proceed with your general knowledge.` : '';
+
+    const activatedSection = activatedSkillsContext || '';
+    const sessionSection = sessionContext || '';
+    const packSection = this.buildPackContext();
 
     return `
 You are ${this.identity.name} ${this.identity.emoji}, the ${this.identity.role}.
@@ -127,15 +159,33 @@ Time: ${date}
 Mode: ${mode.mode} (Since: ${mode.since})
 Platform: ${this.identity.context.platform}
 Project: ${this.identity.context.projectRoot}
+${sessionSection}
 
 CORE DIRECTIVES:
 ${this.identity.directives.primary.map(d => `- ${d}`).join('\n')}
 
 OPERATIONAL GUIDELINES:
 ${this.identity.directives.secondary.map(d => `- ${d}`).join('\n')}
+${packSection}
+UNDERSTANDING REQUESTS:
+- "fix it" / "make it work" → Check recent changes, look for errors in active workspace
+- "make it better" / "clean up" → Refactor, optimize, remove dead code
+- "the usual" → Status check, run tests if available
+- Frustration signals (short messages, repeated requests) → Be supportive, investigate before responding
+- Urgency → Acknowledge, prioritize, stay concise
+- Uncertainty → Ask ONE clarifying question, offer 2-3 options
+- If context is ambiguous and a workspace is active, assume work is there
+
+RESPONSE FORMAT:
+- Keep responses 2-6 lines for status, max 10 for detailed reports
+- Status emojis first: ✅ ❌ ⚠️ 🔄 📝 🐕
+- Bullets over paragraphs — mobile screens are small
+- Bold **key items** for scannability
+- End with clear next step or question
 
 AVAILABLE SKILLS:
-${skills}
+${skills}${skillGuidance}
+${activatedSection}
 
 CURRENT MODE INSTRUCTIONS:
 ${this.getModeInstructions(mode.mode)}
@@ -143,6 +193,35 @@ ${this.getModeInstructions(mode.mode)}
 Analyze the user's request. If a built-in "Instinct" (Slash Command) was triggered, you may not see this message.
 Otherwise, use your tools to execute the user's will.
 `.trim();
+  }
+
+  /**
+   * Build pack context XML for the system prompt.
+   * Lists available harness agents with their roles, triggers, and routing info.
+   */
+  private buildPackContext(): string {
+    if (!this.identity.pack.length) return '';
+
+    let xml = '\nPACK (Available Harnesses):\n<available_agents>\n';
+    for (const member of this.identity.pack) {
+      xml += `  <agent harness="${member.harness}">\n`;
+      xml += `    <name>${member.name} ${member.emoji}</name>\n`;
+      xml += `    <alias>${member.alias}</alias>\n`;
+      xml += `    <role>${member.role}</role>\n`;
+      xml += `    <cli>${member.cli}</cli>\n`;
+      if (member.triggers.length > 0) {
+        xml += `    <triggers>${member.triggers.join(', ')}</triggers>\n`;
+      }
+      if (member.avoid.length > 0) {
+        xml += `    <avoid>${member.avoid.join(', ')}</avoid>\n`;
+      }
+      xml += `    <fallback_priority>${member.fallback_priority}</fallback_priority>\n`;
+      xml += `    <location>${member.sourcePath}</location>\n`;
+      xml += `  </agent>\n`;
+    }
+    xml += '</available_agents>\n';
+    xml += 'When delegating tasks via task_create, select the harness whose triggers best match the request. Default to the lowest fallback_priority agent for ambiguous requests.';
+    return xml;
   }
 
   private getModeInstructions(mode: FetchMode): string {

@@ -291,7 +291,7 @@ Write your skill instructions here.
 
     if (enabledSkills.length === 0) return '';
 
-    let summary = '<skills>\n';
+    let summary = '<available_skills>\n';
     
     for (const skill of enabledSkills) {
       summary += `  <skill id="${skill.id}">\n`;
@@ -300,11 +300,31 @@ Write your skill instructions here.
       if (skill.triggers.length > 0) {
         summary += `    <triggers>${skill.triggers.join(', ')}</triggers>\n`;
       }
+      summary += `    <location>${skill.sourcePath}/SKILL.md</location>\n`;
       summary += `  </skill>\n`;
     }
     
-    summary += '</skills>';
+    summary += '</available_skills>';
     return summary;
+  }
+
+  /**
+   * Build activated skill context from matched skills.
+   * Injects the full instruction body for skills that match the user's message.
+   * This is the "Phase 2" of the discovery → activation pattern.
+   */
+  buildActivatedSkillsContext(matchedSkills: Skill[]): string {
+    if (matchedSkills.length === 0) return '';
+
+    const blocks = matchedSkills.map(skill => {
+      return `<activated_skill name="${skill.name}">
+  <instructions>
+${skill.instructions}
+  </instructions>
+</activated_skill>`;
+    });
+
+    return `\n## Activated Skill Instructions\n\nThe following skills matched this request. Follow their specialized guidance:\n\n${blocks.join('\n\n')}`;
   }
 }
 

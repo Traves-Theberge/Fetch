@@ -1,252 +1,262 @@
-# Fetch V3.1.2 — Comprehensive Audit & Deployment Plan
+# Fetch V3.2 — Deep Refinement Plan
 
-> Generated from full project audit: source code, Go TUI, documentation, project structure, Docker configs.
+> Generated from 4-agent deep audit of every module in the codebase.
+> Previous plan (V3.1.2 structure overhaul) completed and shipped as `876cc7d`.
+>
+> ⚠️ **Parallel Work:** Another agent is rebuilding the identity/skills/prompt pipeline
+> (SKILL.md wiring, unified identity, AGENTS.md split, prompt builder consolidation).
+> Items that conflict with that work are marked 🔀 DEFERRED and must land after theirs.
 
 ---
 
 ## Executive Summary
 
-The V3.1.1 codebase is **TypeScript-clean** (0 tsc errors, 0 ESLint errors) but has critical issues in:
-1. **Project structure** — path resolution bugs that break identity/skills/tools in Docker
-2. **Go TUI** — config editor has a data-loss bug, whitelist manager is disconnected from actual trust system
-3. **Documentation** — 4 dead/stale docs, 3 duplicated files, 6+ V2 references in current docs
-4. **Missing docs** — no glossary, architecture deep-dive, or unified configuration reference
+The V3.1.2 codebase compiles clean (0 tsc, 0 ESLint, 0 Go build errors) but a deep audit reveals:
+
+1. **Runtime crashes** — 3 paths that will throw at runtime (session store schema, harness executor dead maps, broken tool response)
+2. **Security holes** — 3 shell injection vectors, unauthenticated logout endpoint, validator blocks legitimate code
+3. **~1,500 lines of dead code** — 2 entire util files, 80% of prompts.ts, 9/10 WhatsApp formatters, dead harness methods
+4. **Dual task system** — `SessionTask` and `Task` are parallel representations that never sync (the #1 design debt)
+5. **No centralized env config** — 12+ env vars read ad-hoc across 11 files with duplicated fallback logic
+6. **1,116-line god module** — commands/parser.ts handles 25+ commands in one file
+7. **Missing infrastructure** — no reconnection, no graceful shutdown, no log-level filtering, no test script
 
 ---
 
-## Phase 1: Critical Bug Fixes (P0)
+## Phase 1: Runtime Crash Fixes (P0)
 
-### 1.1 — Identity Loader Filename Mismatch 🔴
-**Bug:** `identity/loader.ts` looks for `SYSTEM.md` and `USER.md`, but actual files are `COLLAR.md` and `ALPHA.md`.
-**Impact:** Identity system silently falls back to hardcoded defaults. All personality customization is dead.
-**Fix:** Update loader to use `COLLAR.md` and `ALPHA.md` filenames.
+> Things that will throw errors at runtime right now.
 
-### 1.2 — Data Path Resolution Bug in Docker 🔴
-**Bug:** Three modules compute paths as `path.resolve(process.cwd(), '../data/...')`:
-- `identity/manager.ts` → `../data/identity`
-- `skills/manager.ts` → `../data/skills`
-- `tools/registry.ts` → `../data/tools`
+### 1.1 — Session Store Schema Mismatch 🔴
+**Bug:** `session/store.ts` prepares statements against a `summaries` table that is never created in the `CREATE TABLE` block. Calling `saveSummary()` or `getSummaries()` will crash.
+**Second bug:** The `conversation_threads` table DDL defines `(id, session_id, project_id, ...)` but prepared statements query `(thread_id, session_id, title, ...)` — completely different columns.
+**Also:** `memory_facts` and `working_context` tables are created but have zero readers/writers — dead schema.
+**Fix:** Align the DDL with the prepared statements. Add `summaries` table. Remove dead tables.
 
-In Docker, `process.cwd()` = `/app`, so `../data` resolves to `/data/identity` — but the volume mount is `./data:/app/data`, making the correct path `/app/data/identity`.
+### 1.2 — Harness Executor Dead Map Reads 🔴
+**Bug:** `executor.ts` `getStatus()` and `sendInput()` read from `this.activeProcesses` Map, but the pool-based `execute()` method never populates it. Only the dead `executeDirectly()` method does. Any call to `getStatus()` throws "Harness not found".
+**Fix:** Wire pool-based execution to populate the active processes map, or expose status through the pool.
 
-**Fix:** Create a centralized `src/config/paths.ts` module:
-```typescript
-const DATA_DIR = process.env.DATA_DIR || path.resolve(process.cwd(), 'data');
-export const IDENTITY_DIR = path.join(DATA_DIR, 'identity');
-export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
-export const TOOLS_DIR = path.join(DATA_DIR, 'tools');
-export const MEMORY_DIR = path.join(DATA_DIR, 'memory');
-```
+### 1.3 — `task_respond` Tool Never Sends to Harness 🔴
+**Bug:** `tools/task.ts` `task_respond` resumes the task state but has a `// TODO: Send response to harness via stdin`. The tool reports "Response delivered" which is false.
+**Fix:** Wire `sendInput()` through the executor/pool to the harness stdin. This depends on 1.2.
 
-### 1.3 — Ghost `fetch-app/data/` Directory 🔴
-**Bug:** `fetch-app/data/identity/` contains 0-byte `ALPHA.md` and `COLLAR.md`. These are tracked in git but never used.
-**Fix:** Delete entire `fetch-app/data/` directory. Real data lives at root `data/`.
+### ~~1.4 — Identity Data Silently Discarded~~ 🔀 HANDLED BY IDENTITY PIPELINE AGENT
+> Removed — the parallel identity/skills agent is rebuilding the entire identity pipeline:
+> loader → manager → system prompt. Owner prefs, pack data, and type safety are all in scope there.
+
+### 1.4 — Env Validation After Startup 🔴
+**Bug:** In `index.ts`, the status server, mode system, and proactive system all start *before* `validateEnvironment()` runs. If `OPENROUTER_API_KEY` is missing, multiple subsystems have already initialized for nothing.
+**Fix:** Move env validation to the very first line of `main()`, before any subsystem init.
 
 ---
 
-## Phase 2: Project Structure Cleanup (P1)
+## Phase 2: Security Hardening (P1)
 
-### 2.1 — Orphaned Root `package.json`
-The root `package.json` + `package-lock.json` contain ~100+ installed packages including `mongodb`, `mongoose`, `pg`, `redis`, `http-server` — **none of which are used by the project**. The actual app is in `fetch-app/package.json`.
-**Fix:** Delete root `package.json`, `package-lock.json`, and `node_modules/`.
+### 2.1 — Shell Injection in Custom Tool Handler
+**File:** `tools/registry.ts`
+**Bug:** `{{param}}` interpolation into shell command strings. The AI agent controls parameter values, so a prompt injection → arbitrary shell execution.
+**Fix:** Use `child_process.execFile` with argument arrays instead of string interpolation, or use a template engine with escaping.
 
-### 2.2 — Triple Changelog / Double README
-| File | Status | Action |
-|------|--------|--------|
-| `CHANGELOG.md` (root) | ✅ Canonical (3.1.1, 18 versions) | **Keep** |
-| `docs/markdown/CHANGELOG.md` | ⚠️ Missing v2.4.3/v2.4.4, stale footer | **Replace with root copy** |
-| `fetch-app/CHANGELOG.md` | ⚠️ Missing v3.1.1, stale footer | **Delete** |
-| `README.md` (root) | ✅ Canonical (V3.1) | **Keep** |
-| `docs/markdown/README.md` | 🔴 Frozen at V2 | **Replace with root copy** |
+### 2.2 — Shell Injection in Workspace Manager
+**File:** `workspace/manager.ts`
+**Bug:** Workspace names interpolated directly into shell strings: `` `git clone ... "${name}"` ``. A name containing `'; rm -rf / '` executes.
+**Fix:** Validate workspace names against `^[a-zA-Z0-9_-]+$` before any shell use.
 
-### 2.3 — `.gitignore` / `.dockerignore` Fixes
-- Root `.gitignore` should ignore root-level `node_modules/` (from the orphan package.json cleanup)
-- Root `.dockerignore` should exclude `manager/`, `kennel/`, `.git/` to speed Docker builds
-- `fetch-app/.dockerignore` is unused (build context is repo root) — delete it
+### 2.3 — Shell Injection in Command Parser
+**File:** `commands/parser.ts`
+**Bug:** Git clone URLs and commit SHAs passed to `exec()` without sanitization.
+**Fix:** Use `execFile` with argument arrays. Validate SHAs with `/^[0-9a-f]{7,40}$/`.
 
-### 2.4 — Missing Directories
-- `data/skills/` — code expects this to exist for user skills; create with `.gitkeep`
-- `data/tools/` — code expects this for custom tool definitions; create with `.gitkeep`
+### 2.4 — Unauthenticated `/api/logout`
+**File:** `api/status.ts`
+**Bug:** Any HTTP client on the Docker network can POST to `/api/logout` and disconnect WhatsApp.
+**Fix:** Require a bearer token (generate on startup, log to console) or restrict to localhost.
 
----
-
-## Phase 3: Go TUI Fixes (P1–P2)
-
-### 3.1 — Config Editor Data-Loss Bug 🔴
-**Bug:** `saveToFile()` in `config/editor.go` rewrites the entire `.env` with only 6 known fields, **deleting all other entries** (`OPENAI_API_KEY`, `ENABLE_COPILOT`, `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `TZ`, comments).
-**Fix:** Implement a proper `.env` parser that preserves unknown keys and comments during save.
-
-### 3.2 — Whitelist Manager Disconnected 🔴
-**Bug:** `config/whitelist.go` writes to `config/trusted_numbers.json` — a file nobody reads. V3.1 trust uses `OWNER_PHONE_NUMBER` env var + `/trust` commands via `security/whitelist.ts`.
-**Fix:** Either rewire to write to `.env`'s `TRUSTED_PHONE_NUMBERS` field, or replace with a screen that sends HTTP commands to the bridge API.
-
-### 3.3 — Config Editor Field Mismatch
-Currently shows: `OWNER_PHONE_NUMBER`, `TRUSTED_PHONE_NUMBERS`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `LOG_LEVEL`.
-Should show: `OWNER_PHONE_NUMBER`, `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ENABLE_COPILOT`, `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `LOG_LEVEL`, `TZ`.
-
-### 3.4 — Stale Model Recommendations
-**Issue:** `models/openrouter.go` hardcodes models like `anthropic/claude-3-5-sonnet`, `google/gemini-2.0-flash-exp:free`, `openai/gpt-4-turbo` — all renamed/deprecated.
-**Fix:** Update model list to current OpenRouter IDs.
-
-### 3.5 — Version Info Never Injected
-`build.sh` doesn't use `-ldflags` to inject version/commit/date. Binary always shows `v1.0.0-dev`.
-**Fix:** Add ldflags to build script.
-
-### 3.6 — Unused Components (Dead Code)
-Never used: `LogViewer` (525 lines), `Menu`, `Spinner`, `Progress`, most of `layout/`. The `update/update.go` feature is never called from any menu.
-**Fix:** Either wire these up to replace inline implementations, or delete them.
-
-### 3.7 — Dependency Updates
-| Package | Current | Latest |
-|---------|---------|--------|
-| `bubbletea` | v1.3.4 | v1.3.10 |
-| `golang.org/x/net` | v0.3.8 | v0.33.0 🔴 (security) |
-| `golang.org/x/sys` | v0.30.0 | v0.40.0 |
-| `golang.org/x/sync` | v0.11.0 | v0.19.0 |
-
-### 3.8 — Hardcoded Development Path
-`paths/paths.go` defaults to `/home/traves/Development/1. Personal/Fetch` — won't work elsewhere.
-**Fix:** Auto-detect from executable location or require `FETCH_ROOT` env var.
-
-### 3.9 — Kennel Description Stale
-Version screen says "Kennel: Multi-Model AI Orchestrator" — should be "CLI Execution Sandbox".
+### 2.5 — Validator Blocks Legitimate Code
+**File:** `security/validator.ts`
+**Bug:** The backtick pattern `` /`.*`/ `` rejects any message with inline code (e.g., "fix the \`main\` function"). For a coding assistant, this is a showstopper.
+**Fix:** Remove backtick pattern. The real protection is the LLM sandboxing + Docker isolation, not input string scanning.
 
 ---
 
-## Phase 4: Documentation Overhaul (Deep-Wiki Style)
+## Phase 3: Dead Code Purge (~1,500 lines)
 
-### 4.1 — Delete Dead Documentation
-| File | Reason |
-|------|--------|
-| `docs/markdown/RETRIEVAL.md` | Documents deleted `src/retrieval/` module (6 files removed in 3.1.1) |
-| `fetch-app/CHANGELOG.md` | Stale duplicate of root CHANGELOG |
-| `fetch-app/docs/markdown/CODE_AUDIT_CHECKLIST.md` | Superseded by `docs/markdown/` version |
-| `fetch-app/docs/markdown/IMPLEMENTATION_CHECKLIST.md` | Historical only (V3.0) |
-| `fetch-app/docs/markdown/IMPLEMENTATION_PLAN_V3_1.md` | Historical only (V3.1, completed) |
-| `data/memory/MEMORY.md` | Memory module was deleted; verify no code reads this |
+### 3.1 — Delete `utils/stream.ts` (422 lines)
+Zero imports anywhere. Entire file is dead.
 
-### 4.2 — Update Existing Documentation
+### 3.2 — Delete `utils/sanitize.ts` (~80 lines)
+Zero imports anywhere. Entire file is dead.
 
-#### DOCUMENTATION.md — Major Rewrite 🔴
-- Remove all V1 tool references (file tools, code tools, shell tools, git tools, control tools)
-- Update "V2 Intent System" → V3.1 four-layer architecture (Instinct→Mode→Skill→Agent)
-- Fix project structure (remove deleted files: `agent/conversation.ts`, `agent/inquiry.ts`, `executor/docker.ts`)
-- Update footer version from "v0.2.0" to "v3.1.2"
+### 3.3 — Gut `agent/prompts.ts` (~450 dead lines) 🔀 DEFERRED
+> **Wait for identity pipeline agent to land first.** They are restructuring `buildOrchestratorPrompt()`
+> into a thin wrapper over `IdentityManager.buildSystemPrompt()` and moving constants into identity files.
+> After their work merges, audit what's still dead and delete it then.
+>
+> Known dead functions (verify post-merge): `buildIntentClassificationPrompt()`, `buildTaskGoalPrompt()`,
+> `buildOutputSummaryPrompt()`, `buildErrorRecoveryPrompt()`, and sub-constants.
 
-#### API_REFERENCE.md — Moderate Update 🟡
-- Remove Section 8 (Retrieval API) — code is deleted
-- Update Section 9 (Instinct API) with full instinct registry
-- Remove `FETCH_V2_ENABLED` from env vars
-- Update footer version from "v2.1.0" to "v3.1.2"
+### 3.4 — Gut `agent/whatsapp-format.ts` (~450 dead lines)
+Keep only `formatForWhatsApp()`. Delete: `formatDiff()`, `formatProgressBar()`, `formatToolAction()`, `formatCodeBlock()`, `formatError()`, `formatWarning()`, `formatSuccess()`, `formatInfo()`, `formatSection()`. Only 1 of 10 exports is called.
 
-#### SETUP_GUIDE.md — Moderate Update 🟡
-- Fix identity file references: `SYSTEM.md` → `COLLAR.md`, `USER.md` → `ALPHA.md`
-- Update "V2 Intent System" → V3.1 four-layer architecture
-- Standardize security layer count (pick one: 6 or 7, and be consistent everywhere)
-- Update model recommendations
+### 3.5 — Delete `agent/index.ts` (33 lines)
+Barrel file with zero importers. Everything imports directly from submodules.
 
-#### AGENTIC_PLAN.md — Light Update 🟢
-- Clean orphaned V2 fragments in bottom half
-- Update session type references
+### 3.6 — Delete dead code in `agent/core.ts`
+Remove commented-out `getCurrentMode()` and `buildConversationPrompt()` (~80 lines). Remove `undo`/`pause`/`resume` TODO stubs in switch statement.
 
-#### STATE_MANAGEMENT.md — Light Update 🟢
-- Remove `MemoryManager` reference (module deleted)
+### 3.7 — Delete dead code in `agent/intent.ts`
+Remove `classifyWithLLM()` and `buildClassificationPrompt()` — vestigial LLM classification path, never called.
 
-#### COMMANDS.md — Verify 🟢
-- Verify context management commands (`@fetch add`, `@fetch drop`) still work
-- Ensure "Reflex" heading matches "Instinct" code terminology
+### 3.8 — Delete dead harness code
+- `executor.ts`: Remove `executeDirectly()` (~126 lines), `STREAM_BUFFER_SIZE` constant, dead `handleQuestionDetected()` method.
+- `registry.ts`: Remove `getCapabilities()` (hardcoded, never called), `logRegistryStatus()` (never called).
+- `output-parser.ts`: Remove standalone `parseHarnessOutput()` export (only used in tests, not production).
 
-### 4.3 — Create New Documentation
+### 3.9 — Delete dead security code
+- `validator.ts`: Remove `sanitizeForShell()` (never called).
+- `security/index.ts`: Remove re-export of `sanitizeForShell`.
 
-#### `docs/markdown/GLOSSARY.md` — Dog-Themed Nomenclature 🔴
-Essential for onboarding. Maps every dog term to its technical meaning:
-- **Fetch** — The orchestrator agent
-- **Bridge** (fetch-bridge) — WhatsApp client + Node.js orchestration container
-- **Kennel** (fetch-kennel) — CLI execution sandbox container
-- **Pack** — The collection of AI harnesses (Claude, Gemini, Copilot)
-- **Harness** — An AI CLI wrapper (leash metaphor)
-- **Collar** — Fetch's core identity/personality rules
-- **Alpha** — The user/owner profile
-- **Instincts** — Fast-path pre-processing layer (like a dog's trained instincts)
-- **Skills** — Pluggable expertise modules
-- **Modes** — State machine: ALERT 🟢 / WORKING 🔵 / WAITING ⏳ / GUARDING 🔴
-- **Workspace** — The shared directory for file operations
+### 3.10 — Clean `session/store.ts`
+Remove `memory_facts` and `working_context` table DDL and any associated prepared statements — dead schema with zero readers/writers.
 
-#### `docs/markdown/ARCHITECTURE.md` — Deep Architecture 🟡
-Detailed component map showing:
-- Initialization sequence (22 singletons, boot order)
-- Message flow: WhatsApp → Bridge → Instincts → Mode Handler → Agent → Harness → Kennel → Response
-- Data flow: SQLite persistence, session/thread model, task scheduling
-- Docker architecture: Bridge + Kennel container relationship
-- Security model: Trust chain from phone number → whitelist → rate limiter → safety instinct
-
-#### `docs/markdown/CONFIGURATION.md` — Unified Config Reference 🟡
-Every configurable aspect in one place:
-- All `.env` variables with types, defaults, and descriptions
-- `docker-compose.yml` volume mounts and their purposes
-- Identity files (`COLLAR.md`, `ALPHA.md`, `AGENTS.md`) format and fields
-- Skill definition files (`SKILL.md` frontmatter format)
-- Custom tool definitions (`data/tools/*.json` schema)
-- Polling configuration (`data/POLLING.md` format)
-
-### 4.4 — Update Docs Site
-- Add GLOSSARY, ARCHITECTURE, CONFIGURATION to sidebar in `docs/index.html`
-- Remove RETRIEVAL from sidebar (if present)
-- Add CODE_AUDIT_CHECKLIST to sidebar
-
-### 4.5 — Fix Root README
-- Fix clone URL: `yourusername` → `Traves-Theberge`
-- Verify default model reference
+### 3.11 — Clean misc dead code
+- `utils/logger.ts`: Remove 6 unused color constants, unused `box()` export.
+- `config/paths.ts`: Remove `MEMORY_DIR` export (no memory system).
+- `format.ts`: Reconcile duplicate help text — 🔀 the `prompts.ts` half is deferred (see 3.3).
 
 ---
 
-## Phase 5: Build & Deploy
+## Phase 4: Architecture Simplification
 
-### 5.1 — Build Docker Images
-```bash
-docker compose build fetch-bridge fetch-kennel
-```
+### 4.1 — Unify the Dual Task System ⭐ (Biggest Win)
+**Problem:** `session/types.ts` defines `SessionTask` and `session/manager.ts` manages tasks on the session object. `task/types.ts` defines `Task` and `task/manager.ts` manages tasks in SQLite + memory Map. These two systems never sync. A tool-created task doesn't appear in the session. A session task doesn't appear in the task manager.
+**Fix:** Delete `SessionTask` from session types. Make `session/manager.ts` task methods delegate to `task/manager.ts`. Single source of truth for task state. This also eliminates the `taskApproval` system on sessions (which uses `SessionTask`) and reconciles it with the `Task` state machine.
 
-### 5.2 — Build Go TUI
-```bash
-cd manager && go mod tidy && go build -ldflags "-X main.version=3.1.2 -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o fetch-manager .
-```
+### 4.2 — Eliminate Redundant Task Queue (265 lines)
+**Problem:** `task/queue.ts` is a nullable-variable wrapper with its own event system. `task/manager.ts` already enforces single-task constraint independently. Queue events are never consumed by anything.
+**Fix:** Expose `getRunningTask()` and `hasRunningTask()` on `TaskManager`. Delete `task/queue.ts`. Update `tools/task.ts` and `tools/interaction.ts` to use TaskManager directly.
 
-### 5.3 — Verify Startup
-```bash
-docker compose up -d
-./manager/fetch-manager
-```
+### 4.3 — Centralized Env Config
+**Problem:** 12+ env vars read ad-hoc across 11 files with duplicated fallback logic. `OPENROUTER_API_KEY` is read in 4 files, `OWNER_PHONE_NUMBER` in 3.
+**Fix:** Create `src/config/env.ts` with a Zod schema that validates all env vars at startup. Export typed constants. All other files import from `env.ts` instead of reading `process.env` directly.
+
+### 4.4 — Extract Harness Base Class
+**Problem:** Claude, Gemini, and Copilot adapters share ~60% identical code: `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`.
+**Fix:** Create `AbstractHarnessAdapter` with default implementations. Adapters override only what differs (CLI args, adapter-specific patterns). Eliminates ~200 lines of duplication.
+
+### 4.5 — Fix Dual Harness Registration
+**Problem:** `harness/registry.ts` holds adapters in a Map. `harness/executor.ts` also has its own `adapters` Map. In `task/integration.ts`, adapters are fetched via getters and registered on the executor, bypassing the registry entirely.
+**Fix:** Single adapter registry. Executor looks up adapters from the registry, not its own map.
+
+### 4.6 — Split Command Parser God Module
+**Problem:** `commands/parser.ts` is 1,116 lines handling 25+ commands.
+**Fix:** Split into sub-command modules:
+- `commands/project.ts` — /project, /list, /clone, /init
+- `commands/task.ts` — /status, /cancel, /approve, /reject
+- `commands/git.ts` — /git status, /git diff, /git log, /undo
+- `commands/config.ts` — /mode, /model, /identity, /skills, /thread
+- `commands/system.ts` — /help, /clear, /version, /trust
+- `commands/parser.ts` — lightweight router that dispatches to sub-modules
+
+### 4.7 — Fix Formatting Layer
+**Problem:** `formatForWhatsApp()` is called inside both `handleConversation()` and `handleWithTools()` in core.ts. Then the handler prepends a mode emoji. Formatting is split across 3 layers.
+**Fix:** Remove formatting from agent/core.ts. Format only in handler/index.ts after receiving the raw response. Single formatting point.
+
+### 4.8 — Intent Classifier: Collapse workspace/task
+**Problem:** `classifyIntent()` distinguishes `workspace` vs `task` intents, but `handleWithTools()` ignores this — both take the identical LLM+tools path. The distinction serves no purpose at routing.
+**Fix:** Merge into a single `action` intent. The tool definitions already handle the workspace-vs-task routing internally.
+
+---
+
+## Phase 5: Infrastructure & Reliability
+
+### 5.1 — WhatsApp Reconnection
+**Problem:** The `disconnected` event handler only logs. No reconnection attempt.
+**Fix:** Implement exponential backoff reconnection with max retries. Emit status events for the TUI.
+
+### 5.2 — Graceful Shutdown
+**Problem:** SIGINT/SIGTERM handlers call `process.exit()` without stopping subsystems.
+**Fix:** Shutdown sequence: close bridge → stop proactive system → stop status API → flush SQLite WAL → exit.
+
+### 5.3 — Unhandled Rejection Handler
+**Problem:** No `process.on('unhandledRejection')` handler. Uncaught async errors silently crash.
+**Fix:** Add handler that logs the error and triggers graceful shutdown.
+
+### 5.4 — Logger Log-Level Filtering
+**Problem:** `LOG_LEVEL` env var is never read. Every log level always emits.
+**Fix:** Read `LOG_LEVEL` and filter `debug`/`info` in production.
+
+### 5.5 — Add `test` Script to package.json
+**Problem:** No `"test"` script. Running tests requires `npx vitest` directly.
+**Fix:** Add `"test": "vitest"`, `"test:unit": "vitest run tests/unit"`, `"test:e2e": "vitest run tests/e2e"`.
+
+### 5.6 — Fix `transcription.isAvailable()`
+**Problem:** Always returns `true` regardless of whether whisper binary/model exists.
+**Fix:** Check for binary existence in Docker container before returning true.
+
+### 5.7 — Rate Limiter: True Sliding Window + Eviction
+**Problem:** Fixed window mislabeled as sliding. No eviction of stale entries.
+**Fix:** Implement proper sliding window. Add periodic cleanup of entries older than 2x window.
+
+### 5.8 — Bridge Message Deduplicator Optimization
+**Problem:** Full Map iteration on every message for TTL cleanup (O(n) per message).
+**Fix:** Periodic cleanup on interval instead of per-message.
+
+---
+
+## Phase 6: Proactive System Completion
+
+### 6.1 — Wire `/remind` and `/schedule` to Slash Commands
+**Problem:** These commands exist in `proactive/commands.ts` but aren't reachable from the `/` command parser — only through the instinct system.
+**Fix:** Add cases to command parser that delegate to proactive command handlers.
+
+### 6.2 — Fix One-Shot Reminders
+**Problem:** `/remind` generates a cron with `*` for day-of-week, making it recur annually.
+**Fix:** Use `setTimeout` for one-shot reminders. Only use cron for recurring schedules.
+
+### 6.3 — Wire Watcher Events
+**Problem:** File/git watcher detects changes but events go nowhere. The config parameter is ignored.
+**Fix:** Connect watcher events to an event bus that can trigger reactive skills.
+
+### 6.4 — Implement `/schedule list`
+**Problem:** Returns hardcoded "implementation pending" string.
+**Fix:** Query the polling service for active scheduled tasks and format for display.
+
+---
+
+## Phase 7: Test Coverage
+
+### 7.1 — Add `commands/parser.ts` Tests
+The largest untested file in the codebase (1,116 lines). Priority: project commands, git commands, error paths.
+
+### 7.2 — Add Security Tests
+Zero tests for `gate.ts`, `rateLimiter.ts`, `validator.ts`. These are security-critical.
+
+### 7.3 — Rename "E2E" Tests
+Current e2e tests mock everything. Rename the directory to `tests/integration-agent/` or similar to avoid confusion.
+
+### 7.4 — Fix Mock Session IDs
+Mock sessions use `'test-session-1'` which doesn't match the `ses_` production format.
+
+### 7.5 — Enable `noUnusedLocals` / `noUnusedParameters`
+Both are `false` in tsconfig.json, allowing dead variables to accumulate silently.
 
 ---
 
 ## Execution Order
 
-| # | Phase | Priority | Estimated Scope |
-|---|-------|----------|----------------|
-| 1 | Critical Bug Fixes (1.1–1.3) | P0 | 4 files modified, 1 dir deleted |
-| 2 | Project Structure Cleanup (2.1–2.4) | P1 | 5 files deleted, 2 dirs created |
-| 3 | Go TUI Critical Fixes (3.1–3.3) | P1 | 3 Go files modified |
-| 4 | Dead Documentation Cleanup (4.1) | P1 | 5–6 files deleted |
-| 5 | Doc Sync (4.2 updates) | P1 | 5 files updated |
-| 6 | Go TUI Polish (3.4–3.9) | P2 | 4 Go files modified |
-| 7 | New Documentation (4.3) | P2 | 3 new files created |
-| 8 | Docs Site Update (4.4) | P2 | 1 file updated |
-| 9 | .gitignore/.dockerignore (2.3) | P2 | 3 files modified |
-| 10 | Build & Deploy (5.1–5.3) | P3 | Infrastructure only |
+| Priority | Phase | Estimated Scope | Risk |
+|----------|-------|-----------------|------|
+| 🔴 **Now** | Phase 1: Runtime fixes (1.1–1.3, 1.4) | ~150 lines changed | High (crashes) |
+| 🔴 **Now** | Phase 2: Security | ~100 lines changed | High (exploits) |
+| 🟠 **Next** | Phase 3: Dead code purge (skip 3.3) | ~1,000 lines deleted | Low (deletion only) |
+| 🟡 **Then** | Phase 4: Architecture | ~800 lines refactored | Medium (behavioral) |
+| 🟢 **After** | Phase 5: Infrastructure | ~300 lines added | Low (additive) |
+| 🟢 **After** | Phase 6: Proactive | ~200 lines changed | Low (isolated) |
+| ⚪ **Ongoing** | Phase 7: Tests | ~500 lines added | None |
+| 🔀 **After identity agent lands** | 3.3 + 3.11 prompts.ts cleanup | ~450 lines deleted | Low |
 
----
+**Total estimated impact:** ~1,000 lines deleted now + ~450 deferred, ~1,400 lines changed/added. Net reduction of ~500+ lines.
 
-## Terminology Consistency Standard
-
-These terms are **canonical** (code wins over docs):
-
-| Term | Meaning | Wrong Variants |
-|------|---------|---------------|
-| **Instincts** | Fast-path pre-processing layer | "Reflexes" (planned rename never executed) |
-| **COLLAR.md** | Fetch's personality/rules file | "SYSTEM.md" |
-| **ALPHA.md** | User/owner profile file | "USER.md" |
-| **Bridge** | WhatsApp + orchestration container | "Brain" (legacy) |
-| **Kennel** | CLI execution sandbox | "Multi-Model AI Orchestrator" (wrong) |
-| **Pack** | Collection of AI harnesses | — |
-| **Harness** | AI CLI wrapper | "Model", "Provider" |
+**Parallel work coordination:** Items 1.4 (old), 3.3, and 3.11-prompts are deferred to avoid merge conflicts with the identity/skills pipeline rebuild. Everything else is orthogonal and safe to proceed immediately.
