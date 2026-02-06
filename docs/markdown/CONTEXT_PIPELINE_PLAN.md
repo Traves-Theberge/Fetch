@@ -270,21 +270,21 @@ No new data path. The `.env` file IS the configuration layer. The TUI just makes
 
 ---
 
-## Phase 0 Checklist
+## Phase 0 Checklist ✅ (Completed — commit `1db8814`)
 
-- [ ] **0.1** Create `config/pipeline.ts` with all pipeline parameters
-- [ ] **0.2** `agent/core.ts` — Replace all 15 magic numbers with `pipeline.*` imports
-- [ ] **0.3** `session/manager.ts` — Replace truncation limit with `pipeline.compactionThreshold` / `pipeline.historyWindow`
-- [ ] **0.4** `conversation/summarizer.ts` — Replace `SUMMARY_THRESHOLD` with `pipeline.compactionThreshold`
-- [ ] **0.5** `agent/whatsapp-format.ts` — Replace formatting limits with `pipeline.whatsappMaxLength` / `pipeline.whatsappLineWidth`
-- [ ] **0.6** `security/rateLimiter.ts` — Replace rate limit constants with `pipeline.rateLimitMax` / `pipeline.rateLimitWindow`
-- [ ] **0.7** `bridge/client.ts` — Replace timeout/retry constants with `pipeline.*`
-- [ ] **0.8** `task/types.ts` + `task/manager.ts` — Replace timeout defaults with `pipeline.taskTimeout`
-- [ ] **0.9** `harness/types.ts` — Replace harness timeout with `pipeline.harnessTimeout`
-- [ ] **0.10** `validation/common.ts` — Replace validation limits with `pipeline.*`
-- [ ] **0.11** `manager/internal/config/editor.go` — Add `IsSeparator` field, pipeline `FETCH_*` fields, skip-separator navigation
-- [ ] **0.T** Unit test: verify defaults, verify env var overrides
-- [ ] **0.R** Update `docker-compose.yml` with commented-out tuning examples
+- [x] **0.1** Create `config/pipeline.ts` with all pipeline parameters
+- [x] **0.2** `agent/core.ts` — Replace all 15 magic numbers with `pipeline.*` imports
+- [x] **0.3** `session/manager.ts` — Replace truncation limit with `pipeline.compactionThreshold` / `pipeline.historyWindow`
+- [x] **0.4** `conversation/summarizer.ts` — Replace `SUMMARY_THRESHOLD` with `pipeline.compactionThreshold`
+- [x] **0.5** `agent/whatsapp-format.ts` — Replace formatting limits with `pipeline.whatsappMaxLength` / `pipeline.whatsappLineWidth`
+- [x] **0.6** `security/rateLimiter.ts` — Replace rate limit constants with `pipeline.rateLimitMax` / `pipeline.rateLimitWindow`
+- [x] **0.7** `bridge/client.ts` — Replace timeout/retry constants with `pipeline.*`
+- [x] **0.8** `task/types.ts` + `task/manager.ts` — Replace timeout defaults with `pipeline.taskTimeout`
+- [x] **0.9** `harness/types.ts` — Replace harness timeout with `pipeline.harnessTimeout`
+- [x] **0.10** `validation/common.ts` — Replace validation limits with `pipeline.*`
+- [x] **0.11** `manager/internal/config/editor.go` — Add `IsSeparator` field, pipeline `FETCH_*` fields, skip-separator navigation
+- [x] **0.T** Unit test: verify defaults, verify env var overrides
+- [x] **0.R** Update `docker-compose.yml` with commented-out tuning examples
 
 ---
 
@@ -671,20 +671,20 @@ if (session.metadata?.compactionSummary) {
 
 ## Phase 1 Checklist
 
-- [ ] **1.1** `handler/index.ts` — Replace `session.messages.push()` with `sManager.addUserMessage()` + `sManager.addAssistantMessage()`
-- [ ] **1.2** `agent/core.ts` `handleWithTools()` — Persist tool call messages via `sManager.addAssistantToolCallMessage()` + `sManager.addToolMessage()`
-- [ ] **1.3** `agent/core.ts` `buildMessageHistory()` — Rewrite to emit OpenAI multi-turn format with `tool_calls` + `tool_call_id`, bump to 20 messages
-- [ ] **1.4a** `tools/registry.ts` `execute()` — Add `context?: { sessionId?: string }` parameter
-- [ ] **1.4b** `agent/core.ts` — Pass `{ sessionId: session.id }` to `registry.execute()`
-- [ ] **1.4c** `tools/task.ts` `handleTaskCreate()` — Accept `context` param, use `context.sessionId`
-- [ ] **1.5a** `handler/index.ts` — Add `task:completed` / `task:failed` event listeners in `initializeHandler()`
-- [ ] **1.5b** `handler/index.ts` — Add `registerWhatsAppSender()` function
-- [ ] **1.5c** `bridge/client.ts` — Call `registerWhatsAppSender()` during init
-- [ ] **1.6** `tools/task.ts` — Call `frameTaskGoal()` before dispatching to harness
-- [ ] **1.7a** `session/manager.ts` — Add `compactIfNeeded()` method (LLM-summarize old messages, shrink array)
-- [ ] **1.7b** `session/manager.ts` — Replace `summarizer.checkAndSummarize()` call with `this.compactIfNeeded()` in `addUserMessage()`
-- [ ] **1.7c** `agent/prompts.ts` — Replace `store.getSummaries()` block with `session.metadata.compactionSummary` read
-- [ ] **1.T** Write/update unit tests for `buildMessageHistory()`, tool persistence, compaction, task completion hooks
+- [x] **1.1** `handler/index.ts` — Replace `session.messages.push()` with `sManager.addUserMessage()` + `sManager.addAssistantMessage()` ✅ (commit TBD)
+- [x] **1.2** `agent/core.ts` `handleWithTools()` — Persist tool call messages via `sManager.addAssistantToolCallMessage()` + `sManager.addToolMessage()` ✅
+- [x] **1.3** `agent/core.ts` `buildMessageHistory()` — Rewrite to emit OpenAI multi-turn format with `tool_calls` + `tool_call_id`, bump to 20 messages ✅
+- [x] **1.4a** `tools/registry.ts` `execute()` — Add `context?: { sessionId?: string }` parameter via `ToolContext` interface ✅
+- [x] **1.4b** `agent/core.ts` — Pass `{ sessionId: session.id }` to `registry.execute()` ✅
+- [x] **1.4c** `tools/task.ts` `handleTaskCreate()` — Accept `ToolContext` param, use `context.sessionId` ✅
+- [x] **1.5a** `handler/index.ts` — Add `task:completed` / `task:failed` event listeners in `initializeHandler()` ✅
+- [x] **1.5b** `handler/index.ts` — Add `registerWhatsAppSender()` function ✅
+- [x] **1.5c** `bridge/client.ts` — Call `registerWhatsAppSender()` during init ✅
+- [x] **1.6** `tools/task.ts` — Call `frameTaskGoal()` before dispatching to harness ✅
+- [x] **1.7a** `session/manager.ts` — Add `compactIfNeeded()` + `generateCompactionSummary()` methods ✅
+- [x] **1.7b** `session/manager.ts` — Replace `summarizer.checkAndSummarize()` with `this.compactIfNeeded()` in `addUserMessage()` ✅
+- [x] **1.7c** `agent/prompts.ts` — Replace `store.getSummaries()` with `session.metadata.compactionSummary` read ✅
+- [x] **1.T** 13 new unit tests: buildMessageHistory (6), ToolContext (1), compaction (2), handler API (1), task hooks (2), prompts (1) ✅
 - [ ] **1.R** Rebuild Docker, test full flow: message → tool call → task create → task complete → WhatsApp notification
 
 ---

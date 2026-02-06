@@ -29,7 +29,9 @@ import {
   type TaskRespondInput,
 } from '../validation/tools.js';
 import type { ToolResult } from './types.js';
+import type { ToolContext } from './registry.js';
 import type { Task, TaskId } from '../task/types.js';
+import { logger } from '../utils/logger.js';
 
 // ============================================================================
 // task_create
@@ -56,9 +58,12 @@ import type { Task, TaskId } from '../task/types.js';
  */
 export async function handleTaskCreate(
   input: unknown,
-  sessionId?: string
+  context?: ToolContext
 ): Promise<ToolResult> {
   const start = Date.now();
+
+  // Resolve sessionId from context (passed by registry) or fallback
+  const sessionId = context?.sessionId;
 
   // Validate input
   const parseResult = TaskCreateInputSchema.safeParse(input);
@@ -72,6 +77,22 @@ export async function handleTaskCreate(
   }
 
   const { goal, agent, workspace, timeout } = parseResult.data as TaskCreateInput;
+
+  // Frame the goal for the harness — self-contained, no chat references
+  let framedGoal = goal;
+  if (sessionId) {
+    try {
+      const { frameTaskGoal } = await import('../agent/core.js');
+      const { getSessionManager } = await import('../session/manager.js');
+      const sManager = await getSessionManager();
+      const session = await sManager.getOrCreateSession(sessionId);
+      framedGoal = await frameTaskGoal(goal, session);
+      logger.info('Task goal framed for harness', { original: goal.substring(0, 50), framed: framedGoal.substring(0, 50) });
+    } catch (err) {
+      // Framing failure is non-fatal — fall back to raw goal
+      logger.warn('Task goal framing failed, using raw goal', err);
+    }
+  }
 
   // Determine workspace
   const workspaceId = workspace ?? workspaceManager.getActiveWorkspaceId();
@@ -111,7 +132,7 @@ export async function handleTaskCreate(
     }
     const task = await manager.createTask(
       {
-        goal,
+        goal: framedGoal,
         agent: agent ?? 'auto',
         workspace: workspaceId,
         timeout,
@@ -120,7 +141,6 @@ export async function handleTaskCreate(
     );
 
     // Start task execution in the background via harness
-    // This spawns claude/gemini/copilot CLI to do the actual work
     const integration = getTaskIntegration();
     
     // Execute asynchronously - don't await, let it run in background

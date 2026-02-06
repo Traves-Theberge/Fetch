@@ -49,7 +49,6 @@ import {
 } from './types.js';
 import { SessionStore, getSessionStore } from './store.js';
 import { ThreadManager, Thread } from './thread-manager.js';
-import { summarizer } from '../conversation/summarizer.js';
 import { pipeline } from '../config/pipeline.js';
 import { logger } from '../utils/logger.js';
 
@@ -266,9 +265,9 @@ export class SessionManager {
     session.messages.push(message);
     await this.store.update(session);
     
-    // Check for summarization (V3.1)
-    summarizer.checkAndSummarize(session).catch(err => {
-        logger.warn('Background summarization failed', err);
+    // Compact if message count exceeds threshold (replaces V3.1 summarizer)
+    this.compactIfNeeded(session).catch(err => {
+        logger.warn('Background compaction failed', err);
     });
 
     return message;
@@ -344,6 +343,102 @@ export class SessionManager {
         sessionId: session.id, 
         remaining: session.messages.length 
       });
+    }
+  }
+
+  // ============================================================================
+  // Compaction (Phase 1 — Context Pipeline)
+  // ============================================================================
+
+  /**
+   * Compact message history when it exceeds the threshold.
+   *
+   * LLM-summarizes old messages into session.metadata.compactionSummary,
+   * then shrinks the message array to the last `historyWindow` messages.
+   * One summary, refreshed each compaction cycle.
+   */
+  async compactIfNeeded(session: Session): Promise<void> {
+    if (session.messages.length <= pipeline.compactionThreshold) return;
+
+    const keep = pipeline.historyWindow;
+    const oldMessages = session.messages.slice(0, -keep);
+    const recentMessages = session.messages.slice(-keep);
+
+    // Build transcript of old messages for summarization
+    const transcript = oldMessages.map(m => {
+      const role = m.role.toUpperCase();
+      let content = m.content;
+      if (m.toolCalls) content += ` [Tools: ${m.toolCalls.map(t => t.name).join(', ')}]`;
+      if (m.toolCall) content = `[${m.toolCall.name}]: ${m.toolCall.result ?? 'no result'}`;
+      return `${role}: ${content}`;
+    }).join('\n');
+
+    // LLM-generate compact summary
+    const summary = await this.generateCompactionSummary(transcript, session);
+
+    // Replace old messages with summary in metadata
+    if (!session.metadata) session.metadata = {};
+    session.metadata.compactionSummary = summary;
+    session.metadata.compactedAt = new Date().toISOString();
+    session.metadata.compactedMessageCount = (session.metadata.compactedMessageCount ?? 0) + oldMessages.length;
+    session.messages = recentMessages;
+
+    await this.store.update(session);
+    logger.info('Compacted session', {
+      sessionId: session.id,
+      removed: oldMessages.length,
+      remaining: recentMessages.length,
+      totalCompacted: session.metadata.compactedMessageCount
+    });
+  }
+
+  /**
+   * Generate a compaction summary from a transcript of old messages.
+   * Uses a cheap/fast model to stay within token budget.
+   */
+  private async generateCompactionSummary(transcript: string, session: Session): Promise<string> {
+    try {
+      const OpenAI = (await import('openai')).default;
+      const { env } = await import('../config/env.js');
+
+      const openai = new OpenAI({
+        apiKey: env.OPENROUTER_API_KEY,
+        baseURL: 'https://openrouter.ai/api/v1',
+      });
+
+      const workspace = session.currentProject?.name ?? 'unknown';
+
+      const response = await openai.chat.completions.create({
+        model: pipeline.compactionModel,
+        messages: [
+          {
+            role: 'system',
+            content: `You are summarizing a conversation between a user and an AI coding assistant (Fetch).
+Workspace: ${workspace}
+
+Condense the following conversation transcript into a concise summary. Include:
+- Key decisions made
+- Files discussed or modified
+- Tools used and their results
+- Any unresolved questions or pending work
+
+Be specific — mention file names, function names, and concrete details.
+Keep it under ${pipeline.compactionMaxTokens} tokens.`
+          },
+          {
+            role: 'user',
+            content: transcript
+          }
+        ],
+        max_tokens: pipeline.compactionMaxTokens,
+        temperature: 0.3,
+      });
+
+      return response.choices[0]?.message?.content ?? 'Unable to generate summary';
+    } catch (err) {
+      logger.error('Compaction summary generation failed', err);
+      // Fallback: simple truncated transcript
+      return `[Auto-summary failed — ${transcript.length} chars of conversation compacted]`;
     }
   }
 

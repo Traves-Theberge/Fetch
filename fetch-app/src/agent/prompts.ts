@@ -73,8 +73,6 @@ Now write the goal:`;
 // CONTEXT BUILDER
 // =============================================================================
 
-import { getSessionStore } from '../session/store.js';
-
 /**
  * Build the context section for the system prompt.
  * Provides session-aware context: workspace, task, git state, summaries, repo map.
@@ -121,19 +119,13 @@ export async function buildContextSection(session: Session): Promise<string> {
     }
   }
 
-  // Summaries (V3.1)
-  try {
-      const store = getSessionStore();
-      const summaries = store.getSummaries(session.id, 2); // Get last 2 summaries
-      if (summaries && summaries.length > 0) {
-          parts.push(`\n## Recent Memories 🧠`);
-          summaries.reverse().forEach(sum => {
-              parts.push(`\n[Summary from ${new Date(sum.created_at).toLocaleTimeString()}]`);
-              parts.push(sum.content);
-          });
-      }
-  } catch {
-      // Ignore summary errors during prompt build
+  // Compaction summary (replaces V3.1 rolling summaries)
+  if (session.metadata?.compactionSummary) {
+    parts.push('\n## Conversation History 🧠');
+    parts.push(session.metadata.compactionSummary);
+    if (session.metadata.compactedMessageCount) {
+      parts.push(`_(${session.metadata.compactedMessageCount} earlier messages condensed)_`);
+    }
   }
 
   // Repository Map
