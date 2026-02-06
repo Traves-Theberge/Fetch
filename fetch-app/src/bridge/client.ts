@@ -68,6 +68,7 @@ const { Client, LocalAuth } = pkg;
 type Message = pkg.Message;
 type ClientType = InstanceType<typeof Client>;
 import { logger } from '../utils/logger.js';
+import { pipeline } from '../config/pipeline.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
 import { getTaskIntegration } from '../task/integration.js';
@@ -164,7 +165,7 @@ function cleanupChromeLocks(authPath: string): void {
  */
 class MessageDeduplicator {
   private processedMessages = new Map<string, number>();
-  private readonly TTL_MS = 30_000; // 30 seconds
+  private readonly TTL_MS = pipeline.deduplicationTtl;
   private cleanupTimer: ReturnType<typeof setInterval>;
 
   constructor() {
@@ -214,7 +215,7 @@ export class Bridge {
 
   // Reconnection state
   private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 10;
+  private readonly maxReconnectAttempts = pipeline.maxReconnectAttempts;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private isReconnecting = false;
   private destroyed = false;
@@ -242,7 +243,7 @@ export class Bridge {
 
     // SecurityGate initialized in initialize() for async whitelist loading
     this.securityGate = null as unknown as SecurityGate;
-    this.rateLimiter = new RateLimiter(30, 60000); // 30 requests per minute
+    this.rateLimiter = new RateLimiter(pipeline.rateLimitMax, pipeline.rateLimitWindow);
   }
 
   async initialize(): Promise<void> {
@@ -499,7 +500,7 @@ export class Bridge {
 
     // Mapping to track last progress message per session to avoid noise
     const lastProgressUpdate = new Map<string, number>();
-    const THROTTLE_MS = 3000; // Minimum 3s between general progress updates
+    const THROTTLE_MS = pipeline.progressThrottle; // Minimum time between general progress updates
 
     integration.on('task:progress', async (event: TaskProgressEvent) => {
       const { sessionId, message } = event;
@@ -707,10 +708,10 @@ export class Bridge {
     this.isReconnecting = true;
     this.reconnectAttempts++;
 
-    // Exponential backoff: 5 s × 2^(attempt-1), capped at 5 min, with 0–2 s jitter
-    const BASE_DELAY = 5_000;
-    const MAX_DELAY = 300_000;
-    const jitter = Math.random() * 2_000;
+    // Exponential backoff with configurable base, cap, and jitter
+    const BASE_DELAY = pipeline.reconnectBaseDelay;
+    const MAX_DELAY = pipeline.reconnectMaxDelay;
+    const jitter = Math.random() * pipeline.reconnectJitter;
     const delay =
       Math.min(BASE_DELAY * Math.pow(2, this.reconnectAttempts - 1), MAX_DELAY) + jitter;
 

@@ -27,15 +27,20 @@ var (
 	helpTextStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#626262")).
 			Italic(true)
+
+	separatorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#FF6B35")).
+			Bold(true)
 )
 
 // ConfigField represents a single configuration field
 type ConfigField struct {
-	Key    string
-	Value  string
-	Label  string
-	Help   string
-	Masked bool
+	Key         string
+	Value       string
+	Label       string
+	Help        string
+	Masked      bool
+	IsSeparator bool // Renders as section header, not editable
 }
 
 // Editor handles the configuration editing UI
@@ -60,6 +65,18 @@ func NewEditor() *Editor {
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID (e.g., openai/gpt-4o-mini)"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone (e.g., America/New_York, UTC)"},
+			// ─── Pipeline Tuning ──────────────────────────────────────
+			{IsSeparator: true, Label: "─── Pipeline Tuning ───"},
+			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window (default: 20)"},
+			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this (default: 40)"},
+			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses (default: 300)"},
+			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses (default: 500)"},
+			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0 (default: 0.7)"},
+			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0 (default: 0.3)"},
+			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message (default: 5)"},
+			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window (default: 30)"},
+			{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout (default: 300000)"},
+			{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout (default: 300000)"},
 		},
 	}
 	editor.loadFromFile()
@@ -148,6 +165,9 @@ func (e *Editor) saveToFile() error {
 
 	// Append any editor-managed keys not already in the file
 	for _, field := range e.fields {
+		if field.IsSeparator {
+			continue
+		}
 		if !writtenKeys[field.Key] && field.Value != "" {
 			outputLines = append(outputLines, field.Key+"="+field.Value)
 		}
@@ -183,16 +203,24 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 
 	switch msg.String() {
 	case "up", "k":
-		if e.cursor > 0 {
-			e.cursor--
+		for i := e.cursor - 1; i >= 0; i-- {
+			if !e.fields[i].IsSeparator {
+				e.cursor = i
+				break
+			}
 		}
 	case "down", "j":
-		if e.cursor < len(e.fields)-1 {
-			e.cursor++
+		for i := e.cursor + 1; i < len(e.fields); i++ {
+			if !e.fields[i].IsSeparator {
+				e.cursor = i
+				break
+			}
 		}
 	case "enter", "e":
-		e.editing = true
-		e.editBuffer = e.fields[e.cursor].Value
+		if !e.fields[e.cursor].IsSeparator {
+			e.editing = true
+			e.editBuffer = e.fields[e.cursor].Value
+		}
 	case "s":
 		err := e.saveToFile()
 		if err != nil {
@@ -209,6 +237,12 @@ func (e *Editor) View() string {
 	s := ""
 
 	for i, field := range e.fields {
+		// Render separator as section header
+		if field.IsSeparator {
+			s += "\n" + separatorStyle.Render("   "+field.Label) + "\n"
+			continue
+		}
+
 		label := labelStyle.Render(field.Label + ":")
 
 		value := field.Value

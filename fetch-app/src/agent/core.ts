@@ -30,6 +30,7 @@ import { getInstinctRegistry, FetchMode, type InstinctAction } from '../instinct
 import { getIdentityManager } from '../identity/manager.js';
 import { getSkillManager } from '../skills/manager.js';
 import { env } from '../config/env.js';
+import { pipeline } from '../config/pipeline.js';
 import { modeDetector } from '../conversation/detector.js'; // Phase 8: Mode Detection
 import { threadManager } from '../conversation/thread.js'; // Phase 8: Threading
 
@@ -67,9 +68,9 @@ export interface ToolCallRecord {
 // =============================================================================
 
 const MODEL = env.AGENT_MODEL;
-const MAX_TOOL_CALLS = 5;
-const MAX_CONSECUTIVE_ERRORS = 3;
-const ERROR_BACKOFF_MS = [1000, 5000, 30000];
+const MAX_TOOL_CALLS = pipeline.maxToolCalls;
+const MAX_CONSECUTIVE_ERRORS = pipeline.circuitBreakerThreshold;
+const ERROR_BACKOFF_MS = pipeline.circuitBreakerBackoff;
 
 // =============================================================================
 // ERROR TRACKING (Circuit Breaker)
@@ -85,8 +86,8 @@ function trackError(sessionId: string): boolean {
   const now = Date.now();
   const tracker = errorTracker.get(sessionId) ?? { count: 0, lastError: 0 };
   
-  // Reset if last error was more than 5 minutes ago
-  if (now - tracker.lastError > 5 * 60 * 1000) {
+  // Reset if last error was more than the configured reset window
+  if (now - tracker.lastError > pipeline.circuitBreakerResetMs) {
     tracker.count = 0;
   }
   
@@ -164,8 +165,8 @@ async function handleWithRetry<T>(
   sessionId: string,
   onProgress?: (text: string) => Promise<void>
 ): Promise<T> {
-  const maxAttempts = 4;
-  const backoffs = [0, 1000, 3000, 10000];
+  const maxAttempts = pipeline.maxRetries + 1; // retries + initial attempt
+  const backoffs = pipeline.retryBackoff;
   const retryMessages = [
     "Hold on, fetching again... 🐕",
     "Still working on it, be patient! 🐕",
@@ -516,8 +517,8 @@ async function handleConversation(
       ...finalHistory,
       { role: 'user', content: message },
     ],
-    max_tokens: 300,
-    temperature: 0.7,
+    max_tokens: pipeline.chatMaxTokens,
+    temperature: pipeline.chatTemperature,
   });
 
   const text = response.choices[0]?.message?.content ?? "Hey! 🐕";
@@ -571,8 +572,8 @@ async function handleWithTools(
     messages,
     tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
     tool_choice: 'auto',
-    max_tokens: 500,
-    temperature: 0.3,
+    max_tokens: pipeline.toolMaxTokens,
+    temperature: pipeline.toolTemperature,
   });
 
   let callCount = 0;
@@ -647,8 +648,8 @@ async function handleWithTools(
       messages,
       tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
       tool_choice: 'auto',
-      max_tokens: 500,
-      temperature: 0.3,
+      max_tokens: pipeline.toolMaxTokens,
+      temperature: pipeline.toolTemperature,
     });
   }
 
@@ -682,7 +683,7 @@ async function handleWithTools(
  */
 function buildMessageHistory(
   session: Session,
-  maxMessages = 10
+  maxMessages = pipeline.historyWindow
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
   return session.messages
     .slice(-maxMessages)
@@ -719,8 +720,8 @@ export async function frameTaskGoal(
         content: buildTaskFramePrompt(session, message),
       },
     ],
-    max_tokens: 200,
-    temperature: 0.3,
+    max_tokens: pipeline.frameMaxTokens,
+    temperature: pipeline.toolTemperature,
   });
 
   return (

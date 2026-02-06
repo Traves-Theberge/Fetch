@@ -144,10 +144,11 @@ export interface TaskConstraints {
 /**
  * Default task constraints
  */
+import { pipeline } from '../config/pipeline.js';
 export const DEFAULT_TASK_CONSTRAINTS: TaskConstraints = {
-  timeoutMs: 300000, // 5 minutes
+  timeoutMs: pipeline.taskTimeout,
   requireApproval: false,
-  maxRetries: 1,
+  maxRetries: pipeline.taskMaxRetries,
 };
 
 // ============================================================================

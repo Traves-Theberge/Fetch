@@ -19,6 +19,7 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
+import { pipeline } from '../config/pipeline.js';
 import { dockerExec, getWorkspacePath, isKennelRunning } from '../utils/docker.js';
 import type {
   Workspace,
@@ -83,7 +84,7 @@ export class WorkspaceManager extends EventEmitter {
   private workspaceCache: Map<WorkspaceId, Workspace> = new Map();
 
   /** Cache TTL in milliseconds */
-  private cacheTTL = 30000; // 30 seconds
+  private cacheTTL = pipeline.workspaceCacheTtl;
 
   /** Last cache refresh time */
   private lastCacheRefresh = 0;
@@ -356,7 +357,7 @@ export class WorkspaceManager extends EventEmitter {
       const branchResult = await dockerExec(
         'git',
         ['-C', path, 'branch', '--show-current'],
-        { timeoutMs: 5000 }
+        { timeoutMs: pipeline.gitCommandTimeout }
       );
       const branch = branchResult.stdout.trim() || 'HEAD';
 
@@ -364,7 +365,7 @@ export class WorkspaceManager extends EventEmitter {
       const statusResult = await dockerExec(
         'git',
         ['-C', path, 'status', '--porcelain'],
-        { timeoutMs: 5000 }
+        { timeoutMs: pipeline.gitCommandTimeout }
       );
 
       const modifiedFiles: string[] = [];
@@ -393,7 +394,7 @@ export class WorkspaceManager extends EventEmitter {
       const aheadBehindResult = await dockerExec(
         'git',
         ['-C', path, 'rev-list', '--left-right', '--count', `@{upstream}...HEAD`],
-        { timeoutMs: 5000 }
+        { timeoutMs: pipeline.gitCommandTimeout }
       );
 
       if (aheadBehindResult.exitCode === 0) {
@@ -408,7 +409,7 @@ export class WorkspaceManager extends EventEmitter {
       const commitResult = await dockerExec(
         'git',
         ['-C', path, 'log', '-1', '--format=%h|%s'],
-        { timeoutMs: 5000 }
+        { timeoutMs: pipeline.gitCommandTimeout }
       );
 
       let lastCommit: string | undefined;
@@ -424,7 +425,7 @@ export class WorkspaceManager extends EventEmitter {
       const remoteResult = await dockerExec(
         'git',
         ['-C', path, 'remote', 'get-url', 'origin'],
-        { timeoutMs: 5000 }
+        { timeoutMs: pipeline.gitCommandTimeout }
       );
       const remoteUrl = remoteResult.exitCode === 0 ? remoteResult.stdout.trim() : undefined;
 

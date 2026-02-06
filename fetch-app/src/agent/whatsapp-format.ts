@@ -13,17 +13,19 @@
 // CONFIGURATION
 // =============================================================================
 
+import { pipeline } from '../config/pipeline.js';
+
 /**
  * Maximum characters per line for comfortable mobile reading.
  * WhatsApp displays ~35-40 chars per line on most phones.
  */
-const MAX_LINE_LENGTH = 40;
+const MAX_LINE_LENGTH = pipeline.whatsappLineWidth;
 
 /**
  * Maximum total message length (WhatsApp supports up to 65536).
  * Keep much shorter for readability.
  */
-const MAX_MESSAGE_LENGTH = 4000;
+const MAX_MESSAGE_LENGTH = pipeline.whatsappMaxLength;
 
 // =============================================================================
 // PUBLIC API
