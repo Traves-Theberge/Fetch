@@ -123,6 +123,7 @@ export class HarnessPool extends EventEmitter {
 
   // Delegate methods
   public kill(id: HarnessId) { return this.spawner.kill(id); }
+  public sendInput(id: HarnessId, data: string) { return this.spawner.sendInput(id, data); }
   public waitFor(id: HarnessId) { return this.spawner.waitFor(id); }
   public getSpawner() { return this.spawner; }
 }

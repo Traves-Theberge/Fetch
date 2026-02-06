@@ -58,7 +58,7 @@ import { formatHelp, formatStatus } from '../agent/format.js';
 import { scanProjects, getProject, formatProjectList, formatProjectInfo } from '../session/project.js';
 import { logger } from '../utils/logger.js';
 import { handleTrustCommand } from './trust.js';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -66,11 +66,17 @@ import { getIdentityManager } from '../identity/manager.js';
 import { getSkillManager } from '../skills/manager.js';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Reset to a specific git commit
  */
 async function resetToCommit(commitSha: string): Promise<boolean> {
+  // Validate SHA to prevent shell injection
+  if (!/^[0-9a-f]{7,40}$/i.test(commitSha)) {
+    logger.error('Invalid git commit SHA', { commitSha });
+    return false;
+  }
   try {
     await execAsync(`git reset --hard ${commitSha}`);
     return true;
@@ -736,8 +742,8 @@ async function handleClone(
   try {
     logger.info('Cloning repository', { url, target: targetPath });
     
-    // Clone the repo
-    await execAsync(`git clone --depth 1 "${url}" "${targetPath}"`, {
+    // Clone the repo (use execFile to avoid shell injection via URL)
+    await execFileAsync('git', ['clone', '--depth', '1', url, targetPath], {
       timeout: 120000  // 2 minute timeout
     });
 

@@ -79,6 +79,7 @@ Fetch has **22 stateful singletons** organized into 6 layers. State is distribut
 | Path | Watcher | Content |
 |:-----|:--------|:--------|
 | `data/identity/*.md` | IdentityManager | Agent persona, traits, behavior directives |
+| `data/agents/*.md` | IdentityManager | Pack member profiles (YAML frontmatter → PackMember[]) |
 | `data/skills/` | SkillManager | User-defined skill instructions |
 | `src/skills/builtin/` | SkillManager | Built-in skill definitions |
 | `data/tools/*.json` | ToolRegistry | Custom shell-based tool definitions |
@@ -103,7 +104,7 @@ Fetch has **22 stateful singletons** organized into 6 layers. State is distribut
 | Manager | File | State Owned |
 |:--------|:-----|:------------|
 | ModeManager | `modes/manager.ts` | currentState, history, handlers map |
-| IdentityManager | `identity/manager.ts` | identity, initialized, watchers |
+| IdentityManager | `identity/manager.ts` | identity, pack (PackMember[]), initialized, watchers (identity/ + agents/) |
 | HarnessPool | `harness/pool.ts` | queue, config, spawner ref |
 | TaskScheduler | `task/scheduler.ts` | jobs map, intervals, timers |
 | ProactiveSystem | `proactive/index.ts` | polling + watcher refs |

@@ -36,8 +36,8 @@ Boot
  ├─ 3. Identity System
  │     IdentityLoader reads COLLAR.md → AgentIdentity
  │     IdentityLoader reads ALPHA.md  → owner context
- │     IdentityLoader reads AGENTS.md → pack definitions
- │     IdentityManager starts chokidar watcher on data/identity/
+ │     IdentityLoader reads data/agents/*.md → PackMember[] (YAML frontmatter)
+ │     IdentityManager starts chokidar watcher on data/identity/ + data/agents/
  │
  ├─ 4. Instinct Registration
  │     InstinctRegistry.registerBuiltins() → 12 handlers sorted by priority
@@ -419,6 +419,7 @@ Fetch uses `chokidar` file watchers for live configuration updates without resta
 | Watcher | Path | Pattern | Debounce | On Change |
 |---------|------|---------|----------|-----------|
 | Identity | `data/identity/` | `*.md` | 500ms | Reload AgentIdentity, rebuild system prompt |
+| Agents | `data/agents/` | `*.md` | 500ms | Reload PackMember[], update `<available_agents>` XML |
 | Skills | `data/skills/` | `*/SKILL.md` | 500ms | Reload skill, update SkillManager registry |
 | Tools | `data/tools/` | `*.json` | 500ms | Reload tool, update ToolRegistry |
 | Polling | `data/` | `POLLING.md` | 1000ms | Reload polling config, restart polling service |
@@ -517,4 +518,4 @@ OpenRouter API call fails
 
 ---
 
-*Architecture Reference for Fetch v3.1.2*
+*Architecture Reference for Fetch v3.2.0*

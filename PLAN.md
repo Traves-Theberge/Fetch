@@ -2,11 +2,6 @@
 
 > Generated from 4-agent deep audit of every module in the codebase.
 > Previous plan (V3.1.2 structure overhaul) completed and shipped as `876cc7d`.
->
-> ✅ **Identity Pipeline Complete** (shipped as `f099ca8` in v3.2.0):
-> SKILL.md discovery→activation, unified `IdentityManager.buildSystemPrompt()`,
-> AGENTS.md split to `data/agents/*.md`, 418 lines of dead prompts deleted,
-> all tests passing. Items previously marked 🔀 DEFERRED are now resolved.
 
 ---
 
@@ -14,7 +9,7 @@
 
 The V3.1.2 codebase compiles clean (0 tsc, 0 ESLint, 0 Go build errors) but a deep audit reveals:
 
-1. **Runtime crashes** — 3 paths that will throw at runtime (session store schema, harness executor dead maps, broken tool response)
+1. **Runtime crashes** — 4 paths that will throw at runtime (session store schema, harness executor dead maps, broken tool response)
 2. **Security holes** — 3 shell injection vectors, unauthenticated logout endpoint, validator blocks legitimate code
 3. **~1,500 lines of dead code** — 2 entire util files, 80% of prompts.ts, 9/10 WhatsApp formatters, dead harness methods
 4. **Dual task system** — `SessionTask` and `Task` are parallel representations that never sync (the #1 design debt)
@@ -42,10 +37,12 @@ The V3.1.2 codebase compiles clean (0 tsc, 0 ESLint, 0 Go build errors) but a de
 **Bug:** `tools/task.ts` `task_respond` resumes the task state but has a `// TODO: Send response to harness via stdin`. The tool reports "Response delivered" which is false.
 **Fix:** Wire `sendInput()` through the executor/pool to the harness stdin. This depends on 1.2.
 
-### ~~1.4 — Identity Data Silently Discarded~~ ✅ COMPLETED (v3.2.0)
-> Resolved in `f099ca8`: identity pipeline unified, PackMember typed, skill instructions surfaced.
+### 1.4 — Identity Data Silently Discarded 🔴
+**Bug:** The loader parses `owner` from ALPHA.md and `pack` from AGENTS.md, but `identity/manager.ts` `mergeLoaded()` never reads either field. Owner communication preferences and pack routing data are parsed then thrown away.
+**Also:** The `pack` field doesn't exist on the `AgentIdentity` type — it's smuggled via `as any` (6 instances of eslint-disable).
+**Fix:** Add `owner` and `pack` fields to `AgentIdentity` type. Wire `mergeLoaded()` to consume them. Inject pack context into system prompt.
 
-### 1.4 — Env Validation After Startup 🔴
+### 1.5 — Env Validation After Startup 🔴
 **Bug:** In `index.ts`, the status server, mode system, and proactive system all start *before* `validateEnvironment()` runs. If `OPENROUTER_API_KEY` is missing, multiple subsystems have already initialized for nothing.
 **Fix:** Move env validation to the very first line of `main()`, before any subsystem init.
 
@@ -88,10 +85,8 @@ Zero imports anywhere. Entire file is dead.
 ### 3.2 — Delete `utils/sanitize.ts` (~80 lines)
 Zero imports anywhere. Entire file is dead.
 
-### ~~3.3 — Gut `agent/prompts.ts` (~450 dead lines)~~ ✅ COMPLETED (v3.2.0)
-> Done in `f099ca8`: 571 → 153 lines. Deleted `CORE_IDENTITY`, `CAPABILITIES`, `TOOL_REFERENCE`,
-> `UNDERSTANDING_PATTERNS`, `buildOrchestratorPrompt()`, `buildIntentPrompt()`,
-> `buildSummarizePrompt()`, `buildErrorRecoveryPrompt()`. Kept `buildTaskFramePrompt()` + `buildContextSection()`.
+### 3.3 — Gut `agent/prompts.ts` (~450 dead lines)
+Keep only `buildOrchestratorPrompt()`. Delete: `buildIntentClassificationPrompt()`, `buildTaskGoalPrompt()`, `buildOutputSummaryPrompt()`, `buildErrorRecoveryPrompt()`, and all their sub-constants (`ORCHESTRATOR_IDENTITY`, `TOOL_DESCRIPTIONS`, etc.). ~80% of the file is unused since intent classification moved to regex.
 
 ### 3.4 — Gut `agent/whatsapp-format.ts` (~450 dead lines)
 Keep only `formatForWhatsApp()`. Delete: `formatDiff()`, `formatProgressBar()`, `formatToolAction()`, `formatCodeBlock()`, `formatError()`, `formatWarning()`, `formatSuccess()`, `formatInfo()`, `formatSection()`. Only 1 of 10 exports is called.
@@ -99,9 +94,8 @@ Keep only `formatForWhatsApp()`. Delete: `formatDiff()`, `formatProgressBar()`, 
 ### 3.5 — Delete `agent/index.ts` (33 lines)
 Barrel file with zero importers. Everything imports directly from submodules.
 
-### ~~3.6 — Delete dead code in `agent/core.ts`~~ ✅ COMPLETED (v3.2.0)
-> Done in `f099ca8`: Removed commented-out `getCurrentMode()` and `buildConversationPrompt()` (~80 lines).
-> `undo`/`pause`/`resume` TODO stubs remain (they're active switch arms, just incomplete).
+### 3.6 — Delete dead code in `agent/core.ts`
+Remove commented-out `getCurrentMode()` and `buildConversationPrompt()` (~80 lines). Remove `undo`/`pause`/`resume` TODO stubs in switch statement.
 
 ### 3.7 — Delete dead code in `agent/intent.ts`
 Remove `classifyWithLLM()` and `buildClassificationPrompt()` — vestigial LLM classification path, never called.
@@ -121,7 +115,7 @@ Remove `memory_facts` and `working_context` table DDL and any associated prepare
 ### 3.11 — Clean misc dead code
 - `utils/logger.ts`: Remove 6 unused color constants, unused `box()` export.
 - `config/paths.ts`: Remove `MEMORY_DIR` export (no memory system).
-- `format.ts`: Reconcile duplicate help text — 🔀 the `prompts.ts` half is deferred (see 3.3).
+- `format.ts`: Reconcile duplicate help text (exists in both `format.ts` and `prompts.ts`).
 
 ---
 
@@ -246,15 +240,12 @@ Both are `false` in tsconfig.json, allowing dead variables to accumulate silentl
 
 | Priority | Phase | Estimated Scope | Risk |
 |----------|-------|-----------------|------|
-| 🔴 **Now** | Phase 1: Runtime fixes (1.1–1.3, 1.4) | ~150 lines changed | High (crashes) |
+| 🔴 **Now** | Phase 1: Runtime fixes | ~200 lines changed | High (crashes) |
 | 🔴 **Now** | Phase 2: Security | ~100 lines changed | High (exploits) |
-| 🟠 **Next** | Phase 3: Dead code purge (skip 3.3) | ~1,000 lines deleted | Low (deletion only) |
+| 🟠 **Next** | Phase 3: Dead code purge | ~1,500 lines deleted | Low (deletion only) |
 | 🟡 **Then** | Phase 4: Architecture | ~800 lines refactored | Medium (behavioral) |
 | 🟢 **After** | Phase 5: Infrastructure | ~300 lines added | Low (additive) |
 | 🟢 **After** | Phase 6: Proactive | ~200 lines changed | Low (isolated) |
 | ⚪ **Ongoing** | Phase 7: Tests | ~500 lines added | None |
-| 🔀 **After identity agent lands** | 3.3 + 3.11 prompts.ts cleanup | ~450 lines deleted | Low |
 
-**Total estimated impact:** ~1,000 lines deleted now + ~450 deferred, ~1,400 lines changed/added. Net reduction of ~500+ lines.
-
-**Parallel work coordination:** Items 1.4 (old), 3.3, and 3.11-prompts are deferred to avoid merge conflicts with the identity/skills pipeline rebuild. Everything else is orthogonal and safe to proceed immediately.
+**Total estimated impact:** ~1,500 lines deleted, ~1,600 lines changed/added. Net reduction of ~500+ lines while fixing every crash, security hole, and architectural debt item found.

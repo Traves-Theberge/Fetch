@@ -69,12 +69,6 @@ const colors = {
   cyan: '\x1b[36m',
   white: '\x1b[37m',
   gray: '\x1b[90m',
-  
-  // Backgrounds
-  bgRed: '\x1b[41m',
-  bgGreen: '\x1b[42m',
-  bgYellow: '\x1b[43m',
-  bgBlue: '\x1b[44m',
 };
 
 /** Configuration for each log level */
@@ -165,18 +159,6 @@ function divider(): void {
   console.log(`${colors.dim}${'─'.repeat(50)}${colors.reset}`);
 }
 
-// Utility: print a box around content
-function box(lines: string[]): void {
-  const maxLen = Math.max(...lines.map(l => l.length), 48);
-  const border = '═'.repeat(maxLen + 2);
-  
-  console.log(`${colors.cyan}╔${border}╗${colors.reset}`);
-  for (const line of lines) {
-    console.log(`${colors.cyan}║${colors.reset} ${line.padEnd(maxLen)} ${colors.cyan}║${colors.reset}`);
-  }
-  console.log(`${colors.cyan}╚${border}╝${colors.reset}`);
-}
-
 export const logger = {
   debug: (message: string, data?: unknown) => log('debug', message, data),
   info: (message: string, data?: unknown) => log('info', message, data),
@@ -188,5 +170,4 @@ export const logger = {
   // Utilities
   section,
   divider,
-  box,
 };

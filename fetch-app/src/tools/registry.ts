@@ -152,14 +152,12 @@ export class ToolRegistry {
           const params = input as Record<string, unknown>;
           let command = def.command;
           
-          // Simple template replacement: {{param}}
-          // WARNING: Injection risk if not careful. For personal tool, acceptable.
-          // Ideally use spawn with args array. But simple shell script wrapper is easier.
-          
+          // Template replacement: {{param}} with shell-safe escaping
           Object.keys(params).forEach(key => {
-              const val = params[key];
-              // simple sanitization/escaping would be good here
-              command = command.replace(new RegExp(`{{${key}}}`, 'g'), String(val));
+              const val = String(params[key]);
+              // Escape single quotes and wrap in single quotes for shell safety
+              const escaped = "'" + val.replace(/'/g, "'\\''") + "'";
+              command = command.replace(new RegExp(`{{${key}}}`, 'g'), escaped);
           });
 
           const start = Date.now();

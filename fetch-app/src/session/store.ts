@@ -177,53 +177,18 @@ export class SessionStore {
         CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_last_activity ON sessions(last_activity_at);
         
-        -- Memory Facts: Long-term learned facts about users and projects
-        CREATE TABLE IF NOT EXISTS memory_facts (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          session_id TEXT,
-          workspace_path TEXT,
-          category TEXT NOT NULL,
-          key TEXT NOT NULL,
+        -- Metadata key-value store
+        CREATE TABLE IF NOT EXISTS meta (
+          key TEXT PRIMARY KEY,
           value TEXT NOT NULL,
-          confidence TEXT DEFAULT 'medium',
-          reinforcement_count INTEGER DEFAULT 1,
-          source TEXT NOT NULL,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL,
-          last_used_at TEXT,
-          usage_count INTEGER DEFAULT 0,
-          is_active INTEGER DEFAULT 1,
-          UNIQUE(user_id, workspace_path, category, key)
+          updated_at TEXT NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_facts_user_id ON memory_facts(user_id);
-        CREATE INDEX IF NOT EXISTS idx_facts_workspace ON memory_facts(workspace_path);
-        CREATE INDEX IF NOT EXISTS idx_facts_category ON memory_facts(category);
-        CREATE INDEX IF NOT EXISTS idx_facts_active ON memory_facts(is_active);
-        
-        -- Working Context: Short-term memory for active conversations
-        CREATE TABLE IF NOT EXISTS working_context (
-          id TEXT PRIMARY KEY,
-          session_id TEXT NOT NULL,
-          type TEXT NOT NULL,
-          content TEXT NOT NULL,
-          priority TEXT DEFAULT 'normal',
-          relevance REAL DEFAULT 1.0,
-          source_message_id TEXT,
-          metadata TEXT,
-          created_at TEXT NOT NULL,
-          last_relevant_at TEXT NOT NULL,
-          FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_context_session ON working_context(session_id);
-        CREATE INDEX IF NOT EXISTS idx_context_relevance ON working_context(relevance);
-        CREATE INDEX IF NOT EXISTS idx_context_type ON working_context(type);
 
         -- Conversation Summaries (V3.1)
         CREATE TABLE IF NOT EXISTS conversation_summaries (
           id TEXT PRIMARY KEY,
           session_id TEXT NOT NULL,
-          thread_id TEXT, -- Can be null for global/unthreaded history
+          thread_id TEXT,
           range_start_id TEXT NOT NULL,
           range_end_id TEXT NOT NULL,
           content TEXT NOT NULL,
@@ -236,13 +201,14 @@ export class SessionStore {
         -- Conversation Threads: Persistence for long-running conversations
         CREATE TABLE IF NOT EXISTS conversation_threads (
           id TEXT PRIMARY KEY,
-          project_id TEXT,
-          mode TEXT NOT NULL,
-          message_count INTEGER DEFAULT 0,
-          started_at TEXT NOT NULL,
-          last_active_at TEXT NOT NULL
+          session_id TEXT NOT NULL,
+          title TEXT NOT NULL DEFAULT '',
+          status TEXT NOT NULL DEFAULT 'active',
+          context_snapshot TEXT DEFAULT '{}',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS idx_threads_project ON conversation_threads(project_id);
+        CREATE INDEX IF NOT EXISTS idx_threads_session ON conversation_threads(session_id);
       `);
 
       // Prepare statements

@@ -225,18 +225,64 @@ Defines the owner's name and preferences.
 - **Role:** Developer & Project Lead
 ```
 
-### 3.3 AGENTS.md — Pack Registry
+### 3.3 Agent Sub-Files — Pack Registry (`data/agents/*.md`)
 
-Defines harness members and routing rules.
+> **Migrated in v3.2.0:** The monolithic `data/identity/AGENTS.md` is deprecated.
+> Each pack member now has its own file in `data/agents/` with YAML frontmatter.
+> Routing rules live in `data/agents/ROUTING.md`.
 
-**Parsed fields per `### N. Name (Title)` block:**
+Defines harness members as individual Markdown files parsed by `gray-matter`.
 
-| Field | Extracted From | Maps To |
-|-------|---------------|---------|
-| Name | `### 1. Claude (The Sage)` heading | `pack[].name` |
-| Harness | `- **Harness:** claude` | `pack[].harness` |
-| Role | `- **Role:** Architect` | `pack[].role` |
-| Strengths | `- **Strengths:** Large context...` | `pack[].strengths` |
+**File structure:** `data/agents/{claude,gemini,copilot}.md`
+
+**YAML frontmatter fields (→ `PackMember` interface):**
+
+| Field | Type | Maps To | Example |
+|-------|------|---------|--------|
+| `name` | string | `pack[].name` | `Claude` |
+| `emoji` | string | `pack[].emoji` | `🦉` |
+| `harness` | string | `pack[].harness` | `claude` |
+| `cli` | string | `pack[].cli` | `claude` |
+| `title` | string | `pack[].title` | `The Sage` |
+| `role` | string | `pack[].role` | `Architect / Complex Problem Solver` |
+| `strengths` | string[] | `pack[].strengths` | `["Massive context window", ...]` |
+| `weaknesses` | string[] | `pack[].weaknesses` | `["Slower response time", ...]` |
+| `bestFor` | string[] | `pack[].bestFor` | `["Multi-file refactoring", ...]` |
+| `avoidFor` | string[] | `pack[].avoidFor` | `["Quick one-line fixes", ...]` |
+| `personality` | string | `pack[].personality` | `Calm, wise, thorough` |
+
+**Example file** (`data/agents/claude.md`):
+
+```markdown
+---
+name: Claude
+emoji: "🦉"
+harness: claude
+cli: claude
+title: The Sage
+role: Architect / Complex Problem Solver / Multi-file Refactorer
+strengths:
+  - Massive context window (200K tokens)
+  - Deep reasoning chains
+weaknesses:
+  - Slower response time
+  - Can be verbose
+bestFor:
+  - Refactoring across 5+ files simultaneously
+  - Architectural decisions
+avoidFor:
+  - Quick one-line fixes
+  - Formatting-only changes
+personality: "Calm, wise, thorough. Takes time to think but delivers high-quality results."
+---
+
+# Claude — The Sage 🦉
+
+(Optional body content for human reference — not parsed by the loader.)
+```
+
+**Routing rules** (`data/agents/ROUTING.md`): Contains the general routing logic
+for when to select each harness. Injected into the system prompt as-is.
 
 ---
 
@@ -412,7 +458,8 @@ All data paths are resolved through `fetch-app/src/config/paths.ts`:
 | Export | Resolves To | Purpose |
 |--------|-------------|---------|
 | `DATA_DIR` | `data/` | Base data directory |
-| `IDENTITY_DIR` | `data/identity/` | COLLAR.md, ALPHA.md, AGENTS.md |
+| `IDENTITY_DIR` | `data/identity/` | COLLAR.md, ALPHA.md |
+| `AGENTS_DIR` | `data/agents/` | Pack member sub-files (claude.md, gemini.md, copilot.md, ROUTING.md) |
 | `SKILLS_DIR` | `data/skills/` | User-defined skills |
 | `TOOLS_DIR` | `data/tools/` | Custom tool JSON files |
 | `POLLING_FILE` | `data/POLLING.md` | Polling configuration |
@@ -432,4 +479,4 @@ All data paths are resolved through `fetch-app/src/config/paths.ts`:
 
 ---
 
-*Configuration Reference for Fetch v3.1.2*
+*Configuration Reference for Fetch v3.2.0*

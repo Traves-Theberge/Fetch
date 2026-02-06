@@ -247,7 +247,7 @@ docker compose up -d
 
 Messages without `@fetch` are silently ignored for security.
 
-### V3.1 Four-Layer Pipeline
+### V3.2 Four-Layer Pipeline
 
 Fetch processes messages through four layers: **Instinct → Mode → Skill → Agent**. Intent is classified into 4 types:
 
@@ -339,7 +339,7 @@ Fetch implements a 7-layer security model to protect your system:
 
 ---
 
-## Customization (V3.1)
+## Customization (V3.2)
 
 Fetch allows you to customize its personality and knowledge without touching the code.
 
@@ -347,7 +347,10 @@ Fetch allows you to customize its personality and knowledge without touching the
 Edit the files in `data/identity/`:
 - `COLLAR.md`: Fetch's core personality, directives, and communication style.
 - `ALPHA.md`: Your user profile, preferences, and working style.
-- `AGENTS.md`: The Pack — harness definitions, routing rules, and specializations.
+
+Pack member profiles live in `data/agents/`:
+- `claude.md`, `gemini.md`, `copilot.md`: Individual agent profiles with YAML frontmatter.
+- `ROUTING.md`: Routing rules for selecting the right harness.
 
 Changes are hot-reloaded automatically. You can also use `/identity` to view current identity or `/identity collar` / `/identity alpha` to inspect specific files.
 
@@ -625,4 +628,4 @@ npm run build
 
 ---
 
-*Setup Guide for Fetch v3.1.2 — Your Faithful Code Companion* 🐕
+*Setup Guide for Fetch v3.2.0 — Your Faithful Code Companion* 🐕

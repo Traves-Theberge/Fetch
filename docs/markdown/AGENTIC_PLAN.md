@@ -154,7 +154,7 @@ interface ProjectContext {
 }
 ```
 
-### Intent Classification (V3.1)
+### Intent Classification (V3.2)
 
 ```typescript
 type IntentType = 'conversation' | 'workspace' | 'task' | 'clarify';
@@ -376,14 +376,15 @@ AGENT_MODEL=anthropic/claude-sonnet-4
 
 ### System Prompt Architecture
 
-The system prompt is dynamically assembled at runtime by the Identity Loader from:
+The system prompt is dynamically assembled at runtime by `IdentityManager.buildSystemPrompt()` — the single source of truth — from:
 - `data/identity/COLLAR.md` — Core personality and directives
 - `data/identity/ALPHA.md` — User profile and preferences
-- `data/identity/AGENTS.md` — Pack member definitions and routing rules
-- Active skills loaded from `data/skills/`
+- `data/agents/*.md` — Pack member profiles (YAML frontmatter → `PackMember[]`)
+- `data/agents/ROUTING.md` — Pack routing rules
+- Active skills loaded from `data/skills/` (two-phase: `<available_skills>` → `<activated_skill>`)
 - Session context (mode, workspace, memory)
 
-See `agent/prompts.ts` for the prompt assembly logic.
+See `identity/manager.ts` for the prompt assembly logic.
 
 ---
 
@@ -427,9 +428,11 @@ See `agent/prompts.ts` for the prompt assembly logic.
 |------|---------|
 | `agent/core.ts` | Main orchestrator, routes by intent |
 | `agent/intent.ts` | Intent classification (4 intents) |
-| `agent/prompts.ts` | Centralized system prompts |
+| `agent/prompts.ts` | Tool definitions and schema helpers (system prompts moved to IdentityManager) |
 | `agent/format.ts` | WhatsApp message formatting |
 | `agent/whatsapp-format.ts` | Mobile-friendly utilities |
+| `identity/manager.ts` | System prompt assembly (`buildSystemPrompt()`) — single source of truth |
+| `identity/loader.ts` | Parses COLLAR.md, ALPHA.md, and data/agents/*.md |
 | `instincts/index.ts` | Instinct registry and routing |
 | `instincts/*.ts` | Individual instinct handlers |
 | `harness/index.ts` | Harness pool and spawner |
@@ -463,4 +466,4 @@ try {
 
 ---
 
-*Agentic Architecture for Fetch v3.1.2*
+*Agentic Architecture for Fetch v3.2.0*

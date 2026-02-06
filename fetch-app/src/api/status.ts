@@ -50,6 +50,7 @@
  */
 
 import http from 'http';
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
@@ -106,6 +107,9 @@ const startTime = Date.now();
 
 /** Callback for logout action */
 let logoutCallback: (() => Promise<void>) | null = null;
+
+/** Admin token for protected endpoints (logout) */
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
 
 /**
  * Registers a logout callback function.
@@ -193,9 +197,17 @@ export function startStatusServer(): void {
       return;
     }
     
-    // Logout/Disconnect endpoint
+    // Logout/Disconnect endpoint (requires admin token)
     if (req.method === 'POST' && url === '/api/logout') {
       res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
       const success = await triggerLogout();
       if (success) {
         res.writeHead(200);
@@ -236,6 +248,9 @@ export function startStatusServer(): void {
   server.listen(PORT, '0.0.0.0', () => {
     logger.info(`Status API listening on port ${PORT}`);
     logger.info(`Documentation available at http://localhost:${PORT}/docs`);
+    if (!process.env.ADMIN_TOKEN) {
+      logger.info(`Admin token (auto-generated): ${ADMIN_TOKEN}`);
+    }
   });
 
   server.on('error', (err) => {

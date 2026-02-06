@@ -19,6 +19,7 @@ import { getTaskManager } from '../task/manager.js';
 import { taskQueue } from '../task/queue.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { getTaskIntegration } from '../task/integration.js';
+import { getHarnessExecutor } from '../harness/executor.js';
 import {
   TaskCreateInputSchema,
   TaskStatusInputSchema,
@@ -408,7 +409,16 @@ export async function handleTaskRespond(
     // Resume the task
     await manager.resumeTask(targetTaskId as TaskId);
 
-    // TODO: Send response to harness via stdin
+    // Send response to harness via stdin
+    const executor = getHarnessExecutor();
+    const execution = executor.getExecutionForTask(targetTaskId as TaskId);
+    if (execution && execution.status === 'waiting_input') {
+      try {
+        executor.sendInput(execution.id, response);
+      } catch {
+        // Harness may have already moved on — not fatal
+      }
+    }
 
     return {
       success: true,

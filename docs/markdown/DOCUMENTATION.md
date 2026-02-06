@@ -1,4 +1,4 @@
-# 🐕 Fetch — Comprehensive Documentation (V3.1)
+# 🐕 Fetch — Comprehensive Documentation (V3.2)
 
 ## Table of Contents
 
@@ -38,7 +38,7 @@ Fetch is not an AI model. It is a **Pack Leader** — an orchestrator that class
 - 🧠 **Four-Layer Processing** — Instinct → Mode → Skill → Agent pipeline
 - 🐺 **The Pack** — Claude (🦉 The Sage), Gemini (⚡ The Scout), Copilot (🎯 The Retriever)
 - 🛠️ **11 Orchestrator Tools** — Workspace (5) + Task (4) + Interaction (2)
-- 🎭 **Dynamic Identity** — Hot-reloaded persona via Markdown files (COLLAR / ALPHA / AGENTS)
+- 🎭 **Dynamic Identity** — Hot-reloaded persona via Markdown files (COLLAR / ALPHA / agent sub-files in `data/agents/`)
 - 🧩 **Skills Framework** — 7 built-in skills + user-defined skills hot-loaded from `data/skills/`
 - 🗺️ **Repo Maps** — Architectural awareness of large codebases
 - 🎙️ **Voice & Vision** — Transcribe voice notes and analyze screenshots
@@ -339,9 +339,14 @@ Create custom skills in `data/skills/<name>/SKILL.md` with YAML frontmatter. Hot
 
 | File | Purpose | Hot-Reloaded |
 |------|---------|--------------|
-| `COLLAR.md` | Core identity — name, role, voice, directives, behavioral rules | ✅ |
-| `ALPHA.md` | Owner/administrator profile and preferences | ✅ |
-| `AGENTS.md` | Pack member definitions, routing rules, specializations | ✅ |
+| `data/identity/COLLAR.md` | Core identity — name, role, voice, directives, behavioral rules | ✅ |
+| `data/identity/ALPHA.md` | Owner/administrator profile and preferences | ✅ |
+| `data/agents/*.md` | Individual pack member profiles with YAML frontmatter (`PackMember` interface) | ✅ |
+| `data/agents/ROUTING.md` | Pack routing rules and selection logic | ✅ |
+
+> **v3.2.0 Change:** `data/identity/AGENTS.md` is deprecated. Pack members now have individual files
+> in `data/agents/` parsed by `gray-matter`. The single source of truth for system prompt assembly
+> is `IdentityManager.buildSystemPrompt()`.
 
 ### 5.5 Harness System (The Pack)
 
@@ -472,7 +477,7 @@ Fetch/
 │       ├── instincts/              # Instinct Layer (12 handlers)
 │       ├── modes/                  # Mode State Machine
 │       ├── skills/                 # Skills Framework (7 built-in)
-│       ├── identity/               # Identity System (COLLAR/ALPHA/AGENTS)
+│       ├── identity/               # Identity System (COLLAR/ALPHA + data/agents/)
 │       ├── harness/                # Harness System (Claude/Gemini/Copilot)
 │       ├── tools/                  # Orchestrator Tools (11)
 │       ├── conversation/           # Threading & Summarization
@@ -492,7 +497,8 @@ Fetch/
 │
 ├── kennel/                         # Docker sandbox definition
 ├── data/                           # Persistent data (volume-mounted)
-│   ├── identity/                   # COLLAR.md, ALPHA.md, AGENTS.md
+│   ├── identity/                   # COLLAR.md, ALPHA.md
+│   ├── agents/                     # Pack member sub-files (claude.md, gemini.md, copilot.md, ROUTING.md)
 │   ├── skills/                     # User-defined skills
 │   ├── tools/                      # Custom tool definitions
 │   ├── sessions.db                 # Session database (SQLite WAL)
@@ -568,4 +574,4 @@ cd fetch-app && npm test             # Run tests
 
 ---
 
-*Documentation for Fetch v3.1.2 — Last updated: February 5, 2026*
+*Documentation for Fetch v3.2.0 — Last updated: February 5, 2026*

@@ -30,10 +30,8 @@
  * ```
  */
 
-import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
-import { createParser } from './output-parser.js';
 import type { TaskId, AgentType } from '../task/types.js';
 import { getHarnessPool } from './pool.js'; // V3 Pool Integration
 import type {
@@ -48,15 +46,6 @@ import type {
   HarnessEventType,
   HarnessAdapter,
 } from './types.js';
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-/**
- * Maximum output buffer size (1MB)
- */
-const MAX_OUTPUT_BUFFER = 1024 * 1024;
 
 // ============================================================================
 // HarnessExecutor Class
@@ -88,9 +77,6 @@ const MAX_OUTPUT_BUFFER = 1024 * 1024;
 export class HarnessExecutor extends EventEmitter {
   /** Active executions */
   private executions: Map<HarnessId, HarnessExecution> = new Map();
-
-  /** Active processes */
-  private processes: Map<HarnessId, ChildProcess> = new Map();
 
   /** Registered adapters */
   private adapters: Map<AgentType, HarnessAdapter> = new Map();
@@ -281,10 +267,9 @@ export class HarnessExecutor extends EventEmitter {
    * @param input - Input to send
    */
   sendInput(harnessId: HarnessId, input: string): void {
-    const process = this.processes.get(harnessId);
     const execution = this.executions.get(harnessId);
 
-    if (!process || !execution) {
+    if (!execution) {
       throw new Error(`Harness not found: ${harnessId}`);
     }
 
@@ -296,9 +281,13 @@ export class HarnessExecutor extends EventEmitter {
     const adapter = this.adapters.get(execution.agent);
     const formattedInput = adapter?.formatResponse(input) ?? input + '\n';
 
-    process.stdin?.write(formattedInput);
-    this.updateStatus(harnessId, 'running');
+    const pool = getHarnessPool();
+    const sent = pool.sendInput(harnessId, formattedInput);
+    if (!sent) {
+      throw new Error(`Failed to send input to harness: ${harnessId} (process not writable)`);
+    }
 
+    this.updateStatus(harnessId, 'running');
     logger.debug(`Sent input to harness: ${harnessId}`, { input });
   }
 
@@ -308,16 +297,17 @@ export class HarnessExecutor extends EventEmitter {
    * @param harnessId - Harness ID
    * @param signal - Signal to send (default: SIGTERM)
    */
-  kill(harnessId: HarnessId, signal: NodeJS.Signals = 'SIGTERM'): void {
-    const process = this.processes.get(harnessId);
+  kill(harnessId: HarnessId): void {
     const execution = this.executions.get(harnessId);
+    if (!execution) return;
 
-    if (process && execution) {
-      process.kill(signal);
+    const pool = getHarnessPool();
+    const killed = pool.kill(harnessId);
+
+    if (killed) {
       this.updateStatus(harnessId, 'killed');
       this.emitHarnessEvent('harness:killed', harnessId, execution.taskId);
-
-      logger.warn(`Harness killed: ${harnessId}`, { signal });
+      logger.warn(`Harness killed: ${harnessId}`);
     }
   }
 
@@ -363,148 +353,6 @@ export class HarnessExecutor extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Spawn process and wait for completion
-   */
-  private async spawnAndWait(
-    harnessId: HarnessId,
-    execution: HarnessExecution,
-    config: HarnessConfig
-  ): Promise<HarnessResult> {
-    return new Promise((resolve, reject) => {
-      let outputBuffer = '';
-      let timeoutHandle: NodeJS.Timeout | null = null;
-      const parser = createParser(execution.agent);
-
-      // Subscribe to parser events
-      parser.on('progress', (event) => {
-        this.emitHarnessEvent('harness:progress', harnessId, execution.taskId, event);
-      });
-
-      parser.on('file_op', (event) => {
-        this.emitHarnessEvent('harness:file_op', harnessId, execution.taskId, event);
-      });
-
-      parser.on('question', (event) => {
-        this.updateStatus(harnessId, 'waiting_input');
-        this.emitHarnessEvent('harness:question', harnessId, execution.taskId, event);
-      });
-
-      parser.on('complete', () => {
-        // Handle completion if detected early in stream
-        logger.debug('Harness completion detected by parser');
-      });
-
-      parser.on('error', (event) => {
-        logger.warn('Harness error detected by parser', event);
-      });
-
-      // Spawn process
-      const childProcess = spawn(config.command, config.args, {
-        cwd: config.cwd,
-        env: { ...globalThis.process.env, ...config.env },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-
-      execution.pid = childProcess.pid;
-      this.processes.set(harnessId, childProcess);
-      this.updateStatus(harnessId, 'running');
-
-      // Set timeout
-      timeoutHandle = setTimeout(() => {
-        logger.warn(`Harness timeout: ${harnessId}`);
-        childProcess.kill('SIGTERM');
-        this.updateStatus(harnessId, 'killed');
-      }, config.timeoutMs);
-
-      // Handle stdout
-      childProcess.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString();
-        outputBuffer += text;
-
-        // Feed to parser
-        parser.write(text);
-
-        // Trim buffer if too large
-        if (outputBuffer.length > MAX_OUTPUT_BUFFER) {
-          outputBuffer = outputBuffer.slice(-MAX_OUTPUT_BUFFER);
-        }
-
-        // Add event
-        this.addOutputEvent(harnessId, 'stdout', text);
-
-        // Emit output event
-        this.emitHarnessEvent('harness:output', harnessId, execution.taskId, {
-          type: 'stdout',
-          data: text,
-        });
-      });
-
-      // Handle stderr
-      childProcess.stderr?.on('data', (data: Buffer) => {
-        const text = data.toString();
-        outputBuffer += text;
-
-        // Also feed stderr to parser as sometimes errors/progress are there
-        parser.write(text);
-
-        this.addOutputEvent(harnessId, 'stderr', text);
-        this.emitHarnessEvent('harness:output', harnessId, execution.taskId, {
-          type: 'stderr',
-          data: text,
-        });
-      });
-
-      // Handle error
-      childProcess.on('error', (error: Error) => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        this.processes.delete(harnessId);
-        reject(error);
-      });
-
-      // Handle exit
-      childProcess.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        this.processes.delete(harnessId);
-        
-        // Ensure parser is finished
-        parser.flush();
-
-        const exitCode = code ?? (signal ? 128 : 1);
-        execution.exitCode = exitCode;
-        execution.completedAt = new Date().toISOString();
-
-        const success = exitCode === 0;
-        this.updateStatus(harnessId, success ? 'completed' : 'failed');
-
-        if (success) {
-          this.emitHarnessEvent('harness:completed', harnessId, execution.taskId);
-        } else {
-          this.emitHarnessEvent('harness:failed', harnessId, execution.taskId, {
-            exitCode,
-            signal,
-          });
-        }
-
-        const durationMs = Date.now() - new Date(execution.startedAt).getTime();
-
-        logger.info(`Harness finished: ${harnessId}`, {
-          exitCode,
-          durationMs,
-          success,
-        });
-
-        resolve({
-          success,
-          output: outputBuffer,
-          exitCode,
-          error: success ? undefined : `Process exited with code ${exitCode}`,
-          durationMs,
-        });
-      });
-    });
-  }
-
-  /**
    * Update execution status
    */
   private updateStatus(harnessId: HarnessId, status: HarnessStatus): void {
@@ -530,19 +378,6 @@ export class HarnessExecutor extends EventEmitter {
         timestamp: new Date().toISOString(),
       });
     }
-  }
-
-  /**
-   * Get accumulated output buffer for a harness
-   */
-  private getOutputBuffer(harnessId: HarnessId): string {
-    const execution = this.executions.get(harnessId);
-    if (!execution) return '';
-
-    return execution.events
-      .filter((e) => e.type === 'stdout' || e.type === 'stderr')
-      .map((e) => e.data)
-      .join('');
   }
 
   /**
