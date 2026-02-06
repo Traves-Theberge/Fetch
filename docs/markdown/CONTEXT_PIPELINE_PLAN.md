@@ -46,6 +46,186 @@ WhatsApp → handler/index.ts → sManager.addUserMessage(session, text)
 
 ---
 
+## Phase 0: Configuration Layer (Do This First)
+
+> **Problem:** 44 magic numbers scattered across 17 source files. Every threshold, limit, token budget, and timeout is a hardcoded constant. Nothing is tunable without a code change + Docker rebuild.
+>
+> **Goal:** One config module, one source of truth. Every pipeline parameter reads from it. Tunable via env vars for quick adjustments, with sane defaults that work out of the box.
+
+### 0.1 — The Config Module
+
+**New file:** `fetch-app/src/config/pipeline.ts`
+
+```typescript
+import { env } from './env.js';
+
+/**
+ * Pipeline configuration — single source of truth for all context pipeline tuning.
+ *
+ * Every value has a sane default. Override via env vars for quick tuning
+ * without code changes. All consumers import from here, never hardcode.
+ *
+ * Naming: FETCH_<CATEGORY>_<PARAM> for env vars
+ */
+export const pipeline = {
+  // ─── Context Window ────────────────────────────────────────
+  /** Messages in the sliding window sent to the LLM */
+  historyWindow:     int('FETCH_HISTORY_WINDOW', 20),
+  /** Compact when total messages exceed this */
+  compactionThreshold: int('FETCH_COMPACTION_THRESHOLD', 40),
+  /** Max tokens for LLM-generated compaction summary */
+  compactionMaxTokens: int('FETCH_COMPACTION_MAX_TOKENS', 500),
+  /** Model for compaction summaries (cheap + fast) */
+  compactionModel:   str('FETCH_COMPACTION_MODEL', env.SUMMARY_MODEL),
+
+  // ─── Agent LLM ────────────────────────────────────────────
+  /** Max tool call rounds per single user message */
+  maxToolCalls:      int('FETCH_MAX_TOOL_CALLS', 5),
+  /** Token budget for conversation (no tools) responses */
+  chatMaxTokens:     int('FETCH_CHAT_MAX_TOKENS', 300),
+  /** Temperature for conversation responses */
+  chatTemperature:   float('FETCH_CHAT_TEMPERATURE', 0.7),
+  /** Token budget for tool-calling responses */
+  toolMaxTokens:     int('FETCH_TOOL_MAX_TOKENS', 500),
+  /** Temperature for tool-calling responses */
+  toolTemperature:   float('FETCH_TOOL_TEMPERATURE', 0.3),
+  /** Token budget for task framing prompt */
+  frameMaxTokens:    int('FETCH_FRAME_MAX_TOKENS', 200),
+
+  // ─── BM25 Memory (Phase 2) ────────────────────────────────
+  /** Max recalled results injected into context */
+  recallLimit:       int('FETCH_RECALL_LIMIT', 5),
+  /** Max tokens per recalled result snippet */
+  recallSnippetTokens: int('FETCH_RECALL_SNIPPET_TOKENS', 300),
+  /** Recency decay factor (higher = faster decay) */
+  recallDecayFactor: float('FETCH_RECALL_DECAY', 0.1),
+
+  // ─── Circuit Breaker ──────────────────────────────────────
+  /** Errors before circuit opens */
+  circuitBreakerThreshold: int('FETCH_CB_THRESHOLD', 5),
+  /** Backoff schedule (ms) */
+  circuitBreakerBackoff: ints('FETCH_CB_BACKOFF', [1000, 2000, 5000]),
+  /** Max retries for retriable errors */
+  maxRetries:        int('FETCH_MAX_RETRIES', 2),
+
+  // ─── Task Execution ───────────────────────────────────────
+  /** Default task timeout (ms) */
+  taskTimeout:       int('FETCH_TASK_TIMEOUT', 300_000),
+  /** Default harness timeout (ms) */
+  harnessTimeout:    int('FETCH_HARNESS_TIMEOUT', 300_000),
+
+  // ─── WhatsApp Formatting ──────────────────────────────────
+  /** Max characters per WhatsApp message */
+  whatsappMaxLength: int('FETCH_WA_MAX_LENGTH', 4000),
+  /** Max chars per line for mobile readability */
+  whatsappLineWidth: int('FETCH_WA_LINE_WIDTH', 60),
+
+  // ─── Rate Limiting ────────────────────────────────────────
+  /** Requests per rate limit window */
+  rateLimitMax:      int('FETCH_RATE_LIMIT_MAX', 30),
+  /** Rate limit window (ms) */
+  rateLimitWindow:   int('FETCH_RATE_LIMIT_WINDOW', 60_000),
+} as const;
+
+// ─── Helpers ───────────────────────────────────────────────
+function int(key: string, fallback: number): number {
+  const v = process.env[key];
+  return v ? parseInt(v, 10) : fallback;
+}
+function float(key: string, fallback: number): number {
+  const v = process.env[key];
+  return v ? parseFloat(v) : fallback;
+}
+function str(key: string, fallback: string): string {
+  return process.env[key] || fallback;
+}
+function ints(key: string, fallback: number[]): number[] {
+  const v = process.env[key];
+  return v ? v.split(',').map(Number) : fallback;
+}
+
+export type PipelineConfig = typeof pipeline;
+```
+
+### 0.2 — Why This Shape
+
+| Design Decision | Rationale |
+|----------------|-----------|
+| **Single `pipeline` object** | One import, one place to look. No config scattered across files. |
+| **Env var overrides** | Tune in `docker-compose.yml` without code changes or Docker rebuild. |
+| **`as const`** | Full type safety — consumers get literal types, not `number`. |
+| **Grouped by subsystem** | Context, agent, memory, circuit breaker, tasks, formatting, rate limiting. |
+| **Sane defaults** | Works out of the box. Override only what you need. |
+| **No runtime reload** | Read once at import. Restart to apply changes. Simple, predictable. |
+
+### 0.3 — How Consumers Use It
+
+Before (hardcoded):
+```typescript
+// agent/core.ts
+const MAX_TOOL_CALLS = 5;
+// ...
+function buildMessageHistory(session: Session, maxMessages = 10) {
+```
+
+After (configurable):
+```typescript
+// agent/core.ts
+import { pipeline } from '../config/pipeline.js';
+// ...
+function buildMessageHistory(session: Session, maxMessages = pipeline.historyWindow) {
+```
+
+Every `const` in the audit → replaced with `pipeline.<param>`. One import, zero magic numbers.
+
+### 0.4 — Docker Compose Integration
+
+```yaml
+# docker-compose.yml — tune without rebuild
+services:
+  fetch-bridge:
+    environment:
+      # Scale up for longer conversations
+      - FETCH_HISTORY_WINDOW=30
+      - FETCH_COMPACTION_THRESHOLD=60
+      # Tighter token budget for cheaper models
+      - FETCH_CHAT_MAX_TOKENS=200
+      - FETCH_TOOL_MAX_TOKENS=300
+      # Faster rate limiting for production
+      - FETCH_RATE_LIMIT_MAX=15
+```
+
+### 0.5 — Scaling Guide
+
+| Scenario | What to Tune | Suggested Values |
+|----------|-------------|-----------------|
+| **Longer conversations** | `FETCH_HISTORY_WINDOW`, `FETCH_COMPACTION_THRESHOLD` | 30, 60 |
+| **Cheaper model (8K context)** | `FETCH_HISTORY_WINDOW`, `FETCH_CHAT_MAX_TOKENS` | 10, 150 |
+| **Large context model (200K)** | `FETCH_HISTORY_WINDOW`, `FETCH_COMPACTION_THRESHOLD` | 50, 100 |
+| **High-traffic (multiple users)** | `FETCH_RATE_LIMIT_MAX`, `FETCH_RATE_LIMIT_WINDOW` | 60, 60000 |
+| **Precision recall needed** | `FETCH_RECALL_LIMIT`, `FETCH_RECALL_SNIPPET_TOKENS` | 10, 500 |
+| **Slow harness (large repos)** | `FETCH_HARNESS_TIMEOUT`, `FETCH_TASK_TIMEOUT` | 600000, 600000 |
+| **Minimal resource usage** | All token limits | halve each |
+
+---
+
+## Phase 0 Checklist
+
+- [ ] **0.1** Create `config/pipeline.ts` with all pipeline parameters
+- [ ] **0.2** `agent/core.ts` — Replace all 15 magic numbers with `pipeline.*` imports
+- [ ] **0.3** `session/manager.ts` — Replace truncation limit with `pipeline.compactionThreshold` / `pipeline.historyWindow`
+- [ ] **0.4** `conversation/summarizer.ts` — Replace `SUMMARY_THRESHOLD` with `pipeline.compactionThreshold`
+- [ ] **0.5** `agent/whatsapp-format.ts` — Replace formatting limits with `pipeline.whatsappMaxLength` / `pipeline.whatsappLineWidth`
+- [ ] **0.6** `security/rateLimiter.ts` — Replace rate limit constants with `pipeline.rateLimitMax` / `pipeline.rateLimitWindow`
+- [ ] **0.7** `bridge/client.ts` — Replace timeout/retry constants with `pipeline.*`
+- [ ] **0.8** `task/types.ts` + `task/manager.ts` — Replace timeout defaults with `pipeline.taskTimeout`
+- [ ] **0.9** `harness/types.ts` — Replace harness timeout with `pipeline.harnessTimeout`
+- [ ] **0.10** `validation/common.ts` — Replace validation limits with `pipeline.*`
+- [ ] **0.T** Unit test: verify defaults, verify env var overrides
+- [ ] **0.R** Update `docker-compose.yml` with commented-out tuning examples
+
+---
+
 ## The 10 Broken Pipes
 
 | # | Problem | File | Line | Impact |
@@ -366,14 +546,14 @@ const task = await manager.createTask({ goal: framedGoal, agent, workspace, time
 **File:** `session/manager.ts` — New `compactIfNeeded()` method
 
 ```typescript
-const COMPACTION_THRESHOLD = 40; // Compact when messages exceed this
-const KEEP_RECENT = 20;          // Always keep last 20 verbatim
+import { pipeline } from '../config/pipeline.js';
 
 async compactIfNeeded(session: Session): Promise<void> {
-  if (session.messages.length <= COMPACTION_THRESHOLD) return;
+  if (session.messages.length <= pipeline.compactionThreshold) return;
 
-  const oldMessages = session.messages.slice(0, -KEEP_RECENT);
-  const recentMessages = session.messages.slice(-KEEP_RECENT);
+  const keep = pipeline.historyWindow;
+  const oldMessages = session.messages.slice(0, -keep);
+  const recentMessages = session.messages.slice(-keep);
 
   // Build transcript of old messages for summarization
   const transcript = oldMessages.map(m => {
@@ -630,11 +810,14 @@ Index at the same points as FTS5 — when messages/tools/summaries are added. Ba
 ## Implementation Order & Dependencies
 
 ```
-Phase 1.1 (handler API) ──────────┐
-Phase 1.3 (buildMessageHistory) ──┤
-Phase 1.4 (sessionId passthrough) ┼── All independent, can be done in parallel
-Phase 1.5 (task completion hooks) ┤
-Phase 1.6 (task framing) ─────────┘
+Phase 0 (config/pipeline.ts) ──────── FOUNDATION — do this first, everything reads from it
+                                   │
+Phase 1.1 (handler API) ──────────┐│
+Phase 1.3 (buildMessageHistory) ──┤│
+Phase 1.4 (sessionId passthrough) ┼┤── All independent, can be done in parallel
+Phase 1.5 (task completion hooks) ┤│   (all import pipeline.* for their constants)
+Phase 1.6 (task framing) ─────────┘│
+Phase 1.7 (compaction) ────────────┘
                                    │
 Phase 1.2 (tool call persistence) ─┤── Depends on 1.4 (needs context param)
                                    │
@@ -643,7 +826,7 @@ Phase 1.R (rebuild + smoke test) ──── After tests pass
                                    │
 Phase 2.1-2.3 (FTS5 schema/manager) ─┐
 Phase 2.4-2.5 (index population) ────┤── Depends on Phase 1 (session API in use)
-Phase 2.6-2.7 (context injection) ───┘
+Phase 2.6-2.7 (context injection) ───┘   pipeline.recallLimit controls retrieval
 Phase 2.T-2.R (tests) ────────────── After Phase 2 code
                                    │
 Phase 3 (vectors) ─────────────────── After Phase 2 stable in production
@@ -675,10 +858,11 @@ Phase 3 (vectors) ─────────────────── Afte
 ### Why This Works
 
 - **WhatsApp messages are short** — avg 20-50 tokens per user message, not 200
-- **Tool results are the biggest items** — but they're bounded by `max_tokens: 500`
-- **Compaction is aggressive** — once you pass 40 messages, everything before the window becomes ~500 tokens
+- **Tool results are the biggest items** — but they're bounded by `pipeline.toolMaxTokens` (default 500)
+- **Compaction is aggressive** — once you pass `pipeline.compactionThreshold` (40), everything before the window becomes ~`pipeline.compactionMaxTokens` (500) tokens
 - **Massive headroom** — 7-9K out of 128K leaves 93%+ for the LLM response and future features
 - **No risk of context overflow** — even at 32K model limits, 9K is under 30%
+- **Fully tunable** — switch to a cheaper model? Set `FETCH_HISTORY_WINDOW=10 FETCH_CHAT_MAX_TOKENS=150`. Bigger model? `FETCH_HISTORY_WINDOW=50`
 
 ---
 
@@ -716,6 +900,22 @@ Phase 3 (vectors) ─────────────────── Afte
 ---
 
 ## Files Changed Summary
+
+### Phase 0 (1 new file, ~10 files modified)
+
+| File | Change | Lines |
+|------|--------|-------|
+| `config/pipeline.ts` | NEW — Centralized pipeline config with env var overrides | ~80 |
+| `agent/core.ts` | Replace 15 magic numbers with `pipeline.*` | ~15 |
+| `agent/whatsapp-format.ts` | Replace formatting limits | ~4 |
+| `session/manager.ts` | Replace truncation limit | ~2 |
+| `conversation/summarizer.ts` | Replace threshold | ~2 |
+| `security/rateLimiter.ts` | Replace rate limit constants | ~4 |
+| `bridge/client.ts` | Replace timeout/retry constants | ~8 |
+| `task/types.ts` + `task/manager.ts` | Replace timeout defaults | ~4 |
+| `harness/types.ts` | Replace harness timeout | ~2 |
+| `validation/common.ts` | Replace validation limits | ~4 |
+| `docker-compose.yml` | Add commented tuning examples | ~10 |
 
 ### Phase 1 (7 files modified)
 
