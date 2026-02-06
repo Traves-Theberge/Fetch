@@ -27,12 +27,15 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 
 ## Key Features
 
+- **Context Pipeline** — Full OpenAI multi-turn format with tool call memory, sliding window (20 messages), and automatic compaction
 - **Three AI Harnesses** — Claude Code for complex refactoring, Gemini for quick edits, Copilot for suggestions
 - **State Machine** — Five modes (ALERT, WORKING, WAITING, GUARDING, RESTING) persisted to SQLite
 - **Dynamic Identity** — Hot-reloaded personality via Markdown files in `data/identity/`
 - **Skills Framework** — Teach Fetch new capabilities by adding Markdown files to `data/skills/`
+- **Proactive Notifications** — Task completion/failure alerts pushed to WhatsApp automatically
 - **Voice + Vision** — Send voice notes (transcribed via whisper.cpp) or screenshots for analysis
 - **Proactive System** — Schedule reminders, recurring tasks, and file watchers
+- **Pipeline Tuning** — 44 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
 - **Crash Recovery** — State persisted to SQLite; Fetch resumes tasks after restart
 
 ## Quick Links

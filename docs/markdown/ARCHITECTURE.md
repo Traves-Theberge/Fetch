@@ -59,6 +59,7 @@ src/
 ├── index.ts              # Boot + shutdown orchestration
 ├── config/
 │   ├── env.ts            # Zod-validated env with Proxy (lazy reads)
+│   ├── pipeline.ts       # Context pipeline tuning (44 params, FETCH_* env overrides)
 │   └── paths.ts          # Centralized path constants
 ├── bridge/
 │   └── client.ts         # WhatsApp client, QR auth, reconnection (exponential backoff)
@@ -115,7 +116,7 @@ src/
 │   ├── task.ts           # Task tools (create, status, cancel, respond)
 │   └── interaction.ts    # Interaction tools (ask_user, report_progress)
 ├── conversation/
-│   └── summarizer.ts     # Conversation summarization
+│   └── summarizer.ts     # Legacy summarizer (replaced by SessionManager.compactIfNeeded)
 ├── transcription/
 │   └── index.ts          # whisper.cpp voice transcription
 ├── vision/
@@ -129,6 +130,20 @@ src/
     ├── id.ts             # ID generators (ses_, tsk_, etc.)
     └── docker.ts         # Docker exec helpers
 ```
+
+## Context Pipeline
+
+The context pipeline ensures the LLM has full conversational memory across turns:
+
+1. **Message Persistence** — All messages (user, assistant, tool calls, tool results) are persisted through `SessionManager` methods, not bare array pushes
+2. **OpenAI Multi-Turn Format** — `buildMessageHistory()` emits proper format: `assistant` messages carry `tool_calls`, `tool` messages carry results with matching `tool_call_id`
+3. **Sliding Window** — Last `pipeline.historyWindow` (default 20) messages are sent to the LLM
+4. **Compaction** — When total messages exceed `pipeline.compactionThreshold` (default 40), older messages are LLM-summarized into `session.metadata.compactionSummary` and the array is trimmed
+5. **Task Completion Hooks** — `task:completed` / `task:failed` events write to session history and push WhatsApp notifications
+6. **Session-Aware Tools** — `ToolContext { sessionId }` flows through the registry to tool handlers
+7. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
+
+All parameters are tunable via `config/pipeline.ts` (44 settings, overridable via `FETCH_*` env vars).
 
 ## Docker Architecture
 
