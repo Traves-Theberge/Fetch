@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-02-06 (Context Pipeline 🧠)
+
+### 🧠 Phase 0 — Centralized Configuration Layer
+- **Pipeline Config Module (0.1):** Created `config/pipeline.ts` — single source of truth for all 44 tunable pipeline parameters. Every threshold, token budget, temperature, and limit reads from here.
+- **Magic Number Replacement (0.2):** Replaced hardcoded constants across 9 source files (`agent/core.ts`, `session/manager.ts`, `agent/prompts.ts`, `handler/index.ts`, `tools/task.ts`, `tools/interaction.ts`, `harness/executor.ts`, `security/rateLimiter.ts`, `task/manager.ts`) with `pipeline.*` references.
+- **Env-Tunable Overrides (0.3):** All 44 parameters are overridable via `FETCH_*` environment variables (e.g. `FETCH_HISTORY_WINDOW=30`, `FETCH_COMPACTION_THRESHOLD=60`). Sane defaults work out of the box.
+- **TUI Pipeline Tuning (0.4):** Added Pipeline Tuning section to the Go Manager TUI config editor — 10 key `FETCH_*` fields editable from the terminal interface.
+- **Docker Compose Integration (0.5):** Wired 10 pipeline env vars through `docker-compose.yml` with commented defaults for quick tuning without code changes.
+
+### 🔌 Phase 1 — Wire the Pipes
+- **Handler API Fix (1.1):** Replaced bare `session.messages.push()` in `handler/index.ts` with `sManager.addUserMessage()` + `sManager.addAssistantMessage()` — messages now persist through the full SessionManager lifecycle.
+- **Tool Call Persistence (1.2):** After tool execution in `agent/core.ts`, now calls `sManager.addAssistantToolCallMessage()` and `sManager.addToolMessage()` — tool interactions survive across turns.
+- **OpenAI Multi-Turn Format (1.3):** Rewrote `buildMessageHistory()` to emit proper OpenAI function calling format: `assistant` messages with `tool_calls` array, `tool` messages with matching `tool_call_id`. Orphan tool messages gracefully fall back to `assistant` role.
+- **Session-Aware Tools (1.4):** Introduced `ToolContext` interface in `tools/registry.ts`. `execute()` now passes `{ sessionId }` through the registry to tool handlers. `handleTaskCreate()` in `tools/task.ts` receives the session context.
+- **Task Completion Hooks (1.5):** Added `task:completed` and `task:failed` event listeners in `handler/index.ts`. Writes completion/failure messages to session history and sends proactive WhatsApp notifications. New `registerWhatsAppSender()` export wired via `bridge/client.ts`.
+- **Task Goal Framing (1.6):** `handleTaskCreate()` now calls `frameTaskGoal()` before dispatching to the harness — goals are self-contained with full context instead of raw user text. Non-fatal fallback to raw goal on error.
+- **Compaction Engine (1.7):** New `compactIfNeeded()` method on `SessionManager` — triggers when messages exceed `pipeline.compactionThreshold` (default 40). Builds transcript from old messages, LLM-summarizes via `pipeline.compactionModel`, stores in `session.metadata.compactionSummary`, shrinks message array to last `pipeline.historyWindow` (default 20). Prompts now read compaction summaries instead of legacy `conversation_summaries` table.
+- **Dead Code Removal:** Removed `conversation/summarizer.ts` import from session manager (replaced by built-in compaction). Legacy `conversation_summaries` table retained for backward compatibility.
+
+### 📊 Stats
+- **Test suite:** 15 files, 200 tests, 0 failures (up from 13 files / 177 tests)
+- **New files:** `config/pipeline.ts`, `tests/unit/context-pipeline.test.ts`
+- **Modified files:** 18 source files across Phase 0 + Phase 1
+- **New interfaces:** `ToolContext { sessionId?: string }` in `tools/registry.ts`
+- **New exports:** `registerWhatsAppSender()` from `handler/index.ts`
+- **New methods:** `compactIfNeeded()`, `generateCompactionSummary()` on `SessionManager`
+- **Commits:** `1db8814` (Phase 0), `91c2856` (Phase 1)
+
 ## [3.3.0] - 2026-02-06 (Deep Refinement 🏗️)
 
 ### 🏗️ Phase 4 — Architecture Simplification

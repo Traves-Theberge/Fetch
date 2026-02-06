@@ -1,6 +1,6 @@
 # Documentation
 
-This is the master documentation index for Fetch v3.3.0.
+This is the master documentation index for Fetch v3.4.0.
 
 ## Getting Started
 
@@ -19,6 +19,7 @@ This is the master documentation index for Fetch v3.3.0.
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Agentic Architecture](AGENTIC_PLAN.md) — Cognitive model, ReAct loop, harness delegation
+- [Context Pipeline](CONTEXT_PIPELINE_PLAN.md) — Multi-turn context, tool memory, compaction engine
 - [State Management](STATE_MANAGEMENT.md) — Database schema, singletons, events, boot order
 
 ## Project Health
@@ -36,10 +37,11 @@ This is the master documentation index for Fetch v3.3.0.
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Instinct layer** checks for deterministic patterns (`/stop`, `/status`, `yes`). If matched, responds immediately
 4. **Intent classifier** categorizes the message as `conversation`, `inquiry`, or `action`
-5. **Handler** dispatches to the appropriate agent function with session context and activated skills
-6. **Agent core** runs the LLM with tool definitions. For action intents, enters a ReAct loop
-7. **Tools** execute: workspace operations, task creation (delegates to harness), user interaction
-8. **Response** is formatted for WhatsApp and sent back
+5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent
+6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
+7. **Tools** execute with `ToolContext { sessionId }` — tool calls and results are persisted to the session
+8. **Compaction** triggers automatically when messages exceed the threshold — older messages are summarized and trimmed
+9. **Response** is formatted for WhatsApp and sent back. Task completions push proactive notifications
 
 ## Security Model
 

@@ -32,6 +32,27 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
 | `TRUSTED_PHONE_NUMBERS` | string | Comma-separated phone numbers for initial whitelist |
 
+### Pipeline Tuning (FETCH_* Variables)
+
+The context pipeline is configured via `config/pipeline.ts` with 44 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `FETCH_HISTORY_WINDOW` | int | `20` | Messages in the LLM sliding window |
+| `FETCH_COMPACTION_THRESHOLD` | int | `40` | Compact when total messages exceed this |
+| `FETCH_COMPACTION_MAX_TOKENS` | int | `500` | Max tokens for compaction summaries |
+| `FETCH_COMPACTION_MODEL` | string | `SUMMARY_MODEL` | Model for compaction (cheap + fast) |
+| `FETCH_MAX_TOOL_CALLS` | int | `5` | Max tool call rounds per message |
+| `FETCH_CHAT_MAX_TOKENS` | int | `300` | Token budget for conversation responses |
+| `FETCH_CHAT_TEMPERATURE` | float | `0.7` | Temperature for conversation responses |
+| `FETCH_TOOL_MAX_TOKENS` | int | `500` | Token budget for tool-calling responses |
+| `FETCH_TOOL_TEMPERATURE` | float | `0.3` | Temperature for tool-calling responses |
+| `FETCH_FRAME_MAX_TOKENS` | int | `200` | Token budget for task framing prompt |
+| `FETCH_RECALL_LIMIT` | int | `5` | Max recalled results injected (Phase 2) |
+| `FETCH_RECALL_SNIPPET_TOKENS` | int | `300` | Max tokens per recalled snippet (Phase 2) |
+
+These can also be tuned via the TUI Manager's Pipeline Tuning section.
+
 ### Env Proxy Pattern
 
 Environment variables are accessed via a Proxy object that reads `process.env` on every access (not snapshotted at import time). This ensures test overrides work correctly:

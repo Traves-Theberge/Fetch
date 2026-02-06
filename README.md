@@ -1,36 +1,37 @@
-# 🐕 Fetch
+# 🐕 Fetch - Your Faithful Code Companion
 
-> Send coding tasks via WhatsApp. AI agents do the work.
+**v3.4.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
-Fetch is a headless development orchestrator. You message it on WhatsApp with natural language, and it delegates work to AI coding agents (Claude Code, Gemini CLI, GitHub Copilot) running inside Docker containers against your real codebase.
+> ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
-**Version 3.3.0** · [Full Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+A headless development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters and cats 🦞)
 
-> ⚠️ **Beta** — Experimental software. Review security implications before deployment.
+```
+  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀    ███████╗███████╗████████╗ ██████╗██╗  ██╗
+  ⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀    ██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
+  ⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀    █████╗  █████╗     ██║   ██║     ███████║
+  ⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿    ██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
+  ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
+  ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
+  ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀                                             
+  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion                  
+  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                  
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀                                             
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀                                             
+```
 
----
+## 🎯 Overview
 
-## How It Works
+Fetch is a **lightweight orchestrator** that delegates coding tasks to specialized AI harnesses (Claude Code, Gemini CLI, GitHub Copilot CLI) while managing conversation state and user interaction via WhatsApp.
 
-1. **You send a WhatsApp message** → `@fetch add dark mode to the settings page`
-2. **Fetch classifies your intent** → conversation, inquiry, or action
-3. **For coding tasks**, Fetch delegates to a CLI agent (Claude/Gemini/Copilot) running in a sandboxed Docker container
-4. **The agent edits your code** in a mounted `/workspace` directory
-5. **Fetch reports back** with a summary of what changed
+**Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
 
-### System Layout
+### 🏗️ V3 Orchestrator Architecture
 
-| Component | Runtime | Role |
-|-----------|---------|------|
-| **Manager** | Go TUI (host) | Start/stop services, configure, view logs |
-| **Bridge** | Node.js (Docker) | WhatsApp client, agent core, security, tools |
-| **Kennel** | Ubuntu (Docker) | Runs Claude Code / Gemini / Copilot CLIs |
-
-The Manager controls Docker Compose. The Bridge handles WhatsApp authentication, message routing, intent classification, and the agentic ReAct loop. The Kennel is a sandboxed Ubuntu container where AI CLIs execute against your mounted workspace.
-
-### Intent Classification
-
-Every message flows through three layers:
+Fetch automatically classifies your intent, checks Instincts for a fast-path, then routes to the appropriate handler:
 
 | Layer | Trigger | Response | Latency |
 |-------|---------|----------|---------|
@@ -138,6 +139,9 @@ Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 | `LOG_LEVEL` | — | `debug` | Minimum log level (`debug`/`info`/`warn`/`error`) |
 | `ADMIN_TOKEN` | — | auto-generated | Bearer token for admin API |
 | `TRUSTED_PHONE_NUMBERS` | — | — | Comma-separated trusted numbers |
+| `FETCH_HISTORY_WINDOW` | — | `20` | Messages in LLM sliding window |
+| `FETCH_COMPACTION_THRESHOLD` | — | `40` | Compact when messages exceed this |
+| `FETCH_MAX_TOOL_CALLS` | — | `5` | Max tool call rounds per message |
 
 Full reference → [CONFIGURATION.md](docs/markdown/CONFIGURATION.md)
 
@@ -160,6 +164,7 @@ Fetch/
 │   └── src/
 │       ├── index.ts            # Entry point, boot + shutdown
 │       ├── config/env.ts       # Zod-validated env (Proxy pattern)
+│       ├── config/pipeline.ts  # Context pipeline tuning (44 params)
 │       ├── agent/              # Core LLM loop, intent, formatting
 │       ├── bridge/             # WhatsApp client + reconnection
 │       ├── commands/           # Router + 5 handler modules
@@ -177,7 +182,7 @@ Fetch/
 │       ├── transcription/      # Voice → text (whisper.cpp)
 │       ├── vision/             # Image analysis
 │       └── workspace/          # Project discovery, repo maps
-│   └── tests/                  # 13 files, 177 tests
+│   └── tests/                  # 15 files, 200 tests
 ├── kennel/                     # AI CLI container (Ubuntu)
 ├── data/
 │   ├── identity/               # COLLAR.md, ALPHA.md
@@ -196,7 +201,7 @@ Fetch/
 cd fetch-app
 npm install
 npx tsc --noEmit          # Type check
-npm run test:run           # 177 tests
+npm run test:run           # 200 tests
 npm run test:unit          # Unit tests only
 npm run test:integration   # Integration tests only
 npm run lint               # ESLint

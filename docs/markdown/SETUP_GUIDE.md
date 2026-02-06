@@ -99,6 +99,23 @@ This starts two containers:
 
 The Bridge talks to the Kennel by spawning CLI processes inside it via `docker exec`. Auth credentials are mounted read-only.
 
+## Pipeline Tuning (Optional)
+
+Fetch’s context pipeline has 44 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_HISTORY_WINDOW` | `20` | Messages in the LLM sliding window |
+| `FETCH_COMPACTION_THRESHOLD` | `40` | Compact when total messages exceed this |
+| `FETCH_COMPACTION_MAX_TOKENS` | `500` | Max tokens for compaction summaries |
+| `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per message |
+| `FETCH_CHAT_MAX_TOKENS` | `300` | Token budget for conversation responses |
+| `FETCH_TOOL_MAX_TOKENS` | `500` | Token budget for tool-calling responses |
+| `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses |
+| `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
+
+Add these to your `.env` file or set them in the TUI Manager’s Pipeline Tuning section. See `config/pipeline.ts` for the full list of 44 parameters.
+
 ## Verifying the Installation
 
 1. **Check container status**: `docker compose ps` — both should be `running`
