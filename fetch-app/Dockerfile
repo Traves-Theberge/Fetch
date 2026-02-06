@@ -101,4 +101,9 @@ COPY docs ./docs
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && chmod 777 /app/data
 
+# Configure git identity for /init and /clone operations
+RUN git config --global user.email "fetch@kennel.local" \
+    && git config --global user.name "Fetch" \
+    && git config --global init.defaultBranch main
+
 CMD ["node", "dist/index.js"]

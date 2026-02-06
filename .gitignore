@@ -16,7 +16,7 @@ config/github/
 config/claude/
 
 # Workspace contents (user code)
-workspace/
+/workspace/
 
 # IDE
 .vscode/
