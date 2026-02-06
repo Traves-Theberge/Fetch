@@ -1,28 +1,12 @@
 /**
  * @fileoverview Tool Registry
  * @module tools/registry
- * 
- * The registry contains the orchestrator tools that delegate
- * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  *
- * ## Tools (11 total)
+ * Singleton registry for orchestrator tools. Includes:
+ * - Built-in tools (workspace, task, interaction) registered at construction
+ * - Custom tools loaded from data/tools/*.json with hot-reload via chokidar
  *
- * ### Workspace (5)
- * - `workspace_list` - List available workspaces
- * - `workspace_select` - Select active workspace
- * - `workspace_status` - Get workspace status
- * - `workspace_create` - Create new workspace
- * - `workspace_delete` - Delete workspace
- *
- * ### Task (4)
- * - `task_create` - Create a new task
- * - `task_status` - Get task status
- * - `task_cancel` - Cancel a task
- * - `task_respond` - Respond to task question
- *
- * ### Interaction (2)
- * - `ask_user` - Ask user a question
- * - `report_progress` - Report task progress
+ * Tools delegate actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  */
 
 import { z } from 'zod';
@@ -68,7 +52,6 @@ import { TOOLS_DIR } from '../config/paths.js';
 
 /**
  * Tool definition for Orchestrator
- * (Legacy wrapper until everything is migrated to the new Tool interface)
  */
 export interface OrchestratorTool {
   /** Tool name */
@@ -294,7 +277,6 @@ export class ToolRegistry {
   }
 
   private registerBuiltins(): void {
-    // Register Legacy Builtins
     this.register({
       name: 'workspace_list',
       description: workspaceTools.workspace_list.description,

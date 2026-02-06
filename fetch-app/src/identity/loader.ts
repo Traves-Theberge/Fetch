@@ -1,12 +1,27 @@
+/**
+ * @fileoverview Identity Loader
+ *
+ * Parses identity markdown files into the AgentIdentity structure:
+ * - COLLAR.md — System profile (name, role, voice, directives)
+ * - ALPHA.md — User/owner profile (name, preferences)
+ * - data/agents/*.md — Pack member profiles (YAML frontmatter via gray-matter)
+ *
+ * @module identity/loader
+ */
+
 import fs from 'fs';
 import path from 'path';
-import { AgentIdentity } from './types.js';
+import matter from 'gray-matter';
+import { AgentIdentity, PackMember } from './types.js';
+import { AGENTS_DIR } from '../config/paths.js';
 
 export class IdentityLoader {
   private dataDir: string;
+  private agentsDir: string;
 
-  constructor(dataDir: string) {
+  constructor(dataDir: string, agentsDir?: string) {
     this.dataDir = dataDir;
+    this.agentsDir = agentsDir ?? AGENTS_DIR;
   }
 
   public load(): Partial<AgentIdentity> {
@@ -31,17 +46,68 @@ export class IdentityLoader {
         }
     }
 
-    const agentsPath = path.join(this.dataDir, 'AGENTS.md');
-    if (fs.existsSync(agentsPath)) {
-        const content = fs.readFileSync(agentsPath, 'utf-8');
-        const agents = this.parseAgents(content);
-        if (agents.pack) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            loaded.context = { ...(loaded.context || {}), pack: agents.pack } as any;
-        }
+    // Load pack members from individual agent files in data/agents/
+    const pack = this.loadAgents();
+    if (pack.length > 0) {
+      loaded.pack = pack;
     }
 
     return loaded;
+  }
+
+  /**
+   * Load agent profiles from data/agents/*.md using gray-matter.
+   * Each file has YAML frontmatter with structured fields and a markdown body.
+   */
+  private loadAgents(): PackMember[] {
+    const pack: PackMember[] = [];
+
+    if (!fs.existsSync(this.agentsDir)) {
+      return pack;
+    }
+
+    const entries = fs.readdirSync(this.agentsDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      // Skip non-agent files like ROUTING.md
+      if (entry.name === 'ROUTING.md') continue;
+
+      const filePath = path.join(this.agentsDir, entry.name);
+      try {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const { data, content } = matter(raw);
+
+        // Validate required fields
+        if (!data.name || !data.harness) {
+          console.warn(`[IdentityLoader] Skipping ${entry.name}: missing name or harness in frontmatter`);
+          continue;
+        }
+
+        const member: PackMember = {
+          name: data.name,
+          alias: data.alias || '',
+          emoji: data.emoji || '',
+          harness: data.harness,
+          cli: data.cli || data.harness,
+          role: data.role || '',
+          fallback_priority: data.fallback_priority ?? 99,
+          triggers: Array.isArray(data.triggers) ? data.triggers : [],
+          avoid: Array.isArray(data.avoid) ? data.avoid : [],
+          body: content.trim(),
+          sourcePath: filePath,
+        };
+
+        pack.push(member);
+      } catch (err) {
+        console.error(`[IdentityLoader] Failed to parse agent file ${entry.name}:`, err);
+      }
+    }
+
+    // Sort by fallback_priority
+    pack.sort((a, b) => a.fallback_priority - b.fallback_priority);
+
+    return pack;
   }
 
   private parseUser(content: string): Partial<AgentIdentity> {
@@ -122,33 +188,6 @@ export class IdentityLoader {
     }
 
     return identity;
-  }
-
-  private parseAgents(content: string): { pack: Array<{ name: string; harness: string; role: string; strengths: string }> } {
-    const pack: Array<{ name: string; harness: string; role: string; strengths: string }> = [];
-    const memberBlocks = content.split(/^### /m).slice(1);
-
-    for (const block of memberBlocks) {
-      const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const member: { name: string; harness: string; role: string; strengths: string } = {
-        name: '', harness: '', role: '', strengths: ''
-      };
-
-      for (const line of lines) {
-        if (line.startsWith('- **Harness:**')) member.harness = this.extractValue(line);
-        if (line.startsWith('- **Role:**')) member.role = this.extractValue(line);
-        if (line.startsWith('- **Strengths:**')) member.strengths = this.extractValue(line);
-      }
-
-      // Extract name from heading (e.g., "1. Claude (The Sage)")
-      const heading = lines[0] || '';
-      const nameMatch = heading.match(/\d+\.\s+(.+?)\s*(?:\(|$)/);
-      if (nameMatch) member.name = nameMatch[1].trim();
-
-      if (member.name && member.harness) pack.push(member);
-    }
-
-    return { pack };
   }
 
   private extractValue(line: string): string {

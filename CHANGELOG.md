@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
+
+### 🧬 Unified Identity Pipeline
+- **Single Source of Truth:** `IdentityManager.buildSystemPrompt()` is now the only system prompt builder. Deleted the static `CORE_IDENTITY`, `CAPABILITIES`, `TOOL_REFERENCE`, `UNDERSTANDING_PATTERNS` constants and 5 dead prompt functions (`buildOrchestratorPrompt`, `buildIntentPrompt`, `buildSummarizePrompt`, `buildErrorRecoveryPrompt`, `buildConversationPrompt`) from `agent/prompts.ts` — 418 lines of dead code removed.
+- **Session Context Wired:** `buildContextSection()` (workspace, task, git state, summaries, repo map) was defined but never called in a live code path. Now injected into both `handleConversation()` and `handleWithTools()` so the LLM always sees session state.
+
+### 🧩 Skill Discovery → Activation Pattern
+- **Two-Phase Skills:** Available skills are listed in `<available_skills>` XML (discovery). When a skill's triggers match the user's message, its full instruction body is injected as `<activated_skill>` (activation). Previously, skill `.instructions` were loaded but never surfaced to the LLM.
+- **`<location>` Field:** Each skill summary now includes `<location>` pointing to its `SKILL.md` file, following the AgentSkills spec pattern.
+
+### 🐺 Pack Agent Sub-Files
+- **Individual Agent Profiles:** Monolithic `data/identity/AGENTS.md` replaced by individual files in `data/agents/` — `claude.md`, `gemini.md`, `copilot.md` — each with YAML frontmatter parsed by gray-matter.
+- **Structured Pack Data:** New `PackMember` interface (13 fields: name, alias, emoji, harness, cli, role, fallback_priority, triggers, avoid, body, sourcePath). System prompt now includes `<available_agents>` XML with routing info.
+- **Routing Rules:** `data/agents/ROUTING.md` documents cross-cutting routing behavior (manual override, fallback chain, delegation protocol).
+- **Hot-Reload:** `IdentityManager` now watches `data/agents/` for changes alongside `data/identity/`.
+
+### 🧹 Legacy Cleanup
+- **Dead Code Removed:** `agent/prompts.ts` gutted from 571 → 153 lines. Removed `SystemPromptConfig` interface (unused). Deleted 2 dead commented-out functions (`getCurrentMode`, `buildConversationPrompt`) from `agent/core.ts`.
+- **JSDoc Updated:** All modified files have current `@fileoverview` and `@see` references. Removed stale references to `AGENTS.md`, `buildOrchestratorPrompt`, legacy tool wrapper comments.
+- **Tests Fixed:** Rewrote `tool-registry.test.ts` to use actual ToolRegistry API (`list()`, `get()`, `execute()`). Was calling nonexistent methods (`getToolNames`, `has`, `getAll`, `toClaudeFormat`) and using `new ToolRegistry()` against a private constructor. Fixed `identity-loader.test.ts` "Canid" → "Orchestrator" assertion and parameterized `agentsDir` for test isolation. Added pack member loading test. All **109 tests pass**.
+- **Deprecated:** `data/identity/AGENTS.md` — kept as human-readable reference with deprecation header.
+
+### Files Changed
+- `agent/core.ts` — Wired skill activation + session context into both LLM code paths, removed dead functions
+- `agent/prompts.ts` — 571 → 153 lines, kept only `buildTaskFramePrompt()` + `buildContextSection()`
+- `identity/manager.ts` — Accepts `activatedSkillsContext` + `sessionContext`, builds pack XML, watches agents dir
+- `identity/loader.ts` — `loadAgents()` reads `data/agents/*.md` via gray-matter, configurable `agentsDir`
+- `identity/types.ts` — Added `PackMember` interface, `pack` field on `AgentIdentity`, removed `SystemPromptConfig`
+- `skills/manager.ts` — `<available_skills>` XML with `<location>`, new `buildActivatedSkillsContext()`
+- `config/paths.ts` — Added `AGENTS_DIR`
+- `tools/registry.ts` — Updated JSDoc, removed legacy comments
+- `tests/unit/tool-registry.test.ts` — Full rewrite against actual API
+- `tests/unit/identity-loader.test.ts` — Fixed assertions, added pack test
+- `data/agents/claude.md`, `gemini.md`, `copilot.md` — New agent profiles with YAML frontmatter
+- `data/agents/ROUTING.md` — Pack routing rules reference
+
 ## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
 
 ### 🧹 Comprehensive Code Audit
