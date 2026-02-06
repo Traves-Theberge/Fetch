@@ -59,7 +59,7 @@ export interface OrchestratorTool {
   /** Tool description */
   description: string;
   /** Handler function */
-  handler: (input: unknown) => Promise<ToolResult>;
+  handler: (input: unknown, context?: ToolContext) => Promise<ToolResult>;
   /** Zod schema for validation */
   schema: z.ZodSchema;
   /** Safety level */
@@ -69,9 +69,17 @@ export interface OrchestratorTool {
 }
 
 /**
+ * Context passed through tool execution pipeline
+ */
+export interface ToolContext {
+  /** Session ID for session-aware tools */
+  sessionId?: string;
+}
+
+/**
  * Tool handler signature
  */
-export type ToolHandler = (input: unknown) => Promise<ToolResult>;
+export type ToolHandler = (input: unknown, context?: ToolContext) => Promise<ToolResult>;
 
 // ============================================================================
 // Tool Registry Class
@@ -242,8 +250,9 @@ export class ToolRegistry {
    * Execute a tool by name with arguments
    * @param name - Tool name
    * @param args - Tool arguments
+   * @param context - Optional execution context (sessionId, etc.)
    */
-  public async execute(name: string, args: unknown): Promise<ToolResult> {
+  public async execute(name: string, args: unknown, context?: ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(name);
     if (!tool) {
       return {
@@ -258,7 +267,7 @@ export class ToolRegistry {
       // Validate args
       // Note: We skip strict validation here to allow flexible inputs for now, 
       // but ideally we should parse with tool.schema.parse(args)
-      const result = await tool.handler(args);
+      const result = await tool.handler(args, context);
       // Ensure duration is present if tool doesn't provide it
       if (result.duration === undefined) {
          result.duration = Date.now() - startTime;

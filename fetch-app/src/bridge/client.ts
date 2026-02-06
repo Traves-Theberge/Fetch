@@ -70,7 +70,7 @@ type ClientType = InstanceType<typeof Client>;
 import { logger } from '../utils/logger.js';
 import { pipeline } from '../config/pipeline.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
-import { handleMessage, initializeHandler, shutdown } from '../handler/index.js';
+import { handleMessage, initializeHandler, shutdown, registerWhatsAppSender } from '../handler/index.js';
 import { getTaskIntegration } from '../task/integration.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
 import { transcribeAudio, isTranscriptionAvailable } from '../transcription/index.js';
@@ -255,6 +255,15 @@ export class Bridge {
     
     // Initialize agentic handler
     await initializeHandler();
+
+    // Register WhatsApp sender for proactive messages (task completions, etc.)
+    registerWhatsAppSender(async (userId: string, text: string) => {
+      try {
+        await this.client.sendMessage(userId, text);
+      } catch (err) {
+        logger.error('Failed to send proactive WhatsApp message', err);
+      }
+    });
     
     this.setupEventHandlers();
     this.setupTaskProgressListeners();

@@ -9,10 +9,10 @@
  * @see {@link handleMessage} - Main message handler
  */
 
-import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
 import { TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
+import type { TaskId } from '../task/types.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -27,6 +27,18 @@ let taskManager: TaskManager | null = null;
 
 /** Initialization flag */
 let initialized = false;
+
+/** WhatsApp send callback for proactive messages (task completions, etc.) */
+let sendWhatsApp: ((userId: string, text: string) => Promise<void>) | null = null;
+
+/**
+ * Register WhatsApp send function for proactive messages.
+ * Called by bridge/client.ts during initialization.
+ */
+export function registerWhatsAppSender(fn: (userId: string, text: string) => Promise<void>): void {
+  sendWhatsApp = fn;
+  logger.info('WhatsApp sender registered for proactive messages');
+}
 
 // =============================================================================
 // INITIALIZATION
@@ -55,9 +67,61 @@ export async function initializeHandler(): Promise<void> {
   }
 
   // Initialize task-harness integration
-  const { initializeTaskIntegration } = await import('../task/integration.js');
+  const { initializeTaskIntegration, getTaskIntegration } = await import('../task/integration.js');
   await initializeTaskIntegration();
   logger.success('Task-harness integration ready');
+
+  // Subscribe to task completion events — write to session + notify WhatsApp
+  const integration = getTaskIntegration();
+
+  integration.on('task:completed', async ({ taskId, sessionId }: { taskId: string; sessionId?: string }) => {
+    if (!sessionId || sessionId === 'unknown') return;
+
+    try {
+      const sManager = sessionManager!;
+      const session = await sManager.getOrCreateSession(sessionId);
+      const taskMgr = await getPersistentTaskManager();
+      const task = taskMgr.getTask(taskId as TaskId);
+
+      if (!task) return;
+
+      // Add completion message to session history
+      const summary = task.result?.summary ?? 'Task completed';
+      await sManager.addAssistantMessage(session, `✅ Task completed: ${summary}`);
+
+      // Clear active task
+      session.activeTaskId = null;
+      await sManager.updateSession(session);
+
+      // Send WhatsApp notification
+      if (sendWhatsApp) {
+        await sendWhatsApp(sessionId, `🐕 ✅ Task finished!\n\n${summary}`);
+      }
+    } catch (err) {
+      logger.error('Failed to handle task:completed event', err);
+    }
+  });
+
+  integration.on('task:failed', async ({ sessionId, error }: { taskId: string; sessionId?: string; error?: string }) => {
+    if (!sessionId || sessionId === 'unknown') return;
+
+    try {
+      const sManager = sessionManager!;
+      const session = await sManager.getOrCreateSession(sessionId);
+
+      await sManager.addAssistantMessage(session, `❌ Task failed: ${error ?? 'Unknown error'}`);
+
+      session.activeTaskId = null;
+      await sManager.updateSession(session);
+
+      // Send WhatsApp notification
+      if (sendWhatsApp) {
+        await sendWhatsApp(sessionId, `🐕 ❌ Task failed: ${error ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      logger.error('Failed to handle task:failed event', err);
+    }
+  });
 
   initialized = true;
   logger.divider();
@@ -120,18 +184,9 @@ export async function handleMessage(
       `Response ready (${responses.length} parts, ${duration}ms)`
     );
 
-    // Update session message history
-    session.messages = session.messages || [];
-    session.messages.push(
-      { id: nanoid(), role: 'user', content: message, timestamp: new Date().toISOString() },
-      {
-        id: nanoid(),
-        role: 'assistant',
-        content: response.text,
-        timestamp: new Date().toISOString(),
-      }
-    );
-    await sManager.updateSession(session);
+    // Store messages via SessionManager (triggers compaction + proper persistence)
+    await sManager.addUserMessage(session, message);
+    await sManager.addAssistantMessage(session, response.text);
 
     return responses;
   } catch (error) {

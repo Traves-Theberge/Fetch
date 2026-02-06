@@ -16,7 +16,7 @@
  */
 
 import OpenAI from 'openai';
-import { Session, Message } from '../session/types.js';
+import { Session } from '../session/types.js';
 import { logger } from '../utils/logger.js';
 import { classifyIntent } from './intent.js';
 import {
@@ -588,6 +588,22 @@ async function handleWithTools(
     const currentToolCalls = assistantMessage.tool_calls!;
     messages.push(assistantMessage);
 
+    // Persist assistant's tool_call request to session
+    const sManager = await getSessionManager();
+    const persistableToolCalls = currentToolCalls
+      .filter(tc => 'function' in tc && tc.function)
+      .map(tc => {
+        const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
+        return { id: tc.id, name: fn.name, arguments: fn.arguments };
+      });
+    if (persistableToolCalls.length > 0) {
+      await sManager.addAssistantToolCallMessage(
+        session,
+        assistantMessage.content || '',
+        persistableToolCalls
+      );
+    }
+
     // Execute each tool call
     for (const toolCall of currentToolCalls) {
       callCount++;
@@ -598,17 +614,26 @@ async function handleWithTools(
       
       const toolName = fn.name;
       const toolArgs = JSON.parse(fn.arguments);
+      const toolStart = Date.now();
 
       logger.debug('Executing tool', { tool: toolName, args: toolArgs });
 
-      // Execute via registry
-      const result = await registry.execute(toolName, toolArgs);
+      // Execute via registry (pass session context for session-aware tools)
+      const result = await registry.execute(toolName, toolArgs, { sessionId: session.id });
 
       toolCalls.push({
         name: toolName,
         args: toolArgs,
         result,
       });
+
+      // Persist tool result to session
+      await sManager.addToolMessage(
+        session,
+        { name: toolName, args: toolArgs, result: result.output, duration: Date.now() - toolStart },
+        JSON.stringify(result),
+        toolCall.id
+      );
 
       // SYNC SESSION STATE BASED ON TOOLS
       if (toolName === 'workspace_select' && result.success) {
@@ -679,18 +704,49 @@ async function handleWithTools(
 // =============================================================================
 
 /**
- * Build message history for context
+ * Build message history for context — OpenAI multi-turn format
+ *
+ * Emits proper tool_calls on assistant messages and tool_call_id on
+ * tool result messages. This is the industry-standard format used by
+ * OpenAI, Claude API, LangChain, Vercel AI SDK, and every production
+ * agent framework for multi-turn tool state.
  */
 function buildMessageHistory(
   session: Session,
   maxMessages = pipeline.historyWindow
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-  return session.messages
-    .slice(-maxMessages)
-    .map((msg: Message) => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }));
+  const recent = session.messages.slice(-maxMessages);
+  const result: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+
+  for (const msg of recent) {
+    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      // Assistant message requesting tool calls — OpenAI format
+      result.push({
+        role: 'assistant',
+        content: msg.content || null,
+        tool_calls: msg.toolCalls.map(tc => ({
+          id: tc.id,
+          type: 'function' as const,
+          function: { name: tc.name, arguments: tc.arguments },
+        })),
+      });
+    } else if (msg.role === 'tool' && msg.toolCall) {
+      // Tool result message — must have tool_call_id
+      result.push({
+        role: 'tool',
+        tool_call_id: msg.id, // We stored tool_call_id as the message id
+        content: msg.content,
+      });
+    } else {
+      // Regular user or assistant message
+      result.push({
+        role: msg.role === 'tool' ? 'assistant' : (msg.role as 'user' | 'assistant'),
+        content: msg.content,
+      });
+    }
+  }
+
+  return result;
 }
 
 // =============================================================================
