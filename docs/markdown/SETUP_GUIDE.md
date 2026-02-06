@@ -84,6 +84,8 @@ Fetch should respond with a greeting. Then try:
 
 ## Docker Architecture
 
+<!-- DIAGRAM:docker -->
+
 ```
 docker compose up -d
 ```
