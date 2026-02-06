@@ -3,9 +3,10 @@
 > Generated from 4-agent deep audit of every module in the codebase.
 > Previous plan (V3.1.2 structure overhaul) completed and shipped as `876cc7d`.
 >
-> ⚠️ **Parallel Work:** Another agent is rebuilding the identity/skills/prompt pipeline
-> (SKILL.md wiring, unified identity, AGENTS.md split, prompt builder consolidation).
-> Items that conflict with that work are marked 🔀 DEFERRED and must land after theirs.
+> ✅ **Identity Pipeline Complete** (shipped as `f099ca8` in v3.2.0):
+> SKILL.md discovery→activation, unified `IdentityManager.buildSystemPrompt()`,
+> AGENTS.md split to `data/agents/*.md`, 418 lines of dead prompts deleted,
+> all tests passing. Items previously marked 🔀 DEFERRED are now resolved.
 
 ---
 
@@ -41,9 +42,8 @@ The V3.1.2 codebase compiles clean (0 tsc, 0 ESLint, 0 Go build errors) but a de
 **Bug:** `tools/task.ts` `task_respond` resumes the task state but has a `// TODO: Send response to harness via stdin`. The tool reports "Response delivered" which is false.
 **Fix:** Wire `sendInput()` through the executor/pool to the harness stdin. This depends on 1.2.
 
-### ~~1.4 — Identity Data Silently Discarded~~ 🔀 HANDLED BY IDENTITY PIPELINE AGENT
-> Removed — the parallel identity/skills agent is rebuilding the entire identity pipeline:
-> loader → manager → system prompt. Owner prefs, pack data, and type safety are all in scope there.
+### ~~1.4 — Identity Data Silently Discarded~~ ✅ COMPLETED (v3.2.0)
+> Resolved in `f099ca8`: identity pipeline unified, PackMember typed, skill instructions surfaced.
 
 ### 1.4 — Env Validation After Startup 🔴
 **Bug:** In `index.ts`, the status server, mode system, and proactive system all start *before* `validateEnvironment()` runs. If `OPENROUTER_API_KEY` is missing, multiple subsystems have already initialized for nothing.
@@ -88,13 +88,10 @@ Zero imports anywhere. Entire file is dead.
 ### 3.2 — Delete `utils/sanitize.ts` (~80 lines)
 Zero imports anywhere. Entire file is dead.
 
-### 3.3 — Gut `agent/prompts.ts` (~450 dead lines) 🔀 DEFERRED
-> **Wait for identity pipeline agent to land first.** They are restructuring `buildOrchestratorPrompt()`
-> into a thin wrapper over `IdentityManager.buildSystemPrompt()` and moving constants into identity files.
-> After their work merges, audit what's still dead and delete it then.
->
-> Known dead functions (verify post-merge): `buildIntentClassificationPrompt()`, `buildTaskGoalPrompt()`,
-> `buildOutputSummaryPrompt()`, `buildErrorRecoveryPrompt()`, and sub-constants.
+### ~~3.3 — Gut `agent/prompts.ts` (~450 dead lines)~~ ✅ COMPLETED (v3.2.0)
+> Done in `f099ca8`: 571 → 153 lines. Deleted `CORE_IDENTITY`, `CAPABILITIES`, `TOOL_REFERENCE`,
+> `UNDERSTANDING_PATTERNS`, `buildOrchestratorPrompt()`, `buildIntentPrompt()`,
+> `buildSummarizePrompt()`, `buildErrorRecoveryPrompt()`. Kept `buildTaskFramePrompt()` + `buildContextSection()`.
 
 ### 3.4 — Gut `agent/whatsapp-format.ts` (~450 dead lines)
 Keep only `formatForWhatsApp()`. Delete: `formatDiff()`, `formatProgressBar()`, `formatToolAction()`, `formatCodeBlock()`, `formatError()`, `formatWarning()`, `formatSuccess()`, `formatInfo()`, `formatSection()`. Only 1 of 10 exports is called.
@@ -102,8 +99,9 @@ Keep only `formatForWhatsApp()`. Delete: `formatDiff()`, `formatProgressBar()`, 
 ### 3.5 — Delete `agent/index.ts` (33 lines)
 Barrel file with zero importers. Everything imports directly from submodules.
 
-### 3.6 — Delete dead code in `agent/core.ts`
-Remove commented-out `getCurrentMode()` and `buildConversationPrompt()` (~80 lines). Remove `undo`/`pause`/`resume` TODO stubs in switch statement.
+### ~~3.6 — Delete dead code in `agent/core.ts`~~ ✅ COMPLETED (v3.2.0)
+> Done in `f099ca8`: Removed commented-out `getCurrentMode()` and `buildConversationPrompt()` (~80 lines).
+> `undo`/`pause`/`resume` TODO stubs remain (they're active switch arms, just incomplete).
 
 ### 3.7 — Delete dead code in `agent/intent.ts`
 Remove `classifyWithLLM()` and `buildClassificationPrompt()` — vestigial LLM classification path, never called.
