@@ -11,6 +11,7 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { writeFile, unlink, readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger.js';
@@ -18,7 +19,9 @@ import { logger } from '../utils/logger.js';
 const execAsync = promisify(exec);
 
 /** Path to the whisper model */
-const WHISPER_MODEL = process.env.WHISPER_MODEL || '/app/models/ggml-tiny.bin';
+import { env } from '../config/env.js';
+
+const WHISPER_MODEL = env.WHISPER_MODEL;
 
 /** Path to whisper-cpp binary */
 const WHISPER_BIN = '/usr/local/bin/whisper-cpp';
@@ -99,9 +102,9 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string = 'a
 }
 
 /**
- * Check if the transcription service is available
- * Local whisper.cpp is always available in the container
+ * Check if the transcription service is available.
+ * Verifies that both the whisper-cpp binary and the model file exist.
  */
 export function isTranscriptionAvailable(): boolean {
-  return true; // Local whisper.cpp is always available
+  return existsSync(WHISPER_BIN) && existsSync(env.WHISPER_MODEL);
 }

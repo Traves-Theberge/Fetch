@@ -40,8 +40,8 @@ describe('Intent Classification', () => {
     });
   });
 
-  describe('Workspace Intent', () => {
-    it('should classify project listing requests', () => {
+  describe('Action Intent (workspace + task unified)', () => {
+    it('should classify project listing requests as action', () => {
       const session = createMockSession();
       
       const requests = [
@@ -53,11 +53,11 @@ describe('Intent Classification', () => {
       
       for (const request of requests) {
         const result = classifyIntent(request, session);
-        expect(result.type).toBe('workspace');
+        expect(result.type).toBe('action');
       }
     });
 
-    it('should classify workspace selection', () => {
+    it('should classify workspace selection as action', () => {
       const session = createMockSession();
       
       const selections = [
@@ -68,20 +68,18 @@ describe('Intent Classification', () => {
       
       for (const selection of selections) {
         const result = classifyIntent(selection, session);
-        expect(result.type).toBe('workspace');
+        expect(result.type).toBe('action');
       }
     });
 
-    it('should classify status requests', () => {
+    it('should classify status requests as action', () => {
       const session = createMockSession();
       
       const result = classifyIntent('show me the status', session);
-      expect(result.type).toBe('workspace');
+      expect(result.type).toBe('action');
     });
-  });
 
-  describe('Task Intent', () => {
-    it('should classify coding requests as task', () => {
+    it('should classify coding requests as action', () => {
       const session = createMockSession();
       
       const tasks = [
@@ -94,15 +92,15 @@ describe('Intent Classification', () => {
       
       for (const task of tasks) {
         const result = classifyIntent(task, session);
-        expect(result.type).toBe('task');
+        expect(result.type).toBe('action');
       }
     });
 
-    it('should classify file operations as task', () => {
+    it('should classify file operations as action', () => {
       const session = createMockSession();
       
       const result = classifyIntent('update the config.ts file', session);
-      expect(result.type).toBe('task');
+      expect(result.type).toBe('action');
     });
 
     it('should fall back to conversation for ambiguous long messages', () => {

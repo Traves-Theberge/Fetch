@@ -9,10 +9,9 @@
  * 
  * ## Algorithm
  * 
- * Uses a sliding window counter approach:
- * - Each key (user) has a window start time and count
- * - Requests within the window increment the count
- * - Once window expires, count resets
+ * True sliding window: tracks individual request timestamps per key.
+ * On each call, timestamps older than `windowMs` are pruned.
+ * A periodic eviction sweep (every 2× windowMs) removes stale keys.
  * 
  * ## Default Limits
  * 
@@ -37,39 +36,32 @@
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
-// TYPES
-// =============================================================================
-
-/**
- * Rate limit tracking entry for a single key.
- * @interface
- */
-interface RateLimitEntry {
-  /** Number of requests in current window */
-  count: number;
-  /** Timestamp when window started */
-  windowStart: number;
-}
-
-// =============================================================================
 // RATE LIMITER CLASS
 // =============================================================================
 
 /**
- * Sliding window rate limiter.
+ * Sliding-window rate limiter.
  * 
- * Tracks request counts per key within configurable time windows.
+ * Tracks individual request timestamps per key within configurable
+ * time windows for accurate rate enforcement.
  * 
  * @class
  */
 export class RateLimiter {
-  private limits: Map<string, RateLimitEntry> = new Map();
+  /** Per-key arrays of request timestamps (epoch ms) */
+  private timestamps: Map<string, number[]> = new Map();
   private readonly maxRequests: number;
   private readonly windowMs: number;
+  private evictionTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(maxRequests: number = 30, windowMs: number = 60000) {
     this.maxRequests = maxRequests;
     this.windowMs = windowMs;
+
+    // Periodic eviction: remove keys with no recent activity
+    this.evictionTimer = setInterval(() => this.evictStale(), windowMs * 2);
+    // Allow Node to exit even if the timer is still alive
+    if (this.evictionTimer.unref) this.evictionTimer.unref();
   }
 
   /**
@@ -79,29 +71,25 @@ export class RateLimiter {
    */
   isAllowed(key: string): boolean {
     const now = Date.now();
-    const entry = this.limits.get(key);
+    const cutoff = now - this.windowMs;
 
-    if (!entry) {
-      // First request
-      this.limits.set(key, { count: 1, windowStart: now });
-      return true;
+    let ts = this.timestamps.get(key);
+    if (!ts) {
+      ts = [];
+      this.timestamps.set(key, ts);
     }
 
-    // Check if window has expired
-    if (now - entry.windowStart > this.windowMs) {
-      // Reset window
-      this.limits.set(key, { count: 1, windowStart: now });
-      return true;
+    // Prune timestamps outside the window
+    while (ts.length > 0 && ts[0] <= cutoff) {
+      ts.shift();
     }
 
-    // Within window, check count
-    if (entry.count >= this.maxRequests) {
+    if (ts.length >= this.maxRequests) {
       logger.warn(`Rate limit exceeded for ${key}`);
       return false;
     }
 
-    // Increment count
-    entry.count++;
+    ts.push(now);
     return true;
   }
 
@@ -109,28 +97,40 @@ export class RateLimiter {
    * Get remaining requests for a key
    */
   getRemaining(key: string): number {
-    const entry = this.limits.get(key);
-    if (!entry) return this.maxRequests;
-
     const now = Date.now();
-    if (now - entry.windowStart > this.windowMs) {
-      return this.maxRequests;
-    }
+    const cutoff = now - this.windowMs;
+    const ts = this.timestamps.get(key);
+    if (!ts) return this.maxRequests;
 
-    return Math.max(0, this.maxRequests - entry.count);
+    const recent = ts.filter((t) => t > cutoff).length;
+    return Math.max(0, this.maxRequests - recent);
   }
 
   /**
    * Clear rate limit for a key (useful for testing)
    */
   clear(key: string): void {
-    this.limits.delete(key);
+    this.timestamps.delete(key);
   }
 
   /**
    * Clear all rate limits
    */
   clearAll(): void {
-    this.limits.clear();
+    this.timestamps.clear();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal
+  // ---------------------------------------------------------------------------
+
+  /** Remove keys whose newest timestamp is older than the window. */
+  private evictStale(): void {
+    const cutoff = Date.now() - this.windowMs;
+    for (const [key, ts] of this.timestamps) {
+      if (ts.length === 0 || ts[ts.length - 1] <= cutoff) {
+        this.timestamps.delete(key);
+      }
+    }
   }
 }

@@ -5,7 +5,6 @@
  *
  * @module tools/task
  * @see {@link TaskManager} - Task lifecycle management
- * @see {@link TaskQueue} - Task queue management
  *
  * ## Tools
  *
@@ -16,7 +15,6 @@
  */
 
 import { getTaskManager } from '../task/manager.js';
-import { taskQueue } from '../task/queue.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { getTaskIntegration } from '../task/integration.js';
 import { getHarnessExecutor } from '../harness/executor.js';
@@ -97,20 +95,20 @@ export async function handleTaskCreate(
     };
   }
 
-  // Check if queue can accept a new task
-  if (!taskQueue.canAccept()) {
-    const currentTaskId = taskQueue.getCurrentTaskId();
-    return {
-      success: false,
-      output: '',
-      error: `Cannot create task: another task (${currentTaskId}) is already running`,
-      duration: Date.now() - start,
-    };
-  }
-
   try {
     // Create the task via TaskManager
     const manager = await getTaskManager();
+
+    // Check if a task is already running (single-task constraint)
+    if (manager.hasRunningTask()) {
+      const currentTaskId = manager.getCurrentTaskId();
+      return {
+        success: false,
+        output: '',
+        error: `Cannot create task: another task (${currentTaskId}) is already running`,
+        duration: Date.now() - start,
+      };
+    }
     const task = await manager.createTask(
       {
         goal,
@@ -120,9 +118,6 @@ export async function handleTaskCreate(
       },
       sessionId ?? 'unknown'
     );
-
-    // Set as current task in queue
-    taskQueue.setCurrentTask(task);
 
     // Start task execution in the background via harness
     // This spawns claude/gemini/copilot CLI to do the actual work
@@ -195,20 +190,21 @@ export async function handleTaskStatus(
 
   const { taskId } = parseResult.data as TaskStatusInput;
 
-  // Use provided taskId or current task
-  const targetTaskId = taskId ?? taskQueue.getCurrentTaskId();
-
-  if (!targetTaskId) {
-    return {
-      success: false,
-      output: '',
-      error: 'No task ID specified and no current task',
-      duration: Date.now() - start,
-    };
-  }
-
   try {
     const manager = await getTaskManager();
+
+    // Use provided taskId or current task
+    const targetTaskId = taskId ?? manager.getCurrentTaskId();
+
+    if (!targetTaskId) {
+      return {
+        success: false,
+        output: '',
+        error: 'No task ID specified and no current task',
+        duration: Date.now() - start,
+      };
+    }
+
     const task = manager.getTask(targetTaskId as TaskId);
 
     if (!task) {
@@ -302,13 +298,8 @@ export async function handleTaskCancel(
       };
     }
 
-    // Cancel the task
+    // Cancel the task (TaskManager clears currentTaskId internally)
     await manager.cancelTask(taskId as TaskId);
-
-    // Clear from queue if it's the current task
-    if (taskQueue.getCurrentTaskId() === taskId) {
-      taskQueue.clearCurrentTask();
-    }
 
     return {
       success: true,
@@ -371,20 +362,21 @@ export async function handleTaskRespond(
 
   const { response, taskId } = parseResult.data as TaskRespondInput;
 
-  // Use provided taskId or current task
-  const targetTaskId = taskId ?? taskQueue.getCurrentTaskId();
-
-  if (!targetTaskId) {
-    return {
-      success: false,
-      output: '',
-      error: 'No task ID specified and no current task',
-      duration: Date.now() - start,
-    };
-  }
-
   try {
     const manager = await getTaskManager();
+
+    // Use provided taskId or current task
+    const targetTaskId = taskId ?? manager.getCurrentTaskId();
+
+    if (!targetTaskId) {
+      return {
+        success: false,
+        output: '',
+        error: 'No task ID specified and no current task',
+        duration: Date.now() - start,
+      };
+    }
+
     const task = manager.getTask(targetTaskId as TaskId);
 
     if (!task) {

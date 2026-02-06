@@ -76,7 +76,9 @@ const execAsync = promisify(exec);
  * Workspace root directory (configurable via WORKSPACE_ROOT env var).
  * @constant {string}
  */
-const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || '/workspace';
+import { env } from '../config/env.js';
+
+const WORKSPACE_ROOT = env.WORKSPACE_ROOT;
 
 // =============================================================================
 // TYPE DETECTION

@@ -54,6 +54,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -109,7 +110,7 @@ const startTime = Date.now();
 let logoutCallback: (() => Promise<void>) | null = null;
 
 /** Admin token for protected endpoints (logout) */
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
+const ADMIN_TOKEN = env.ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
 
 /**
  * Registers a logout callback function.
@@ -248,7 +249,7 @@ export function startStatusServer(): void {
   server.listen(PORT, '0.0.0.0', () => {
     logger.info(`Status API listening on port ${PORT}`);
     logger.info(`Documentation available at http://localhost:${PORT}/docs`);
-    if (!process.env.ADMIN_TOKEN) {
+    if (!env.ADMIN_TOKEN) {
       logger.info(`Admin token (auto-generated): ${ADMIN_TOKEN}`);
     }
   });

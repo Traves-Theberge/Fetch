@@ -5,7 +5,7 @@ export class WorkingMode implements ModeHandler {
   name = FetchMode.WORKING;
   private currentTaskId: string | null = null;
 
-  async enter(previous: FetchMode, data?: { taskId: string }): Promise<void> {
+  async enter(_previous: FetchMode, data?: { taskId: string }): Promise<void> {
     this.currentTaskId = data?.taskId || null;
     logger.info(`[${this.name}] Engaging task execution (Task ID: ${this.currentTaskId})...`);
   }

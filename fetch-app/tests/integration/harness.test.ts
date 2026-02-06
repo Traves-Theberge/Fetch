@@ -14,6 +14,7 @@ import { GeminiAdapter } from '../../src/harness/gemini.js';
 import { CopilotAdapter } from '../../src/harness/copilot.js';
 import { OutputParser } from '../../src/harness/output-parser.js';
 import { HarnessExecutor } from '../../src/harness/executor.js';
+import { registerAdapter } from '../../src/harness/registry.js';
 import type { HarnessAdapter } from '../../src/harness/types.js';
 import type { AgentType } from '../../src/task/types.js';
 
@@ -480,7 +481,7 @@ describe('HarnessExecutor Timeout Handling', () => {
     };
 
     const executor = new HarnessExecutor();
-    executor.registerAdapter(mockAdapter);
+    registerAdapter(mockAdapter);
 
     const startTime = Date.now();
     const result = await executor.execute(
@@ -522,9 +523,8 @@ describe('Harness Error Handling', () => {
       };
 
       const executor = new HarnessExecutor();
-      executor.registerAdapter(mockAdapter);
-
-      const result = await executor.execute(
+      registerAdapter(mockAdapter);
+    const startTime = Date.now();      const result = await executor.execute(
         'tsk_1',
         'claude',
         'test goal',
@@ -556,7 +556,7 @@ describe('Harness Error Handling', () => {
       };
 
       const executor = new HarnessExecutor();
-      executor.registerAdapter(mockAdapter);
+      registerAdapter(mockAdapter);
 
       const result = await executor.execute(
         'tsk_1',
@@ -582,7 +582,7 @@ describe('Harness Error Handling', () => {
           '/tmp',
           5000
         )
-      ).rejects.toThrow(/No adapter registered/);
+      ).rejects.toThrow(/No harness adapter found/);
     });
   });
 });
@@ -610,7 +610,7 @@ describe('Harness Event Emission', () => {
     };
 
     const executor = new HarnessExecutor();
-    executor.registerAdapter(mockAdapter);
+    registerAdapter(mockAdapter);
 
     const events: string[] = [];
     executor.on('harness:started', () => events.push('started'));
@@ -641,7 +641,7 @@ describe('Harness Event Emission', () => {
     };
 
     const executor = new HarnessExecutor();
-    executor.registerAdapter(mockAdapter);
+    registerAdapter(mockAdapter);
 
     let outputEventFired = false;
     executor.on('harness:output', () => {

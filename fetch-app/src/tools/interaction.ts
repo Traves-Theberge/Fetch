@@ -13,7 +13,6 @@
  */
 
 import { getTaskManager } from '../task/manager.js';
-import { taskQueue } from '../task/queue.js';
 import {
   AskUserInputSchema,
   ReportProgressInputSchema,
@@ -66,19 +65,20 @@ export async function handleAskUser(
   // Schema has 'question' and 'options' fields
   const { question, options } = parseResult.data as AskUserInput;
 
-  // Get current task
-  const currentTaskId = taskQueue.getCurrentTaskId();
-  if (!currentTaskId) {
-    return {
-      success: false,
-      output: '',
-      error: 'No active task to ask question for',
-      duration: Date.now() - start,
-    };
-  }
-
   try {
     const manager = await getTaskManager();
+
+    // Get current task
+    const currentTaskId = manager.getCurrentTaskId();
+    if (!currentTaskId) {
+      return {
+        success: false,
+        output: '',
+        error: 'No active task to ask question for',
+        duration: Date.now() - start,
+      };
+    }
+
     const task = manager.getTask(currentTaskId);
 
     if (!task) {
@@ -169,19 +169,20 @@ export async function handleReportProgress(
   // Schema has 'message' and 'percent' fields
   const { message, percent } = parseResult.data as ReportProgressInput;
 
-  // Get current task
-  const currentTaskId = taskQueue.getCurrentTaskId();
-  if (!currentTaskId) {
-    return {
-      success: false,
-      output: '',
-      error: 'No active task to report progress for',
-      duration: Date.now() - start,
-    };
-  }
-
   try {
     const manager = await getTaskManager();
+
+    // Get current task
+    const currentTaskId = manager.getCurrentTaskId();
+    if (!currentTaskId) {
+      return {
+        success: false,
+        output: '',
+        error: 'No active task to report progress for',
+        duration: Date.now() - start,
+      };
+    }
+
     const task = manager.getTask(currentTaskId);
 
     if (!task) {

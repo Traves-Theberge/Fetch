@@ -34,7 +34,7 @@ export function createMockSession(options: MockSessionOptions = {}): Session {
       verboseMode: false,
       maxIterations: 25,
     },
-    currentTask: null,
+    activeTaskId: null,
     gitStartCommit: null,
     createdAt: now,
     lastActivityAt: now,

@@ -159,34 +159,37 @@ function cleanupChromeLocks(authPath: string): void {
 /**
  * Tracks recently processed message IDs to prevent duplicate processing.
  * WhatsApp's message_create event can fire multiple times for the same message.
- * Uses a Map with timestamps for automatic TTL-based cleanup.
+ * Uses a Map with timestamps; stale entries are purged on a periodic interval
+ * instead of on every lookup (O(1) per check).
  */
 class MessageDeduplicator {
   private processedMessages = new Map<string, number>();
-  private readonly TTL_MS = 30000; // 30 seconds
+  private readonly TTL_MS = 30_000; // 30 seconds
+  private cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor() {
+    // Sweep every TTL interval instead of per-message
+    this.cleanupTimer = setInterval(() => this.evict(), this.TTL_MS);
+    if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+  }
   
   /**
    * Check if message was already processed. Returns true if new, false if duplicate.
-   * Automatically cleans up old entries.
    */
   isNew(messageId: string): boolean {
-    const now = Date.now();
-    
-    // Cleanup old entries
-    for (const [id, timestamp] of this.processedMessages) {
-      if (now - timestamp > this.TTL_MS) {
-        this.processedMessages.delete(id);
-      }
-    }
-    
-    // Check if already processed
     if (this.processedMessages.has(messageId)) {
       return false;
     }
-    
-    // Mark as processed
-    this.processedMessages.set(messageId, now);
+    this.processedMessages.set(messageId, Date.now());
     return true;
+  }
+
+  /** Remove entries older than TTL */
+  private evict(): void {
+    const cutoff = Date.now() - this.TTL_MS;
+    for (const [id, ts] of this.processedMessages) {
+      if (ts <= cutoff) this.processedMessages.delete(id);
+    }
   }
 }
 
@@ -208,6 +211,13 @@ export class Bridge {
   private securityGate: SecurityGate;
   private rateLimiter: RateLimiter;
   private deduplicator = new MessageDeduplicator();
+
+  // Reconnection state
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 10;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private isReconnecting = false;
+  private destroyed = false;
 
   constructor() {
     this.client = new Client({
@@ -278,6 +288,14 @@ export class Bridge {
     // Ready event
     this.client.on('ready', () => {
       updateStatus({ state: 'authenticated', qrCode: null, qrUrl: null });
+
+      // Reset reconnection state on successful connection
+      if (this.isReconnecting) {
+        logger.success(`WhatsApp reconnected after ${this.reconnectAttempts} attempt(s)`);
+      }
+      this.reconnectAttempts = 0;
+      this.isReconnecting = false;
+
       logger.section('🐕 Fetch is Ready!');
       logger.success('WhatsApp connected and listening for commands');
       logger.info('Send a message starting with @fetch to interact');
@@ -296,10 +314,15 @@ export class Bridge {
       logger.error('WhatsApp authentication failed', msg);
     });
 
-    // Disconnected
+    // Disconnected — attempt reconnection with exponential backoff
     this.client.on('disconnected', (reason: string) => {
       updateStatus({ state: 'disconnected', lastError: reason });
       logger.warn('WhatsApp disconnected', reason);
+
+      // Attempt reconnection unless intentionally destroyed
+      if (!this.destroyed) {
+        this.reconnect();
+      }
     });
 
     // ==========================================================================
@@ -658,7 +681,103 @@ export class Bridge {
     }
   }
 
+  // ===========================================================================
+  // RECONNECTION
+  // ===========================================================================
+
+  /**
+   * Reconnect to WhatsApp with exponential backoff.
+   *
+   * Creates a fresh Client instance because whatsapp-web.js cannot
+   * re-initialize the same client after disconnection.
+   *
+   * Backoff schedule: 5 s → 10 s → 20 s → 40 s → … → 5 min cap, with jitter.
+   */
+  private reconnect(): void {
+    if (this.destroyed || this.isReconnecting) return;
+
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      logger.error(
+        `WhatsApp reconnection failed after ${this.maxReconnectAttempts} attempts — giving up`,
+      );
+      updateStatus({ state: 'error', lastError: 'Max reconnection attempts exceeded' });
+      return;
+    }
+
+    this.isReconnecting = true;
+    this.reconnectAttempts++;
+
+    // Exponential backoff: 5 s × 2^(attempt-1), capped at 5 min, with 0–2 s jitter
+    const BASE_DELAY = 5_000;
+    const MAX_DELAY = 300_000;
+    const jitter = Math.random() * 2_000;
+    const delay =
+      Math.min(BASE_DELAY * Math.pow(2, this.reconnectAttempts - 1), MAX_DELAY) + jitter;
+
+    logger.info(
+      `🔄 Reconnecting in ${(delay / 1000).toFixed(1)}s ` +
+      `(attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})…`,
+    );
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+
+      try {
+        // Destroy the old client cleanly
+        try { await this.client.destroy(); } catch { /* already dead */ }
+
+        // Fresh Client instance — wweb can't re-initialize the same one
+        this.client = new Client({
+          authStrategy: new LocalAuth({
+            dataPath: '/app/data/.wwebjs_auth',
+          }),
+          qrMaxRetries: 10,
+          puppeteer: {
+            headless: true,
+            args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-accelerated-2d-canvas',
+              '--no-first-run',
+              '--no-zygote',
+              '--disable-gpu',
+            ],
+          },
+        });
+
+        // Re-bind event handlers on the new client
+        // (Task progress listeners reference `this.client` via `this`, so they
+        //  already point at the new instance — no need to re-register.)
+        this.setupEventHandlers();
+        cleanupChromeLocks('/app/data/.wwebjs_auth');
+
+        await this.client.initialize();
+        // On success the 'ready' handler resets reconnect state
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.error(`Reconnection attempt ${this.reconnectAttempts} failed: ${msg}`);
+        this.isReconnecting = false;
+
+        // Schedule next attempt
+        this.reconnect();
+      }
+    }, delay);
+  }
+
+  // ===========================================================================
+  // LIFECYCLE
+  // ===========================================================================
+
   async destroy(): Promise<void> {
+    this.destroyed = true;
+
+    // Cancel any pending reconnection
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     await shutdown();
     await this.client.destroy();
   }

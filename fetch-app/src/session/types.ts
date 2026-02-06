@@ -106,87 +106,10 @@ export interface Message {
 }
 
 // ============================================================================
-// Agent Task
+// Task Reference (V3.3 — tasks tracked by TaskManager, session holds ID only)
 // ============================================================================
 
-import type { TaskStatus } from '../task/types.js';
-
-export { TaskStatus };
-
-export type PlanStepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'failed';
-
-export interface PlanStep {
-  /** Step number */
-  id: number;
-  /** Human-readable description */
-  description: string;
-  /** Tool to execute */
-  tool: string;
-  /** Tool arguments */
-  args?: Record<string, unknown>;
-  /** Execution status */
-  status: PlanStepStatus;
-  /** Result or error message */
-  result?: string;
-}
-
-export interface ApprovalRequest {
-  /** Tool requesting approval */
-  tool: string;
-  /** Tool arguments */
-  args: Record<string, unknown>;
-  /** What the tool will do */
-  description: string;
-  /** Diff preview for file edits */
-  diff?: string;
-  /** Tool call ID for message pairing */
-  toolCallId?: string;
-  /** When approval was requested */
-  createdAt: string;
-}
-
-export interface AgentTask {
-  /** Unique task ID */
-  id: string;
-  /** Original user goal */
-  goal: string;
-  /** Current status */
-  status: TaskStatus;
-  /** Harness used for execution */
-  harness?: string;
-  
-  // Planning
-  /** Execution plan steps */
-  plan: PlanStep[];
-  /** Current step index */
-  currentStepIndex: number;
-  
-  // Execution tracking
-  /** Number of agent loop iterations */
-  iterations: number;
-  /** Maximum allowed iterations */
-  maxIterations: number;
-  
-  // Pending approval
-  /** Current approval request (if awaiting) */
-  pendingApproval: ApprovalRequest | null;
-  
-  // Results
-  /** Files modified during task */
-  filesModified: string[];
-  /** Git commits created */
-  commitsCreated: string[];
-  /** Final output/summary */
-  output: string;
-  /** Error message if failed */
-  error?: string;
-  
-  // Timing
-  /** When task started */
-  startedAt: string;
-  /** When task completed/failed */
-  completedAt: string | null;
-}
+import type { TaskId } from '../task/types.js';
 
 // ============================================================================
 // Session
@@ -225,9 +148,9 @@ export interface Session {
   /** User's autonomy and behavior preferences */
   preferences: UserPreferences;
   
-  // Current task
-  /** Active agent task (null if idle) */
-  currentTask: AgentTask | null;
+  // Task tracking (V3.3 — TaskManager is sole authority)
+  /** Active task ID (null if idle). Task data lives in TaskManager. */
+  activeTaskId: TaskId | null;
   
   // Git tracking
   /** Commit hash at session start (for undo all) */
@@ -272,7 +195,7 @@ export function createSession(userId: string): Session {
     repoMap: null,
     repoMapUpdatedAt: null,
     preferences: { ...DEFAULT_PREFERENCES },
-    currentTask: null,
+    activeTaskId: null,
     gitStartCommit: null,
     createdAt: now,
     lastActivityAt: now
@@ -295,26 +218,5 @@ export function createMessage(
     toolCall,
     toolCalls,
     timestamp: new Date().toISOString()
-  };
-}
-
-/**
- * Create a new agent task
- */
-export function createTask(goal: string, maxIterations: number = 25): AgentTask {
-  return {
-    id: generateId(),
-    goal,
-    status: 'running',
-    plan: [],
-    currentStepIndex: 0,
-    iterations: 0,
-    maxIterations,
-    pendingApproval: null,
-    filesModified: [],
-    commitsCreated: [],
-    output: '',
-    startedAt: new Date().toISOString(),
-    completedAt: null
   };
 }

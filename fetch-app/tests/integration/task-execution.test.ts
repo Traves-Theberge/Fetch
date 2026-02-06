@@ -109,7 +109,7 @@ vi.mock('../../src/agent/intent.js', async (importOriginal) => {
   return {
     ...actual as Record<string, unknown>,
     classifyIntent: vi.fn().mockReturnValue({
-      type: 'task',
+      type: 'action',
       confidence: 0.95,
       metadata: { goal: 'Create test.txt' }
     })

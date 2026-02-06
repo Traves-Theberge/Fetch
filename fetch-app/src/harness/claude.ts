@@ -32,10 +32,10 @@
 
 import type { AgentType } from '../task/types.js';
 import type {
-  HarnessAdapter,
   HarnessConfig,
   HarnessOutputEventType,
 } from './types.js';
+import { AbstractHarnessAdapter } from './base.js';
 
 // ============================================================================
 // Constants
@@ -102,7 +102,7 @@ const COMPLETION_PATTERNS = [
  * // config.args = ['--print', '-p', 'Add dark mode']
  * ```
  */
-export class ClaudeAdapter implements HarnessAdapter {
+export class ClaudeAdapter extends AbstractHarnessAdapter {
   /**
    * Agent type this adapter handles
    */
@@ -170,39 +170,10 @@ export class ClaudeAdapter implements HarnessAdapter {
   }
 
   /**
-   * Detect if Claude is asking a question
-   *
-   * @param output - Recent output buffer
-   * @returns Question text if detected, null otherwise
+   * Claude-specific question pattern: `? Do you want to...`
    */
-  detectQuestion(output: string): string | null {
-    const match = output.match(QUESTION_PATTERN);
-    if (match) {
-      return match[1].trim();
-    }
-
-    // Check for common question patterns in last lines
-    const lines = output.trim().split('\n');
-    const lastLines = lines.slice(-3);
-
-    for (const line of lastLines) {
-      // Direct question
-      if (line.trim().endsWith('?')) {
-        return line.trim();
-      }
-
-      // Yes/No prompt
-      if (/\[y\/n\]/i.test(line) || /\(yes\/no\)/i.test(line)) {
-        return line.trim();
-      }
-
-      // Continue prompt
-      if (/continue\?|proceed\?|confirm/i.test(line)) {
-        return line.trim();
-      }
-    }
-
-    return null;
+  protected getAdapterQuestionPattern(): RegExp {
+    return QUESTION_PATTERN;
   }
 
   /**
@@ -211,10 +182,7 @@ export class ClaudeAdapter implements HarnessAdapter {
    * @param response - User's response
    * @returns Formatted response with newline
    */
-  formatResponse(response: string): string {
-    // Claude expects responses followed by newline
-    return response.trim() + '\n';
-  }
+  // formatResponse inherited from AbstractHarnessAdapter
 
   /**
    * Extract file operations from output
@@ -260,38 +228,13 @@ export class ClaudeAdapter implements HarnessAdapter {
   }
 
   /**
-   * Extract summary from Claude output
-   *
-   * Attempts to find a completion summary in the output.
-   *
-   * @param output - Full output buffer
-   * @returns Summary text or default message
+   * Progress pattern for summary paragraph filtering
    */
-  extractSummary(output: string): string {
-    // Look for explicit summary section
-    const summaryMatch = output.match(/##?\s*Summary\s*\n([\s\S]+?)(?=\n##|$)/i);
-    if (summaryMatch) {
-      return summaryMatch[1].trim();
-    }
-
-    // Look for "Done" message with context
-    const doneMatch = output.match(/Done[.:!]?\s*(.+)?$/im);
-    if (doneMatch && doneMatch[1]) {
-      return doneMatch[1].trim();
-    }
-
-    // Extract last meaningful paragraph
-    const paragraphs = output
-      .split(/\n\n+/)
-      .filter((p) => p.trim().length > 20)
-      .filter((p) => !PROGRESS_PATTERN.test(p));
-
-    if (paragraphs.length > 0) {
-      return paragraphs[paragraphs.length - 1].trim().substring(0, 500);
-    }
-
-    return 'Task completed.';
+  protected getProgressPattern(): RegExp {
+    return PROGRESS_PATTERN;
   }
+
+  // extractSummary() inherited from AbstractHarnessAdapter
 }
 
 // ============================================================================

@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-02-06 (Deep Refinement 🏗️)
+
+### 🏗️ Phase 4 — Architecture Simplification
+- **Unified Dual Task System (4.1):** Deleted `SessionTask` from session types. `session/manager.ts` task methods now delegate to `task/manager.ts` — single source of truth for task state. Eliminated `taskApproval` session system.
+- **Eliminated Redundant Task Queue (4.2):** Deleted `task/queue.ts` (267 lines). Exposed `getRunningTask()` / `hasRunningTask()` on `TaskManager`. All consumers use TaskManager directly.
+- **Centralized Env Config (4.3):** Created `config/env.ts` with Zod schema validating all 13 env vars at startup. Proxy-based lazy access for test compatibility. All files import from `env.ts` instead of reading `process.env` directly.
+- **Harness Base Class (4.4):** Extracted `AbstractHarnessAdapter` with shared `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`. Claude, Gemini, Copilot adapters extend it — ~200 lines of duplication eliminated.
+- **Fixed Dual Harness Registration (4.5):** Executor now looks up adapters from the single `HarnessRegistry` instead of maintaining its own parallel Map.
+- **Split Command Parser (4.6):** Decomposed 1,096-line god module into ~240-line router + 5 handler modules (`task.ts`, `context.ts`, `project.ts`, `settings.ts`, `identity-commands.ts`).
+- **Single Formatting Point (4.7):** Removed `formatForWhatsApp()` from `agent/core.ts`. Formatting now happens only in `handler/index.ts` after receiving the raw response.
+- **Intent Collapse (4.8):** Merged `workspace` and `task` intents into single `action` intent — the distinction served no purpose since both took the identical LLM+tools path.
+
+### ⚙️ Phase 5 — Infrastructure & Reliability
+- **WhatsApp Reconnection (5.1):** Implemented exponential backoff reconnection (5s base, 5min cap, jitter) with fresh `Client` instance. Max 10 retries. Resets on successful reconnect.
+- **Graceful Shutdown (5.2):** Ordered cleanup sequence: proactive system → harness `killAll()` → bridge destroy → SQLite `close()`. Module-scoped bridge reference. `TaskStore.close()` and `HarnessSpawner.killAll()` methods added.
+- **Unhandled Rejection Handler (5.3):** Global `unhandledRejection` / `uncaughtException` handlers trigger graceful shutdown. Spawner error handler attached immediately after `spawn()` (fixes ENOENT crash).
+- **LOG_LEVEL Filtering (5.4):** Added `LOG_LEVEL` env var (debug/info/warn/error). Logger now filters output below configured severity threshold.
+- **Transcription Availability Fix (5.6):** `isTranscriptionAvailable()` now checks `existsSync()` for whisper binary and model instead of hardcoded `return true`.
+- **Rate Limiter Rewrite (5.7):** Replaced fixed-window (mislabeled as sliding) with true sliding window using per-key timestamp arrays. Added periodic eviction sweep (2× window interval).
+- **Dedup Optimization (5.8):** `MessageDeduplicator` switched from O(n) per-message Map scan to interval-based eviction. `isNew()` is now O(1).
+
+### 📡 Phase 6 — Proactive System Completion
+- **Wired Proactive Commands (6.1):** `/remind`, `/schedule`, `/cron` (list/remove) now routed through the command parser to proactive handlers.
+- **One-Shot Reminders (6.2):** Added `oneShot` flag to `CronJob` interface. Scheduler auto-deletes one-shot jobs after first execution. `/remind` sets `oneShot: true`.
+- **Watcher Events (6.3):** `WatcherService` now extends `EventEmitter` with typed events (`file:add`, `file:change`, `file:remove`, `git:behind`). Events are emitted instead of dead-ending into logger.
+- **`/schedule list` (6.4):** Implemented sub-command parsing in `handleScheduleCommand` — `list`/`ls` routes to `handleCronList()`.
+
+### 🧪 Phase 7 — Test Coverage & Strictness
+- **Command Parser Tests (7.1):** 27 tests covering passthrough, unknown commands, help/aliases, status, version, settings (verbose/autocommit/auto/mode), project, context, proactive (remind/schedule/cron), task control, and aliases.
+- **Security Tests (7.2):** 41 tests covering `InputValidator` (14), `sanitizePath` (4), `RateLimiter` (6), and `SecurityGate` (17) — including injection detection, authorization flows, group behavior, and broadcast handling.
+- **Renamed e2e → integration (7.3):** Moved all test files from `tests/e2e/` to `tests/integration/`. Removed `test:e2e` script. Fixed flaky timing threshold (100ms → 90ms).
+- **Strict tsconfig (7.5):** Enabled `noUnusedLocals` and `noUnusedParameters`. Fixed 4 violations (dead import, dead method, unused params).
+
+### 📊 Stats
+- **Test suite:** 13 files, 177 tests, 0 failures (up from 11 files / 109 tests)
+- **New files:** 10 (5 command handlers, base class, env config, command types, 2 test suites)
+- **Deleted files:** `task/queue.ts` (267 lines), `tests/e2e/` directory (moved)
+- **Net impact:** ~1,400 lines deleted, ~1,800 lines changed/added
+
 ## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
 
 ### 🔴 Runtime Crash Fixes (P0)

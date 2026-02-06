@@ -2,8 +2,11 @@
  * @fileoverview Default Watcher Implementation
  * 
  * Provides concrete implementations for File and Git watching.
+ * Emits typed events via an EventEmitter so consumers (skills,
+ * proactive system) can react to file or repository changes.
  */
 
+import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -20,7 +23,15 @@ export interface WatcherConfig {
   recursive?: boolean; // For file watching
 }
 
-export class WatcherService {
+/** Events emitted by the WatcherService */
+export interface WatcherEvents {
+  'file:add': { path: string };
+  'file:change': { path: string };
+  'file:remove': { path: string };
+  'git:behind': { repoPath: string; message: string };
+}
+
+export class WatcherService extends EventEmitter {
   private static instance: WatcherService | undefined;
   private watchers: Map<string, NodeJS.Timeout | FSWatcher> = new Map();
   private active: boolean = false;
@@ -35,7 +46,6 @@ export class WatcherService {
   public async start(): Promise<void> {
     this.active = true;
     logger.info('Watcher service started');
-    // In a real implementation, this might resume saved watchers
   }
 
   public async stop(): Promise<void> {
@@ -66,7 +76,7 @@ export class WatcherService {
         const { stdout } = await execAsync('git fetch && git status -uno', { cwd: repoPath });
         if (stdout.includes('Your branch is behind')) {
           logger.info(`Git watcher: Updates available for ${repoPath}`);
-          // Emit event or trigger action here
+          this.emit('git:behind', { repoPath, message: stdout.trim() });
         }
       } catch (err) {
         logger.error(`Git watcher failed for ${repoPath}:`, err);
@@ -89,20 +99,26 @@ export class WatcherService {
     logger.info(`Started watching files: ${fullPath}`);
 
     const watcher = chokidar.watch(fullPath, {
-      ignored: /(^|[/\\])\../, // ignore dotfiles (fixed escape)
+      ignored: /(^|[/\\])\../, // ignore dotfiles
       persistent: true,
       depth: options.recursive ? undefined : 0,
-      ignoreInitial: true
+      ignoreInitial: true,
     });
 
     watcher
-      .on('add', path => logger.info(`File added: ${path}`))
-      .on('change', path => {
-        logger.info(`File changed: ${path}`);
-        // TODO: Emit event to trigger reactive skills
+      .on('add', (p) => {
+        logger.info(`File added: ${p}`);
+        this.emit('file:add', { path: p });
       })
-      .on('unlink', path => logger.info(`File removed: ${path}`))
-      .on('error', error => logger.error(`Watcher error: ${error}`));
+      .on('change', (p) => {
+        logger.info(`File changed: ${p}`);
+        this.emit('file:change', { path: p });
+      })
+      .on('unlink', (p) => {
+        logger.info(`File removed: ${p}`);
+        this.emit('file:remove', { path: p });
+      })
+      .on('error', (error) => logger.error(`Watcher error: ${error}`));
 
     this.watchers.set(id, watcher);
   }
@@ -112,10 +128,8 @@ export class WatcherService {
     if (!watcher) return;
 
     if ('close' in watcher) {
-       // It's a chokidar watcher
-        (watcher as FSWatcher).close();
+       (watcher as FSWatcher).close();
     } else {
-       // It's a timeout
        clearTimeout(watcher as NodeJS.Timeout);
     }
     

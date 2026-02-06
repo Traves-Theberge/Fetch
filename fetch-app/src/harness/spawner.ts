@@ -48,6 +48,14 @@ export class HarnessSpawner extends EventEmitter {
         stdio: ['pipe', 'pipe', 'pipe']
       });
 
+      // Attach error handler immediately — before the PID check — so the
+      // async ENOENT event always has a listener even if we bail out early.
+      child.on('error', (err) => {
+        logger.error(`Harness ${id} error:`, err);
+        instance.status = 'failed';
+        this.emit('status', { id, status: 'failed', error: err.message });
+      });
+
       if (!child.pid) {
         throw new Error('Failed to spawn process - no PID returned');
       }
@@ -143,6 +151,15 @@ export class HarnessSpawner extends EventEmitter {
       return killed;
     }
     return false;
+  }
+
+  /**
+   * Kill all running instances. Used during graceful shutdown.
+   */
+  public killAll(): void {
+    for (const id of this.processes.keys()) {
+      this.kill(id);
+    }
   }
 
   /**

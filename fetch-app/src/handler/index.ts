@@ -13,7 +13,6 @@ import { nanoid } from 'nanoid';
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
 import { TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
-import { taskQueue } from '../task/queue.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -49,11 +48,10 @@ export async function initializeHandler(): Promise<void> {
   taskManager = await getPersistentTaskManager();
   logger.success('Task manager ready');
 
-  // Sync queue with active task from persistent storage
+  // Log if there's an active task from previous session
   const currentTask = taskManager.getCurrentTask();
   if (currentTask && ['pending', 'running', 'waiting_input'].includes(currentTask.status)) {
-    taskQueue.setCurrentTask(currentTask);
-    logger.info(`TaskQueue synced with active task: ${currentTask.id}`);
+    logger.info(`Active task restored from persistence: ${currentTask.id}`);
   }
 
   // Initialize task-harness integration
@@ -106,7 +104,8 @@ export async function handleMessage(
       const { parseCommand } = await import('../commands/parser.js');
       const result = await parseCommand(message, session, sManager);
       if (result.handled) {
-        return result.responses || [];
+        // Format slash command responses for WhatsApp too
+        return (result.responses || []).map(r => formatForWhatsApp(r));
       }
     }
 
@@ -148,6 +147,7 @@ export async function handleMessage(
 
 import { getModeManager } from '../modes/manager.js';
 import { FetchMode } from '../modes/types.js';
+import { formatForWhatsApp } from '../agent/whatsapp-format.js';
 
 // ... existing imports ...
 
@@ -171,12 +171,9 @@ function buildResponses(response: AgentResponse): string[] {
       case FetchMode.RESTING: emoji = '💤'; break;
   }
 
-  // Main text response
+  // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {
-      // Prepend current mode emoji if not already present
-      // Some instincts might include emojis already, but this standardizes it.
-      // Actually, let's just prepend it.
-      responses.push(`${emoji} ${response.text}`);
+      responses.push(`${emoji} ${formatForWhatsApp(response.text)}`);
   }
 
   // Task started notification

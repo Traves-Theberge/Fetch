@@ -56,6 +56,7 @@
  */
 
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 import { getWhitelistStore, type WhitelistStore } from './whitelist.js';
 
 // =============================================================================
@@ -83,7 +84,7 @@ export class SecurityGate {
   private whitelist: WhitelistStore | null = null;
 
   constructor() {
-    const ownerNumber = process.env.OWNER_PHONE_NUMBER;
+    const ownerNumber = env.OWNER_PHONE_NUMBER;
     
     if (!ownerNumber) {
       throw new Error('CRITICAL: OWNER_PHONE_NUMBER environment variable is not set');

@@ -34,6 +34,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import type { TaskId, AgentType } from '../task/types.js';
 import { getHarnessPool } from './pool.js'; // V3 Pool Integration
+import { getAdapter as getRegistryAdapter } from './registry.js';
 import type {
   HarnessId,
   HarnessStatus,
@@ -44,7 +45,6 @@ import type {
   HarnessOutputEvent,
   HarnessEvent,
   HarnessEventType,
-  HarnessAdapter,
 } from './types.js';
 
 // ============================================================================
@@ -78,33 +78,6 @@ export class HarnessExecutor extends EventEmitter {
   /** Active executions */
   private executions: Map<HarnessId, HarnessExecution> = new Map();
 
-  /** Registered adapters */
-  private adapters: Map<AgentType, HarnessAdapter> = new Map();
-
-  // ==========================================================================
-  // Adapter Registration
-  // ==========================================================================
-
-  /**
-   * Register a harness adapter
-   *
-   * @param adapter - Adapter to register
-   */
-  registerAdapter(adapter: HarnessAdapter): void {
-    this.adapters.set(adapter.agent, adapter);
-    logger.debug(`Registered harness adapter: ${adapter.agent}`);
-  }
-
-  /**
-   * Get a registered adapter
-   *
-   * @param agent - Agent type
-   * @returns Adapter or undefined
-   */
-  getAdapter(agent: AgentType): HarnessAdapter | undefined {
-    return this.adapters.get(agent);
-  }
-
   // ==========================================================================
   // Execution
   // ==========================================================================
@@ -126,11 +99,7 @@ export class HarnessExecutor extends EventEmitter {
     workspacePath: string,
     timeoutMs: number
   ): Promise<HarnessResult> {
-    const adapter = this.adapters.get(agent);
-    if (!adapter) {
-      throw new Error(`No adapter registered for agent: ${agent}`);
-    }
-
+    const adapter = getRegistryAdapter(agent);
     const config = adapter.buildConfig(goal, workspacePath, timeoutMs);
     return this.executeWithConfig(taskId, agent, config);
   }
@@ -278,8 +247,13 @@ export class HarnessExecutor extends EventEmitter {
     }
 
     // Get adapter to format response
-    const adapter = this.adapters.get(execution.agent);
-    const formattedInput = adapter?.formatResponse(input) ?? input + '\n';
+    let formattedInput: string;
+    try {
+      const adapter = getRegistryAdapter(execution.agent);
+      formattedInput = adapter.formatResponse(input);
+    } catch {
+      formattedInput = input + '\n';
+    }
 
     const pool = getHarnessPool();
     const sent = pool.sendInput(harnessId, formattedInput);
@@ -359,24 +333,6 @@ export class HarnessExecutor extends EventEmitter {
     const execution = this.executions.get(harnessId);
     if (execution) {
       execution.status = status;
-    }
-  }
-
-  /**
-   * Add output event to execution
-   */
-  private addOutputEvent(
-    harnessId: HarnessId,
-    type: HarnessOutputEventType,
-    data: string
-  ): void {
-    const execution = this.executions.get(harnessId);
-    if (execution) {
-      execution.events.push({
-        type,
-        data,
-        timestamp: new Date().toISOString(),
-      });
     }
   }
 

@@ -82,7 +82,7 @@ import { getSessionStore } from '../session/store.js';
  * @param session - Current session
  * @returns Formatted context block
  */
-export function buildContextSection(session: Session): string {
+export async function buildContextSection(session: Session): Promise<string> {
   const parts: string[] = ['## Current Context'];
 
   // V3.1: Add Metadata
@@ -107,14 +107,18 @@ export function buildContextSection(session: Session): string {
     }
   }
 
-  // Active task
-  if (session.currentTask) {
-    const task = session.currentTask;
-    const goalPreview = task.goal.length > 50 
-      ? task.goal.substring(0, 50) + '...' 
-      : task.goal;
-    parts.push(`🎯 **Active task**: ${goalPreview}`);
-    parts.push(`📊 **Status**: ${task.status}`);
+  // Active task (V3.3 — fetched from TaskManager by ID)
+  if (session.activeTaskId) {
+    const { getTaskManager } = await import('../task/manager.js');
+    const taskManager = await getTaskManager();
+    const task = taskManager.getTask(session.activeTaskId);
+    if (task) {
+      const goalPreview = task.goal.length > 50 
+        ? task.goal.substring(0, 50) + '...' 
+        : task.goal;
+      parts.push(`🎯 **Active task**: ${goalPreview}`);
+      parts.push(`📊 **Status**: ${task.status}`);
+    }
   }
 
   // Summaries (V3.1)

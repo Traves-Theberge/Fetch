@@ -64,6 +64,12 @@ import { logger } from './utils/logger.js';
 import { startStatusServer, setLogoutCallback } from './api/status.js';
 import { initModes } from './modes/index.js';
 import { getProactiveSystem } from './proactive/index.js';
+import { validateEnv } from './config/env.js';
+import { getSessionStore } from './session/store.js';
+import { getTaskStore } from './task/store.js';
+
+/** Module-scoped bridge reference for graceful shutdown */
+let activeBridge: Bridge | null = null;
 
 /**
  * Main application entry point.
@@ -79,15 +85,9 @@ async function main(): Promise<void> {
   logger.info('🐕 Fetch Bridge starting...');
   
   // Validate critical environment variables FIRST (before starting subsystems)
-  const requiredEnvVars = [
-    'OWNER_PHONE_NUMBER',
-    'OPENROUTER_API_KEY'
-  ];
-
-  const missingVars = requiredEnvVars.filter(v => !process.env[v]);
-  
-  if (missingVars.length > 0) {
-    logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
+  const { valid, missing } = validateEnv();
+  if (!valid) {
+    logger.error(`Missing required environment variables: ${missing.join(', ')}`);
     process.exit(1);
   }
 
@@ -104,11 +104,13 @@ async function main(): Promise<void> {
   try {
     const bridge = new Bridge();
     await bridge.initialize();
+    activeBridge = bridge;
     
     // Register logout callback for the status API
     setLogoutCallback(async () => {
       logger.info('🔌 Logout requested via API, destroying bridge...');
       await bridge.destroy();
+      activeBridge = null;
       logger.info('✅ Bridge destroyed, WhatsApp disconnected');
     });
     
@@ -122,23 +124,72 @@ async function main(): Promise<void> {
   }
 }
 
+// =============================================================================
+// Graceful Shutdown
+// =============================================================================
+
+let shuttingDown = false;
+
 /**
- * Handle SIGINT signal for graceful shutdown.
- * Triggered by Ctrl+C in terminal.
+ * Orderly shutdown: stop proactive system, destroy WhatsApp bridge,
+ * kill harness child processes, flush & close SQLite databases.
  */
-process.on('SIGINT', () => {
-  logger.info('🛑 Received SIGINT, shutting down gracefully...');
+async function shutdown(signal: string): Promise<void> {
+  if (shuttingDown) return; // guard against double-signal
+  shuttingDown = true;
+  logger.info(`🛑 Received ${signal}, shutting down gracefully...`);
+
+  try {
+    // 1. Stop proactive timers & watchers
+    getProactiveSystem().stop();
+
+    // 2. Kill any running harness child processes
+    const { getHarnessPool } = await import('./harness/pool.js');
+    try {
+      const pool = getHarnessPool();
+      pool.getSpawner().killAll();
+    } catch { /* pool may never have been created */ }
+
+    // 3. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
+    if (activeBridge) {
+      await activeBridge.destroy();
+      activeBridge = null;
+    }
+
+    // 4. Flush & close SQLite databases
+    try { getSessionStore().close(); } catch { /* may not be initialized */ }
+    try { getTaskStore().close(); } catch { /* may not be initialized */ }
+  } catch (error) {
+    logger.error('Error during shutdown', { error });
+  }
+
+  logger.info('👋 Goodbye.');
   process.exit(0);
+}
+
+// =============================================================================
+// Global Error Handlers
+// =============================================================================
+
+/**
+ * Catch unhandled promise rejections so they don't silently disappear.
+ */
+process.on('unhandledRejection', (reason: unknown) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  logger.error('Unhandled rejection', { message, stack });
 });
 
 /**
- * Handle SIGTERM signal for graceful shutdown.
- * Triggered by Docker stop or process manager.
+ * Catch truly uncaught exceptions. Log and exit.
  */
-process.on('SIGTERM', () => {
-  logger.info('🛑 Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
+process.on('uncaughtException', (error: Error) => {
+  logger.error('Uncaught exception — exiting', { message: error.message, stack: error.stack });
+  process.exit(1);
 });
+
+process.on('SIGINT', () => { shutdown('SIGINT'); });
+process.on('SIGTERM', () => { shutdown('SIGTERM'); });
 
 // Start the application
 main();

@@ -3,11 +3,10 @@
  *
  * The TaskManager is responsible for creating, tracking, and managing
  * the lifecycle of coding tasks in Fetch v2. It coordinates with the
- * TaskQueue and HarnessExecutor to execute tasks.
+ * HarnessExecutor to execute tasks.
  *
  * @module task/manager
  * @see {@link Task} - Task entity
- * @see {@link TaskQueue} - Single-task queue
  * @see {@link HarnessExecutor} - Task execution
  *
  * ## Overview

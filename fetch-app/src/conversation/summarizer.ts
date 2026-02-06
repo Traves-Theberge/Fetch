@@ -13,7 +13,9 @@ import { logger } from '../utils/logger.js';
 
 // Configuration
 const SUMMARY_THRESHOLD = 20; // Summarize every N messages
-const SUMMARY_MODEL = process.env.SUMMARY_MODEL ?? 'openai/gpt-4o-mini';
+import { env } from '../config/env.js';
+
+const SUMMARY_MODEL = env.SUMMARY_MODEL;
 
 export class ConversationSummarizer {
   private static instance: ConversationSummarizer | undefined;
@@ -22,7 +24,7 @@ export class ConversationSummarizer {
 
   private constructor() {
     this.openai = new OpenAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
+      apiKey: env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
     });
   }

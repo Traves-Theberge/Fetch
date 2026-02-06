@@ -38,10 +38,10 @@
 
 import type { AgentType } from '../task/types.js';
 import type {
-  HarnessAdapter,
   HarnessConfig,
   HarnessOutputEventType,
 } from './types.js';
+import { AbstractHarnessAdapter } from './base.js';
 
 // ============================================================================
 // Constants
@@ -120,7 +120,7 @@ const ERROR_PATTERN = /^(?:Error|Failed):\s+(.+)$/im;
  * // config.args = ['copilot', 'suggest', '-t', 'code', 'Add dark mode']
  * ```
  */
-export class CopilotAdapter implements HarnessAdapter {
+export class CopilotAdapter extends AbstractHarnessAdapter {
   /**
    * Agent type this adapter handles
    */
@@ -194,51 +194,31 @@ export class CopilotAdapter implements HarnessAdapter {
   }
 
   /**
-   * Detect if Copilot is asking a question
-   *
-   * @param output - Recent output buffer
-   * @returns Question text if detected, null otherwise
+   * Copilot-specific question pattern: `> or → prompt`
    */
-  detectQuestion(output: string): string | null {
-    const match = output.match(QUESTION_PATTERN);
-    if (match) {
-      return match[1].trim();
-    }
-
-    // Check for common question patterns in last lines
-    const lines = output.trim().split('\n');
-    const lastLines = lines.slice(-3);
-
-    for (const line of lastLines) {
-      // Direct question
-      if (line.trim().endsWith('?')) {
-        return line.trim();
-      }
-
-      // Selection prompt
-      if (/\[1\]|\[2\]|choose|select/i.test(line)) {
-        return line.trim();
-      }
-
-      // Confirmation prompt
-      if (/confirm|continue|proceed/i.test(line)) {
-        return line.trim();
-      }
-    }
-
-    return null;
+  protected getAdapterQuestionPattern(): RegExp {
+    return QUESTION_PATTERN;
   }
 
   /**
-   * Format user response for Copilot stdin
-   *
-   * @param response - User's response
-   * @returns Formatted response with newline
+   * Copilot extends base question detection with selection prompts
    */
-  formatResponse(response: string): string {
-    // Copilot expects responses followed by newline
-    return response.trim() + '\n';
+  detectQuestion(output: string): string | null {
+    const base = super.detectQuestion(output);
+    if (base) return base;
+
+    // Copilot-specific: numbered selection prompts
+    const lines = output.trim().split('\n');
+    const tail = lines.slice(-3);
+    for (const line of tail) {
+      if (/\[1\]|\[2\]|choose|select/i.test(line)) {
+        return line.trim();
+      }
+    }
+    return null;
   }
+
+  // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
    * Extract suggestions from Copilot output
@@ -286,45 +266,31 @@ export class CopilotAdapter implements HarnessAdapter {
   /**
    * Extract summary from Copilot output
    *
-   * Attempts to find a completion summary in the output.
-   *
-   * @param output - Full output buffer
-   * @returns Summary text or default message
+   * Copilot-specific: checks for suggestions, explanations, and commands
+   * before falling back to the base summary extraction.
    */
   extractSummary(output: string): string {
-    // Look for explicit suggestion/explanation
+    // Copilot-specific: suggestion/explanation patterns
     const suggestionMatch = output.match(SUGGESTION_PATTERN);
-    if (suggestionMatch) {
-      return suggestionMatch[1].trim();
-    }
+    if (suggestionMatch) return suggestionMatch[1].trim();
 
     const explanationMatch = output.match(EXPLANATION_PATTERN);
-    if (explanationMatch) {
-      return explanationMatch[1].trim();
-    }
+    if (explanationMatch) return explanationMatch[1].trim();
 
-    // Look for code blocks and summarize
+    // Check for code blocks
     const codeBlocks = this.extractSuggestions(output);
     if (codeBlocks.length > 0) {
       return `Generated ${codeBlocks.length} code suggestion(s).`;
     }
 
-    // Look for commands
+    // Check for commands
     const commands = this.extractCommands(output);
     if (commands.length > 0) {
       return `Suggested command: ${commands[0]}`;
     }
 
-    // Extract last meaningful paragraph
-    const paragraphs = output
-      .split(/\n\n+/)
-      .filter((p) => p.trim().length > 20);
-
-    if (paragraphs.length > 0) {
-      return paragraphs[paragraphs.length - 1].trim().substring(0, 500);
-    }
-
-    return 'Suggestion generated.';
+    // Fall back to base implementation
+    return super.extractSummary(output);
   }
 
   /**
