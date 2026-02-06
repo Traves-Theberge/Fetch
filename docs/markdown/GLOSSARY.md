@@ -1,94 +1,81 @@
-# 🐕 Fetch — Glossary
-
-> A complete dictionary of Fetch's dog-themed nomenclature and technical terms.
-> Every concept in the system maps to a real-world dog metaphor.
-
----
+# Glossary
 
 ## Core Concepts
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Fetch** | 🐕 | The orchestrator agent — a "good dog" that retrieves code, answers, and results for its owner. Not an AI model itself; a routing layer that delegates to the Pack. |
-| **Alpha** | 👤 | The owner/administrator — the human who commands Fetch. Defined in `data/identity/ALPHA.md`. The Alpha's word is law. |
-| **The Pack** | 🐺 | The collection of available AI harnesses (Claude, Gemini, Copilot) that work together under Fetch's direction. |
+| Term | Definition |
+|------|-----------|
+| **Fetch** | The orchestrator system. Receives WhatsApp messages, classifies intent, delegates to AI harnesses, reports results. |
+| **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
+| **The Pack** | Collective name for the three AI harness agents (Claude, Gemini, Copilot). |
 
 ## Infrastructure
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Bridge** | 🌉 | The Node.js/TypeScript service (`fetch-bridge`) that connects WhatsApp to the AI harness system. Runs the V3.1 orchestrator, security pipeline, and all processing layers. Port 8765. |
-| **Kennel** | 🏠 | The Docker sandbox container (`fetch-kennel`) where AI CLI tools execute code safely. Ubuntu 22.04 with resource limits (2 GB RAM, 2 CPUs). The dogs run free inside but can't escape. |
-| **Workspace** | 📁 | A mounted project directory in `/workspace` where code lives. Each workspace is a separate repo or project. Mounted into the Kennel for AI agent access. |
-| **Manager** | 🖥️ | The Go TUI application for local administration. Built with Bubble Tea. Handles start/stop, configuration, logs, QR display. |
+| Term | Definition |
+|------|-----------|
+| **Bridge** | The Node.js application running in Docker. Handles WhatsApp, security, agent core, tools. |
+| **Kennel** | The Ubuntu Docker container where AI CLIs execute. Sandboxed with mounted workspace. |
+| **Manager** | The Go TUI (Bubble Tea) that runs on the host machine. Controls Docker, edits config, views logs. |
+| **Workspace** | The `/workspace` directory mounted into both containers. Contains all project code. |
 
 ## Identity System
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Collar** | 🏷️ | The core identity definition file (`data/identity/COLLAR.md`). Defines Fetch's name, role, voice, directives, behavioral traits, communication style, and instinct rules. The collar makes the dog. |
-| **Agent Sub-Files** | 📋 | Individual pack member profile files in `data/agents/*.md`. Each file uses YAML frontmatter (parsed by `gray-matter`) defining a `PackMember` with 13 structured fields. Replaces the monolithic `AGENTS.md`. |
-| **PackMember** | 🐺 | A structured TypeScript interface (13 fields) representing a single pack member parsed from `data/agents/*.md`. Includes name, emoji, harness, cli, title, role, strengths, weaknesses, bestFor, avoidFor, and personality. |
-| **Identity Loader** | ⚙️ | The parser that reads COLLAR.md, ALPHA.md from `data/identity/` and agent sub-files from `data/agents/*.md` into the `AgentIdentity` structure at startup and on hot-reload. Uses `gray-matter` for YAML frontmatter parsing. |
+| Term | Definition |
+|------|-----------|
+| **Collar** | `data/identity/COLLAR.md` — Core system instructions defining Fetch's personality and behavioral rules. |
+| **Alpha File** | `data/identity/ALPHA.md` — Owner information (preferences, timezone, technical level). |
+| **Pack Member** | A `PackMember` struct parsed from `data/agents/*.md`. Defines a harness's name, triggers, role, and routing priority. |
+| **Identity Manager** | Singleton that builds the system prompt from identity files. Watches for changes and hot-reloads. |
 
 ## Processing Layers
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Instinct** | ⚡ | A hardwired deterministic behavior that fires before LLM processing. Pattern-matched, no tokens consumed. Examples: `/stop` (halt task), `/help` (show commands), `/status` (report state). 12 handlers sorted by priority. |
-| **Mode** | 🔄 | Fetch's operational state machine. Five modes: ALERT 🟢 (listening), WORKING 🔵 (executing), WAITING ⏳ (pending input), GUARDING 🔴 (safety lock), RESTING 💤 (idle). Persisted to SQLite, restored on boot. |
-| **Skill** | 🧩 | A modular domain-specific prompt injection loaded from `SKILL.md` files. 7 built-in (debugging, docker, fetch-meta, git, react, testing, typescript) + user-defined in `data/skills/`. Hot-reloaded via chokidar. |
-| **Intent** | 🎯 | The classified purpose of a user message: `conversation` (chat), `workspace` (project management), `task` (coding work), or `clarify` (ambiguous). Determined by the Agent Core via LLM. |
+| Term | Definition |
+|------|-----------|
+| **Instinct** | Deterministic fast-path handler. Pattern-matched against input, executes without LLM. <5ms. |
+| **Intent** | Classification result: `conversation`, `inquiry`, or `action`. Determines which handler processes the message. |
+| **Mode** | State machine state: ALERT, WORKING, WAITING, GUARDING, RESTING. Persisted to SQLite. |
+| **Skill** | A Markdown file in `data/skills/` that injects domain-specific instructions when triggers match. |
 
 ## Harness System
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Harness** | 🔗 | An adapter wrapping an AI CLI tool for standardized execution. Each harness implements `buildConfig()`, `parseOutputLine()`, `detectQuestion()`, and `extractSummary()`. |
-| **The Sage** | 🦉 | Claude Code — the deep-thinking architect harness. Best for multi-file refactoring, architectural decisions, and comprehensive test suites. Calm, wise, thorough. |
-| **The Scout** | ⚡ | Gemini CLI — the fast researcher harness. Best for quick fixes, explanations, boilerplate, and documentation. Quick, energetic, to-the-point. |
-| **The Retriever** | 🎯 | GitHub Copilot CLI — the precise code completer harness. Best for single functions, shell commands, and GitHub operations. Quiet, efficient, precise. |
-| **Harness Pool** | 🏊 | The concurrent execution manager. Limits simultaneous harness processes (default: 2) and queues additional requests. |
-| **Spawner** | 🚀 | The child process spawner. Creates CLI processes with array-based arguments (safe, no shell injection) inside the Kennel. |
+| Term | Definition |
+|------|-----------|
+| **Harness** | An adapter that wraps an AI CLI (Claude Code, Gemini, Copilot) for use by the orchestrator. |
+| **AbstractHarnessAdapter** | Base class providing shared logic: `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`. |
+| **Registry** | `HarnessRegistry` — Maps harness names to adapter instances. Single source of truth. |
+| **Executor** | `HarnessExecutor` — Manages task execution lifecycle through the pool/spawner. |
+| **Spawner** | `HarnessSpawner` — Creates and manages child processes (`docker exec` into Kennel). |
+| **Pool** | Process pool for managing concurrent harness instances (currently single-task). |
 
 ## Data & Persistence
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **WAL Mode** | 💾 | SQLite Write-Ahead Logging — crash-safe concurrent database access. Both `sessions.db` and `tasks.db` use WAL mode. |
-| **Thread** | 🧵 | A conversation thread tracking topic, context, and message history. Automatically created, supports summarization. |
-| **Session** | 📝 | A persistent conversation state tied to a WhatsApp user. Stores messages, active task, current workspace, and preferences. 7-day auto-expiry. |
+| Term | Definition |
+|------|-----------|
+| **WAL Mode** | SQLite Write-Ahead Logging. Allows concurrent reads during writes without locking. |
+| **Session** | A conversation context. Contains messages, preferences, active project, and active task reference. |
+| **Thread** | A named conversation branch within a session. Allows context switching. |
+| **Task** | A coding job with lifecycle: pending → running → completed/failed/cancelled. Persisted to tasks.db. |
+| **CronJob** | A scheduled job. Can be recurring (cron expression) or one-shot (auto-deleted after execution). |
 
 ## Security
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Security Gate** | 🛡️ | The 7-layer security pipeline: Owner Verification → Whitelist Check → @fetch Trigger → Rate Limiting → Input Validation → Path Traversal Protection → Docker Isolation. |
-| **@fetch Trigger** | 📢 | The required prefix for all messages. Case-insensitive. Messages without it are silently dropped. |
-| **Whitelist** | ✅ | The list of trusted phone numbers authorized to interact with Fetch beyond the owner. Managed via `/trust` commands. |
+| Term | Definition |
+|------|-----------|
+| **Security Gate** | Entry point for message authorization. Checks trigger, phone whitelist, rate limit, input validity. |
+| **@fetch Trigger** | Required prefix for all WhatsApp messages (except in direct 1:1 chats). |
+| **Whitelist** | List of trusted phone numbers stored in `data/whitelist.json`. Owner is always trusted. |
+| **Sliding Window** | Rate limiter algorithm using per-key timestamp arrays. Precise per-second granularity. |
 
 ## External Services
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **OpenRouter** | 🌐 | API gateway providing access to 100+ LLM models through a single endpoint (`https://openrouter.ai/api/v1`). Used for orchestration intent classification, conversation summarization, and agent reasoning. |
-| **ReAct Loop** | 🔁 | Reason + Act pattern — the LLM's observe → decide → execute → reflect cycle. The agent loops through tool calls until the task is complete or blocked. |
+| Term | Definition |
+|------|-----------|
+| **OpenRouter** | API gateway for LLM access. Fetch uses it via the OpenAI SDK for agent reasoning, summarization, and vision. |
+| **ReAct Loop** | Reason + Act pattern. LLM decides → calls tool → observes result → repeats until done. |
+| **whisper.cpp** | C++ implementation of OpenAI Whisper. Used for voice note transcription inside the Bridge container. |
 
 ## Tools
 
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Orchestrator Tool** | 🛠️ | One of 11 built-in tools for workspace management (5), task control (4), and user interaction (2). Used by the LLM during the ReAct loop. |
-| **Custom Tool** | 🔧 | A user-defined shell command tool loaded from `data/tools/*.json`. Hot-reloaded. Executed inside the Kennel. |
-
-## Proactive System
-
-| Term | Emoji | Definition |
-|------|-------|------------|
-| **Proactive System** | 👀 | Background services (polling, file watchers, scheduled tasks) that monitor without user prompts. Configured in `data/POLLING.md`. |
-| **Polling Service** | ⏰ | Interval-based checks (e.g., git status every N minutes). Uses cron-parser for scheduling. |
-| **Watcher Service** | 📡 | File system watchers using chokidar. Monitors identity, skills, tools, and polling config for live updates. |
-
----
-
-*Glossary for Fetch v3.2.0*
+| Term | Definition |
+|------|-----------|
+| **Orchestrator Tool** | One of 11 tools the LLM can call during the ReAct loop (workspace_*, task_*, ask_user, report_progress). |
+| **Custom Tool** | A user-defined tool in `data/tools/` (JSON). Wraps a shell command with parameters. |

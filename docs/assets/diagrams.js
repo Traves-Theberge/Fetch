@@ -387,7 +387,7 @@ const FetchDiagrams = {
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
       .attr('font-size', '12px')
-      .text('🏗️ V2 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
+      .text('🏗️ V3.3 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
   },
 
   // =====================================================
@@ -627,34 +627,22 @@ const FetchDiagrams = {
 
     const categories = [
       { 
-        name: 'File', 
+        name: 'Workspace', 
         icon: '📁', 
-        tools: ['read_file', 'write_file', 'edit_file', 'search_files', 'list_directory'],
+        tools: ['workspace_list', 'workspace_select', 'workspace_status', 'workspace_create', 'workspace_delete'],
         color: colors.accent1 
       },
       { 
-        name: 'Code', 
-        icon: '🔍', 
-        tools: ['repo_map', 'find_definition', 'find_references', 'get_diagnostics'],
+        name: 'Task', 
+        icon: '🚀', 
+        tools: ['task_create', 'task_status', 'task_cancel', 'task_respond'],
         color: colors.accent2 
       },
       { 
-        name: 'Shell', 
-        icon: '💻', 
-        tools: ['run_command', 'run_tests', 'run_lint'],
+        name: 'Interaction', 
+        icon: '💬', 
+        tools: ['ask_user', 'report_progress'],
         color: colors.accent3 
-      },
-      { 
-        name: 'Git', 
-        icon: '🔀', 
-        tools: ['git_status', 'git_diff', 'git_commit', 'git_undo', 'git_branch', 'git_log', 'git_stash'],
-        color: colors.accent4 
-      },
-      { 
-        name: 'Control', 
-        icon: '🎮', 
-        tools: ['ask_user', 'report_progress', 'task_complete', 'task_blocked', 'think'],
-        color: colors.accent5 
       },
     ];
 
@@ -671,7 +659,7 @@ const FetchDiagrams = {
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('🛠️ 24 Built-in Tools');
+      .text('🛠️ 11 Orchestrator Tools');
 
     categories.forEach((cat, i) => {
       const x = startX + i * (boxWidth + spacing);
@@ -850,9 +838,9 @@ const FetchDiagrams = {
 
     const sections = [
       { title: 'Identity', items: ['userId (phone)', 'sessionId'], x: 60, color: colors.accent1 },
-      { title: 'Conversation', items: ['messages[]', '(last 30 in context)'], x: 220, color: colors.accent2 },
+      { title: 'Conversation', items: ['messages[]', 'threads[]'], x: 220, color: colors.accent2 },
       { title: 'Preferences', items: ['autonomyLevel', 'autoCommit', 'verboseMode'], x: 390, color: colors.accent3 },
-      { title: 'Task State', items: ['currentTask', 'plan[]', 'iterations'], x: 560, color: colors.accent4 },
+      { title: 'Task State', items: ['activeTaskId', 'gitStartCommit'], x: 560, color: colors.accent4 },
     ];
 
     sections.forEach(section => {
@@ -993,32 +981,26 @@ const FetchDiagrams = {
     // Branching arrows
     const branchY = 250;
     svg.append('path')
-      .attr('d', `M 350 220 L 350 ${branchY} L 120 ${branchY + 30}`)
+      .attr('d', `M 350 220 L 350 ${branchY} L 130 ${branchY + 30}`)
       .attr('fill', 'none')
       .attr('stroke', colors.arrow)
       .attr('stroke-width', 2);
     svg.append('path')
-      .attr('d', `M 350 ${branchY} L 290 ${branchY + 30}`)
+      .attr('d', `M 350 ${branchY} L 350 ${branchY + 30}`)
       .attr('fill', 'none')
       .attr('stroke', colors.arrow)
       .attr('stroke-width', 2);
     svg.append('path')
-      .attr('d', `M 350 ${branchY} L 410 ${branchY + 30}`)
-      .attr('fill', 'none')
-      .attr('stroke', colors.arrow)
-      .attr('stroke-width', 2);
-    svg.append('path')
-      .attr('d', `M 350 ${branchY} L 580 ${branchY + 30}`)
+      .attr('d', `M 350 ${branchY} L 570 ${branchY + 30}`)
       .attr('fill', 'none')
       .attr('stroke', colors.arrow)
       .attr('stroke-width', 2);
 
     // Intent boxes
     const intents = [
-      { icon: '💬', label: 'Conversation', desc: 'Chat, greetings', x: 50, color: colors.accent1 },
-      { icon: '🔍', label: 'Inquiry', desc: 'Questions', x: 210, color: colors.accent2 },
-      { icon: '⚡', label: 'Action', desc: 'Single edit', x: 370, color: colors.accent3 },
-      { icon: '📋', label: 'Task', desc: 'Multi-step', x: 530, color: colors.accent4 },
+      { icon: '💬', label: 'Conversation', desc: 'Chat, greetings', x: 70, color: colors.accent1 },
+      { icon: '🔍', label: 'Inquiry', desc: 'Questions, status', x: 290, color: colors.accent2 },
+      { icon: '⚡', label: 'Action', desc: 'Code tasks, tools', x: 510, color: colors.accent3 },
     ];
 
     const intentY = 290;
@@ -1069,10 +1051,9 @@ const FetchDiagrams = {
 
     // Outcome boxes
     const outcomes = [
-      { label: 'Direct Response', x: 50 },
-      { label: 'Read-Only Tools', x: 210 },
-      { label: 'Full Tools (1x)', x: 370 },
-      { label: 'ReAct Loop', x: 530 },
+      { label: 'Direct LLM', x: 70 },
+      { label: 'Read-Only Tools', x: 290 },
+      { label: 'Full ReAct Loop', x: 510 },
     ];
 
     outcomes.forEach((outcome, i) => {
@@ -1104,7 +1085,7 @@ const FetchDiagrams = {
 
     // Converge to response
     svg.append('path')
-      .attr('d', `M 110 440 L 110 465 L 350 480 M 270 440 L 270 465 L 350 480 M 430 440 L 430 465 L 350 480 M 590 440 L 590 465 L 350 480`)
+      .attr('d', `M 130 440 L 130 465 L 350 480 M 350 440 L 350 480 M 570 440 L 570 465 L 350 480`)
       .attr('fill', 'none')
       .attr('stroke', colors.arrow)
       .attr('stroke-width', 2);
