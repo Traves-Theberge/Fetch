@@ -69,7 +69,6 @@ const MIN_MESSAGE_LENGTH = 1;
 /** Patterns indicating potential malicious input */
 const SUSPICIOUS_PATTERNS = [
   /\$\(.*\)/,           // Command substitution
-  /`.*`/,               // Backtick command substitution
   /;\s*rm\s+-rf/i,      // Common destructive command
   />\s*\/dev\//,        // Device redirection
   /\|\s*sh\b/i,         // Pipe to shell

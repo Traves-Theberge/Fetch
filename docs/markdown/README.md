@@ -248,7 +248,7 @@ fetch/
 │       ├── conversation/   # Thread & summarizer
 │       ├── handler/        # Message entry point
 │       ├── harness/        # CLI adapters (Claude, Gemini, Copilot)
-│       ├── identity/       # Hot-reloaded persona (Collar/Alpha)
+│       ├── identity/       # Hot-reloaded persona (Collar/Alpha + data/agents/)
 │       ├── instincts/      # Deterministic fast-path behaviors
 │       ├── modes/          # State machine (ALERT/WORKING/WAITING/GUARDING)
 │       ├── proactive/      # Polling & watcher services
@@ -272,7 +272,8 @@ fetch/
 │   ├── claude/
 │   └── github/
 ├── data/                   # Persistent data
-│   ├── identity/           # Persona files (COLLAR.md, ALPHA.md, AGENTS.md)
+│   ├── identity/           # Persona files (COLLAR.md, ALPHA.md)
+│   ├── agents/             # Pack member sub-files (claude.md, gemini.md, copilot.md, ROUTING.md)
 │   ├── skills/             # User-defined skill files
 │   └── tools/              # Custom tool definitions
 ├── docs/                   # Documentation site

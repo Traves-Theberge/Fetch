@@ -27,8 +27,9 @@
 | Term | Emoji | Definition |
 |------|-------|------------|
 | **Collar** | 🏷️ | The core identity definition file (`data/identity/COLLAR.md`). Defines Fetch's name, role, voice, directives, behavioral traits, communication style, and instinct rules. The collar makes the dog. |
-| **AGENTS.md** | 📋 | The Pack registry file (`data/identity/AGENTS.md`). Defines each harness member's strengths, weaknesses, routing rules, and personality. |
-| **Identity Loader** | ⚙️ | The parser that reads COLLAR.md, ALPHA.md, and AGENTS.md into the `AgentIdentity` structure at startup and on hot-reload. |
+| **Agent Sub-Files** | 📋 | Individual pack member profile files in `data/agents/*.md`. Each file uses YAML frontmatter (parsed by `gray-matter`) defining a `PackMember` with 13 structured fields. Replaces the monolithic `AGENTS.md`. |
+| **PackMember** | 🐺 | A structured TypeScript interface (13 fields) representing a single pack member parsed from `data/agents/*.md`. Includes name, emoji, harness, cli, title, role, strengths, weaknesses, bestFor, avoidFor, and personality. |
+| **Identity Loader** | ⚙️ | The parser that reads COLLAR.md, ALPHA.md from `data/identity/` and agent sub-files from `data/agents/*.md` into the `AgentIdentity` structure at startup and on hot-reload. Uses `gray-matter` for YAML frontmatter parsing. |
 
 ## Processing Layers
 
@@ -90,4 +91,4 @@
 
 ---
 
-*Glossary for Fetch v3.1.2*
+*Glossary for Fetch v3.2.0*

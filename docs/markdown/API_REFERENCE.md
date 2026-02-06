@@ -660,4 +660,4 @@ interface Instinct {
 
 ---
 
-*Fetch API Reference v3.1.2 - Last updated: February 5, 2026*
+*Fetch API Reference v3.2.0 - Last updated: February 5, 2026*

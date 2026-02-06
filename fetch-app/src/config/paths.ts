@@ -63,9 +63,6 @@ export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 /** Custom tool definitions (*.json files) */
 export const TOOLS_DIR = path.join(DATA_DIR, 'tools');
 
-/** Memory/context persistence */
-export const MEMORY_DIR = path.join(DATA_DIR, 'memory');
-
 /** Polling configuration file */
 export const POLLING_FILE = path.join(DATA_DIR, 'POLLING.md');
 

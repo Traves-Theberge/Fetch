@@ -78,17 +78,7 @@ import { getProactiveSystem } from './proactive/index.js';
 async function main(): Promise<void> {
   logger.info('🐕 Fetch Bridge starting...');
   
-  // Start status API server first
-  startStatusServer();
-  
-  // Initialize Mode System
-  await initModes();
-  logger.info('✅ Mode System initialized');
-
-  // Initialize Proactive Systems (V3)
-  await getProactiveSystem().start();
-  
-  // Validate critical environment variables
+  // Validate critical environment variables FIRST (before starting subsystems)
   const requiredEnvVars = [
     'OWNER_PHONE_NUMBER',
     'OPENROUTER_API_KEY'
@@ -100,6 +90,16 @@ async function main(): Promise<void> {
     logger.error(`Missing required environment variables: ${missingVars.join(', ')}`);
     process.exit(1);
   }
+
+  // Start status API server
+  startStatusServer();
+  
+  // Initialize Mode System
+  await initModes();
+  logger.info('✅ Mode System initialized');
+
+  // Initialize Proactive Systems (V3)
+  await getProactiveSystem().start();
 
   try {
     const bridge = new Bridge();

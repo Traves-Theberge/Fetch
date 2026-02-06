@@ -115,6 +115,18 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
+   * Send input to a running harness process stdin
+   */
+  public sendInput(id: HarnessId, data: string): boolean {
+    const child = this.processes.get(id);
+    if (child?.stdin?.writable) {
+      child.stdin.write(data);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Kill a specific instance
    */
   public kill(id: HarnessId): boolean {

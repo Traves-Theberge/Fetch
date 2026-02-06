@@ -9,11 +9,11 @@ For each file in the source code, verify the following:
 
 | File Path | Status | Comments? | Dead Code? | Action Items / Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| src/agent/core.ts | Passed | Yes | No | Audit complete |
+| src/agent/core.ts | Passed | Yes | No | v3.2.0: Updated to use IdentityManager.buildSystemPrompt() |
 | src/agent/format.ts | Passed | Yes | No | 6 dead exports removed (formatApprovalRequest, formatTaskComplete, formatTaskFailed, formatProgress, formatQuestion, formatThinking) |
 | ~~src/agent/index.ts~~ | Deleted | — | — | Dead barrel: never imported |
 | src/agent/intent.ts | Passed | Yes | No | Audit complete |
-| src/agent/prompts.ts | Passed | Yes | No | Audit complete |
+| src/agent/prompts.ts | Passed | Yes | No | v3.2.0: Gutted from 571→153 lines. Static prompts removed; now tool defs + schema helpers only |
 | src/agent/whatsapp-format.ts | Passed | Yes | No | Audit complete |
 | src/api/status.ts | Passed | Yes | No | Audit complete |
 | src/bridge/client.ts | Passed | Yes | No | Audit complete |
@@ -36,9 +36,9 @@ For each file in the source code, verify the following:
 | src/harness/registry.ts | Passed | Yes | No | Audit complete |
 | src/harness/spawner.ts | Passed | Yes | No | Audit complete |
 | src/harness/types.ts | Passed | Yes | No | Audit complete |
-| src/identity/loader.ts | Passed | Yes | No | Audit complete |
-| src/identity/manager.ts | Passed | Yes | No | Instinct terminology preserved |
-| src/identity/types.ts | Passed | Yes | No | Audit complete |
+| src/identity/loader.ts | Passed | Yes | No | v3.2.0: Added loadAgents() for data/agents/*.md with gray-matter YAML parsing |
+| src/identity/manager.ts | Passed | Yes | No | v3.2.0: buildSystemPrompt() now single source of truth; watches data/agents/ |
+| src/identity/types.ts | Passed | Yes | No | v3.2.0: Added PackMember interface (13 fields), removed SystemPromptConfig |
 | src/index.ts | Passed | Yes | No | Audit complete |
 | src/instincts/commands.ts | Passed | Yes | No | Instinct terminology verified |
 | src/instincts/help.ts | Passed | Yes | No | Instinct terminology verified |
@@ -87,7 +87,7 @@ For each file in the source code, verify the following:
 | src/session/types.ts | Passed | Yes | No | Dead SessionSummary and Database interfaces removed |
 | ~~src/skills/index.ts~~ | Deleted | — | — | Dead barrel: never imported |
 | src/skills/loader.ts | Passed | Yes | No | Audit complete |
-| src/skills/manager.ts | Passed | Yes | No | Audit complete |
+| src/skills/manager.ts | Passed | Yes | No | v3.2.0: Two-phase discovery→activation; buildContextSection() wired |
 | src/skills/types.ts | Passed | Yes | No | Audit complete |
 | ~~src/task/index.ts~~ | Deleted | — | — | Dead barrel: never imported |
 | src/task/integration.ts | Passed | Yes | No | Audit complete |
@@ -99,7 +99,7 @@ For each file in the source code, verify the following:
 | ~~src/tools/index.ts~~ | Deleted | — | — | Dead barrel: never imported |
 | src/tools/interaction.ts | Passed | Yes | No | Audit complete |
 | src/tools/loader.ts | Passed | Yes | No | Audit complete |
-| src/tools/registry.ts | Passed | Yes | No | Audit complete |
+| src/tools/registry.ts | Passed | Yes | No | v3.2.0: Updated to use IdentityManager for prompt assembly |
 | src/tools/task.ts | Passed | Yes | No | Audit complete |
 | src/tools/types.ts | Passed | Yes | No | Rebuilt: kept only ToolResult + DangerLevel (30 dead exports removed) |
 | src/tools/workspace.ts | Passed | Yes | No | Audit complete |

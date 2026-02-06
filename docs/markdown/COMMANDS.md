@@ -32,9 +32,9 @@ Fetch operates as a state machine with 5 distinct modes. The background color of
 
 ---
 
-## ⚡ Reflex Commands (Fast-Path)
+## ⚡ Instinct Commands (Fast-Path)
 
-Reflexes are deterministic commands that bypass the AI agent. They work in ANY mode.
+Instincts are deterministic commands that bypass the AI agent. They work in ANY mode.
 
 | Command | Action |
 |---------|--------|
@@ -45,7 +45,7 @@ Reflexes are deterministic commands that bypass the AI agent. They work in ANY m
 
 ---
 
-## 🛠️ Management Commands (V3.1)
+## 🛠️ Management Commands (V3.2)
 
 ### 🎭 Identity Management
 Control Fetch's personality and system prompts.
@@ -368,4 +368,4 @@ To revert everything from this session:
 
 ---
 
-*Fetch Command Reference v2.1.0*
+*Fetch Command Reference v3.2.0*
