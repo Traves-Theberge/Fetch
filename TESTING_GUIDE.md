@@ -117,8 +117,8 @@ npx vitest run tests/e2e/
 
 | # | Test | Expected | Result |
 |---|------|----------|--------|
-| A1 | DM from **owner** without `@fetch` trigger | ❌ Silently ignored (trigger required) | |
-| A2 | DM from **owner** with `@fetch hello` | ✅ Responds | |
+| A1 | DM from **owner** without `@fetch` trigger | ❌ Silently ignored (trigger required) | ✅ |
+| A2 | DM from **owner** with `@fetch hello` | ✅ Responds | ✅ (verbose — dumps help instead of short greeting) |
 | A3 | DM from **untrusted stranger** with `@fetch hello` | ❌ Blocked — "not authorized" | |
 | A4 | `/trust add <stranger-number>` (from owner DM) | ✅ Number added, confirmed | |
 | A5 | DM from **newly trusted** user with `@fetch hello` | ✅ Responds | |
@@ -135,8 +135,8 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B1 | `/projects` or `/ls` | Lists workspace dirs with types | |
-| B2 | `/project <name>` or `/cd <name>` | Switches active project, shows info | |
+| B1 | `/projects` or `/ls` | Lists workspace dirs with types | ✅ (names shown, no type labels) |
+| B2 | `/project <name>` or `/cd <name>` | Switches active project, shows info | ✅ (branch, last commit, clean tree) |
 | B3 | `/project` (no args, with project active) | Shows current project info | |
 | B4 | `/project` (no args, no project) | "No project selected" message | |
 | B5 | `/clone <git-url>` | Clones repo into workspace | |
@@ -146,7 +146,7 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B7 | `/status` or `/st` or `/gs` | Shows project + git status | |
+| B7 | `/status` or `/st` or `/gs` | Shows project + git status | ✅ (no project = shows settings + mode) |
 | B8 | `/diff` | Shows uncommitted changes | |
 | B9 | `/log` or `/log 5` | Shows recent commits | |
 | B10 | `/undo` | Reverts last change (git) | |
@@ -174,23 +174,23 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B20 | `/auto` or `/autonomous` | Toggles cautious ↔ autonomous (with explanation) | |
-| B21 | `/mode supervised` | Sets mode with bullet-point description | |
-| B22 | `/mode cautious` | Sets mode with bullet-point description | |
-| B23 | `/mode autonomous` | Sets mode with bullet-point description | |
-| B24 | `/mode` (no args) | Shows current mode | |
-| B25 | `/verbose` | Toggles verbose mode ON/OFF | |
-| B25b | `/mode verbose` | Redirects: "verbose is a setting, use `/verbose`" | |
-| B26 | `/autocommit` | Toggles auto-commit ON/OFF | |
+| B20 | `/auto` or `/autonomous` | Toggles cautious ↔ autonomous (with explanation) | ✅ (bullet-point description) |
+| B21 | `/mode supervised` | Sets mode with bullet-point description | ✅ |
+| B22 | `/mode cautious` | Sets mode with bullet-point description | ✅ |
+| B23 | `/mode autonomous` | Sets mode with bullet-point description | ✅ |
+| B24 | `/mode` (no args) | Shows current mode | ✅ (shows current + lists all 3) |
+| B25 | `/verbose` | Toggles verbose mode ON/OFF | ✅ |
+| B25b | `/mode verbose` | Redirects: "verbose is a setting, use `/verbose`" | ✅ |
+| B26 | `/autocommit` | Toggles auto-commit ON/OFF | ✅ |
 
 #### Identity & Skills
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B27 | `/identity` | Shows name, role, tone | |
+| B27 | `/identity` | Shows name, role, tone | ✅ (name, role, voice, hint for reset/system) |
 | B28 | `/identity system` or `/identity core` | Shows directives | |
 | B29 | `/identity reset` | Reloads identity from disk | |
-| B30 | `/skills` or `/skill list` | Lists active skills | |
+| B30 | `/skills` or `/skill list` | Lists active skills | ✅ (empty — no skills defined, correct) |
 | B31 | `/skill create test-skill` | Creates skill scaffold | |
 | B32 | `/skill disable test-skill` | Disables skill | |
 | B33 | `/skill enable test-skill` | Re-enables skill | |
@@ -213,8 +213,8 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B37 | `/help` or `/h` or `/?` | Shows full command reference | |
-| B38 | `/version` or `/v` | Shows "Fetch v3.5.0" | |
+| B37 | `/help` or `/h` or `/?` | Shows full command reference | ✅ (comprehensive, well-formatted) |
+| B38 | `/version` or `/v` | Shows "Fetch v3.5.0" | ✅ |
 
 #### Security
 
@@ -239,8 +239,8 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B48 | `/notacommand` | "Unknown command" message | |
-| B49 | `/` (just slash) | Should not crash | |
+| B48 | `/notacommand` | "Unknown command" message | ✅ |
+| B49 | `/` (just slash) | Should not crash | ✅ (shows unknown command gracefully) |
 
 ### C — AI Tools (LLM-Invoked)
 
@@ -251,13 +251,13 @@ Send these as **natural language** (not slash commands).
 
 | # | Send Message | Expected Tool Call | Expected Behavior | Result |
 |---|-------------|-------------------|-------------------|--------|
-| C1 | `what projects do we have?` | `workspace_list` | Returns project directories with types | |
-| C2 | `show me available projects` | `workspace_list` | Same — flexible phrasing | |
+| C1 | `what projects do we have?` | `workspace_list` | Returns project directories with types | ✅ (lists with branches + active workspace) |
+| C2 | `show me available projects` | `workspace_list` | Same — flexible phrasing | ❌ (400 error from poisoned session. Retested below) |
 | C3 | `any projects?` | `workspace_list` | Same — minimal phrasing | |
-| C4 | `switch to <project-name>` | `workspace_select` | Activates project | |
+| C4 | `switch to <project-name>` | `workspace_select` | Activates project | ✅ (recognized already active, didn't re-select) |
 | C5 | `switch to it` (after listing) | `workspace_select` | Pronoun resolution | |
-| C6 | `project status` | `workspace_status` | Git info, modified files | |
-| C7 | `create a project called demo` | `workspace_create` | Creates dir with template (no confirmation) | |
+| C6 | `project status` | `workspace_status` | Git info, modified files | ❌ (400 error — session poisoned by prior bad tool call. Retested below) |
+| C7 | `create a project called demo` | `workspace_create` | Creates dir with template (no confirmation) | ❌ (LLM sent whitespace-only args — fix: degenerate arg detection added) |
 | C8 | `delete demo` (project context) | `workspace_delete` | Confirms, then deletes | |
 
 #### Task Tools
@@ -279,7 +279,7 @@ Send these as **natural language** (not slash commands).
 
 | # | Send Message | Expected | Result |
 |---|-------------|----------|--------|
-| C14 | `hey fetch` | Greeting response, NO tool calls | |
+| C14 | `hey fetch` | Greeting response, NO tool calls | ✅ (short greeting, knows active project) |
 | C15 | `what can you do?` | Capability overview, no tools | |
 | C16 | `how does React work?` | Conversational answer, no tools | |
 | C17 | `yes` (after Fetch asks a question) | Approves action — routes to task/approval, NOT conversation | |
