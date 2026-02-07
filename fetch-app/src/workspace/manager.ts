@@ -45,10 +45,15 @@ const WORKSPACE_BASE = '/workspace';
  * Files that indicate project type
  */
 const PROJECT_INDICATORS: Record<ProjectType, string[]> = {
+  typescript: ['tsconfig.json'],
   node: ['package.json'],
-  python: ['requirements.txt', 'pyproject.toml', 'setup.py', 'Pipfile'],
+  python: ['requirements.txt', 'pyproject.toml', 'setup.py', 'Pipfile', 'setup.cfg'],
   rust: ['Cargo.toml'],
   go: ['go.mod'],
+  java: ['pom.xml', 'build.gradle', 'build.gradle.kts'],
+  ruby: ['Gemfile'],
+  php: ['composer.json'],
+  dotnet: ['*.csproj', '*.sln', '*.fsproj'],
   unknown: [],
 };
 
@@ -332,9 +337,17 @@ export class WorkspaceManager extends EventEmitter {
       if (type === 'unknown') continue;
 
       for (const file of files) {
-        const result = await dockerExec('test', ['-f', `${path}/${file}`]);
-        if (result.exitCode === 0) {
-          return type as ProjectType;
+        if (file.includes('*')) {
+          // Glob pattern — use ls with the pattern via sh -c
+          const result = await dockerExec('sh', ['-c', `ls ${path}/${file} 2>/dev/null | head -1`]);
+          if (result.exitCode === 0 && result.stdout.trim()) {
+            return type as ProjectType;
+          }
+        } else {
+          const result = await dockerExec('test', ['-f', `${path}/${file}`]);
+          if (result.exitCode === 0) {
+            return type as ProjectType;
+          }
         }
       }
     }

@@ -112,7 +112,7 @@ export async function parseCommand(
 
     case 'version':
     case 'v':
-      return { handled: true, responses: ['🤖 Fetch v3.3.0 (Deep Refinement)'] };
+      return { handled: true, responses: ['🤖 Fetch v3.5.0 (Make It Feel Alive)'] };
 
     // ─── Identity & Skills ─────────────────────────────────────────────
     case 'identity':

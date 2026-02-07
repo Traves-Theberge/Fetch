@@ -23,13 +23,26 @@ import { getTaskManager } from '../task/manager.js';
 export async function formatStatus(session: Session): Promise<string> {
   let message = `📊 *Fetch Status*\n\n`;
   
+  // Active project — prominent
+  if (session.currentProject) {
+    const type = session.currentProject.type === 'unknown' ? '' : ` (${session.currentProject.type})`;
+    message += `📂 *Project:* ${session.currentProject.name}${type}\n`;
+    message += `📍 Path: \`${session.currentProject.path}\`\n`;
+    if (session.currentProject.gitBranch) {
+      message += `🌿 Branch: \`${session.currentProject.gitBranch}\``;
+      message += session.currentProject.hasUncommitted ? ' ⚠️ uncommitted changes\n' : ' ✨ clean\n';
+    }
+    message += '\n';
+  } else {
+    message += `📂 No project selected\n\n`;
+  }
+
   // Current task (V3.3 — fetched from TaskManager)
   if (session.activeTaskId) {
     const taskManager = await getTaskManager();
     const task = taskManager.getTask(session.activeTaskId);
     if (task) {
-      message += `🎯 *Current Task:*\n`;
-      message += `${task.goal.substring(0, 50)}${task.goal.length > 50 ? '...' : ''}\n`;
+      message += `🎯 *Task:* ${task.goal.substring(0, 60)}${task.goal.length > 60 ? '...' : ''}\n`;
       message += `Status: ${formatTaskStatus(task.status)}\n\n`;
     } else {
       message += `No active task\n\n`;
@@ -45,17 +58,15 @@ export async function formatStatus(session: Session): Promise<string> {
   message += `• Verbose: ${session.preferences.verboseMode ? 'ON' : 'OFF'}\n\n`;
   
   // Context
-  message += `📂 *Context:*\n`;
   if (session.activeFiles.length > 0) {
-    message += `Active files:\n`;
+    const projectName = session.currentProject?.name || '';
+    message += `📁 *Active Files${projectName ? ` (${projectName})` : ''}:*\n`;
     for (const file of session.activeFiles.slice(0, 5)) {
       message += `• ${file}\n`;
     }
     if (session.activeFiles.length > 5) {
       message += `... and ${session.activeFiles.length - 5} more\n`;
     }
-  } else {
-    message += `No active files\n`;
   }
   
   return message;

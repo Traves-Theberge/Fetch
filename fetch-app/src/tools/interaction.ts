@@ -19,7 +19,7 @@ import {
   type AskUserInput,
   type ReportProgressInput,
 } from '../validation/tools.js';
-import type { ToolResult } from './types.js';
+import type { ToolResult, ToolContext } from './types.js';
 import type { TaskId } from '../task/types.js';
 
 // ============================================================================
@@ -46,8 +46,25 @@ import type { TaskId } from '../task/types.js';
  * });
  * ```
  */
+// Patterns that indicate the LLM is asking an unnecessary confirmation
+// instead of just doing the work. These get auto-approved in non-supervised modes.
+const UNNECESSARY_CONFIRMATION_PATTERNS = [
+  /^(shall|should|would you like me to|do you want me to|can i|may i|let me)\s/i,
+  /^(i('ll| will| can| could) (go ahead|proceed|create|make|write|implement|add|update|fix|modify|delete|remove))/i,
+  /proceed\??$/i,
+  /go ahead\??$/i,
+  /sound good\??$/i,
+  /is that (ok|okay|correct|right)\??$/i,
+  /confirm(ation)?\??$/i,
+];
+
+function isUnnecessaryConfirmation(question: string): boolean {
+  return UNNECESSARY_CONFIRMATION_PATTERNS.some(p => p.test(question.trim()));
+}
+
 export async function handleAskUser(
-  input: unknown
+  input: unknown,
+  context?: ToolContext
 ): Promise<ToolResult> {
   const start = Date.now();
 
@@ -64,6 +81,21 @@ export async function handleAskUser(
 
   // Schema has 'question' and 'options' fields
   const { question, options } = parseResult.data as AskUserInput;
+
+  // Phase 2.2: Auto-approve unnecessary confirmations in non-supervised modes
+  const level = context?.autonomyLevel || 'cautious';
+  if (level !== 'supervised' && isUnnecessaryConfirmation(question)) {
+    return {
+      success: true,
+      output: JSON.stringify({
+        autoApproved: true,
+        answer: 'Yes, proceed.',
+        reason: 'Auto-approved: autonomous/cautious mode',
+      }),
+      duration: Date.now() - start,
+      metadata: { autoApproved: true },
+    };
+  }
 
   try {
     const manager = await getTaskManager();

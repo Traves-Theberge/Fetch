@@ -21,7 +21,9 @@ export async function handleAddFile(
 
   await sessionManager.addActiveFile(session, filePath);
 
-  return { handled: true, responses: [`📁 Added ${filePath} to context.`] };
+  const projectHint = session.currentProject ? ` (${session.currentProject.name})` : '';
+
+  return { handled: true, responses: [`📁 Added ${filePath} to context${projectHint}.`] };
 }
 
 export async function handleDropFile(
@@ -40,13 +42,15 @@ export async function handleDropFile(
 
 export function handleListFiles(session: Session): CommandResult {
   if (session.activeFiles.length === 0) {
+    const projectHint = session.currentProject ? ` in *${session.currentProject.name}*` : '';
     return {
       handled: true,
-      responses: ['No active files. Use /add <file> to add context.'],
+      responses: [`No active files${projectHint}. Use /add <file> to add context.`],
     };
   }
 
-  let message = '📂 *Active Files:*\n\n';
+  const projectName = session.currentProject?.name || '';
+  let message = `📂 *Active Files${projectName ? ` (${projectName})` : ''}:*\n\n`;
   for (const file of session.activeFiles) {
     message += `• ${file}\n`;
   }

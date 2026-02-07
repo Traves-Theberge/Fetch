@@ -482,7 +482,13 @@ export async function processMessage(
 // =============================================================================
 
 /**
- * Handle conversation intent (no tools needed)
+ * Read-only tools that conversation handler can use
+ * These let the LLM answer questions like "what project am I on?" or "what changed?"
+ */
+const CONVERSATION_TOOLS = ['workspace_list', 'workspace_select', 'workspace_status'];
+
+/**
+ * Handle conversation intent (with read-only tools for context awareness)
  */
 async function handleConversation(
   message: string,
@@ -507,19 +513,119 @@ async function handleConversation(
     ? history.slice(-3) // Keep only last 3 messages
     : history;
 
-  const response = await openai.chat.completions.create({
+  // Phase 3: Give conversation handler read-only tools so it can answer
+  // questions like "what project?" or "what changed?" without hallucinating
+  const registry = getToolRegistry();
+  const readOnlyTools = registry.toOpenAIFormat()
+    .filter((t: { function: { name: string } }) => CONVERSATION_TOOLS.includes(t.function.name));
+
+  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: getIdentityManager().buildSystemPrompt(activatedContext, sessionContext),
+    },
+    ...finalHistory,
+    { role: 'user', content: message },
+  ];
+
+  let response = await openai.chat.completions.create({
     model: MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: getIdentityManager().buildSystemPrompt(activatedContext, sessionContext),
-      },
-      ...finalHistory,
-      { role: 'user', content: message },
-    ],
+    messages,
+    tools: readOnlyTools.length > 0 ? readOnlyTools as OpenAI.Chat.Completions.ChatCompletionTool[] : undefined,
+    tool_choice: readOnlyTools.length > 0 ? 'auto' : undefined,
     max_tokens: pipeline.chatMaxTokens,
     temperature: pipeline.chatTemperature,
   });
+
+  // Handle tool calls if conversation LLM decides to use read-only tools
+  let callCount = 0;
+  while (
+    response.choices[0]?.message?.tool_calls &&
+    response.choices[0].message.tool_calls.length > 0 &&
+    callCount < 2 // Max 2 tool calls for conversation
+  ) {
+    const assistantMessage = response.choices[0].message;
+    const currentToolCalls = assistantMessage.tool_calls!;
+    messages.push(assistantMessage);
+
+    const sManager = await getSessionManager();
+
+    for (const toolCall of currentToolCalls) {
+      callCount++;
+      const fn = 'function' in toolCall ? toolCall.function : null;
+      if (!fn) continue;
+
+      const toolName = fn.name;
+      if (!CONVERSATION_TOOLS.includes(toolName)) {
+        // Safety: don't execute non-read-only tools from conversation
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ success: false, error: 'Tool not available in conversation mode' }),
+        });
+        continue;
+      }
+
+      let toolArgs: Record<string, unknown>;
+      try {
+        toolArgs = JSON.parse(fn.arguments);
+      } catch {
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ success: false, error: 'Invalid JSON arguments' }),
+        });
+        continue;
+      }
+
+      const result = await registry.execute(toolName, toolArgs, {
+        sessionId: session.id,
+        autonomyLevel: session.preferences.autonomyLevel,
+      });
+
+      // Sync workspace selection from conversation too
+      if (toolName === 'workspace_select' && result.success) {
+        try {
+          const workspace = JSON.parse(result.output);
+          session.currentProject = {
+            name: workspace.name,
+            path: workspace.path,
+            type: workspace.projectType,
+            mainFiles: [],
+            gitBranch: workspace.git?.branch || null,
+            lastCommit: null,
+            hasUncommitted: workspace.git?.dirty || false,
+            refreshedAt: new Date().toISOString()
+          };
+          session.repoMap = null;
+          await sManager.updateSession(session);
+          
+          const updatedCtx = await buildContextSection(session);
+          messages[0] = {
+            role: 'system',
+            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedCtx),
+          };
+        } catch (e) {
+          logger.error('Failed to sync workspace from conversation tool', e);
+        }
+      }
+
+      messages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result),
+      });
+    }
+
+    response = await openai.chat.completions.create({
+      model: MODEL,
+      messages,
+      tools: readOnlyTools as OpenAI.Chat.Completions.ChatCompletionTool[],
+      tool_choice: 'auto',
+      max_tokens: pipeline.chatMaxTokens,
+      temperature: pipeline.chatTemperature,
+    });
+  }
 
   const text = response.choices[0]?.message?.content ?? "Hey! 🐕";
 
@@ -628,7 +734,10 @@ async function handleWithTools(
       logger.debug('Executing tool', { tool: toolName, args: toolArgs });
 
       // Execute via registry (pass session context for session-aware tools)
-      const result = await registry.execute(toolName, toolArgs, { sessionId: session.id });
+      const result = await registry.execute(toolName, toolArgs, {
+        sessionId: session.id,
+        autonomyLevel: session.preferences.autonomyLevel,
+      });
 
       toolCalls.push({
         name: toolName,
@@ -662,9 +771,60 @@ async function handleWithTools(
           
           const sManager = await getSessionManager();
           await sManager.updateSession(session);
-          logger.info('Project synced to session after tool call', { project: workspace.name });
+          
+          // PHASE 1 FIX: Rebuild system prompt so LLM sees the new workspace
+          const updatedContext = await buildContextSection(session);
+          messages[0] = {
+            role: 'system',
+            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+          };
+          logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
         } catch (e) {
           logger.error('Failed to sync session after workspace_select', e);
+        }
+      }
+
+      // Sync session after workspace_create too
+      if (toolName === 'workspace_create' && result.success) {
+        try {
+          const created = JSON.parse(result.output);
+          session.currentProject = {
+            name: created.name,
+            path: created.path,
+            type: created.projectType || 'unknown',
+            mainFiles: [],
+            gitBranch: created.git?.branch || 'main',
+            lastCommit: null,
+            hasUncommitted: false,
+            refreshedAt: new Date().toISOString()
+          };
+          session.repoMap = null;
+          
+          const sManager = await getSessionManager();
+          await sManager.updateSession(session);
+          
+          const updatedContext = await buildContextSection(session);
+          messages[0] = {
+            role: 'system',
+            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+          };
+          logger.info('System prompt rebuilt after workspace creation', { project: created.name });
+        } catch (e) {
+          logger.error('Failed to sync session after workspace_create', e);
+        }
+      }
+
+      // Sync after task_create
+      if (toolName === 'task_create' && result.success) {
+        try {
+          const taskResult = JSON.parse(result.output);
+          if (taskResult.taskId) {
+            session.activeTaskId = taskResult.taskId;
+            const sManager = await getSessionManager();
+            await sManager.updateSession(session);
+          }
+        } catch (e) {
+          logger.error('Failed to sync session after task_create', e);
         }
       }
 
