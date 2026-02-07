@@ -74,11 +74,23 @@ type ghAuthResultMsg struct {
 	err error
 }
 
+// ghAccount represents a single GitHub account from gh auth status
+type ghAccount struct {
+	user     string
+	active   bool
+	protocol string
+	scopes   string
+}
+
 // ghStatusMsg carries the result of checking gh auth status
 type ghStatusMsg struct {
-	authed bool
-	user   string
-	err    error
+	accounts []ghAccount
+	err      error
+}
+
+// ghSwitchMsg carries the result of gh auth switch or gh auth logout
+type ghSwitchMsg struct {
+	err error
 }
 
 // tickMsg triggers periodic status updates
@@ -117,9 +129,9 @@ type model struct {
 	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
 	configMode       int
 	// GitHub auth state
-	ghUser     string // GitHub username from gh auth status
-	ghAuthed   bool   // Whether GitHub is authenticated
-	ghChecking bool   // Whether we're currently checking status
+	ghAccounts      []ghAccount // All GitHub accounts from gh auth status
+	ghAccountCursor int         // Cursor for account selection
+	ghChecking      bool        // Whether we're currently checking status
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -271,9 +283,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ghStatusMsg:
 		m.ghChecking = false
-		m.ghAuthed = msg.authed
-		m.ghUser = msg.user
+		m.ghAccounts = msg.accounts
+		// Clamp cursor
+		if m.ghAccountCursor >= len(m.ghAccounts) {
+			m.ghAccountCursor = 0
+		}
 		return m, nil
+
+	case ghSwitchMsg:
+		if msg.err != nil {
+			m.actionMessage = fmt.Sprintf("GitHub operation failed: %v", msg.err)
+			m.actionSuccess = false
+		}
+		// Re-check status after switch/logout
+		m.ghChecking = true
+		return m, checkGhStatusCmd()
 
 	case models.ModelsLoadedMsg:
 		if m.modelSelector != nil {
@@ -531,12 +555,38 @@ func (m model) updateGitHub(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.screen = screenMenu
 		return m, nil
-	case "enter", "l":
-		// Launch gh auth login interactively
+	case "up", "k":
+		if m.ghAccountCursor > 0 {
+			m.ghAccountCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.ghAccountCursor < len(m.ghAccounts)-1 {
+			m.ghAccountCursor++
+		}
+		return m, nil
+	case "a":
+		// Add new account via gh auth login
 		c := exec.Command("gh", "auth", "login")
 		return m, tea.ExecProcess(c, func(err error) tea.Msg {
 			return ghAuthResultMsg{err: err}
 		})
+	case "s":
+		// Switch active account to selected
+		if len(m.ghAccounts) > 0 && m.ghAccountCursor < len(m.ghAccounts) {
+			acct := m.ghAccounts[m.ghAccountCursor]
+			if !acct.active {
+				return m, switchGhAccountCmd(acct.user)
+			}
+		}
+		return m, nil
+	case "d":
+		// Remove selected account
+		if len(m.ghAccounts) > 0 && m.ghAccountCursor < len(m.ghAccounts) {
+			acct := m.ghAccounts[m.ghAccountCursor]
+			return m, logoutGhAccountCmd(acct.user)
+		}
+		return m, nil
 	case "r":
 		// Manual refresh
 		m.ghChecking = true
@@ -600,28 +650,66 @@ func disconnectWhatsApp(client *status.Client) tea.Cmd {
 func checkGhStatusCmd() tea.Cmd {
 	return func() tea.Msg {
 		out, err := exec.Command("gh", "auth", "status").CombinedOutput()
-		if err != nil {
-			// Not authenticated or gh not installed
-			return ghStatusMsg{authed: false, user: "", err: nil}
+		if err != nil && len(out) == 0 {
+			// gh not installed or no accounts
+			return ghStatusMsg{accounts: nil, err: nil}
 		}
-		// Parse output for account name: "Logged in to github.com account USERNAME"
-		output := string(out)
-		user := ""
-		for _, line := range strings.Split(output, "\n") {
+		// Parse all accounts from output
+		// Format:
+		//   ✓ Logged in to github.com account USERNAME (keyring)
+		//   - Active account: true/false
+		//   - Git operations protocol: https
+		//   - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
+		var accounts []ghAccount
+		var current *ghAccount
+		for _, line := range strings.Split(string(out), "\n") {
 			line = strings.TrimSpace(line)
-			if strings.Contains(line, "account") && strings.Contains(line, "github.com") {
-				// Extract username from "Logged in to github.com account USERNAME (..."
+			if strings.Contains(line, "Logged in to") && strings.Contains(line, "account") {
+				// Start a new account
+				if current != nil {
+					accounts = append(accounts, *current)
+				}
+				current = &ghAccount{}
 				parts := strings.Split(line, "account ")
 				if len(parts) >= 2 {
-					user = strings.TrimSpace(parts[1])
-					// Remove trailing parenthetical if present
+					user := strings.TrimSpace(parts[1])
 					if idx := strings.Index(user, " "); idx > 0 {
 						user = user[:idx]
 					}
+					current.user = user
+				}
+			} else if current != nil {
+				if strings.HasPrefix(line, "- Active account:") {
+					current.active = strings.Contains(line, "true")
+				} else if strings.HasPrefix(line, "- Git operations protocol:") {
+					current.protocol = strings.TrimPrefix(line, "- Git operations protocol: ")
+					current.protocol = strings.TrimSpace(current.protocol)
+				} else if strings.HasPrefix(line, "- Token scopes:") {
+					current.scopes = strings.TrimPrefix(line, "- Token scopes: ")
+					current.scopes = strings.TrimSpace(current.scopes)
 				}
 			}
 		}
-		return ghStatusMsg{authed: true, user: user, err: nil}
+		if current != nil {
+			accounts = append(accounts, *current)
+		}
+		return ghStatusMsg{accounts: accounts, err: nil}
+	}
+}
+
+// switchGhAccountCmd switches the active GitHub account
+func switchGhAccountCmd(user string) tea.Cmd {
+	return func() tea.Msg {
+		err := exec.Command("gh", "auth", "switch", "-u", user).Run()
+		return ghSwitchMsg{err: err}
+	}
+}
+
+// logoutGhAccountCmd removes a GitHub account
+func logoutGhAccountCmd(user string) tea.Cmd {
+	return func() tea.Msg {
+		err := exec.Command("gh", "auth", "logout", "-u", user).Run()
+		return ghSwitchMsg{err: err}
 	}
 }
 
@@ -983,23 +1071,54 @@ func (m model) viewGitHub() string {
 
 	if m.ghChecking {
 		content.WriteString(theme.StatusInfo.Render("   Checking GitHub auth status...") + "\n")
-	} else if m.ghAuthed {
-		content.WriteString(theme.StatusSuccess.Render("   ● Authenticated") + "\n\n")
-		if m.ghUser != "" {
-			content.WriteString(fmt.Sprintf("   Account:  %s\n", theme.Value.Render(m.ghUser)))
-		}
-		content.WriteString(fmt.Sprintf("   Provider: %s\n", theme.Value.Render("github.com")))
-		content.WriteString("\n")
-		content.WriteString(theme.Subtitle.Render("   Press Enter to re-authenticate or r to refresh.") + "\n")
-	} else {
-		content.WriteString(theme.StatusError.Render("   ● Not Authenticated") + "\n\n")
+	} else if len(m.ghAccounts) == 0 {
+		content.WriteString(theme.StatusError.Render("   ● No Accounts") + "\n\n")
 		content.WriteString(theme.Subtitle.Render("   GitHub auth is required for Fetch to access repositories") + "\n")
 		content.WriteString(theme.Subtitle.Render("   and manage pull requests via the coding agents.") + "\n\n")
-		content.WriteString(theme.StatusInfo.Render("   Press Enter to authenticate with GitHub.") + "\n")
+		content.WriteString(theme.StatusInfo.Render("   Press 'a' to add a GitHub account.") + "\n")
+	} else {
+		content.WriteString(fmt.Sprintf("   %s\n\n", theme.Subtitle.Render(fmt.Sprintf("%d account(s) on github.com", len(m.ghAccounts)))))
+		for i, acct := range m.ghAccounts {
+			// Cursor indicator
+			prefix := "   "
+			if i == m.ghAccountCursor {
+				prefix = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true).Render(" ▸ ")
+			}
+
+			// Active badge
+			var badge string
+			if acct.active {
+				badge = theme.StatusSuccess.Render("● Active")
+			} else {
+				badge = lipgloss.NewStyle().Foreground(theme.TextMuted).Render("○ Inactive")
+			}
+
+			// Username styling
+			var userStyle lipgloss.Style
+			if i == m.ghAccountCursor {
+				userStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+			} else {
+				userStyle = theme.Value
+			}
+
+			content.WriteString(fmt.Sprintf("%s%s  %s\n", prefix, userStyle.Render(acct.user), badge))
+
+			// Show details for selected account
+			if i == m.ghAccountCursor {
+				detailIndent := "      "
+				if acct.protocol != "" {
+					content.WriteString(fmt.Sprintf("%sProtocol: %s\n", detailIndent, theme.Subtitle.Render(acct.protocol)))
+				}
+				if acct.scopes != "" {
+					content.WriteString(fmt.Sprintf("%sScopes:   %s\n", detailIndent, theme.Subtitle.Render(acct.scopes)))
+				}
+			}
+			content.WriteString("\n")
+		}
 	}
 
 	// Help bar
-	helpKeys := []string{"Enter Login", "r Refresh", "Esc Back"}
+	helpKeys := []string{"↑/↓ Navigate", "s Switch", "a Add", "d Remove", "r Refresh", "Esc Back"}
 	helpBar := components.HelpBar(helpKeys, width)
 	helpHeight := lipgloss.Height(helpBar)
 
