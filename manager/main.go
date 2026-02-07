@@ -101,6 +101,8 @@ type model struct {
 	bridgeStatus     *status.BridgeStatus
 	statusClient     *status.Client
 	versionInfo      components.VersionInfo
+	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
+	configMode       int
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -132,7 +134,6 @@ func initialModel() model {
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
 			"🔐 Trusted Numbers",
-			"🤖 Select Model",
 			"📜 View Logs",
 			"📚 Documentation",
 			"ℹ️  Version",
@@ -340,25 +341,23 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, stopFetchCmd()
 		case 4: // Configure
 			m.screen = screenConfig
-			m.configEditor = config.NewEditor()
+			m.configMode = 0 // Show config sub-menu
+			m.configEditor = nil
+			m.modelSelector = nil
 			return m, nil
 		case 5: // Trusted Numbers
 			m.screen = screenWhitelist
 			m.whitelistManager = config.NewWhitelistManager()
 			return m, nil
-		case 6: // Select Model
-			m.screen = screenModels
-			m.modelSelector = models.NewSelector()
-			return m, models.FetchModelsCmd
-		case 7: // Logs
+		case 6: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 8: // Documentation
+		case 7: // Documentation
 			return m, openDocs
-		case 9: // Version
+		case 8: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 10: // Exit
+		case 9: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -382,14 +381,65 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		m.screen = screenMenu
+	switch m.configMode {
+	case 0: // Sub-menu: choose editor or model selector
+		switch msg.String() {
+		case "esc", "q":
+			m.screen = screenMenu
+			return m, nil
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < 2 {
+				m.cursor++
+			}
+		case "enter", " ":
+			switch m.cursor {
+			case 0: // Edit Configuration
+				m.configMode = 1
+				m.configEditor = config.NewEditor()
+				m.configEditor.SetSize(m.height - 8)
+				m.cursor = 0
+				return m, nil
+			case 1: // Select Model
+				m.configMode = 2
+				m.modelSelector = models.NewSelector()
+				m.cursor = 0
+				return m, models.FetchModelsCmd
+			case 2: // Back
+				m.screen = screenMenu
+				return m, nil
+			}
+		}
 		return m, nil
-	}
 
-	if m.configEditor != nil {
-		m.configEditor.Update(msg)
+	case 1: // Editor mode
+		switch msg.String() {
+		case "esc":
+			m.configMode = 0
+			m.cursor = 0
+			return m, nil
+		}
+		if m.configEditor != nil {
+			m.configEditor.Update(msg)
+		}
+		return m, nil
+
+	case 2: // Model selector mode
+		switch msg.String() {
+		case "esc":
+			m.configMode = 0
+			m.cursor = 0
+			return m, nil
+		}
+		if m.modelSelector != nil {
+			var cmd tea.Cmd
+			m.modelSelector, cmd = m.modelSelector.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	}
 
 	return m, nil
@@ -413,18 +463,9 @@ func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateModels(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "q":
-		m.screen = screenMenu
-		return m, nil
-	}
-
-	if m.modelSelector != nil {
-		var cmd tea.Cmd
-		m.modelSelector, cmd = m.modelSelector.Update(msg)
-		return m, cmd
-	}
-
+	// Model selector is now inside Configure — redirect there
+	m.screen = screenConfig
+	m.configMode = 2
 	return m, nil
 }
 
@@ -726,15 +767,63 @@ func (m model) viewConfig() string {
 	title := layout.SectionHeader("⚙️  Configuration", width-4)
 
 	var content strings.Builder
-	if m.configEditor != nil {
-		content.WriteString(m.configEditor.View())
+
+	switch m.configMode {
+	case 0: // Sub-menu
+		configChoices := []struct {
+			icon  string
+			label string
+		}{
+			{"📝", "Edit Configuration"},
+			{"🤖", "Select Model"},
+			{"↩️ ", "Back to Menu"},
+		}
+		content.WriteString("\n")
+		for i, choice := range configChoices {
+			if i == m.cursor {
+				cursor := lipgloss.NewStyle().
+					Foreground(theme.Primary).
+					Bold(true).
+					Render("▸ ")
+				item := lipgloss.NewStyle().
+					Foreground(theme.Primary).
+					Bold(true).
+					Render(choice.icon + " " + choice.label)
+				content.WriteString("   " + cursor + item + "\n")
+			} else {
+				item := lipgloss.NewStyle().
+					Foreground(theme.TextPrimary).
+					Render(choice.icon + " " + choice.label)
+				content.WriteString("     " + item + "\n")
+			}
+		}
+		content.WriteString("\n")
+
+	case 1: // Editor
+		if m.configEditor != nil {
+			m.configEditor.SetSize(height - 8)
+			content.WriteString(m.configEditor.View())
+		}
+
+	case 2: // Model selector
+		if m.modelSelector != nil {
+			content.WriteString(m.modelSelector.View())
+		} else {
+			content.WriteString(theme.StatusInfo.Render("   Loading model selector...") + "\n")
+		}
 	}
 
 	// Help bar
-	helpBar := components.HelpBar(
-		[]string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"},
-		width,
-	)
+	var helpKeys []string
+	switch m.configMode {
+	case 0:
+		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Esc Back"}
+	case 1:
+		helpKeys = []string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"}
+	case 2:
+		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"}
+	}
+	helpBar := components.HelpBar(helpKeys, width)
 	helpHeight := lipgloss.Height(helpBar)
 
 	// Content area
@@ -799,48 +888,8 @@ func (m model) viewWhitelist() string {
 }
 
 func (m model) viewModels() string {
-	width := m.width
-	if width == 0 {
-		width = 80
-	}
-	height := m.height
-	if height == 0 {
-		height = 24
-	}
-
-	// Title
-	title := layout.SectionHeader("🤖 AI Model Selection", width-4)
-
-	var content strings.Builder
-	if m.modelSelector != nil {
-		content.WriteString(m.modelSelector.View())
-	} else {
-		content.WriteString(theme.StatusInfo.Render("   Loading model selector...") + "\n")
-	}
-
-	// Help bar
-	helpBar := components.HelpBar(
-		[]string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"},
-		width,
-	)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	modelContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(modelContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		modelContent,
-		helpBar,
-	)
+	// Model selector is now inside Configure screen
+	return m.viewConfig()
 }
 
 func (m model) viewLogs() string {

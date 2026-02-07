@@ -3,6 +3,7 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 
@@ -51,12 +52,16 @@ type Editor struct {
 	editBuffer   string
 	saved        bool
 	errorMessage string
+	scrollOffset int // viewport scroll offset
+	viewHeight   int // max visible rows
 }
 
 // NewEditor creates a new configuration editor
 func NewEditor() *Editor {
 	editor := &Editor{
 		fields: []ConfigField{
+			// ─── Core Settings ───────────────────────────────────────
+			{IsSeparator: true, Label: "─── Core Settings ───"},
 			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
 			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
 			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "true or false — enable GitHub Copilot harness"},
@@ -65,18 +70,62 @@ func NewEditor() *Editor {
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID (e.g., openai/gpt-4o-mini)"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone (e.g., America/New_York, UTC)"},
-			// ─── Pipeline Tuning ──────────────────────────────────────
-			{IsSeparator: true, Label: "─── Pipeline Tuning ───"},
+			// ─── Context Window ──────────────────────────────────────
+			{IsSeparator: true, Label: "─── Context Window ───"},
 			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window (default: 20)"},
 			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this (default: 40)"},
-			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses (default: 300)"},
-			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses (default: 500)"},
-			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0 (default: 0.7)"},
-			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0 (default: 0.3)"},
+			{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary (default: 500)"},
+			{Key: "FETCH_COMPACTION_MODEL", Label: "Compaction Model", Help: "Model for summaries (default: openai/gpt-4o-mini)"},
+			// ─── Agent LLM ───────────────────────────────────────────
+			{IsSeparator: true, Label: "─── Agent LLM ───"},
 			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message (default: 5)"},
-			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window (default: 30)"},
+			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses (default: 300)"},
+			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0 (default: 0.7)"},
+			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses (default: 500)"},
+			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0 (default: 0.3)"},
+			{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing prompt (default: 200)"},
+			// ─── Circuit Breaker ─────────────────────────────────────
+			{IsSeparator: true, Label: "─── Circuit Breaker ───"},
+			{Key: "FETCH_CB_THRESHOLD", Label: "CB Threshold", Help: "Errors before circuit opens (default: 3)"},
+			{Key: "FETCH_CB_BACKOFF", Label: "CB Backoff (ms)", Help: "Backoff schedule, comma-separated (default: 1000,5000,30000)"},
+			{Key: "FETCH_MAX_RETRIES", Label: "Max Retries", Help: "Max retries for retriable errors (default: 3)"},
+			{Key: "FETCH_RETRY_BACKOFF", Label: "Retry Backoff (ms)", Help: "Retry schedule, comma-separated (default: 0,1000,3000,10000)"},
+			{Key: "FETCH_CB_RESET_MS", Label: "CB Reset (ms)", Help: "Reset error count after quiet period (default: 300000)"},
+			// ─── Task Execution ──────────────────────────────────────
+			{IsSeparator: true, Label: "─── Task Execution ───"},
 			{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout (default: 300000)"},
 			{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout (default: 300000)"},
+			{Key: "FETCH_TASK_MAX_RETRIES", Label: "Task Max Retries", Help: "Max task retries (default: 1)"},
+			// ─── WhatsApp Formatting ─────────────────────────────────
+			{IsSeparator: true, Label: "─── WhatsApp Formatting ───"},
+			{Key: "FETCH_WA_MAX_LENGTH", Label: "WA Max Length", Help: "Max chars per WhatsApp message (default: 4000)"},
+			{Key: "FETCH_WA_LINE_WIDTH", Label: "WA Line Width", Help: "Max chars per line for readability (default: 40)"},
+			// ─── Rate Limiting ───────────────────────────────────────
+			{IsSeparator: true, Label: "─── Rate Limiting ───"},
+			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window (default: 30)"},
+			{Key: "FETCH_RATE_LIMIT_WINDOW", Label: "Rate Limit Window (ms)", Help: "Rate limit window duration (default: 60000)"},
+			// ─── Bridge / Reconnection ───────────────────────────────
+			{IsSeparator: true, Label: "─── Bridge / Reconnection ───"},
+			{Key: "FETCH_MAX_RECONNECT", Label: "Max Reconnect", Help: "Max reconnect attempts (default: 10)"},
+			{Key: "FETCH_RECONNECT_BASE_DELAY", Label: "Reconnect Base (ms)", Help: "Base delay for exponential backoff (default: 5000)"},
+			{Key: "FETCH_RECONNECT_MAX_DELAY", Label: "Reconnect Max (ms)", Help: "Max delay cap for reconnect (default: 300000)"},
+			{Key: "FETCH_RECONNECT_JITTER", Label: "Reconnect Jitter (ms)", Help: "Max jitter added to delay (default: 2000)"},
+			{Key: "FETCH_DEDUP_TTL", Label: "Dedup TTL (ms)", Help: "Message deduplication cache TTL (default: 30000)"},
+			{Key: "FETCH_PROGRESS_THROTTLE", Label: "Progress Throttle (ms)", Help: "Throttle interval for progress updates (default: 3000)"},
+			// ─── Session / Memory ────────────────────────────────────
+			{IsSeparator: true, Label: "─── Session / Memory ───"},
+			{Key: "FETCH_RECENT_MSG_LIMIT", Label: "Recent Msg Limit", Help: "Default recent messages limit (default: 50)"},
+			{Key: "FETCH_TRUNCATION_LIMIT", Label: "Truncation Limit", Help: "Max messages before hard truncation (default: 100)"},
+			{Key: "FETCH_REPO_MAP_TTL", Label: "Repo Map TTL (ms)", Help: "Repo map staleness check interval (default: 300000)"},
+			// ─── Workspace ───────────────────────────────────────────
+			{IsSeparator: true, Label: "─── Workspace ───"},
+			{Key: "FETCH_WORKSPACE_CACHE_TTL", Label: "Workspace Cache (ms)", Help: "Workspace info cache TTL (default: 30000)"},
+			{Key: "FETCH_GIT_TIMEOUT", Label: "Git Timeout (ms)", Help: "Git command execution timeout (default: 5000)"},
+			// ─── BM25 Memory (Phase 2) ───────────────────────────────
+			{IsSeparator: true, Label: "─── BM25 Memory (Phase 2) ───"},
+			{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context (default: 5)"},
+			{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet (default: 300)"},
+			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster (default: 0.1)"},
 		},
 	}
 	editor.loadFromFile()
@@ -180,6 +229,33 @@ func (e *Editor) saveToFile() error {
 	return os.WriteFile(paths.EnvFile, []byte(output), 0644)
 }
 
+// SetSize sets the available viewport height for scrolling
+func (e *Editor) SetSize(height int) {
+	// Reserve lines for status messages, padding
+	e.viewHeight = height - 6
+	if e.viewHeight < 10 {
+		e.viewHeight = 10
+	}
+}
+
+// ensureVisible adjusts scroll offset so cursor is visible
+func (e *Editor) ensureVisible() {
+	if e.viewHeight <= 0 {
+		return
+	}
+	// Each field takes ~1 line, separators ~2, focused field ~2 (with help)
+	// Use a simple line-per-field estimate
+	if e.cursor < e.scrollOffset {
+		e.scrollOffset = e.cursor
+	}
+	if e.cursor >= e.scrollOffset+e.viewHeight {
+		e.scrollOffset = e.cursor - e.viewHeight + 1
+	}
+	if e.scrollOffset < 0 {
+		e.scrollOffset = 0
+	}
+}
+
 // Update handles keyboard input
 func (e *Editor) Update(msg tea.KeyMsg) {
 	if e.editing {
@@ -209,6 +285,7 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 				break
 			}
 		}
+		e.ensureVisible()
 	case "down", "j":
 		for i := e.cursor + 1; i < len(e.fields); i++ {
 			if !e.fields[i].IsSeparator {
@@ -216,6 +293,7 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 				break
 			}
 		}
+		e.ensureVisible()
 	case "enter", "e":
 		if !e.fields[e.cursor].IsSeparator {
 			e.editing = true
@@ -236,7 +314,24 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 func (e *Editor) View() string {
 	s := ""
 
-	for i, field := range e.fields {
+	// Determine visible range
+	startIdx := 0
+	endIdx := len(e.fields)
+	if e.viewHeight > 0 && len(e.fields) > e.viewHeight {
+		startIdx = e.scrollOffset
+		endIdx = e.scrollOffset + e.viewHeight
+		if endIdx > len(e.fields) {
+			endIdx = len(e.fields)
+		}
+	}
+
+	// Scroll indicator at top
+	if startIdx > 0 {
+		s += helpTextStyle.Render("   ▲ scroll up for more") + "\n"
+	}
+
+	for i := startIdx; i < endIdx; i++ {
+		field := e.fields[i]
 		// Render separator as section header
 		if field.IsSeparator {
 			s += "\n" + separatorStyle.Render("   "+field.Label) + "\n"
@@ -265,6 +360,20 @@ func (e *Editor) View() string {
 	}
 
 	s += "\n"
+
+	// Scroll indicator at bottom
+	if endIdx < len(e.fields) {
+		s += helpTextStyle.Render("   ▼ scroll down for more") + "\n"
+	}
+
+	// Field counter
+	editableCount := 0
+	for _, f := range e.fields {
+		if !f.IsSeparator {
+			editableCount++
+		}
+	}
+	s += helpTextStyle.Render(fmt.Sprintf("   %d configurable parameters", editableCount)) + "\n"
 
 	if e.saved {
 		s += lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Render("   ✅ Configuration saved!") + "\n"
