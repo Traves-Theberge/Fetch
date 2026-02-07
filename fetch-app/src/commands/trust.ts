@@ -110,7 +110,7 @@ async function handleTrustAdd(phoneNumber: string): Promise<TrustCommandResult> 
       logger.info(`Trust added: +${normalized}`);
       return {
         success: true,
-        response: `✅ *Added to trusted numbers*\n\n📱 +${normalized}\n\nThis number can now use @fetch in group chats.`
+        response: `✅ *Added to trusted numbers*\n\n📱 +${normalized}\n\nThis number can now use @fetch.`
       };
     } else {
       return {
@@ -185,7 +185,7 @@ async function handleTrustList(): Promise<TrustCommandResult> {
 
     return {
       success: true,
-      response: `🔐 *Trusted Numbers* (${numbers.length})\n\n${numberList}\n\n_Owner is always trusted and not shown here._`
+      response: `🔐 *Trusted Numbers* (${numbers.length})\n\n${numberList}`
     };
   } catch (error) {
     logger.error('Failed to list trusted numbers', error);
@@ -233,7 +233,7 @@ async function handleTrustClear(): Promise<TrustCommandResult> {
 function formatTrustHelp(): string {
   return `🔐 *Trusted Numbers*
 
-Manage who can use @fetch in group chats.
+Manage who can use @fetch.
 
 *Commands:*
 \`/trust add <number>\` - Add trusted number
@@ -243,7 +243,5 @@ Manage who can use @fetch in group chats.
 
 *Examples:*
 \`/trust add 15551234567\`
-\`/trust remove +1 (555) 123-4567\`
-
-_Note: Owner is always trusted and exempt from whitelist._`;
+\`/trust remove +1 (555) 123-4567\``;
 }
