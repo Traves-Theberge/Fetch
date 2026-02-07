@@ -8,8 +8,8 @@ Fetch will interpret this file and set up background intervals.
 ### Status Check
 - **ID:** `status_check`
 - **Interval:** 10m
-- **Command:** `node scripts/check-status.js`
-- **Enabled:** true
+- **Command:** `curl -sf http://localhost:8765/api/status`
+- **Enabled:** false
 
 ### Git Pull
 - **ID:** `git_sync`
