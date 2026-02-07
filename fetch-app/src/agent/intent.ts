@@ -112,19 +112,23 @@ const CONVERSATION_PATTERNS = {
  * Medium-high confidence - clear project/workspace intent
  */
 const WORKSPACE_PATTERNS = {
-  // List projects
+  // List projects — flexible natural language
   list: [
-    /^(what|which|list|show|display)\s*(my\s*)?(projects?|workspaces?|repos?)[\s?]*$/i,
-    /^(projects?|workspaces?|repos?)[\s?]*$/i,
-    /^(what|which)\s+do\s+i\s+have[\s?]*$/i,
-    /^show\s*(me\s*)?(what|my)\s*(projects?|workspaces?)[\s?]*$/i,
+    /\b(list|show|display|get)\b.*\b(projects?|workspaces?|repos?)\b/i,
+    /\b(what|which)\b.*\b(projects?|workspaces?|repos?)\b/i,
+    /^(projects?|workspaces?|repos?)[\s?!.,]*$/i,
+    /\b(what|which)\s+(do\s+)?(we|i)\s+have\b/i,
+    /\b(any|my|our)\s+(projects?|workspaces?|repos?)\b/i,
+    /\b(what'?s?\s+)?(available|there)\b.*\b(projects?|workspaces?)\b/i,
   ],
 
-  // Select project - look for project-like names
+  // Select project — handle pronouns, trailing words, politeness
   select: [
-    /^(switch|use|select|work\s*on|open|go\s*to|load)\s+(to\s+)?(the\s+)?[\w-]+(\s+(project|workspace|app))?[\s?]*$/i,
-    /^(let'?s?\s*)?(work\s+on|use)\s+[\w-]+(\s+(project|workspace|app))?[\s?]*$/i,
-    /^(cd|change\s+to|move\s+to)\s+[\w-]+[\s?]*$/i,
+    /^(switch|use|select|work\s*on|open|go\s*to|load)\s+(to\s+)?(the\s+)?[\w-]+/i,
+    /^(let'?s?\s*)?(work\s+on|use)\s+[\w-]+/i,
+    /^(cd|change\s+to|move\s+to)\s+[\w-]+/i,
+    /\b(switch|change|move|go)\s+(to\s+)?(it|that(\s+one)?|this(\s+one)?)\b/i,
+    /\b(switch|select|use|open)\s+(to\s+)?[\w-]+\s*(project|workspace|app|repo)?\s*(please|pls|plz)?\s*$/i,
   ],
 
   // Create workspace/project - THIS IS WORKSPACE, NOT TASK!
@@ -356,9 +360,16 @@ export function classifyIntent(
 
   // ─────────────────────────────────────────────────────────────────────────
   // PHASE 1: Strong conversation signals
+  // Skip reactions when session has active context (project/task) —
+  // "yes"/"ok"/"sure" may be confirming an action, not just chatting
   // ─────────────────────────────────────────────────────────────────────────
 
+  const hasActiveContext = !!(session.currentProject || session.activeTaskId);
+
   for (const [category, patterns] of Object.entries(CONVERSATION_PATTERNS)) {
+    // Skip reactions for users with active project/task context
+    if (category === 'reactions' && hasActiveContext) continue;
+
     for (const pattern of patterns) {
       if (pattern.test(trimmed)) {
         logger.debug(`Intent: conversation (${category})`, { message: trimmed.substring(0, 50) });
