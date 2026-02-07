@@ -426,19 +426,25 @@ export class Bridge {
       }
       
       // Check if this is a reply to a Fetch message (thread continuation)
-      const isReplyToFetch = await this.isReplyToFetchMessage(message);
+      // IMPORTANT: Only check for non-fromMe messages. For fromMe messages,
+      // we CANNOT use thread replies because Fetch's own bot responses also
+      // have fromMe=true (same WhatsApp account as the owner). Allowing
+      // thread replies for fromMe causes an infinite loop:
+      //   Owner sends @fetch → Fetch replies (quotes original) →
+      //   message_create fires (fromMe=true, quotes fromMe msg) →
+      //   isReplyToFetch=true → processes Fetch's own reply → loop forever
+      const isReplyToFetch = message.fromMe ? false : await this.isReplyToFetchMessage(message);
       const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
       
-      // For messages from us (fromMe=true), process if @fetch OR reply to Fetch
-      // This allows self-chat and also allows us to trigger Fetch on our own responses if needed
+      // For messages from us (fromMe=true), ONLY process with explicit @fetch trigger.
+      // Thread replies are disabled for fromMe to prevent infinite response loops.
       if (message.fromMe) {
-        if (!hasFetchTrigger && !isReplyToFetch) {
-          // logger.debug('Skipped: fromMe without @fetch trigger or thread reply');
+        if (!hasFetchTrigger) {
           return;
         }
-        logger.info(`Processing self-chat message${isReplyToFetch ? ' (thread reply)' : ''}`);
+        logger.info('Processing self-chat message');
       } else {
-        // For messages from others, also require trigger OR reply
+        // For messages from others, allow @fetch trigger OR reply to a Fetch message
         if (!hasFetchTrigger && !isReplyToFetch) {
           return;
         }
