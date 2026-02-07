@@ -866,8 +866,16 @@ async function handleWithTools(
 
     // Persist assistant's tool_call request AFTER all tools executed
     // (avoids orphaned assistant entries if execution crashes mid-loop)
+    // Filter out degenerate tool calls (whitespace-only args) to prevent session poisoning
     const persistableToolCalls = currentToolCalls
-      .filter(tc => 'function' in tc && tc.function)
+      .filter(tc => {
+        if (!('function' in tc) || !tc.function) return false;
+        const args = tc.function.arguments?.trim() ?? '';
+        // Skip degenerate calls — whitespace-only or empty braces
+        if (!args || /^[\s{}]*$/.test(args)) return false;
+        // Skip calls that failed JSON parse (check if we can parse)
+        try { JSON.parse(args); return true; } catch { return false; }
+      })
       .map(tc => {
         const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
         return { id: tc.id, name: fn.name, arguments: fn.arguments };

@@ -465,7 +465,7 @@ export const workspaceTools = {
   },
   workspace_create: {
     name: 'workspace_create',
-    description: 'Create a new workspace/project. Supports templates: empty, node, python, rust, go, react, next.',
+    description: 'Create a new workspace/project directory. REQUIRED: pass {"name": "project-name"} as arguments. Optional: template (empty/node/python/rust/go/react/next).',
     handler: handleWorkspaceCreate,
     schema: WorkspaceCreateInputSchema,
   },
