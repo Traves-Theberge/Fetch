@@ -567,13 +567,22 @@ async function handleConversation(
       }
 
       let toolArgs: Record<string, unknown>;
+      const rawConvArgs = fn.arguments?.trim() ?? '';
+      if (!rawConvArgs || /^[\s{}]*$/.test(rawConvArgs)) {
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify({ success: false, error: `Empty arguments for ${toolName}. Provide valid JSON.` }),
+        });
+        continue;
+      }
       try {
-        toolArgs = JSON.parse(fn.arguments);
+        toolArgs = JSON.parse(rawConvArgs);
       } catch {
         messages.push({
           role: 'tool',
           tool_call_id: toolCall.id,
-          content: JSON.stringify({ success: false, error: 'Invalid JSON arguments' }),
+          content: JSON.stringify({ success: false, error: `Invalid JSON arguments for ${toolName}` }),
         });
         continue;
       }
@@ -707,19 +716,38 @@ async function handleWithTools(
       const toolName = fn.name;
       let toolArgs: Record<string, unknown>;
 
+      // Detect degenerate arguments (LLM sometimes emits whitespace-only JSON)
+      const rawArgs = fn.arguments?.trim() ?? '';
+      if (!rawArgs || /^[\s{}]*$/.test(rawArgs)) {
+        logger.warn('Degenerate tool call arguments (whitespace-only)', {
+          tool: toolName,
+          rawLength: fn.arguments?.length ?? 0,
+        });
+        const errorResult = {
+          success: false,
+          output: `Tool call failed: arguments were empty or whitespace-only. For ${toolName}, provide valid JSON like {"name": "my-project"}.`,
+        };
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(errorResult),
+        });
+        continue;
+      }
+
       // Safely parse tool call arguments — LLM may produce truncated JSON
       try {
-        toolArgs = JSON.parse(fn.arguments);
+        toolArgs = JSON.parse(rawArgs);
       } catch (parseError) {
         logger.error('Failed to parse tool call arguments (likely truncated)', {
           tool: toolName,
-          rawArgs: fn.arguments?.substring(0, 200),
+          rawArgs: rawArgs.substring(0, 200),
           error: parseError,
         });
         // Push an error result so the LLM can self-correct
         const errorResult = {
           success: false,
-          output: `Tool call failed: invalid JSON in arguments. The arguments were truncated or malformed. Please retry with valid JSON.`,
+          output: `Tool call failed: invalid JSON in arguments for ${toolName}. Send proper JSON like {"name": "value"}.`,
         };
         messages.push({
           role: 'tool',
