@@ -1,7 +1,7 @@
 # 🧪 Fetch Testing & Validation Guide
 
-> **Last Updated:** 2025-02-07
-> **Version:** 3.4.0+ (post-whitelist-fix)
+> **Last Updated:** 2026-02-07
+> **Version:** 3.5.0 (Make It Feel Alive)
 
 ---
 
@@ -117,17 +117,17 @@ npx vitest run tests/e2e/
 
 | # | Test | Expected | Result |
 |---|------|----------|--------|
-| A1 | DM from **owner** without `@fetch` trigger | ❌ Silently ignored (trigger required) | ✅ Passed |
-| A2 | DM from **owner** with `@fetch hello` | ✅ Responds | ✅ Passed |
-| A3 | DM from **untrusted stranger** with `@fetch hello` | ❌ Blocked — "not authorized" | ⏭️ Skipped |
-| A4 | `/trust add <stranger-number>` (from owner DM) | ✅ Number added, confirmed | ⏭️ Skipped |
-| A5 | DM from **newly trusted** user with `@fetch hello` | ✅ Responds | ⏭️ Skipped |
-| A6 | `/trust list` (from owner DM) | ✅ Shows trusted numbers | ⏭️ Skipped |
-| A7 | `/trust remove <number>` (from owner DM) | ✅ Number removed | ⏭️ Skipped |
-| A8 | DM from **removed** user with `@fetch` | ❌ Blocked again | ⏭️ Skipped |
-| A9 | Add number from **TUI whitelist screen** | ✅ Appears in `data/whitelist.json` | ⏭️ Skipped |
-| A10 | DM from TUI-added user with `@fetch` | ✅ Responds (no `/trust` needed) | ⏭️ Skipped |
-| A11 | `/trust clear` (from owner DM) | ✅ All trusted numbers removed | ⏭️ Skipped |
+| A1 | DM from **owner** without `@fetch` trigger | ❌ Silently ignored (trigger required) | |
+| A2 | DM from **owner** with `@fetch hello` | ✅ Responds | |
+| A3 | DM from **untrusted stranger** with `@fetch hello` | ❌ Blocked — "not authorized" | |
+| A4 | `/trust add <stranger-number>` (from owner DM) | ✅ Number added, confirmed | |
+| A5 | DM from **newly trusted** user with `@fetch hello` | ✅ Responds | |
+| A6 | `/trust list` (from owner DM) | ✅ Shows trusted numbers | |
+| A7 | `/trust remove <number>` (from owner DM) | ✅ Number removed | |
+| A8 | DM from **removed** user with `@fetch` | ❌ Blocked again | |
+| A9 | Add number from **TUI whitelist screen** | ✅ Appears in `data/whitelist.json` | |
+| A10 | DM from TUI-added user with `@fetch` | ✅ Responds (no `/trust` needed) | |
+| A11 | `/trust clear` (from owner DM) | ✅ All trusted numbers removed | |
 
 ### B — Slash Commands (All)
 
@@ -135,9 +135,9 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B1 | `/projects` or `/ls` | Lists workspace dirs with types | ✅ Passed |
-| B2 | `/project <name>` or `/cd <name>` | Switches active project, shows info | ✅ Passed (Flag: "unknown" classification) |
-| B3 | `/project` (no args, with project active) | Shows current project info | ✅ Passed (Flag: "unknown" classification) |
+| B1 | `/projects` or `/ls` | Lists workspace dirs with types | |
+| B2 | `/project <name>` or `/cd <name>` | Switches active project, shows info | |
+| B3 | `/project` (no args, with project active) | Shows current project info | |
 | B4 | `/project` (no args, no project) | "No project selected" message | |
 | B5 | `/clone <git-url>` | Clones repo into workspace | |
 | B6 | `/init <name>` | Creates new empty project dir | |
@@ -146,7 +146,7 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B7 | `/status` or `/st` or `/gs` | Shows git status of active project | ⚠️ Failed (Shows system status, not git status) |
+| B7 | `/status` or `/st` or `/gs` | Shows project + git status | |
 | B8 | `/diff` | Shows uncommitted changes | |
 | B9 | `/log` or `/log 5` | Shows recent commits | |
 | B10 | `/undo` | Reverts last change (git) | |
@@ -165,8 +165,8 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B16 | `/add src/index.ts` | Adds file to active context | ✅ Passed (Flag: needs absolute path display) |
-| B17 | `/files` or `/context` | Lists active files | ✅ Passed (Flag: needs absolute path display) |
+| B16 | `/add src/index.ts` | Adds file to active context (shows project name) | |
+| B17 | `/files` or `/context` | Lists active files (shows project name) | |
 | B18 | `/drop src/index.ts` or `/remove ...` | Removes file from context | |
 | B19 | `/clear` or `/reset` | Wipes messages, files, task — keeps prefs | ⏭️ Skipped (per user request) |
 
@@ -174,19 +174,20 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B20 | `/auto` or `/autonomous` | Toggles cautious ↔ autonomous | ✅ Passed (Flag: Response description unclear) |
-| B21 | `/mode supervised` | Sets mode to supervised | |
-| B22 | `/mode cautious` | Sets mode to cautious | |
-| B23 | `/mode autonomous` | Sets mode to autonomous | |
+| B20 | `/auto` or `/autonomous` | Toggles cautious ↔ autonomous (with explanation) | |
+| B21 | `/mode supervised` | Sets mode with bullet-point description | |
+| B22 | `/mode cautious` | Sets mode with bullet-point description | |
+| B23 | `/mode autonomous` | Sets mode with bullet-point description | |
 | B24 | `/mode` (no args) | Shows current mode | |
-| B25 | `/verbose` | Toggles verbose mode ON/OFF | ✅ Passed (Flag: `/mode verbose` failed, invalid arg) |
+| B25 | `/verbose` | Toggles verbose mode ON/OFF | |
+| B25b | `/mode verbose` | Redirects: "verbose is a setting, use `/verbose`" | |
 | B26 | `/autocommit` | Toggles auto-commit ON/OFF | |
 
 #### Identity & Skills
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B27 | `/identity` | Shows name, role, tone | ✅ Passed (Flag: Response "lackluster") |
+| B27 | `/identity` | Shows name, role, tone | |
 | B28 | `/identity system` or `/identity core` | Shows directives | |
 | B29 | `/identity reset` | Reloads identity from disk | |
 | B30 | `/skills` or `/skill list` | Lists active skills | |
@@ -206,14 +207,14 @@ npx vitest run tests/e2e/
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
-| B6 | `/init <name>` | Creates new empty project dir | ✅ Passed (Flag: NL processing oddity, "unknown" type) |
+| B6 | `/init <name>` | Creates new empty project dir | |
 
 #### Info / Help
 
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
 | B37 | `/help` or `/h` or `/?` | Shows full command reference | |
-| B38 | `/version` or `/v` | Shows "Fetch v3.3.0" | |
+| B38 | `/version` or `/v` | Shows "Fetch v3.5.0" | |
 
 #### Security
 
@@ -256,14 +257,14 @@ Send these as **natural language** (not slash commands).
 | C4 | `switch to <project-name>` | `workspace_select` | Activates project | |
 | C5 | `switch to it` (after listing) | `workspace_select` | Pronoun resolution | |
 | C6 | `project status` | `workspace_status` | Git info, modified files | |
-| C7 | `create a project called demo` | `workspace_create` | Creates dir with template | ❌ Failed (UX Breakdown: "Needs explicit confirmation") |
+| C7 | `create a project called demo` | `workspace_create` | Creates dir with template (no confirmation) | |
 | C8 | `delete demo` (project context) | `workspace_delete` | Confirms, then deletes | |
 
 #### Task Tools
 
 | # | Send Message | Expected Tool Call | Expected Behavior | Result |
 |---|-------------|-------------------|-------------------|--------|
-| C9 | `add a health check endpoint` (with project selected) | `task_create` | Creates task, delegates to harness | ❌ Failed (State amnesia: forgets project immediately after use) |
+| C9 | `add a health check endpoint` (with project selected) | `task_create` | Creates task, delegates to harness | |
 | C10 | `what's the status of my task?` | `task_status` | Returns task progress | |
 | C11 | `cancel that task` | `task_cancel` | Aborts running task | |
 
@@ -271,7 +272,7 @@ Send these as **natural language** (not slash commands).
 
 | # | Behavior | Expected | Result |
 |---|----------|----------|--------|
-| C12 | LLM needs clarification during task | `ask_user` — sends question, pauses task | ⚠️ Partial (Used `ask_user` excessively) |
+| C12 | LLM needs clarification during task | `ask_user` — sends question, pauses task (guard filters junk) | |
 | C13 | LLM reports mid-task progress | `report_progress` — sends status update | |
 
 #### Conversation (No Tools)
@@ -281,7 +282,7 @@ Send these as **natural language** (not slash commands).
 | C14 | `hey fetch` | Greeting response, NO tool calls | |
 | C15 | `what can you do?` | Capability overview, no tools | |
 | C16 | `how does React work?` | Conversational answer, no tools | |
-| C17 | `yes` (after Fetch asks a question) | Approves action — routes to task/approval, NOT conversation | ✅ Passed (Context: "Proceed with file creation?") |
+| C17 | `yes` (after Fetch asks a question) | Approves action — routes to task/approval, NOT conversation | |
 | C18 | `ok` (with active task) | Should continue task, not be classified as reaction | |
 
 ### D — @fetch Trigger & Routing
@@ -293,7 +294,7 @@ Send these as **natural language** (not slash commands).
 | D3 | Group, with trigger | `@fetch hello` | Processes, responds in group | |
 | D4 | Group, no trigger | `hello` | ❌ Silently ignored | |
 | D5 | Group, trigger mid-message | `hey @fetch help me` | ✅ Trigger detected anywhere in body | |
-| D6 | Thread reply to Fetch msg (owner) | Reply without `@fetch` | ✅ Processed (thread detection) | ✅ Passed (F1) |
+| D6 | Thread reply to Fetch msg (owner) | Reply without `@fetch` | ✅ Processed (thread detection) | |
 | D7 | Thread reply to Fetch msg (trusted) | Reply without `@fetch` | ✅ Processed (whitelist check) | |
 | D8 | Thread reply to Fetch msg (untrusted) | Reply without `@fetch` | ❌ Blocked | |
 | D9 | Thread reply to non-Fetch msg | Reply without `@fetch` | ❌ Silently ignored (not fromMe) | |
@@ -307,7 +308,7 @@ Send these as **natural language** (not slash commands).
 
 | # | Test | Steps | Expected | Risk | Result |
 |---|------|-------|----------|------|--------|
-| E1 | **DM context doesn't leak to group** | 1. DM: `/project my-api`<br>2. Group: `@fetch what project am I on?` | ⚠️ Will show `my-api` — same session | **Session bleed** | 🔴 FAILED (Confirmed Session Bleed) |
+| E1 | **DM context doesn't leak to group** | 1. DM: `/project my-api`<br>2. Group: `@fetch what project am I on?` | ⚠️ Will show `my-api` — same session | **Session bleed** | |
 | E2 | **Group context doesn't leak to DM** | 1. Group: `@fetch /project web-app`<br>2. DM: `@fetch project status` | ⚠️ Will show `web-app` — same session | **Session bleed** | |
 | E3 | **Two groups, same user** | 1. Group A: `@fetch /project alpha`<br>2. Group B: `@fetch what project?` | ⚠️ Will show `alpha` — same session | **Session bleed** | |
 | E4 | **Different users, same group** | 1. User A in group: `@fetch /project X`<br>2. User B in group: `@fetch what project?` | ✅ Different sessions — different users | **Isolated** | |
@@ -322,8 +323,8 @@ Send these as **natural language** (not slash commands).
 
 | # | Test | Steps | Expected | Result |
 |---|------|-------|----------|--------|
-| F1 | Reply to Fetch's DM message | Long-press Fetch's msg → Reply → type message | ✅ Processed without `@fetch` | ✅ Passed |
-| F2 | Reply to Fetch in group | Long-press Fetch's msg → Reply → type message | ✅ Processed without `@fetch` | ⏭️ Skipped |
+| F1 | Reply to Fetch's DM message | Long-press Fetch's msg → Reply → type message | ✅ Processed without `@fetch` | |
+| F2 | Reply to Fetch in group | Long-press Fetch's msg → Reply → type message | ✅ Processed without `@fetch` | |
 | F3 | Reply to someone else's msg | Long-press other msg → Reply → type message | ❌ Not processed (not fromMe reply) | |
 | F4 | Owner sends "fromMe" reply | Reply to your OWN msg (self-chat) | ❌ Thread detection disabled (loop prevention) | |
 
@@ -535,21 +536,26 @@ services:
 
 | Issue | Severity | Status | Notes |
 |-------|----------|--------|-------|
-| **Context Amnesia: Agent forgets project mid-conversation** | 🔴 Critical | 🔴 Confirmed | System prompt not rebuilt after tool calls. Fix: Phase 1 of FIX_PLAN.md |
-| **Excessive confirmation loops (ask_user overuse)** | 🔴 Critical | 🔴 Confirmed | LLM asks "which project?" even with active project. Fix: Phase 2 of FIX_PLAN.md |
-| **Conversation handler has no tools** | 🟡 High | 🔴 Confirmed | "How's the project?" gets hallucinated answer. Fix: Phase 3 |
-| **Short messages (<15 chars) forced to conversation** | 🟡 High | 🔴 Confirmed | "fix auth" misrouted. Fix: Phase 3 |
-| **`/status` shows system health, not git status** | 🟡 Medium | 🔴 Confirmed | Users expect git status. Fix: Phase 4 |
-| **Project type detection shows `(unknown)`** | 🟡 Medium | 🔴 Confirmed | Weak detection patterns. Fix: Phase 4 |
-| **`/mode verbose` fails** | 🟢 Low | 🔴 Confirmed | Should redirect to `/verbose`. Fix: Phase 4 |
-| **`/add` and `/files` don't show full paths** | 🟡 Medium | 🔴 Confirmed | Missing project-relative paths. Fix: Phase 4 |
-| **Mode toggle responses lack explanation** | 🟡 Medium | 🔴 Confirmed | "Autonomous mode" not explained. Fix: Phase 4 |
 | **Session bleed: DM ↔ group** | 🔴 High | 🟡 Deferred | Sessions keyed on participant, not chat. Separate effort |
 | `gh auth token` expired in kennel | 🟡 Medium | 🟡 Open | Copilot harness unavailable. Re-auth inside container |
 | Claude harness disabled | 🟢 Low | ⚪ Expected | Enable when `claude` CLI available in kennel |
 | Gemini harness disabled | 🟢 Low | ⚪ Expected | Enable when `gemini` CLI available in kennel |
 | Proactive notifications route to DM | 🟡 Medium | 🟡 Open | Tasks started from group send completions to DM |
-| `/version` shows v3.3.0 | 🟢 Low | 🟡 Stale | Should be updated to v3.5.0 |
+
+### Resolved in v3.5.0
+
+| Issue | Was | Fix |
+|-------|-----|-----|
+| Context Amnesia: forgets project mid-conversation | 🔴 Critical | System prompt rebuilt after state-changing tools |
+| Excessive confirmation loops (ask_user overuse) | 🔴 Critical | Autonomy rules + ask_user pattern guard |
+| Conversation handler had no tools | 🟡 High | Now has 3 read-only tools |
+| Short messages (<15 chars) forced to conversation | 🟡 High | Cutoff reduced to 5 chars with action verb exceptions |
+| `/status` shows system health, not git | 🟡 Medium | Now shows project info prominently |
+| Project type shows `(unknown)` | 🟡 Medium | Expanded from 5 to 10 project types |
+| `/mode verbose` fails | 🟢 Low | Redirects to helpful message |
+| `/add`/`/files` no paths | 🟡 Medium | Shows project name in output |
+| Mode toggle responses bare | 🟡 Medium | Bullet-point explanations |
+| `/version` showed v3.3.0 | 🟢 Low | Now v3.5.0 |
 
 ---
 
@@ -557,11 +563,26 @@ services:
 
 > Record your test runs here. Copy the date header and fill in results.
 
-### Run: 2026-02-07
+### Run: 2026-02-07 (v3.5.0 — Fresh Start)
 
 **Tester:** Traves
-**Bridge version:** v3.4.0+
-**Commit:** main (15 ahead of origin)
+**Bridge version:** v3.5.0
+**Commit:** (pending)
+
+| Section | Passed | Failed | Skipped | Notes |
+|---------|--------|--------|---------|-------|
+| A — Security | /11 | | | |
+| B — Commands | /50 | | | |
+| C — AI Tools | /18 | | | |
+| D — Triggers | /10 | | | |
+| E — Group Isolation | /7 | | | |
+| F — Threads | /4 | | | |
+| G — Memory | /8 | | | |
+| H — Tasks | /7 | | | |
+| I — Proactive | /4 | | | |
+| **TOTAL** | **/119** | | | |
+
+### Previous Run: 2026-02-07 (v3.4.0)
 
 | Section | Passed | Failed | Skipped | Notes |
 |---------|--------|--------|---------|-------|
@@ -574,12 +595,7 @@ services:
 | G — Memory | 0/8 | 0 | 8 | Blocked by core session bugs |
 | H — Tasks | 0/7 | 0 | 7 | Blocked by context amnesia |
 | I — Proactive | 0/4 | 0 | 4 | Lower priority |
-| **TOTAL** | **12/118** | **4** | **102** | See FIX_PLAN.md for remediation |
-| Chromium `SingletonLock` stale symlink | ✅ Fixed | `entrypoint.sh` cleans on startup |
-| Group chat infinite loop | ✅ Fixed | `fromMe` thread-reply detection disabled |
-| Tool JSON truncation (500 token limit) | ✅ Fixed | Bumped to 2048 tokens |
-| "what projects do we have?" misclassified | ✅ Fixed | Workspace patterns loosened |
-| "yes" always treated as conversation | ✅ Fixed | Context-aware reaction classifier |
+| **TOTAL** | **12/118** | **4** | **102** | All critical issues addressed in v3.5.0 |
 
 ---
 

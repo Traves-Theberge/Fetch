@@ -27,9 +27,12 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 
 ## Key Features
 
+- **Agentic Autonomy** — Acts first, summarizes after. Unnecessary confirmations auto-approved. Feels like Claude Code, not a chatbot
 - **Context Pipeline** — Full OpenAI multi-turn format with tool call memory, sliding window (20 messages), and automatic compaction
+- **Live Context Awareness** — System prompt rebuilt after every state-changing tool call. The LLM always sees current workspace, project, and task state
 - **Three AI Harnesses** — Claude Code for complex refactoring, Gemini for quick edits, Copilot for suggestions
-- **State Machine** — Five modes (ALERT, WORKING, WAITING, GUARDING, RESTING) persisted to SQLite
+- **Three Intent Paths** — Conversation (with read-only tools), Inquiry (status/listing), Action (full tool access + harness delegation)
+- **10 Project Types** — Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET, and unknown
 - **Dynamic Identity** — Hot-reloaded personality via Markdown files in `data/identity/`
 - **Skills Framework** — Teach Fetch new capabilities by adding Markdown files to `data/skills/`
 - **Proactive Notifications** — Task completion/failure alerts pushed to WhatsApp automatically

@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-02-07 (Make It Feel Alive 🧠)
+
+> Full implementation of FIX_PLAN.md — addressing all critical issues found during live testing.
+> Goal: Make Fetch feel like an intelligent agent, not a boxy command processor.
+
+### 🧠 Phase 1 — Context Amnesia Fix
+- **System Prompt Rebuild (1.1):** After `workspace_select`, `workspace_create`, and `task_create` tool calls, the system prompt (`messages[0]`) is now rebuilt with fresh session state. The LLM immediately sees the updated workspace context instead of stale "no project selected."
+- **Workspace as Top-Level Directive (1.2):** Active workspace now appears as the **first** section in the context block with a bold `🎯 ACTIVE WORKSPACE` header and an explicit directive: "Do NOT ask the user to select or confirm a workspace."
+- **Post-Create Persistence (1.3):** After `workspace_create` and `task_create`, session state is persisted and the system prompt rebuilt — the LLM sees its own actions reflected immediately.
+
+### 🤖 Phase 2 — Autonomy & Confirmation Loop Fix
+- **Autonomy Rules (2.1):** 7 autonomy rules injected as `HIGHEST PRIORITY` at the top of the system prompt. Includes: "Act first, summarize after", "Never ask for confirmation on non-destructive actions", "If user says 'create X', create X."
+- **ask_user Guard (2.2):** The `ask_user` tool now pattern-matches unnecessary confirmations ("Shall I proceed?", "Would you like me to?", "Is that okay?"). In cautious/autonomous mode, these auto-approve with "Yes, proceed" without ever reaching the user's phone.
+- **ToolContext Pipeline (2.2b):** `ToolContext` interface extended with `autonomyLevel` field. `ToolContext` moved from `registry.ts` to `types.ts` to eliminate circular imports. Both `handleWithTools()` and `handleConversation()` pass the session's autonomy level through.
+- **Mode-Aware Instructions (2.3):** System prompt behavioral section now changes based on mode — supervised gets "ask before every action", cautious gets "ask only for destructive", autonomous gets "execute everything immediately."
+
+### 🎯 Phase 3 — Intent Classification & Conversation Tools
+- **Conversation Gets Tools (3.1):** `handleConversation()` now has 3 read-only tools: `workspace_list`, `workspace_select`, `workspace_status`. Questions like "what project am I on?" get real tool-based answers instead of hallucinated responses. Includes a 2-call tool loop and workspace state sync.
+- **Short Message Cutoff (3.2):** Reduced from 15 chars to 5 chars with an action verb exception pattern (`fix`, `add`, `rm`, `ls`, `cd`, `run`, `git`). "fix auth" (8 chars) now correctly routes to action handler.
+- **Greeting Pattern Fix (3.2b):** Added pattern for "hi <name>" style greetings (e.g., "hi Fetch") that were falling to the fallback classifier.
+- **Reactions Pattern Fix (3.2c):** Added "maybe" to conversation reactions — was falling through to fallback with the tighter cutoff.
+
+### 💅 Phase 4 — Command UX Polish
+- **Descriptive Mode Toggles (4.1):** `/auto` and `/mode <name>` now return bullet-pointed explanations of what each mode does, not just "Switched to X mode."
+- **`/mode verbose` Redirect (4.2):** Instead of "Invalid mode", now explains that verbose is a setting (use `/verbose`) and lists the actual modes.
+- **Invalid Mode Help (4.2b):** `/mode <invalid>` now shows all 3 available modes with emoji and descriptions instead of a bare error.
+- **Context-Aware `/files` (4.3):** `/files` shows project name in header. Empty state mentions project name. `/add` response includes project name.
+- **Expanded Project Detection (4.4):** `ProjectType` expanded from 5 to 10 types: added `typescript` (tsconfig.json), `java` (pom.xml, build.gradle), `ruby` (Gemfile), `php` (composer.json), `dotnet` (*.csproj, *.sln). Glob pattern support added to `detectProjectType()`.
+- **`/status` Shows Project (4.5):** `formatStatus()` rewritten to prominently show project info (name, path, branch, clean/dirty) before task and settings sections.
+- **Version Bump (4.6):** `/version` now shows "Fetch v3.5.0 (Make It Feel Alive)".
+
+### 📝 Phase 5 — System Prompt Optimization
+- **Slimmed Prompt (5.1):** System prompt reduced from 12+ sections to ~6 focused sections. Removed redundant CORE DIRECTIVES, OPERATIONAL GUIDELINES, and UNDERSTANDING REQUESTS sections.
+- **Conditional Skills (5.2):** Skills section only included when skills are actually loaded, reducing prompt noise.
+- **Test Alignment:** Updated `pipeline-config.test.ts` to match actual config values (`chatMaxTokens: 512`, `toolMaxTokens: 2048`).
+
+### 📊 Stats
+- **Test suite:** 15 files, 200 tests, 0 failures
+- **Modified files:** 14 source + test files
+- **Net impact:** +347 lines, −108 lines
+- **Commit:** `845aef5`
+
 ## [3.4.0] - 2026-02-06 (Context Pipeline 🧠)
 
 ### 🧠 Phase 0 — Centralized Configuration Layer

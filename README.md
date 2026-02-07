@@ -1,6 +1,6 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v3.4.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v3.5.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
@@ -101,7 +101,7 @@ docker logs -f fetch-bridge  # Scan the QR code
 | `/project <name>` | Switch active project |
 | `/clone <url>` | Clone a repository |
 | `/verbose` | Toggle verbose output |
-| `/mode <mode>` | Set autonomy (auto/supervised/manual) |
+| `/mode <mode>` | Set autonomy (supervised/cautious/autonomous) |
 | `/remind <time> <msg>` | Set a one-shot reminder |
 | `/schedule <cron> <msg>` | Schedule a recurring task |
 | `/cron list` | List scheduled jobs |
