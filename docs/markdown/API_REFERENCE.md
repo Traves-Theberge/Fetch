@@ -149,6 +149,8 @@ Send a question to the user via WhatsApp and wait for a reply.
 
 **Returns:** `{ answer: string }`
 
+> **Autonomy Guard (v3.5.0):** In `cautious` or `autonomous` mode, questions matching unnecessary confirmation patterns ("Shall I...", "Would you like me to...", "Can I proceed...") are auto-approved without reaching the user. The LLM receives `"Yes, proceed."` as the answer. This is controlled by `ToolContext.autonomyLevel`.
+
 #### report_progress
 Send a progress update to the user.
 
@@ -195,6 +197,19 @@ Validates and sanitizes user input.
 | `validate(input)` | Returns `{ valid: boolean, sanitized: string, reason?: string }` |
 
 Blocks: command substitution (`$()`), `rm -rf` patterns, pipe-to-shell, `eval()`, prototype pollution, null bytes, control characters. Allows backticks (for code discussion).
+
+---
+
+## Tool Context
+
+```typescript
+interface ToolContext {
+  sessionId?: string;       // Session ID for session-aware tools
+  autonomyLevel?: string;   // Current autonomy level for ask_user guard
+}
+```
+
+The `autonomyLevel` field (added in v3.5.0) flows from the session’s preferences through the tool registry to individual tool handlers. The `ask_user` tool uses it to decide whether to auto-approve confirmation questions.
 
 ---
 

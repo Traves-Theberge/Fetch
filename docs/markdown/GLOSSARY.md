@@ -31,7 +31,7 @@
 | Term | Definition |
 |------|-----------|
 | **Instinct** | Deterministic fast-path handler. Pattern-matched against input, executes without LLM. <5ms. |
-| **Intent** | Classification result: `conversation`, `inquiry`, or `action`. Determines which handler processes the message. |
+| **Intent** | Classification result: `conversation`, `inquiry`, or `action`. Determines which handler processes the message. Conversation now has read-only tool access (v3.5.0). |
 | **Mode** | State machine state: ALERT, WORKING, WAITING, GUARDING, RESTING. Persisted to SQLite. |
 | **Skill** | A Markdown file in `data/skills/` that injects domain-specific instructions when triggers match. |
 
@@ -79,3 +79,14 @@
 |------|-----------|
 | **Orchestrator Tool** | One of 11 tools the LLM can call during the ReAct loop (workspace_*, task_*, ask_user, report_progress). |
 | **Custom Tool** | A user-defined tool in `data/tools/` (JSON). Wraps a shell command with parameters. |
+
+## v3.5.0 Concepts
+
+| Term | Definition |
+|------|------------|
+| **Autonomy Guard** | Pattern-matching interceptor on the `ask_user` tool. Auto-approves unnecessary confirmation questions ("Shall I?", "Would you like?") in non-supervised modes. The LLM believes the user said "Yes, proceed." |
+| **Conversation Tools** | Three read-only tools (`workspace_list`, `workspace_select`, `workspace_status`) available to `handleConversation()`. Max 2 calls. Prevents hallucinated workspace answers. |
+| **Dynamic Prompt Rebuild** | After state-changing tool calls (`workspace_select`, `workspace_create`, `task_create`), the system prompt at `messages[0]` is replaced with a fresh build reflecting current project/git/task state. |
+| **Autonomy Rules** | 7 highest-priority directives in the system prompt that enforce agentic behavior: act first, summarize after, never ask unnecessary questions. |
+| **ToolContext** | Object passed through the tool registry to handlers. Contains `sessionId` (for session-aware tools) and `autonomyLevel` (for the ask_user guard). Defined in `tools/types.ts`. |
+| **ProjectType** | Union type: `node`, `typescript`, `python`, `rust`, `go`, `java`, `ruby`, `php`, `dotnet`, `unknown`. Detected by `WorkspaceManager.detectProjectType()` using file indicators and glob patterns. |

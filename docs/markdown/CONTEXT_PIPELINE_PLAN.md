@@ -97,11 +97,12 @@ Created Express API with 3 routes, JWT auth middleware, and Vitest test suite.
 
 ### Tool Context Passthrough
 
-Tools receive a `ToolContext` object containing the `sessionId`, allowing:
+Tools receive a `ToolContext` object containing the `sessionId` and `autonomyLevel`, allowing:
 
 - Tasks to be linked to their originating session
 - Task goals to be framed using conversation context (via `frameTaskGoal()`)
 - Tool results to be persisted back to the correct session
+- The `ask_user` autonomy guard to know whether to auto-approve confirmation questions
 
 ---
 
@@ -125,9 +126,9 @@ All pipeline parameters live in a single config module (`config/pipeline.ts`) an
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per single user message |
-| `FETCH_CHAT_MAX_TOKENS` | `300` | Token budget for conversation responses |
+| `FETCH_CHAT_MAX_TOKENS` | `512` | Token budget for conversation responses |
 | `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses (0.0–1.0) |
-| `FETCH_TOOL_MAX_TOKENS` | `500` | Token budget for tool-calling responses |
+| `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses (0.0–1.0) |
 | `FETCH_FRAME_MAX_TOKENS` | `200` | Token budget for task framing prompts |
 
@@ -258,7 +259,7 @@ WhatsApp messages average 20–50 tokens (not 200), so the window is efficient. 
 | `session/manager.ts` | Message persistence, compaction triggers, session lifecycle |
 | `agent/core.ts` | `buildMessageHistory()` — converts session messages to OpenAI multi-turn format |
 | `agent/prompts.ts` | `buildContextSection()` — injects compaction summary and recalled memory into system prompt |
-| `tools/registry.ts` | Tool execution with `ToolContext` passthrough |
+| `tools/registry.ts` | Tool execution with `ToolContext` passthrough (sessionId + autonomyLevel) |
 | `handler/index.ts` | Task completion event listeners, WhatsApp sender registration |
 | `bridge/client.ts` | Proactive WhatsApp message delivery |
 
@@ -295,6 +296,17 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 - **Task framing** — `frameTaskGoal()` produces self-contained goals for harnesses
 - **Proactive notifications** — task completion/failure events trigger WhatsApp messages
 - **TUI pipeline tuning** — Go TUI config editor supports all `FETCH_*` parameters
+
+### ✅ Shipped (v3.5.0)
+
+- **Conversation tools** — `handleConversation()` now has read-only access to `workspace_list`, `workspace_select`, `workspace_status` (max 2 tool calls) so it can answer workspace questions without hallucinating
+- **Dynamic prompt rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current project/git/task state
+- **Autonomy guard** — `ask_user` tool intercepts unnecessary confirmation questions ("Shall I?", "Would you like me to?") in non-supervised modes and auto-approves with "Yes, proceed."
+- **ToolContext.autonomyLevel** — Session’s autonomy preference flows through the tool registry to `ask_user` for guard decisions
+- **10 project types** — `detectProjectType()` now recognizes Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET (with glob pattern support)
+- **7 autonomy rules** — System prompt includes highest-priority directives enforcing agentic behavior (act first, summarize after)
+- **Pipeline token budget increase** — `chatMaxTokens` 300→512, `toolMaxTokens` 500→2048 for richer responses
+- **Intent refinement** — Short-message cutoff reduced from 15 to 5 chars, with action verb exceptions; new greeting patterns ("hi <name>")
 
 ### 🔜 Phase 2: BM25 Memory & Precision Recall
 

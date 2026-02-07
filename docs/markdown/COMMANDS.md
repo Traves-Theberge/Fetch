@@ -34,7 +34,7 @@ These are handled deterministically without an LLM call (<5ms):
 |---------|-------------|
 | `/help` | Full command list |
 | `/status`, `/st` | System status + active task info |
-| `/version`, `/v` | Show Fetch version (v3.3.0) |
+| `/version`, `/v` | Show Fetch version (v3.5.0) |
 | `/clear` | Clear conversation history |
 | `/verbose` | Toggle verbose output |
 
@@ -57,8 +57,11 @@ These are handled deterministically without an LLM call (<5ms):
 |---------|-------------|
 | `/verbose` | Toggle verbose mode on/off |
 | `/autocommit` | Toggle auto-commit on/off |
-| `/auto` | Toggle auto-approve on/off |
-| `/mode [level]` | Set autonomy: `auto`, `supervised`, or `manual` |
+| `/auto` | Toggle between autonomous and cautious mode |
+| `/mode [level]` | Set autonomy: `supervised`, `cautious`, or `autonomous` |
+
+> **Note:** `/mode verbose` is a common mistake — Fetch helpfully redirects you to use `/verbose` instead.
+> Invalid mode names show all three options with descriptions.
 
 ## Identity & Skills Commands
 

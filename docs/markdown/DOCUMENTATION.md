@@ -1,6 +1,6 @@
 # Documentation
 
-This is the master documentation index for Fetch v3.4.0.
+This is the master documentation index for Fetch v3.5.0.
 
 ## Getting Started
 
@@ -39,7 +39,9 @@ This is the master documentation index for Fetch v3.4.0.
 4. **Intent classifier** categorizes the message as `conversation`, `inquiry`, or `action`
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
-7. **Tools** execute with `ToolContext { sessionId }` — tool calls and results are persisted to the session
+7. **Conversation handler** has read-only tools (`workspace_list`, `workspace_select`, `workspace_status`); **action handler** has full tools
+8. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`)
+9. **Tools** execute with `ToolContext { sessionId, autonomyLevel }` — tool calls and results are persisted to the session
 8. **Compaction** triggers automatically when messages exceed the threshold — older messages are summarized and trimmed
 9. **Response** is formatted for WhatsApp and sent back. Task completions push proactive notifications
 
@@ -89,4 +91,4 @@ All adapters extend `AbstractHarnessAdapter`. The orchestrator selects which har
 |----------|-------|---------|
 | Workspace | `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete` | Project management |
 | Task | `task_create`, `task_status`, `task_cancel`, `task_respond` | Task lifecycle and harness delegation |
-| Interaction | `ask_user`, `report_progress` | User communication via WhatsApp |
+| Interaction | `ask_user` (with autonomy guard), `report_progress` | User communication via WhatsApp |

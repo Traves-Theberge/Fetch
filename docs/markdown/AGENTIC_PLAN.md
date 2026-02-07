@@ -18,7 +18,7 @@ Analyzes the message text to determine one of three intents:
 
 | Intent | Pattern | Handler |
 |--------|---------|---------|
-| **conversation** | Greetings, thanks, social | `handleConversation()` — Direct LLM, no tools |
+| **conversation** | Greetings, thanks, social | `handleConversation()` — Read-only tools (`workspace_list`, `workspace_select`, `workspace_status`), max 2 tool calls |
 | **inquiry** | Questions about code/status | `handleInquiry()` — Read-only tools, 1 cycle |
 | **action** | Coding requests, project ops | `handleWithTools()` — Full ReAct loop |
 
@@ -93,6 +93,32 @@ The system prompt is built dynamically by `IdentityManager.buildSystemPrompt()`:
 5. **Activated skills** — Full instruction bodies for triggered skills
 6. **Session context** — Active project, git state, repo map, task state
 7. **Tool definitions** — 11 orchestrator tools with Zod schemas
+
+### Dynamic Prompt Rebuild (v3.5.0)
+
+The system prompt is **rebuilt after every state-changing tool call**. When `workspace_select`, `workspace_create`, or `task_create` executes, the system message at `messages[0]` is replaced with a fresh prompt containing the updated project, git, and task context. This eliminates the "Context Amnesia" bug where the LLM would lose track of the active workspace mid-conversation.
+
+### Autonomy Rules (v3.5.0)
+
+The system prompt now includes **7 autonomy rules** injected as `HIGHEST PRIORITY` directives. These enforce agentic behavior:
+
+1. Execute tasks immediately — never ask permission to start work
+2. Never ask "shall I?", "would you like me to?" — just do it
+3. Infer missing details from context (project, files, branch)
+4. Report results after completion, not plans before starting
+5. When workspace is active, use it without asking
+6. Chain tool calls to accomplish goals without pausing
+7. Only ask the user when genuinely missing information
+
+## Autonomy Guard (v3.5.0)
+
+The `ask_user` tool includes a pattern-matching guard that intercepts unnecessary confirmation requests from the LLM. In non-supervised modes, questions matching patterns like:
+
+- "Shall I...", "Would you like me to..."
+- "Do you want me to...", "Should I..."
+- "Can I proceed...", "Is it okay if I..."
+
+…are auto-approved with the message "Yes, proceed." The LLM never sees the guard — it believes the user approved. This is controlled by `ToolContext.autonomyLevel` passed through the tool registry.
 
 ## Proactive System
 
