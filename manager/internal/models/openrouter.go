@@ -17,17 +17,27 @@ import (
 
 // Model represents an OpenRouter AI model with metadata and pricing.
 type Model struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Description   string  `json:"description"`
-	ContextLength int     `json:"context_length"`
-	Pricing       Pricing `json:"pricing"`
+	ID                  string       `json:"id"`
+	Name                string       `json:"name"`
+	Description         string       `json:"description"`
+	ContextLength       int          `json:"context_length"`
+	Pricing             Pricing      `json:"pricing"`
+	Architecture        Architecture `json:"architecture"`
+	SupportedParameters []string     `json:"supported_parameters"`
 }
 
 // Pricing contains the per-token cost information for prompt and completion.
 type Pricing struct {
 	Prompt     string `json:"prompt"`
 	Completion string `json:"completion"`
+}
+
+// Architecture describes the model's modality, tokenizer, and instruction type.
+type Architecture struct {
+	Modality         string   `json:"modality"`
+	InputModalities  []string `json:"input_modalities"`
+	OutputModalities []string `json:"output_modalities"`
+	Tokenizer        string   `json:"tokenizer"`
 }
 
 // ModelsResponse represents the OpenRouter API response structure.
@@ -72,37 +82,28 @@ func FetchModels(apiKey string) ([]Model, error) {
 	return modelsResp.Data, nil
 }
 
-// FilterRecommended returns models suitable for agentic use (good reasoning, affordable)
-func FilterRecommended(models []Model) []Model {
-	recommended := []string{
-		"openai/gpt-4o-mini",
-		"openai/gpt-4o",
-		"openai/o3-mini",
-		"anthropic/claude-sonnet-4",
-		"anthropic/claude-3.5-haiku",
-		"google/gemini-2.0-flash",
-		"google/gemini-2.5-pro-preview",
-		"meta-llama/llama-3.3-70b-instruct",
-		"mistralai/mistral-large",
-		"mistralai/mistral-small",
-		"deepseek/deepseek-chat-v3",
-		"deepseek/deepseek-r1",
-		"qwen/qwen-2.5-72b-instruct",
-	}
-
-	recommendedSet := make(map[string]bool)
-	for _, id := range recommended {
-		recommendedSet[id] = true
-	}
-
+// FilterToolCapable returns only models that support function calling (tools).
+func FilterToolCapable(models []Model) []Model {
 	var filtered []Model
 	for _, m := range models {
-		if recommendedSet[m.ID] {
-			filtered = append(filtered, m)
+		for _, p := range m.SupportedParameters {
+			if p == "tools" {
+				filtered = append(filtered, m)
+				break
+			}
 		}
 	}
-
 	return filtered
+}
+
+// HasTools returns whether a model supports function calling (tools).
+func HasTools(m Model) bool {
+	for _, p := range m.SupportedParameters {
+		if p == "tools" {
+			return true
+		}
+	}
+	return false
 }
 
 // GroupByProvider groups models by their provider
@@ -216,10 +217,81 @@ func GetAPIKey() string {
 	return ""
 }
 
-// FormatPrice formats pricing string for display
+// FormatPrice formats a per-token price string as a readable per-million-token cost.
 func FormatPrice(priceStr string) string {
-	if priceStr == "" || priceStr == "0" {
+	if priceStr == "" || priceStr == "0" || priceStr == "-1" {
 		return "Free"
 	}
-	return "$" + priceStr + "/1K"
+	// Price from API is per-token; multiply by 1,000,000 for per-M display
+	var perToken float64
+	if _, err := fmt.Sscanf(priceStr, "%f", &perToken); err != nil {
+		return priceStr
+	}
+	perMillion := perToken * 1_000_000
+	if perMillion < 0.01 {
+		return "Free"
+	}
+	if perMillion < 1.0 {
+		return fmt.Sprintf("$%.2f/M", perMillion)
+	}
+	if perMillion < 10.0 {
+		return fmt.Sprintf("$%.1f/M", perMillion)
+	}
+	return fmt.Sprintf("$%.0f/M", perMillion)
+}
+
+// FormatContextLength formats a context length integer as a human-readable string.
+func FormatContextLength(ctx int) string {
+	if ctx >= 1_000_000 {
+		m := float64(ctx) / 1_000_000
+		if m == float64(int(m)) {
+			return fmt.Sprintf("%dM", int(m))
+		}
+		return fmt.Sprintf("%.1fM", m)
+	}
+	if ctx >= 1_000 {
+		k := float64(ctx) / 1_000
+		if k == float64(int(k)) {
+			return fmt.Sprintf("%dK", int(k))
+		}
+		return fmt.Sprintf("%.1fK", k)
+	}
+	return fmt.Sprintf("%d", ctx)
+}
+
+// FormatModality returns emoji badges for model input/output modalities.
+func FormatModality(m Model) string {
+	badges := ""
+	inputSet := make(map[string]bool)
+	for _, mod := range m.Architecture.InputModalities {
+		inputSet[mod] = true
+	}
+	outputSet := make(map[string]bool)
+	for _, mod := range m.Architecture.OutputModalities {
+		outputSet[mod] = true
+	}
+
+	// Input modalities
+	if inputSet["image"] {
+		badges += "👁 "
+	}
+	if inputSet["audio"] {
+		badges += "🎤 "
+	}
+	if inputSet["video"] {
+		badges += "🎬 "
+	}
+	if inputSet["file"] {
+		badges += "📎 "
+	}
+
+	// Output modalities
+	if outputSet["image"] {
+		badges += "🖼 "
+	}
+	if outputSet["audio"] {
+		badges += "🔊 "
+	}
+
+	return strings.TrimSpace(badges)
 }
