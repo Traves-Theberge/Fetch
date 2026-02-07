@@ -43,9 +43,9 @@ The context pipeline is configured via `config/pipeline.ts` with 44 tunable para
 | `FETCH_COMPACTION_MAX_TOKENS` | int | `500` | Max tokens for compaction summaries |
 | `FETCH_COMPACTION_MODEL` | string | `SUMMARY_MODEL` | Model for compaction (cheap + fast) |
 | `FETCH_MAX_TOOL_CALLS` | int | `5` | Max tool call rounds per message |
-| `FETCH_CHAT_MAX_TOKENS` | int | `300` | Token budget for conversation responses |
+| `FETCH_CHAT_MAX_TOKENS` | int | `512` | Token budget for conversation responses |
 | `FETCH_CHAT_TEMPERATURE` | float | `0.7` | Temperature for conversation responses |
-| `FETCH_TOOL_MAX_TOKENS` | int | `500` | Token budget for tool-calling responses |
+| `FETCH_TOOL_MAX_TOKENS` | int | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | float | `0.3` | Temperature for tool-calling responses |
 | `FETCH_FRAME_MAX_TOKENS` | int | `200` | Token budget for task framing prompt |
 | `FETCH_RECALL_LIMIT` | int | `5` | Max recalled results injected into context |

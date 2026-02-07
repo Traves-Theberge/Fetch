@@ -20,13 +20,14 @@ The Bridge communicates with the Kennel by running `docker exec` commands into i
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Instinct layer** checks for deterministic commands (`/stop`, `/status`, `/help`) — if matched, returns immediately without LLM
 4. **Intent classifier** analyzes the message:
-   - **conversation** → Direct LLM response (no tools)
+   - **conversation** → Read-only tools (`workspace_list`, `workspace_select`, `workspace_status`), max 2 tool calls
    - **inquiry** → Read-only tools, single cycle
    - **action** → Full tool access, ReAct loop, harness delegation
 5. **Agent core** runs the appropriate handler with session context and activated skills
 6. For action intents, the LLM enters a ReAct loop calling orchestrator tools
-7. `task_create` tool spawns a CLI process in the Kennel container
-8. Response is formatted and sent back via WhatsApp
+7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
+8. `task_create` tool spawns a CLI process in the Kennel container
+9. Response is formatted and sent back via WhatsApp
 
 ## Boot Sequence
 
@@ -112,9 +113,10 @@ src/
 │   └── watcher.ts        # File/git watcher (EventEmitter with typed events)
 ├── tools/
 │   ├── registry.ts       # Tool registry (11 tools)
+│   ├── types.ts          # ToolContext, ToolResult, DangerLevel interfaces
 │   ├── workspace.ts      # Workspace tools (list, select, status, create, delete)
 │   ├── task.ts           # Task tools (create, status, cancel, respond)
-│   └── interaction.ts    # Interaction tools (ask_user, report_progress)
+│   └── interaction.ts    # Interaction tools (ask_user with autonomy guard, report_progress)
 ├── conversation/
 │   └── summarizer.ts     # Legacy summarizer (replaced by SessionManager.compactIfNeeded)
 ├── transcription/
@@ -142,8 +144,9 @@ The context pipeline ensures the LLM has full conversational memory across turns
 3. **Sliding Window** — Last `pipeline.historyWindow` (default 20) messages are sent to the LLM
 4. **Compaction** — When total messages exceed `pipeline.compactionThreshold` (default 40), older messages are LLM-summarized into `session.metadata.compactionSummary` and the array is trimmed
 5. **Task Completion Hooks** — `task:completed` / `task:failed` events write to session history and push WhatsApp notifications
-6. **Session-Aware Tools** — `ToolContext { sessionId }` flows through the registry to tool handlers
-7. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
+6. **Session-Aware Tools** — `ToolContext { sessionId, autonomyLevel }` flows through the registry to tool handlers
+7. **Dynamic Prompt Rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current state
+8. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
 
 All parameters are tunable via `config/pipeline.ts` (44 settings, overridable via `FETCH_*` env vars).
 

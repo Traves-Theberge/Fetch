@@ -48,6 +48,7 @@ Fetch uses SQLite (WAL mode) for persistence and in-memory singletons for runtim
 | `ModeManager` | modes/manager.ts | Module-level instance | Current mode + mode stack |
 | `SecurityGate` | security/gate.ts | Static instance | Trigger + whitelist config |
 | `RateLimiter` | security/rateLimiter.ts | Module-level instance | Per-key timestamp arrays |
+| `ToolRegistry` | tools/registry.ts | Module-level instance | Registered tool Map |
 | `WorkspaceManager` | workspace/manager.ts | Module-level instance | Discovered projects |
 
 ## Event Emitters

@@ -109,8 +109,8 @@ Fetch’s context pipeline has 44 tunable parameters with sane defaults. Overrid
 | `FETCH_COMPACTION_THRESHOLD` | `40` | Compact when total messages exceed this |
 | `FETCH_COMPACTION_MAX_TOKENS` | `500` | Max tokens for compaction summaries |
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per message |
-| `FETCH_CHAT_MAX_TOKENS` | `300` | Token budget for conversation responses |
-| `FETCH_TOOL_MAX_TOKENS` | `500` | Token budget for tool-calling responses |
+| `FETCH_CHAT_MAX_TOKENS` | `512` | Token budget for conversation responses |
+| `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
