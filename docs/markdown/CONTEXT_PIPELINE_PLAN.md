@@ -215,7 +215,7 @@ services:
 
 ### TUI Tuning
 
-Pipeline parameters are also editable from the **Fetch TUI** (Go Manager) under the Pipeline Tuning section. The TUI writes to the same `.env` file that Docker Compose reads, so changes apply on next container restart.
+All pipeline parameters are editable from the **Fetch TUI** (Go Manager) under **Configure → Edit Configuration**. The editor shows all 44 configurable parameters (8 core + 36 `FETCH_*`) organized by subsystem with scrollable navigation. Model selection is also inside Configure at **Configure → Select Model**. The TUI writes to the same `.env` file that Docker Compose reads, so changes apply on next container restart.
 
 ### Scaling Guide
 
