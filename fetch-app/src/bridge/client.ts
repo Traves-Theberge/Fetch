@@ -109,41 +109,49 @@ interface TaskQuestionEvent {
  * Removes stale Chrome lock files that prevent browser startup.
  * This happens when the container crashes without graceful shutdown.
  * 
+ * IMPORTANT: Chromium creates SingletonLock as a **symlink** pointing to
+ * "hostname-pid". After a container crash the symlink target no longer
+ * exists, making it a *broken* symlink. Node's fs.existsSync() follows
+ * symlinks and returns false for broken ones — so the old cleanup silently
+ * skipped them every time. We now use readdirSync to list entries (which
+ * includes broken symlinks) and match by name instead.
+ * 
  * @param authPath - Path to the .wwebjs_auth directory
  */
 function cleanupChromeLocks(authPath: string): void {
-  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket'];
+  const lockNames = new Set(['SingletonLock', 'SingletonCookie', 'SingletonSocket']);
   
   try {
     if (!fs.existsSync(authPath)) {
       return; // No auth directory yet, nothing to clean
     }
     
-    // Find session directories (session-* folders)
-    const entries = fs.readdirSync(authPath, { withFileTypes: true });
+    // Find session directories (session / session-* folders)
+    const topEntries = fs.readdirSync(authPath, { withFileTypes: true });
     
-    for (const entry of entries) {
-      if (entry.isDirectory() && entry.name.startsWith('session')) {
-        const sessionPath = path.join(authPath, entry.name);
+    for (const entry of topEntries) {
+      if (!entry.isDirectory() || !entry.name.startsWith('session')) continue;
+      
+      const sessionPath = path.join(authPath, entry.name);
+      
+      // Directories to scan: the session root and its Default/ subfolder
+      const dirsToScan = [sessionPath];
+      const defaultPath = path.join(sessionPath, 'Default');
+      try { if (fs.statSync(defaultPath).isDirectory()) dirsToScan.push(defaultPath); } catch { /* no Default dir */ }
+      
+      for (const dir of dirsToScan) {
+        // readdirSync lists ALL directory entries including broken symlinks
+        let entries: string[];
+        try { entries = fs.readdirSync(dir); } catch { continue; }
         
-        // Check for Default profile folder
-        const defaultPath = path.join(sessionPath, 'Default');
-        if (fs.existsSync(defaultPath)) {
-          for (const lockFile of lockFiles) {
-            const lockPath = path.join(defaultPath, lockFile);
-            if (fs.existsSync(lockPath)) {
-              fs.unlinkSync(lockPath);
-              logger.info(`🧹 Cleaned up stale lock: ${lockFile}`);
-            }
-          }
-        }
-        
-        // Also check session root for lock files
-        for (const lockFile of lockFiles) {
-          const lockPath = path.join(sessionPath, lockFile);
-          if (fs.existsSync(lockPath)) {
+        for (const name of entries) {
+          if (!lockNames.has(name)) continue;
+          const lockPath = path.join(dir, name);
+          try {
             fs.unlinkSync(lockPath);
-            logger.info(`🧹 Cleaned up stale lock: ${lockFile}`);
+            logger.info(`🧹 Cleaned up stale Chrome lock: ${dir}/${name}`);
+          } catch (e) {
+            logger.warn(`Could not remove lock ${lockPath}: ${e}`);
           }
         }
       }
