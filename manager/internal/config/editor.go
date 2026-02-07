@@ -32,12 +32,17 @@ var (
 	separatorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FF6B35")).
 			Bold(true)
+
+	defaultStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#555555")).
+			Italic(true)
 )
 
 // ConfigField represents a single configuration field
 type ConfigField struct {
 	Key         string
 	Value       string
+	Default     string // Default value shown when empty
 	Label       string
 	Help        string
 	Masked      bool
@@ -64,68 +69,68 @@ func NewEditor() *Editor {
 			{IsSeparator: true, Label: "─── Core Settings ───"},
 			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
 			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
-			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "true or false — enable GitHub Copilot harness"},
-			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "true or false — enable Claude Code harness"},
-			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "true or false — enable Gemini harness"},
-			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID (e.g., openai/gpt-4o-mini)"},
-			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error"},
-			{Key: "TZ", Label: "Timezone", Help: "IANA timezone (e.g., America/New_York, UTC)"},
+			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "Enable GitHub Copilot harness", Default: "false"},
+			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "Enable Claude Code harness", Default: "false"},
+			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "Enable Gemini harness", Default: "false"},
+			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
+			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
+			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
 			// ─── Context Window ──────────────────────────────────────
 			{IsSeparator: true, Label: "─── Context Window ───"},
-			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window (default: 20)"},
-			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this (default: 40)"},
-			{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary (default: 500)"},
-			{Key: "FETCH_COMPACTION_MODEL", Label: "Compaction Model", Help: "Model for summaries (default: openai/gpt-4o-mini)"},
+			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},
+			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this", Default: "40"},
+			{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary", Default: "500"},
+			{Key: "FETCH_COMPACTION_MODEL", Label: "Compaction Model", Help: "Model for summaries", Default: "openai/gpt-4o-mini"},
 			// ─── Agent LLM ───────────────────────────────────────────
 			{IsSeparator: true, Label: "─── Agent LLM ───"},
-			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message (default: 5)"},
-			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses (default: 300)"},
-			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0 (default: 0.7)"},
-			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses (default: 500)"},
-			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0 (default: 0.3)"},
-			{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing prompt (default: 200)"},
+			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message", Default: "5"},
+			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses", Default: "300"},
+			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0", Default: "0.7"},
+			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses", Default: "500"},
+			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0", Default: "0.3"},
+			{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing", Default: "200"},
 			// ─── Circuit Breaker ─────────────────────────────────────
 			{IsSeparator: true, Label: "─── Circuit Breaker ───"},
-			{Key: "FETCH_CB_THRESHOLD", Label: "CB Threshold", Help: "Errors before circuit opens (default: 3)"},
-			{Key: "FETCH_CB_BACKOFF", Label: "CB Backoff (ms)", Help: "Backoff schedule, comma-separated (default: 1000,5000,30000)"},
-			{Key: "FETCH_MAX_RETRIES", Label: "Max Retries", Help: "Max retries for retriable errors (default: 3)"},
-			{Key: "FETCH_RETRY_BACKOFF", Label: "Retry Backoff (ms)", Help: "Retry schedule, comma-separated (default: 0,1000,3000,10000)"},
-			{Key: "FETCH_CB_RESET_MS", Label: "CB Reset (ms)", Help: "Reset error count after quiet period (default: 300000)"},
+			{Key: "FETCH_CB_THRESHOLD", Label: "CB Threshold", Help: "Errors before circuit opens", Default: "3"},
+			{Key: "FETCH_CB_BACKOFF", Label: "CB Backoff (ms)", Help: "Backoff schedule, comma-separated", Default: "1000,5000,30000"},
+			{Key: "FETCH_MAX_RETRIES", Label: "Max Retries", Help: "Max retries for retriable errors", Default: "3"},
+			{Key: "FETCH_RETRY_BACKOFF", Label: "Retry Backoff (ms)", Help: "Retry schedule, comma-separated", Default: "0,1000,3000,10000"},
+			{Key: "FETCH_CB_RESET_MS", Label: "CB Reset (ms)", Help: "Reset error count after quiet period", Default: "300000"},
 			// ─── Task Execution ──────────────────────────────────────
 			{IsSeparator: true, Label: "─── Task Execution ───"},
-			{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout (default: 300000)"},
-			{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout (default: 300000)"},
-			{Key: "FETCH_TASK_MAX_RETRIES", Label: "Task Max Retries", Help: "Max task retries (default: 1)"},
+			{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout", Default: "300000"},
+			{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout", Default: "300000"},
+			{Key: "FETCH_TASK_MAX_RETRIES", Label: "Task Max Retries", Help: "Max task retries", Default: "1"},
 			// ─── WhatsApp Formatting ─────────────────────────────────
 			{IsSeparator: true, Label: "─── WhatsApp Formatting ───"},
-			{Key: "FETCH_WA_MAX_LENGTH", Label: "WA Max Length", Help: "Max chars per WhatsApp message (default: 4000)"},
-			{Key: "FETCH_WA_LINE_WIDTH", Label: "WA Line Width", Help: "Max chars per line for readability (default: 40)"},
+			{Key: "FETCH_WA_MAX_LENGTH", Label: "WA Max Length", Help: "Max chars per WhatsApp message", Default: "4000"},
+			{Key: "FETCH_WA_LINE_WIDTH", Label: "WA Line Width", Help: "Max chars per line for readability", Default: "40"},
 			// ─── Rate Limiting ───────────────────────────────────────
 			{IsSeparator: true, Label: "─── Rate Limiting ───"},
-			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window (default: 30)"},
-			{Key: "FETCH_RATE_LIMIT_WINDOW", Label: "Rate Limit Window (ms)", Help: "Rate limit window duration (default: 60000)"},
+			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window", Default: "30"},
+			{Key: "FETCH_RATE_LIMIT_WINDOW", Label: "Rate Limit Window (ms)", Help: "Rate limit window duration", Default: "60000"},
 			// ─── Bridge / Reconnection ───────────────────────────────
 			{IsSeparator: true, Label: "─── Bridge / Reconnection ───"},
-			{Key: "FETCH_MAX_RECONNECT", Label: "Max Reconnect", Help: "Max reconnect attempts (default: 10)"},
-			{Key: "FETCH_RECONNECT_BASE_DELAY", Label: "Reconnect Base (ms)", Help: "Base delay for exponential backoff (default: 5000)"},
-			{Key: "FETCH_RECONNECT_MAX_DELAY", Label: "Reconnect Max (ms)", Help: "Max delay cap for reconnect (default: 300000)"},
-			{Key: "FETCH_RECONNECT_JITTER", Label: "Reconnect Jitter (ms)", Help: "Max jitter added to delay (default: 2000)"},
-			{Key: "FETCH_DEDUP_TTL", Label: "Dedup TTL (ms)", Help: "Message deduplication cache TTL (default: 30000)"},
-			{Key: "FETCH_PROGRESS_THROTTLE", Label: "Progress Throttle (ms)", Help: "Throttle interval for progress updates (default: 3000)"},
+			{Key: "FETCH_MAX_RECONNECT", Label: "Max Reconnect", Help: "Max reconnect attempts", Default: "10"},
+			{Key: "FETCH_RECONNECT_BASE_DELAY", Label: "Reconnect Base (ms)", Help: "Base delay for exponential backoff", Default: "5000"},
+			{Key: "FETCH_RECONNECT_MAX_DELAY", Label: "Reconnect Max (ms)", Help: "Max delay cap for reconnect", Default: "300000"},
+			{Key: "FETCH_RECONNECT_JITTER", Label: "Reconnect Jitter (ms)", Help: "Max jitter added to delay", Default: "2000"},
+			{Key: "FETCH_DEDUP_TTL", Label: "Dedup TTL (ms)", Help: "Message deduplication cache TTL", Default: "30000"},
+			{Key: "FETCH_PROGRESS_THROTTLE", Label: "Progress Throttle (ms)", Help: "Throttle interval for progress updates", Default: "3000"},
 			// ─── Session / Memory ────────────────────────────────────
 			{IsSeparator: true, Label: "─── Session / Memory ───"},
-			{Key: "FETCH_RECENT_MSG_LIMIT", Label: "Recent Msg Limit", Help: "Default recent messages limit (default: 50)"},
-			{Key: "FETCH_TRUNCATION_LIMIT", Label: "Truncation Limit", Help: "Max messages before hard truncation (default: 100)"},
-			{Key: "FETCH_REPO_MAP_TTL", Label: "Repo Map TTL (ms)", Help: "Repo map staleness check interval (default: 300000)"},
+			{Key: "FETCH_RECENT_MSG_LIMIT", Label: "Recent Msg Limit", Help: "Default recent messages limit", Default: "50"},
+			{Key: "FETCH_TRUNCATION_LIMIT", Label: "Truncation Limit", Help: "Max messages before hard truncation", Default: "100"},
+			{Key: "FETCH_REPO_MAP_TTL", Label: "Repo Map TTL (ms)", Help: "Repo map staleness check interval", Default: "300000"},
 			// ─── Workspace ───────────────────────────────────────────
 			{IsSeparator: true, Label: "─── Workspace ───"},
-			{Key: "FETCH_WORKSPACE_CACHE_TTL", Label: "Workspace Cache (ms)", Help: "Workspace info cache TTL (default: 30000)"},
-			{Key: "FETCH_GIT_TIMEOUT", Label: "Git Timeout (ms)", Help: "Git command execution timeout (default: 5000)"},
-			// ─── BM25 Memory (Phase 2) ───────────────────────────────
-			{IsSeparator: true, Label: "─── BM25 Memory (Phase 2) ───"},
-			{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context (default: 5)"},
-			{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet (default: 300)"},
-			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster (default: 0.1)"},
+			{Key: "FETCH_WORKSPACE_CACHE_TTL", Label: "Workspace Cache (ms)", Help: "Workspace info cache TTL", Default: "30000"},
+			{Key: "FETCH_GIT_TIMEOUT", Label: "Git Timeout (ms)", Help: "Git command execution timeout", Default: "5000"},
+			// ─── BM25 Memory ─────────────────────────────────────────
+			{IsSeparator: true, Label: "─── BM25 Memory ───"},
+			{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context", Default: "5"},
+			{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet", Default: "300"},
+			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster", Default: "0.1"},
 		},
 	}
 	editor.loadFromFile()
@@ -345,17 +350,31 @@ func (e *Editor) View() string {
 			value = strings.Repeat("•", min(len(value), 20))
 		}
 
+		// Show default when value is empty
+		displayValue := value
+		showingDefault := false
+		if displayValue == "" && field.Default != "" {
+			displayValue = field.Default
+			showingDefault = true
+		}
+
 		if i == e.cursor {
 			if e.editing {
 				// Show edit buffer with cursor
 				s += focusedStyle.Render("▶ ") + label + " " + inputStyle.Render(e.editBuffer+"█") + "\n"
+			} else if showingDefault {
+				s += focusedStyle.Render("▶ ") + label + " " + defaultStyle.Render(displayValue+" (default)") + "\n"
 			} else {
-				s += focusedStyle.Render("▶ ") + label + " " + inputStyle.Render(value) + "\n"
+				s += focusedStyle.Render("▶ ") + label + " " + inputStyle.Render(displayValue) + "\n"
 			}
 			// Show help text for focused field
 			s += "     " + helpTextStyle.Render(field.Help) + "\n"
 		} else {
-			s += "   " + label + " " + value + "\n"
+			if showingDefault {
+				s += "   " + label + " " + defaultStyle.Render(displayValue) + "\n"
+			} else {
+				s += "   " + label + " " + value + "\n"
+			}
 		}
 	}
 
