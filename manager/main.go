@@ -40,6 +40,7 @@ const (
 	screenModels                  // AI model selector
 	screenVersion                 // Version information
 	screenWhitelist               // Trusted numbers manager
+	screenGitHub                  // GitHub authentication screen
 )
 
 // Bubble Tea messages for async operations
@@ -71,6 +72,13 @@ type bridgeStatusMsg struct {
 // ghAuthResultMsg carries the result of gh auth login
 type ghAuthResultMsg struct {
 	err error
+}
+
+// ghStatusMsg carries the result of checking gh auth status
+type ghStatusMsg struct {
+	authed bool
+	user   string
+	err    error
 }
 
 // tickMsg triggers periodic status updates
@@ -108,6 +116,10 @@ type model struct {
 	versionInfo      components.VersionInfo
 	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
 	configMode       int
+	// GitHub auth state
+	ghUser     string // GitHub username from gh auth status
+	ghAuthed   bool   // Whether GitHub is authenticated
+	ghChecking bool   // Whether we're currently checking status
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -250,6 +262,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.actionMessage = "✅ GitHub authenticated! Restart Fetch to apply."
 			m.actionSuccess = true
 		}
+		// Re-check status after login attempt
+		if m.screen == screenGitHub {
+			m.ghChecking = true
+			return m, checkGhStatusCmd()
+		}
+		return m, nil
+
+	case ghStatusMsg:
+		m.ghChecking = false
+		m.ghAuthed = msg.authed
+		m.ghUser = msg.user
 		return m, nil
 
 	case models.ModelsLoadedMsg:
@@ -327,6 +350,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateModels(msg)
 		case screenVersion:
 			return m.updateVersion(msg)
+		case screenGitHub:
+			return m.updateGitHub(msg)
 		}
 	}
 
@@ -356,11 +381,10 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 1: // GitHub Auth — runs gh auth login interactively
-			c := exec.Command("gh", "auth", "login")
-			return m, tea.ExecProcess(c, func(err error) tea.Msg {
-				return ghAuthResultMsg{err: err}
-			})
+		case 1: // GitHub Auth — show auth status screen
+			m.screen = screenGitHub
+			m.ghChecking = true
+			return m, checkGhStatusCmd()
 		case 2: // Start
 			return m, startFetchCmd()
 		case 3: // Stop
@@ -502,6 +526,25 @@ func (m model) updateVersion(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m model) updateGitHub(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenMenu
+		return m, nil
+	case "enter", "l":
+		// Launch gh auth login interactively
+		c := exec.Command("gh", "auth", "login")
+		return m, tea.ExecProcess(c, func(err error) tea.Msg {
+			return ghAuthResultMsg{err: err}
+		})
+	case "r":
+		// Manual refresh
+		m.ghChecking = true
+		return m, checkGhStatusCmd()
+	}
+	return m, nil
+}
+
 // Commands
 
 // startFetchCmd returns a command that starts Docker services
@@ -553,6 +596,35 @@ func disconnectWhatsApp(client *status.Client) tea.Cmd {
 	}
 }
 
+// checkGhStatusCmd checks current GitHub auth status via gh CLI
+func checkGhStatusCmd() tea.Cmd {
+	return func() tea.Msg {
+		out, err := exec.Command("gh", "auth", "status").CombinedOutput()
+		if err != nil {
+			// Not authenticated or gh not installed
+			return ghStatusMsg{authed: false, user: "", err: nil}
+		}
+		// Parse output for account name: "Logged in to github.com account USERNAME"
+		output := string(out)
+		user := ""
+		for _, line := range strings.Split(output, "\n") {
+			line = strings.TrimSpace(line)
+			if strings.Contains(line, "account") && strings.Contains(line, "github.com") {
+				// Extract username from "Logged in to github.com account USERNAME (..."
+				parts := strings.Split(line, "account ")
+				if len(parts) >= 2 {
+					user = strings.TrimSpace(parts[1])
+					// Remove trailing parenthetical if present
+					if idx := strings.Index(user, " "); idx > 0 {
+						user = user[:idx]
+					}
+				}
+			}
+		}
+		return ghStatusMsg{authed: true, user: user, err: nil}
+	}
+}
+
 func (m model) View() string {
 	if m.quitting {
 		return "\n  👋 Goodbye! Fetch is resting.\n\n"
@@ -575,6 +647,8 @@ func (m model) View() string {
 		return m.viewModels()
 	case screenVersion:
 		return m.viewVersion()
+	case screenGitHub:
+		return m.viewGitHub()
 	default:
 		return m.viewMenu()
 	}
@@ -888,6 +962,61 @@ func (m model) viewModels() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		topSpacer,
 		modelContent,
+		helpBar,
+	)
+}
+
+func (m model) viewGitHub() string {
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
+
+	// Title
+	title := layout.SectionHeader("🔑 GitHub Authentication", width-4)
+
+	var content strings.Builder
+
+	if m.ghChecking {
+		content.WriteString(theme.StatusInfo.Render("   Checking GitHub auth status...") + "\n")
+	} else if m.ghAuthed {
+		content.WriteString(theme.StatusSuccess.Render("   ● Authenticated") + "\n\n")
+		if m.ghUser != "" {
+			content.WriteString(fmt.Sprintf("   Account:  %s\n", theme.Value.Render(m.ghUser)))
+		}
+		content.WriteString(fmt.Sprintf("   Provider: %s\n", theme.Value.Render("github.com")))
+		content.WriteString("\n")
+		content.WriteString(theme.Subtitle.Render("   Press Enter to re-authenticate or r to refresh.") + "\n")
+	} else {
+		content.WriteString(theme.StatusError.Render("   ● Not Authenticated") + "\n\n")
+		content.WriteString(theme.Subtitle.Render("   GitHub auth is required for Fetch to access repositories") + "\n")
+		content.WriteString(theme.Subtitle.Render("   and manage pull requests via the coding agents.") + "\n\n")
+		content.WriteString(theme.StatusInfo.Render("   Press Enter to authenticate with GitHub.") + "\n")
+	}
+
+	// Help bar
+	helpKeys := []string{"Enter Login", "r Refresh", "Esc Back"}
+	helpBar := components.HelpBar(helpKeys, width)
+	helpHeight := lipgloss.Height(helpBar)
+
+	// Content area
+	ghContent := title + "\n\n" + content.String()
+	contentHeight := lipgloss.Height(ghContent)
+
+	// Spacer at top to push content to bottom
+	spacerHeight := height - contentHeight - helpHeight
+	if spacerHeight < 0 {
+		spacerHeight = 0
+	}
+	topSpacer := strings.Repeat("\n", spacerHeight)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		topSpacer,
+		ghContent,
 		helpBar,
 	)
 }
