@@ -133,7 +133,6 @@ func initialModel() model {
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
-			"🤖 Select Model",
 			"🔐 Trusted Numbers",
 			"📜 View Logs",
 			"📚 Documentation",
@@ -248,6 +247,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.modelSelector != nil {
 			m.modelSelector, _ = m.modelSelector.Update(msg)
 		}
+		// If we're in config screen with model picker, update editor and return to editor
+		if m.screen == screenConfig && m.configMode == 2 {
+			if msg.Err == nil && m.modelSelector != nil && m.configEditor != nil {
+				m.configEditor.SetFieldValue("AGENT_MODEL", m.modelSelector.SelectedModel())
+			}
+			// Brief delay so user sees "Saved!" then return to editor
+		}
 		return m, nil
 
 	case progress.FrameMsg:
@@ -347,23 +353,19 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.configEditor = config.NewEditor()
 			m.configEditor.SetSize(m.height - 8)
 			return m, nil
-		case 5: // Select Model
-			m.screen = screenModels
-			m.modelSelector = models.NewSelector()
-			return m, models.FetchModelsCmd
-		case 6: // Trusted Numbers
+		case 5: // Trusted Numbers
 			m.screen = screenWhitelist
 			m.whitelistManager = config.NewWhitelistManager()
 			return m, nil
-		case 7: // Logs
+		case 6: // Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 8: // Documentation
+		case 7: // Documentation
 			return m, openDocs
-		case 9: // Version
+		case 8: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 10: // Exit
+		case 9: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -387,15 +389,42 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Config screen is now always in editor mode (configMode=1)
-	switch msg.String() {
-	case "esc":
-		m.screen = screenMenu
+	switch m.configMode {
+	case 1: // Editor mode
+		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() {
+			switch msg.String() {
+			case "esc":
+				m.screen = screenMenu
+				return m, nil
+			}
+		}
+		if m.configEditor != nil {
+			m.configEditor.Update(msg)
+			// Check if editor wants the model picker
+			if m.configEditor.ModelPickerRequested() {
+				m.configEditor.ClearModelPickerRequest()
+				m.configMode = 2
+				m.modelSelector = models.NewSelector()
+				return m, models.FetchModelsCmd
+			}
+		}
+		return m, nil
+
+	case 2: // Model picker overlay
+		switch msg.String() {
+		case "esc":
+			m.configMode = 1
+			m.modelSelector = nil
+			return m, nil
+		}
+		if m.modelSelector != nil {
+			var cmd tea.Cmd
+			m.modelSelector, cmd = m.modelSelector.Update(msg)
+			return m, cmd
+		}
 		return m, nil
 	}
-	if m.configEditor != nil {
-		m.configEditor.Update(msg)
-	}
+
 	return m, nil
 }
 
@@ -417,16 +446,8 @@ func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateModels(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc", "q":
-		m.screen = screenMenu
-		return m, nil
-	}
-	if m.modelSelector != nil {
-		var cmd tea.Cmd
-		m.modelSelector, cmd = m.modelSelector.Update(msg)
-		return m, cmd
-	}
+	// Model selection is now handled within the config screen
+	m.screen = screenMenu
 	return m, nil
 }
 
@@ -724,23 +745,34 @@ func (m model) viewConfig() string {
 		height = 24
 	}
 
-	// Title
-	title := layout.SectionHeader("⚙️  Configuration", width-4)
-
+	var titleStr string
 	var content strings.Builder
+	var helpKeys []string
 
-	if m.configEditor != nil {
-		m.configEditor.SetSize(height - 8)
-		content.WriteString(m.configEditor.View())
+	switch m.configMode {
+	case 2: // Model picker overlay
+		titleStr = layout.SectionHeader("🤖 Select Model", width-4)
+		if m.modelSelector != nil {
+			content.WriteString(m.modelSelector.View())
+		} else {
+			content.WriteString(theme.StatusInfo.Render("   Loading models...") + "\n")
+		}
+		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"}
+
+	default: // Editor mode
+		titleStr = layout.SectionHeader("⚙️  Configuration", width-4)
+		if m.configEditor != nil {
+			m.configEditor.SetSize(height - 8)
+			content.WriteString(m.configEditor.View())
+		}
+		helpKeys = []string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"}
 	}
 
-	// Help bar
-	helpKeys := []string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"}
 	helpBar := components.HelpBar(helpKeys, width)
 	helpHeight := lipgloss.Height(helpBar)
 
 	// Content area
-	configContent := title + "\n\n" + content.String()
+	configContent := titleStr + "\n\n" + content.String()
 	contentHeight := lipgloss.Height(configContent)
 
 	// Spacer at top to push content to bottom

@@ -372,3 +372,8 @@ func (s *Selector) IsDone() bool {
 func (s *Selector) HasError() bool {
 	return s.state == StateError
 }
+
+// SelectedModel returns the currently selected model ID
+func (s *Selector) SelectedModel() string {
+	return s.currentModel
+}

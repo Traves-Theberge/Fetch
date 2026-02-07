@@ -51,14 +51,35 @@ type ConfigField struct {
 
 // Editor handles the configuration editing UI
 type Editor struct {
-	fields       []ConfigField
-	cursor       int
-	editing      bool
-	editBuffer   string
-	saved        bool
-	errorMessage string
-	scrollOffset int // viewport scroll offset
-	viewHeight   int // max visible rows
+	fields              []ConfigField
+	cursor              int
+	editing             bool
+	editBuffer          string
+	saved               bool
+	errorMessage        string
+	scrollOffset        int // viewport scroll offset
+	viewHeight          int // max visible rows
+	modelPickerRequested bool // signals parent to open model picker
+}
+
+// ModelPickerRequested returns true if the user pressed Enter on the Agent Model field
+func (e *Editor) ModelPickerRequested() bool {
+	return e.modelPickerRequested
+}
+
+// ClearModelPickerRequest resets the model picker flag
+func (e *Editor) ClearModelPickerRequest() {
+	e.modelPickerRequested = false
+}
+
+// SetFieldValue sets the value of a field by key
+func (e *Editor) SetFieldValue(key, value string) {
+	for i := range e.fields {
+		if e.fields[i].Key == key {
+			e.fields[i].Value = value
+			return
+		}
+	}
 }
 
 // NewEditor creates a new configuration editor
@@ -301,6 +322,11 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 		e.ensureVisible()
 	case "enter", "e":
 		if !e.fields[e.cursor].IsSeparator {
+			// AGENT_MODEL opens the model picker overlay
+			if e.fields[e.cursor].Key == "AGENT_MODEL" {
+				e.modelPickerRequested = true
+				return
+			}
 			e.editing = true
 			e.editBuffer = e.fields[e.cursor].Value
 		}
