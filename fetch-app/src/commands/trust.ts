@@ -231,7 +231,7 @@ async function handleTrustClear(): Promise<TrustCommandResult> {
  * Format trust command help message.
  */
 function formatTrustHelp(): string {
-  return `🔐 *Zero Trust Bonding*
+  return `🔐 *Trusted Numbers*
 
 Manage who can use @fetch in group chats.
 

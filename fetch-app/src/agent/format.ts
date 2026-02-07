@@ -139,7 +139,7 @@ Just ask me anything! No commands needed.
 • \`/help\` (\`/h\`, \`/?\`) - Show this help
 • \`/version\` (\`/v\`) - Show Fetch version
 
-🔐 *Security (Zero Trust Bonding):*
+🔐 *Security:*
 • \`/trust add <number>\` - Add trusted phone
 • \`/trust remove <number>\` - Remove trusted phone
 • \`/trust list\` - Show trusted numbers

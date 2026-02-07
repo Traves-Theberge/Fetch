@@ -110,7 +110,7 @@ export class SecurityGate {
   async initializeWhitelist(): Promise<void> {
     this.whitelist = await getWhitelistStore();
     
-    logger.section('🔒 Security Gate Initialized (Zero Trust Bonding)');
+    logger.section('🔒 Security Gate Initialized');
     logger.info(`Owner: +${this.ownerNumberClean} (always trusted)`);
     logger.info(`Trusted numbers: ${this.whitelist.count()}`);
     logger.info(`Trigger: ${FETCH_TRIGGER} (case-insensitive)`);

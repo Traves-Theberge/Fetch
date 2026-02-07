@@ -114,7 +114,7 @@ Fetch’s context pipeline has 44 tunable parameters with sane defaults. Overrid
 | `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
-Add these to your `.env` file or set them in the TUI Manager’s Pipeline Tuning section. See `config/pipeline.ts` for the full list of 44 parameters.
+Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 44 parameters with defaults. See `config/pipeline.ts` for the full list.
 
 ## Verifying the Installation
 
