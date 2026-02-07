@@ -4,6 +4,20 @@
  */
 
 // ============================================================================
+// Tool Context
+// ============================================================================
+
+/**
+ * Context passed through tool execution pipeline
+ */
+export interface ToolContext {
+  /** Session ID for session-aware tools */
+  sessionId?: string;
+  /** Current autonomy level for ask_user guard */
+  autonomyLevel?: string;
+}
+
+// ============================================================================
 // Tool Result
 // ============================================================================
 

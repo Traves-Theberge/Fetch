@@ -81,27 +81,27 @@ Now write the goal:`;
  * @returns Formatted context block
  */
 export async function buildContextSection(session: Session): Promise<string> {
-  const parts: string[] = ['## Current Context'];
+  const parts: string[] = [];
 
   // V3.1: Add Metadata
   const threadId = session.metadata?.activeThreadId;
-  // FetchMode handled by ModeManager.
   if(threadId) parts.push(`🧵 **Thread**: \`${threadId}\``);
 
-  // Workspace status
+  // WORKSPACE — This is the MOST IMPORTANT context for the LLM
   if (session.currentProject) {
-    parts.push(`📂 **Workspace**: ${session.currentProject.name}`);
+    parts.push(`## 🎯 ACTIVE WORKSPACE: ${session.currentProject.name}`);
+    parts.push(`Path: \`${session.currentProject.path}\``);
+    parts.push(`Type: ${session.currentProject.type === 'unknown' ? 'project' : session.currentProject.type}`);
+    parts.push(`YOU ARE INSIDE THIS WORKSPACE. All file operations, tasks, and queries target this workspace. Do NOT ask the user to select or confirm a workspace.`);
     if (session.currentProject.gitBranch) {
-      parts.push(`🌿 **Branch**: ${session.currentProject.gitBranch}`);
-    }
-    if (session.currentProject.hasUncommitted) {
-      parts.push(`📝 **Note**: Has uncommitted changes`);
+      parts.push(`Branch: \`${session.currentProject.gitBranch}\`${session.currentProject.hasUncommitted ? ' ⚠️ (uncommitted changes)' : ' ✨ (clean)'}`);
     }
   } else {
-    parts.push('📂 **Workspace**: None selected');
+    parts.push('## Workspace: None selected');
     if (session.availableProjects?.length) {
       const projectList = session.availableProjects.slice(0, 5).join(', ');
-      parts.push(`💡 **Available**: ${projectList}`);
+      parts.push(`Available projects: ${projectList}`);
+      parts.push(`Help the user select one with workspace_select before doing any file work.`);
     }
   }
 

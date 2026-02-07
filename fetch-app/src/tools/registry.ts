@@ -10,7 +10,8 @@
  */
 
 import { z } from 'zod';
-import { ToolResult, DangerLevel } from './types.js'; // Removed Tool
+import { ToolResult, ToolContext, DangerLevel } from './types.js';
+export type { ToolContext }; // Re-export for backward compatibility
 import { logger } from '../utils/logger.js';
 import { ToolInputSchemas, type ToolName } from '../validation/tools.js';
 
@@ -66,14 +67,6 @@ export interface OrchestratorTool {
   danger?: DangerLevel;
   /** Is this a custom tool? */
   isCustom?: boolean;
-}
-
-/**
- * Context passed through tool execution pipeline
- */
-export interface ToolContext {
-  /** Session ID for session-aware tools */
-  sessionId?: string;
 }
 
 /**

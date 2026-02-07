@@ -31,9 +31,9 @@ describe('Pipeline Configuration', () => {
       expect(pipeline.compactionThreshold).toBe(40);
       expect(pipeline.compactionMaxTokens).toBe(500);
       expect(pipeline.maxToolCalls).toBe(5);
-      expect(pipeline.chatMaxTokens).toBe(300);
+      expect(pipeline.chatMaxTokens).toBe(512);
       expect(pipeline.chatTemperature).toBe(0.7);
-      expect(pipeline.toolMaxTokens).toBe(500);
+      expect(pipeline.toolMaxTokens).toBe(2048);
       expect(pipeline.toolTemperature).toBe(0.3);
       expect(pipeline.frameMaxTokens).toBe(200);
       expect(pipeline.circuitBreakerThreshold).toBe(3);

@@ -39,7 +39,7 @@ export type WorkspaceId = string;
  * | go | go.mod exists |
  * | unknown | None of the above |
  */
-export type ProjectType = 'node' | 'python' | 'rust' | 'go' | 'unknown';
+export type ProjectType = 'node' | 'typescript' | 'python' | 'rust' | 'go' | 'java' | 'ruby' | 'php' | 'dotnet' | 'unknown';
 
 // ============================================================================
 // Git Types

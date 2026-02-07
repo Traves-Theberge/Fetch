@@ -61,6 +61,7 @@ const CONVERSATION_PATTERNS = {
   // Greetings - very common
   greetings: [
     /^(hi|hey|hello|howdy|yo|sup|hiya|heya)[\s!.,]*$/i,
+    /^(hi|hey|hello|howdy|yo|sup|hiya|heya)\s+\w+[\s!.,]*$/i,
     /^good\s*(morning|afternoon|evening|night)[\s!.,]*$/i,
     /^what'?s?\s*(up|good)[\s?!]*$/i,
     /^how\s*(are\s*you|is\s*it\s*going|goes\s*it)[\s?]*$/i,
@@ -93,7 +94,7 @@ const CONVERSATION_PATTERNS = {
 
   // Reactions/affirmations - short acknowledgments
   reactions: [
-    /^(ok|okay|k|sure|yep|yeah|yes|no|nope|nah|mhm|uh\s*huh)[\s!.,]*$/i,
+    /^(ok|okay|k|sure|yep|yeah|yes|no|nope|nah|maybe|mhm|uh\s*huh)[\s!.,]*$/i,
     /^(got\s*it|understood|makes\s*sense|i\s*see|ah|oh|hmm+)[\s!.,]*$/i,
     /^(cool|nice|neat|sick|dope|lit|fire|💯|👍|👎|🔥|❤️|😊|🙏)[\s!.,]*$/i,
   ],
@@ -456,12 +457,13 @@ export function classifyIntent(
 
   // ─────────────────────────────────────────────────────────────────────────
   // PHASE 5: Check message characteristics
-  // Short ambiguous messages → conversation (safer)
+  // Very short messages without clear signals → conversation (safer)
+  // But only for truly tiny messages (single words/emojis)
   // ─────────────────────────────────────────────────────────────────────────
 
-  // Very short messages without clear signals → conversation
-  if (trimmed.length < 15) {
-    logger.debug('Intent: conversation (short message)', { message: trimmed });
+  // Only single-word messages without action verbs → conversation
+  if (trimmed.length < 5 && !trimmed.match(/\b(fix|add|rm|ls|cd|run|git)\b/i)) {
+    logger.debug('Intent: conversation (very short message)', { message: trimmed });
     return {
       type: 'conversation',
       confidence: 0.6,
