@@ -109,7 +109,9 @@ Tools receive a `ToolContext` object containing the `sessionId`, allowing:
 
 All pipeline parameters live in a single config module (`config/pipeline.ts`) and are tunable via environment variables. No code changes or Docker rebuilds needed — just set the env var and restart.
 
-### Environment Variables
+### Environment Variables (36 parameters)
+
+**Context Window**
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -117,24 +119,83 @@ All pipeline parameters live in a single config module (`config/pipeline.ts`) an
 | `FETCH_COMPACTION_THRESHOLD` | `40` | Trigger compaction when messages exceed this count |
 | `FETCH_COMPACTION_MAX_TOKENS` | `500` | Max tokens for the LLM-generated compaction summary |
 | `FETCH_COMPACTION_MODEL` | `SUMMARY_MODEL` | Model used for compaction (cheap + fast recommended) |
+
+**Agent LLM**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per single user message |
 | `FETCH_CHAT_MAX_TOKENS` | `300` | Token budget for conversation responses |
 | `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses (0.0–1.0) |
 | `FETCH_TOOL_MAX_TOKENS` | `500` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses (0.0–1.0) |
 | `FETCH_FRAME_MAX_TOKENS` | `200` | Token budget for task framing prompts |
-| `FETCH_RATE_LIMIT_MAX` | `30` | Requests per rate limit window |
-| `FETCH_RATE_LIMIT_WINDOW` | `60000` | Rate limit window duration (ms) |
+
+**Circuit Breaker**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_CB_THRESHOLD` | `3` | Errors before circuit breaker opens |
+| `FETCH_CB_BACKOFF` | `1000,5000,30000` | Backoff schedule (ms, comma-separated) |
+| `FETCH_MAX_RETRIES` | `3` | Max retries for retriable errors |
+| `FETCH_RETRY_BACKOFF` | `0,1000,3000,10000` | Retry backoff schedule (ms, comma-separated) |
+| `FETCH_CB_RESET_MS` | `300000` | Resets error count after this period of no errors (ms) |
+
+**Task Execution**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `FETCH_TASK_TIMEOUT` | `300000` | Task execution timeout (ms) |
 | `FETCH_HARNESS_TIMEOUT` | `300000` | AI harness execution timeout (ms) |
+| `FETCH_TASK_MAX_RETRIES` | `1` | Max task retries |
+
+**WhatsApp Formatting**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_WA_MAX_LENGTH` | `4000` | Max characters per WhatsApp message |
+| `FETCH_WA_LINE_WIDTH` | `40` | Max chars per line for mobile readability |
+
+**Rate Limiting**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_RATE_LIMIT_MAX` | `30` | Requests per rate limit window |
+| `FETCH_RATE_LIMIT_WINDOW` | `60000` | Rate limit window duration (ms) |
+
+**Bridge / Reconnection**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_MAX_RECONNECT` | `10` | Max reconnect attempts before giving up |
+| `FETCH_RECONNECT_BASE_DELAY` | `5000` | Base delay for exponential backoff reconnect (ms) |
+| `FETCH_RECONNECT_MAX_DELAY` | `300000` | Max delay cap for reconnect (ms) |
+| `FETCH_RECONNECT_JITTER` | `2000` | Max jitter added to reconnect delay (ms) |
+| `FETCH_DEDUP_TTL` | `30000` | Message deduplication cache TTL (ms) |
+| `FETCH_PROGRESS_THROTTLE` | `3000` | Throttle interval for progress updates (ms) |
+
+**Session / Memory**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_RECENT_MSG_LIMIT` | `50` | Default recent messages limit for getRecentMessages() |
+| `FETCH_TRUNCATION_LIMIT` | `100` | Max messages before hard truncation |
+| `FETCH_REPO_MAP_TTL` | `300000` | Repo map staleness check (ms) |
+
+**Workspace**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FETCH_WORKSPACE_CACHE_TTL` | `30000` | Workspace info cache TTL (ms) |
+| `FETCH_GIT_TIMEOUT` | `5000` | Git command execution timeout (ms) |
+
+**BM25 Memory (Phase 2)**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
 | `FETCH_RECALL_LIMIT` | `5` | Max BM25 recalled results injected into context |
 | `FETCH_RECALL_SNIPPET_TOKENS` | `300` | Max tokens per recalled snippet |
 | `FETCH_RECALL_DECAY` | `0.1` | Recency decay factor for recall scoring |
-| `FETCH_CB_THRESHOLD` | `5` | Errors before circuit breaker opens |
-| `FETCH_CB_BACKOFF` | `1000,2000,5000` | Circuit breaker backoff schedule (ms, comma-separated) |
-| `FETCH_MAX_RETRIES` | `2` | Max retries for retriable errors |
-| `FETCH_WA_MAX_LENGTH` | `4000` | Max characters per WhatsApp message |
-| `FETCH_WA_LINE_WIDTH` | `60` | Max chars per line for mobile readability |
 
 ### Docker Compose Example
 
