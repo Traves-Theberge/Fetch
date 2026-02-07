@@ -68,6 +68,11 @@ type bridgeStatusMsg struct {
 	err    error
 }
 
+// ghAuthResultMsg carries the result of gh auth login
+type ghAuthResultMsg struct {
+	err error
+}
+
 // tickMsg triggers periodic status updates
 type tickMsg time.Time
 
@@ -129,7 +134,7 @@ func initialModel() model {
 		qrMaxCountdown: qrCountdown,
 		choices: []string{
 			"📱 Setup WhatsApp",
-			"🔌 Disconnect WhatsApp",
+			"� GitHub Auth",
 			"🚀 Start Fetch",
 			"🛑 Stop Fetch",
 			"⚙️  Configure",
@@ -237,6 +242,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case ghAuthResultMsg:
+		if msg.err != nil {
+			m.actionMessage = fmt.Sprintf("GitHub auth failed: %v", msg.err)
+			m.actionSuccess = false
+		} else {
+			m.actionMessage = "✅ GitHub authenticated! Restart Fetch to apply."
+			m.actionSuccess = true
+		}
+		return m, nil
+
 	case models.ModelsLoadedMsg:
 		if m.modelSelector != nil {
 			m.modelSelector, _ = m.modelSelector.Update(msg)
@@ -341,8 +356,11 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 1: // Disconnect WhatsApp
-			return m, disconnectWhatsApp(m.statusClient)
+		case 1: // GitHub Auth — runs gh auth login interactively
+			c := exec.Command("gh", "auth", "login")
+			return m, tea.ExecProcess(c, func(err error) tea.Msg {
+				return ghAuthResultMsg{err: err}
+			})
 		case 2: // Start
 			return m, startFetchCmd()
 		case 3: // Stop

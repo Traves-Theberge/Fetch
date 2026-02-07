@@ -1,5 +1,5 @@
 // Package config provides a TUI-based configuration editor for Fetch.
-// This file handles the Zero Trust Bonding whitelist management.
+// This file handles the trusted numbers whitelist management.
 package config
 
 import (
