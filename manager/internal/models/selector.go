@@ -35,6 +35,16 @@ var (
 	currentStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#FFD700")).
 			Bold(true)
+
+	ctxStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#9B59B6"))
+
+	modalityStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E67E22"))
+
+	toolsBadgeStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#2ECC71")).
+			Bold(true)
 )
 
 // SelectionState represents the current state of the model selection UI.
@@ -206,7 +216,7 @@ func (s *Selector) rebuildList() {
 	if s.showAll {
 		modelsToShow = s.models
 	} else {
-		modelsToShow = FilterRecommended(s.models)
+		modelsToShow = FilterToolCapable(s.models)
 	}
 
 	categories := GroupByProvider(modelsToShow)
@@ -262,10 +272,12 @@ func (s *Selector) View() string {
 	case StateLoaded:
 		// Show toggle hint
 		if s.showAll {
-			b.WriteString(dimStyle.Render("Showing all models • Tab: show recommended"))
+			b.WriteString(dimStyle.Render("Showing all models • Tab: show tool-capable only"))
 		} else {
-			b.WriteString(dimStyle.Render("Showing recommended • Tab: show all"))
+			b.WriteString(dimStyle.Render("Showing tool-capable (🔧) • Tab: show all"))
 		}
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render("↑/↓ navigate • Enter select • Esc back"))
 		b.WriteString("\n\n")
 
 		// Calculate visible range (simple scrolling)
@@ -310,15 +322,40 @@ func (s *Selector) View() string {
 				}
 			}
 
-			// Format pricing
-			price := ""
-			if item.model.Pricing.Prompt != "" {
-				price = priceStyle.Render(fmt.Sprintf(" (%s)", FormatPrice(item.model.Pricing.Prompt)))
+			// Context window
+			ctx := ctxStyle.Render(FormatContextLength(item.model.ContextLength))
+
+			// Format pricing (per million tokens)
+			promptPrice := FormatPrice(item.model.Pricing.Prompt)
+			price := priceStyle.Render(promptPrice)
+
+			// Modality badges
+			modality := FormatModality(item.model)
+			if modality != "" {
+				modality = modalityStyle.Render(modality)
 			}
 
+			// Tools badge
+			tools := ""
+			if HasTools(item.model) {
+				tools = toolsBadgeStyle.Render("🔧")
+			}
+
+			// Build the line: prefix modelName | ctx | price | modalities | tools
 			b.WriteString(prefix)
 			b.WriteString(style.Render(modelName))
+			b.WriteString(dimStyle.Render(" │ "))
+			b.WriteString(ctx)
+			b.WriteString(dimStyle.Render(" │ "))
 			b.WriteString(price)
+			if modality != "" {
+				b.WriteString(dimStyle.Render(" │ "))
+				b.WriteString(modality)
+			}
+			if tools != "" {
+				b.WriteString(" ")
+				b.WriteString(tools)
+			}
 			b.WriteString("\n")
 		}
 	}
