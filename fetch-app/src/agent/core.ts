@@ -714,7 +714,7 @@ async function handleWithTools(
       if (!fn) continue;
       
       const toolName = fn.name;
-      let toolArgs: Record<string, unknown>;
+      let toolArgs: Record<string, unknown> | null = null;
 
       // Detect degenerate arguments (LLM sometimes emits whitespace-only JSON)
       const rawArgs = fn.arguments?.trim() ?? '';
@@ -723,60 +723,81 @@ async function handleWithTools(
           tool: toolName,
           rawLength: fn.arguments?.length ?? 0,
         });
-        const errorResult = {
-          success: false,
-          output: `Tool call failed: arguments were empty or whitespace-only. For ${toolName}, provide valid JSON like {"name": "my-project"}.`,
-        };
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(errorResult),
-        });
-        continue;
+
+        // Attempt natural language argument extraction from the user's message
+        const extractedArgs = extractToolArgsFromMessage(toolName, message);
+        if (extractedArgs) {
+          logger.info('Recovered tool args from user message', { tool: toolName, extractedArgs });
+          toolArgs = extractedArgs;
+        } else {
+          const errorResult = {
+            success: false,
+            output: `Tool call failed: arguments were empty or whitespace-only. For ${toolName}, provide valid JSON like {"name": "my-project"}.`,
+          };
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify(errorResult),
+          });
+          continue;
+        }
       }
 
-      // Safely parse tool call arguments — LLM may produce truncated JSON
-      try {
-        toolArgs = JSON.parse(rawArgs);
-      } catch (parseError) {
-        logger.error('Failed to parse tool call arguments (likely truncated)', {
-          tool: toolName,
-          rawArgs: rawArgs.substring(0, 200),
-          error: parseError,
-        });
-        // Push an error result so the LLM can self-correct
-        const errorResult = {
-          success: false,
-          output: `Tool call failed: invalid JSON in arguments for ${toolName}. Send proper JSON like {"name": "value"}.`,
-        };
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify(errorResult),
-        });
-        continue;
+      if (!toolArgs) {
+        // Safely parse tool call arguments — LLM may produce truncated JSON
+        try {
+          toolArgs = JSON.parse(rawArgs);
+        } catch (parseError) {
+          logger.error('Failed to parse tool call arguments (likely truncated)', {
+            tool: toolName,
+            rawArgs: rawArgs.substring(0, 200),
+            error: parseError,
+          });
+
+          // Try natural language extraction as fallback
+          const extractedArgs = extractToolArgsFromMessage(toolName, message);
+          if (extractedArgs) {
+            logger.info('Recovered tool args from user message after JSON parse failure', { tool: toolName, extractedArgs });
+            toolArgs = extractedArgs;
+          } else {
+            // Push an error result so the LLM can self-correct
+            const errorResult = {
+              success: false,
+              output: `Tool call failed: invalid JSON in arguments for ${toolName}. Send proper JSON like {"name": "value"}.`,
+            };
+            messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(errorResult),
+            });
+            continue;
+          }
+        }
       }
 
       const toolStart = Date.now();
 
-      logger.debug('Executing tool', { tool: toolName, args: toolArgs });
+      // At this point toolArgs is guaranteed non-null (all null paths `continue` above)
+      const finalArgs = toolArgs!;
+
+      logger.debug('Executing tool', { tool: toolName, args: finalArgs });
 
       // Execute via registry (pass session context for session-aware tools)
-      const result = await registry.execute(toolName, toolArgs, {
+      const result = await registry.execute(toolName, finalArgs, {
         sessionId: session.id,
         autonomyLevel: session.preferences.autonomyLevel,
       });
 
       toolCalls.push({
         name: toolName,
-        args: toolArgs,
+        args: finalArgs,
         result,
       });
 
       // Persist tool result to session (AFTER successful execution to avoid orphaned entries)
       await sManager.addToolMessage(
         session,
-        { name: toolName, args: toolArgs, result: result.output, duration: Date.now() - toolStart },
+        { name: toolName, args: finalArgs, result: result.output, duration: Date.now() - toolStart },
         JSON.stringify(result),
         toolCall.id
       );
@@ -918,6 +939,98 @@ async function handleWithTools(
     taskStarted: !!taskCall,
     taskId,
   };
+}
+
+// =============================================================================
+// NATURAL LANGUAGE ARGUMENT EXTRACTION (Fallback)
+// =============================================================================
+
+/**
+ * Extract tool arguments from the user's natural language message.
+ * Used as a fallback when the model generates degenerate/empty tool args.
+ *
+ * @param toolName - Name of the tool the model tried to call
+ * @param userMessage - The original user message
+ * @returns Extracted args object, or null if extraction fails
+ */
+function extractToolArgsFromMessage(
+  toolName: string,
+  userMessage: string
+): Record<string, unknown> | null {
+  const msg = userMessage.trim();
+
+  switch (toolName) {
+    case 'workspace_create': {
+      // Patterns: "create a project called demo-test"
+      //           "make a new project demo-test"
+      //           "new project called my-app"
+      //           "create demo-test project"
+      //           "scaffold a node project named my-api"
+      const patterns = [
+        /(?:called|named)\s+([a-zA-Z0-9_-]+)/i,
+        /(?:create|make|new|setup|init|scaffold|start|spin\s*up|bootstrap)\s+(?:a\s+)?(?:new\s+)?(?:(?:node|python|rust|go|react|next|empty)\s+)?(?:project|workspace|repo|app|application)\s+(?:called\s+|named\s+)?([a-zA-Z0-9_-]+)/i,
+        /(?:create|make|new|setup|init|scaffold|start)\s+([a-zA-Z0-9_-]+)\s*(?:project|workspace|repo|app)?/i,
+        /(?:project|workspace)\s+(?:called|named)\s+([a-zA-Z0-9_-]+)/i,
+      ];
+
+      // Also try to extract template
+      const templateMatch = msg.match(/\b(node|python|rust|go|react|next)\b\s*(?:project|template|app)?/i);
+      const template = templateMatch ? templateMatch[1].toLowerCase() : undefined;
+
+      for (const pattern of patterns) {
+        const match = msg.match(pattern);
+        if (match?.[1]) {
+          const name = match[1];
+          // Validate: not a common word that looks like a name
+          const reserved = ['a', 'an', 'the', 'my', 'our', 'new', 'project', 'workspace', 'app', 'repo', 'called', 'named'];
+          if (reserved.includes(name.toLowerCase())) continue;
+
+          const args: Record<string, unknown> = { name };
+          if (template) args.template = template;
+          return args;
+        }
+      }
+      return null;
+    }
+
+    case 'workspace_select': {
+      // "switch to test-api", "use demo-project", "work on my-app"
+      const patterns = [
+        /(?:switch|change|move|go)\s+(?:to\s+)?([a-zA-Z0-9_-]+)/i,
+        /(?:select|use|open|work\s+on|load)\s+(?:the\s+)?([a-zA-Z0-9_-]+)/i,
+      ];
+      for (const pattern of patterns) {
+        const match = msg.match(pattern);
+        if (match?.[1]) {
+          const name = match[1];
+          const reserved = ['a', 'an', 'the', 'my', 'our', 'project', 'workspace'];
+          if (reserved.includes(name.toLowerCase())) continue;
+          return { name };
+        }
+      }
+      return null;
+    }
+
+    case 'workspace_delete': {
+      // "delete project demo-test", "remove the workspace test-api"
+      const match = msg.match(/(?:delete|remove|destroy)\s+(?:the\s+)?(?:project|workspace)?\s*([a-zA-Z0-9_-]+)/i);
+      if (match?.[1]) {
+        return { name: match[1], confirm: false }; // Always require explicit confirmation
+      }
+      return null;
+    }
+
+    case 'task_create': {
+      // For task_create, the full message IS the goal
+      if (msg.length > 5) {
+        return { goal: msg };
+      }
+      return null;
+    }
+
+    default:
+      return null;
+  }
 }
 
 // =============================================================================

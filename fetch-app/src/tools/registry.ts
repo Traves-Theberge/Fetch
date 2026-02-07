@@ -226,18 +226,25 @@ export class ToolRegistry {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public toOpenAIFormat(): any[] {
-    // Current OpenAI format expects a simplified schema
-    // In v3, we'll map OrchestratorTool to the OpenAI call signature
-    // For now, retaining existing behavior logic via a helper or direct map
-    // Note: The previous implementation used `toOpenAITool` from `../harness/executor.ts` (implied) or similar logic
-    // We will inline a basic mapper here or reuse existing if available.
+    const result = Array.from(this.tools.values()).map(tool => _mapToOpenAIFunction(tool));
     
-    // ...implementation details...
-    // Since the original file had `toOpenAIFormat` as a helper or similar, we must ensure we replace `orchestratorTools` export object with this class functionality.
+    // Log schemas once on first call for debugging
+    if (!this._schemaLogged) {
+      this._schemaLogged = true;
+      for (const tool of result) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const fn = (tool as any).function;
+        logger.debug('Tool schema', {
+          name: fn?.name,
+          parameters: JSON.stringify(fn?.parameters),
+        });
+      }
+    }
     
-    // Placeholder for robust conversion
-    return Array.from(this.tools.values()).map(tool => _mapToOpenAIFunction(tool));
+    return result;
   }
+  
+  private _schemaLogged = false;
 
   /**
    * Execute a tool by name with arguments
@@ -335,39 +342,81 @@ function _mapToOpenAIFunction(tool: OrchestratorTool): Record<string, unknown> {
 }
 
 function zodToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
+  // Zod v4: use .type and .def instead of ._def.typeName
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const def = schema._def as any;
-  if (def.typeName === 'ZodObject' && def.shape) {
-    const shape = def.shape();
+  const s = schema as any;
+  
+  if (s.type === 'object' && s.def?.shape) {
+    const shape = s.def.shape;
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
 
     for (const [key, value] of Object.entries(shape)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const propDef = (value as any)._def;
-      const isOptional = propDef.typeName === 'ZodOptional';
-      const innerSchema = isOptional ? propDef.innerType : value;
-      properties[key] = zodTypeToJsonSchema(innerSchema as z.ZodSchema);
+      const field = value as any;
+      
+      // Use Zod v4's built-in isOptional() method
+      const isOptional = typeof field.isOptional === 'function' ? field.isOptional() : false;
+      
+      // Unwrap wrapper types to get the core type
+      const innerSchema = unwrapZodType(field);
+      properties[key] = zodTypeToJsonSchema(innerSchema, field);
+      
       if (!isOptional) required.push(key);
     }
-    return { type: 'object', properties, required };
+
+    const result: Record<string, unknown> = { type: 'object', properties };
+    if (required.length > 0) result.required = required;
+    return result;
   }
   return { type: 'object', properties: {} };
 }
 
-function zodTypeToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const def = schema._def as any;
-  const base: Record<string, unknown> = {};
-  if (def.description) base.description = def.description;
+/**
+ * Unwrap Zod wrapper types (default, optional, nullable) to get the core type
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function unwrapZodType(schema: any): any {
+  let current = schema;
+  while (current) {
+    const type = current.type ?? current.def?.type;
+    if (type === 'default' || type === 'optional' || type === 'nullable') {
+      current = current.def?.innerType ?? current._def?.innerType;
+    } else {
+      return current;
+    }
+  }
+  return schema;
+}
 
-  switch (def.typeName) {
-    case 'ZodString': return { ...base, type: 'string' };
-    case 'ZodNumber': return { ...base, type: 'number' };
-    case 'ZodBoolean': return { ...base, type: 'boolean' };
-    case 'ZodEnum': return { ...base, type: 'string', enum: def.values };
-    case 'ZodArray': return { ...base, type: 'array', items: def.type ? zodTypeToJsonSchema(def.type) : { type: 'string' } };
-    case 'ZodOptional': return zodTypeToJsonSchema(def.innerType);
+/**
+ * Convert a Zod type to JSON Schema type descriptor.
+ * Reads description from the outermost schema (which is where .describe() attaches in Zod v4).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function zodTypeToJsonSchema(innerSchema: any, outerSchema?: any): Record<string, unknown> {
+  const base: Record<string, unknown> = {};
+  
+  // In Zod v4, .description is a direct property, also available via .meta()
+  const desc = outerSchema?.description ?? innerSchema?.description;
+  if (desc) base.description = desc;
+
+  const type = innerSchema?.type ?? innerSchema?.def?.type;
+  
+  switch (type) {
+    case 'string': return { ...base, type: 'string' };
+    case 'number': return { ...base, type: 'number' };
+    case 'boolean': return { ...base, type: 'boolean' };
+    case 'enum': {
+      // Zod v4: enum entries are in .def.entries as { key: value } or .values as array
+      const entries = innerSchema.def?.entries;
+      const values = entries ? Object.values(entries) : (innerSchema.values ?? innerSchema.options);
+      return values ? { ...base, type: 'string', enum: values } : { ...base, type: 'string' };
+    }
+    case 'array': {
+      const itemSchema = innerSchema.def?.element ?? innerSchema.def?.type;
+      return { ...base, type: 'array', items: itemSchema ? zodTypeToJsonSchema(unwrapZodType(itemSchema)) : { type: 'string' } };
+    }
     default: return { ...base, type: 'string' };
   }
 }
