@@ -588,21 +588,7 @@ async function handleWithTools(
     const currentToolCalls = assistantMessage.tool_calls!;
     messages.push(assistantMessage);
 
-    // Persist assistant's tool_call request to session
     const sManager = await getSessionManager();
-    const persistableToolCalls = currentToolCalls
-      .filter(tc => 'function' in tc && tc.function)
-      .map(tc => {
-        const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
-        return { id: tc.id, name: fn.name, arguments: fn.arguments };
-      });
-    if (persistableToolCalls.length > 0) {
-      await sManager.addAssistantToolCallMessage(
-        session,
-        assistantMessage.content || '',
-        persistableToolCalls
-      );
-    }
 
     // Execute each tool call
     for (const toolCall of currentToolCalls) {
@@ -613,7 +599,30 @@ async function handleWithTools(
       if (!fn) continue;
       
       const toolName = fn.name;
-      const toolArgs = JSON.parse(fn.arguments);
+      let toolArgs: Record<string, unknown>;
+
+      // Safely parse tool call arguments — LLM may produce truncated JSON
+      try {
+        toolArgs = JSON.parse(fn.arguments);
+      } catch (parseError) {
+        logger.error('Failed to parse tool call arguments (likely truncated)', {
+          tool: toolName,
+          rawArgs: fn.arguments?.substring(0, 200),
+          error: parseError,
+        });
+        // Push an error result so the LLM can self-correct
+        const errorResult = {
+          success: false,
+          output: `Tool call failed: invalid JSON in arguments. The arguments were truncated or malformed. Please retry with valid JSON.`,
+        };
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(errorResult),
+        });
+        continue;
+      }
+
       const toolStart = Date.now();
 
       logger.debug('Executing tool', { tool: toolName, args: toolArgs });
@@ -627,7 +636,7 @@ async function handleWithTools(
         result,
       });
 
-      // Persist tool result to session
+      // Persist tool result to session (AFTER successful execution to avoid orphaned entries)
       await sManager.addToolMessage(
         session,
         { name: toolName, args: toolArgs, result: result.output, duration: Date.now() - toolStart },
@@ -665,6 +674,22 @@ async function handleWithTools(
         tool_call_id: toolCall.id,
         content: JSON.stringify(result),
       });
+    }
+
+    // Persist assistant's tool_call request AFTER all tools executed
+    // (avoids orphaned assistant entries if execution crashes mid-loop)
+    const persistableToolCalls = currentToolCalls
+      .filter(tc => 'function' in tc && tc.function)
+      .map(tc => {
+        const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
+        return { id: tc.id, name: fn.name, arguments: fn.arguments };
+      });
+    if (persistableToolCalls.length > 0) {
+      await sManager.addAssistantToolCallMessage(
+        session,
+        assistantMessage.content || '',
+        persistableToolCalls
+      );
     }
 
     // Get next response

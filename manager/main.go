@@ -511,7 +511,7 @@ func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateModels(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateModels(_ tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Model selection is now handled within the config screen
 	m.screen = screenMenu
 	return m, nil
@@ -631,19 +631,6 @@ func openDocs() tea.Msg {
 		return actionResultMsg{success: false, message: fmt.Sprintf("Failed to open docs: %v", err)}
 	}
 	return actionResultMsg{success: true, message: "📚 Documentation opened in browser"}
-}
-
-func disconnectWhatsApp(client *status.Client) tea.Cmd {
-	return func() tea.Msg {
-		result, err := client.Logout()
-		if err != nil {
-			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to disconnect: %v", err)}
-		}
-		if result.Success {
-			return actionResultMsg{success: true, message: "🔌 WhatsApp disconnected. Restart Fetch to reconnect."}
-		}
-		return actionResultMsg{success: false, message: fmt.Sprintf("Disconnect failed: %s", result.Message)}
-	}
 }
 
 // checkGhStatusCmd checks current GitHub auth status via gh CLI

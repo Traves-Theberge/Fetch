@@ -53,11 +53,11 @@ export const pipeline = {
   /** Max tool call rounds per single user message */
   maxToolCalls: int('FETCH_MAX_TOOL_CALLS', 5),
   /** Token budget for conversation (no tools) responses */
-  chatMaxTokens: int('FETCH_CHAT_MAX_TOKENS', 300),
+  chatMaxTokens: int('FETCH_CHAT_MAX_TOKENS', 512),
   /** Temperature for conversation responses */
   chatTemperature: float('FETCH_CHAT_TEMPERATURE', 0.7),
   /** Token budget for tool-calling responses */
-  toolMaxTokens: int('FETCH_TOOL_MAX_TOKENS', 500),
+  toolMaxTokens: int('FETCH_TOOL_MAX_TOKENS', 2048),
   /** Temperature for tool-calling responses */
   toolTemperature: float('FETCH_TOOL_TEMPERATURE', 0.3),
   /** Token budget for task framing prompt */
