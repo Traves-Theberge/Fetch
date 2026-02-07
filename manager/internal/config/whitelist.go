@@ -63,9 +63,11 @@ func NewWhitelistManager() *WhitelistManager {
 	return wm
 }
 
-// whitelistPath returns the path to the whitelist JSON file
+// whitelistPath returns the path to the whitelist JSON file.
+// This must match the Docker volume mount: ./data:/app/data
+// The bridge reads from /app/data/whitelist.json inside the container.
 func whitelistPath() string {
-	return filepath.Join(paths.ProjectDir, "fetch-app", "data", "whitelist.json")
+	return filepath.Join(paths.ProjectDir, "data", "whitelist.json")
 }
 
 // loadFromFile loads trusted numbers from the JSON file

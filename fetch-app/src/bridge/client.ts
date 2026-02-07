@@ -622,14 +622,18 @@ export class Bridge {
     const messageBody = message.body;
     
     // SECURITY GATE 1: Validate authorization
-    // For thread replies, we skip the @fetch trigger check but still verify owner
+    // For thread replies, we skip the @fetch trigger check but still verify identity
     if (isThreadReply) {
-      // For thread replies, just verify owner (no @fetch required)
-      if (!this.securityGate.isOwnerMessage(senderId, participantId)) {
+      // For thread replies, verify owner OR trusted whitelist member (no @fetch required)
+      const isGroup = senderId.endsWith('@g.us');
+      const checkId = isGroup ? participantId : senderId;
+      if (!checkId) return;
+      if (!this.securityGate.isOwnerMessage(senderId, participantId) &&
+          !this.securityGate.getWhitelist()?.has(checkId.replace(/@(c|g|s)\.us$/, '').replace(/\D/g, '') || '')) {
         return;
       }
     } else {
-      // Normal flow: require @fetch trigger + owner
+      // Normal flow: require @fetch trigger + (owner OR trusted)
       if (!this.securityGate.isAuthorized(senderId, participantId, messageBody)) {
         return;
       }
