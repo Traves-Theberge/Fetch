@@ -84,9 +84,14 @@ export async function handleTaskCreate(
       const { frameTaskGoal } = await import('../agent/core.js');
       const { getSessionManager } = await import('../session/manager.js');
       const sManager = await getSessionManager();
-      const session = await sManager.getOrCreateSession(sessionId);
-      framedGoal = await frameTaskGoal(goal, session);
-      logger.info('Task goal framed for harness', { original: goal.substring(0, 50), framed: framedGoal.substring(0, 50) });
+      const session = await sManager.getSessionById(sessionId);
+      
+      if (session) {
+        framedGoal = await frameTaskGoal(goal, session);
+        logger.info('Task goal framed for harness', { original: goal.substring(0, 50), framed: framedGoal.substring(0, 50) });
+      } else {
+        logger.warn('Session ID provided but session not found', { sessionId });
+      }
     } catch (err) {
       // Framing failure is non-fatal — fall back to raw goal
       logger.warn('Task goal framing failed, using raw goal', err);

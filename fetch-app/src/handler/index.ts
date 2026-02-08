@@ -81,7 +81,13 @@ export async function initializeHandler(): Promise<void> {
 
     try {
       const sManager = sessionManager!;
-      const session = await sManager.getOrCreateSession(sessionId);
+      const session = await sManager.getSessionById(sessionId);
+      
+      if (!session) {
+          logger.warn(`Session not found for task completion`, { sessionId });
+          return;
+      }
+      
       const taskMgr = await getPersistentTaskManager();
       const task = taskMgr.getTask(taskId as TaskId);
 
@@ -109,7 +115,12 @@ export async function initializeHandler(): Promise<void> {
 
     try {
       const sManager = sessionManager!;
-      const session = await sManager.getOrCreateSession(sessionId);
+      const session = await sManager.getSessionById(sessionId);
+
+      if (!session) {
+          logger.warn(`Session not found for task failure`, { sessionId });
+          return;
+      }
 
       await sManager.addAssistantMessage(session, `❌ Task failed: ${error ?? 'Unknown error'}`);
 

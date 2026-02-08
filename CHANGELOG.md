@@ -4,7 +4,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### [4.0.2] - 2026-02-08
 
+### 🐛 Critical Bug Fixes
+
+- **Session Recursion / Identity Crisis**:
+  - **Issue**: `task_create` handler was receiving a `sessionId` (UUID) but passing it to `getOrCreateSession`, which expects a `userId` (Phone Number). This caused the system to create "nested" sessions where the `userId` field was populated with the previous UUID (`04fmpqa3...`), disconnecting the user from their phone number.
+  - **Fix**: Implemented and used `getSessionById(sessionId)` in `fetch-app/src/session/manager.ts` and updated `fetch-app/src/tools/task.ts` to strictly distinguish between `startTime` UUIDs and phone numbers.
+
+- **Notification Breakdown**:
+  - **Issue**: Proactive notifications (e.g., "Task completed") were failing because the bridge was attempting to send WhatsApp messages to the internal `sessionId` UUID instead of the user's phone number.
+  - **Fix**: Updated `fetch-app/src/bridge/client.ts` to look up the `userId` from the `SessionManager` before sending proactive messages. It now correctly resolves `bo0ejfbe...` -> `25565...`.
+
+- **Agent Hallucination & Timeout**:
+  - **Issue**: The LLM was selecting `agent: "gemini"` even though Gemini was not configured, causing an immediate timeout (10s) in the harness. The previous schema allowed disabled agents.
+  - **Fix**: Updated `fetch-app/src/validation/tools.ts` to restrict `AgentSelectionSchema` to only `['copilot', 'auto']`. This forces the LLM to use the only currently active harness.
+  - **Fix**: Increased `DEFAULT_TIMEOUT_MS` to 5 minutes (300,000ms) to prevent premature timeouts during container spin-up.
+
+### ⚡ Harness Updates
+
+- **GitHub Copilot CLI Syntax**:
+  - **Issue**: The previous `gh copilot suggest` CLI syntax was deprecated/incorrect for the installed version.
+  - **Fix**: Updated `fetch-app/src/harness/copilot.ts` to use `gh copilot --yolo -p` for headless execution.
 ## [4.0.0] - 2026-02-07 (The Conversation IS the Interface 🐕)
 
 > Sprint 1 of the v4.0 Conversational Refactor — collapsing 5 pre-LLM routing layers into a single LLM-first architecture.

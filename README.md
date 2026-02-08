@@ -1,6 +1,6 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v4.0.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v4.0.2** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 

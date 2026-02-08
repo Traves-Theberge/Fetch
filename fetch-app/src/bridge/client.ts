@@ -267,9 +267,14 @@ export class Bridge {
     // Register WhatsApp sender for proactive messages (task completions, etc.)
     registerWhatsAppSender(async (userId: string, text: string) => {
       try {
-        await this.client.sendMessage(userId, text);
+        logger.info(`Sending proactive message to ${userId}`);
+        // Ensure userId is a clean JID (e.g. 123456@c.us)
+        // If it's a raw number, append @c.us
+        const targetId = userId.includes('@') ? userId : `${userId}@c.us`;
+        await this.client.sendMessage(targetId, text);
+        logger.success(`Proactive message sent to ${targetId}`);
       } catch (err) {
-        logger.error('Failed to send proactive WhatsApp message', err);
+        logger.error(`Failed to send proactive WhatsApp message to ${userId}`, err);
       }
     });
     
@@ -525,9 +530,30 @@ export class Bridge {
     const lastProgressUpdate = new Map<string, number>();
     const THROTTLE_MS = pipeline.progressThrottle; // Minimum time between general progress updates
 
+    // Helper to resolve user ID from session ID
+    const resolveTarget = async (sessionId: string): Promise<string | null> => {
+        if (!sessionId) return null;
+        // If it looks like a JID, use it directly (legacy/direct support)
+        if (sessionId.includes('@c.us') || sessionId.includes('@g.us')) return sessionId;
+        
+        // Otherwise, resolve via SessionManager
+        try {
+            const { getSessionManager } = await import('../session/manager.js');
+            const manager = await getSessionManager();
+            const session = await manager.getSessionById(sessionId);
+            return session ? session.userId : null;
+        } catch (err) {
+            logger.warn('Failed to resolve session owner', { sessionId });
+            return null;
+        }
+    };
+
     integration.on('task:progress', async (event: TaskProgressEvent) => {
       const { sessionId, message } = event;
       if (!sessionId || !message) return;
+
+      const targetId = await resolveTarget(sessionId);
+      if (!targetId) return;
 
       const now = Date.now();
       const lastUpdate = lastProgressUpdate.get(sessionId) || 0;
@@ -537,7 +563,7 @@ export class Bridge {
       
       if (isPriority || (now - lastUpdate > THROTTLE_MS)) {
         try {
-          await this.client.sendMessage(sessionId, `🐕 ${message}`);
+          await this.client.sendMessage(targetId, `🐕 ${message}`);
           lastProgressUpdate.set(sessionId, now);
         } catch (error) {
           logger.error('Failed to send progress message', error);
@@ -549,11 +575,14 @@ export class Bridge {
       const { sessionId, operation, path } = event;
       if (!sessionId) return;
 
+      const targetId = await resolveTarget(sessionId);
+      if (!targetId) return;
+
       try {
         const emoji = operation === 'create' ? '🆕' : operation === 'modify' ? '✏️' : '🗑️';
         const action = operation === 'modify' ? 'Modifying' : operation === 'create' ? 'Creating' : 'Deleting';
         
-        await this.client.sendMessage(sessionId, `${emoji} ${action} ${path}...`);
+        await this.client.sendMessage(targetId, `${emoji} ${action} ${path}...`);
       } catch (error) {
         logger.error('Failed to send file_op message', error);
       }
@@ -563,9 +592,12 @@ export class Bridge {
       const { sessionId, question } = event;
       if (!sessionId || !question) return;
 
+      const targetId = await resolveTarget(sessionId);
+      if (!targetId) return;
+
       try {
         await this.client.sendMessage(
-          sessionId, 
+          targetId, 
           `❓ *Fetch needs your help:*\n\n${question}\n\n_(Reply to this message to answer)_`
         );
       } catch (error) {

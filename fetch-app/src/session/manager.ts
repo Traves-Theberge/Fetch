@@ -95,6 +95,13 @@ export class SessionManager {
   }
 
   /**
+   * Get session by Session ID
+   */
+  async getSessionById(sessionId: string): Promise<Session | undefined> {
+    return this.store.getById(sessionId);
+  }
+
+  /**
    * Update a session
    */
   async updateSession(session: Session): Promise<void> {
