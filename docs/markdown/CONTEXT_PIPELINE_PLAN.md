@@ -126,10 +126,8 @@ All pipeline parameters live in a single config module (`config/pipeline.ts`) an
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per single user message |
-| `FETCH_CHAT_MAX_TOKENS` | `512` | Token budget for conversation responses |
-| `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses (0.0–1.0) |
-| `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
-| `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses (0.0–1.0) |
+| `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for LLM responses |
+| `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for LLM responses (0.0–1.0) |
 | `FETCH_FRAME_MAX_TOKENS` | `200` | Token budget for task framing prompts |
 
 **Circuit Breaker**
@@ -190,14 +188,6 @@ All pipeline parameters live in a single config module (`config/pipeline.ts`) an
 | `FETCH_WORKSPACE_CACHE_TTL` | `30000` | Workspace info cache TTL (ms) |
 | `FETCH_GIT_TIMEOUT` | `5000` | Git command execution timeout (ms) |
 
-**BM25 Memory (Phase 2)**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FETCH_RECALL_LIMIT` | `5` | Max BM25 recalled results injected into context |
-| `FETCH_RECALL_SNIPPET_TOKENS` | `300` | Max tokens per recalled snippet |
-| `FETCH_RECALL_DECAY` | `0.1` | Recency decay factor for recall scoring |
-
 ### Docker Compose Example
 
 ```yaml
@@ -208,7 +198,6 @@ services:
       - FETCH_HISTORY_WINDOW=30
       - FETCH_COMPACTION_THRESHOLD=60
       # Tighter budget for cheaper models
-      - FETCH_CHAT_MAX_TOKENS=200
       - FETCH_TOOL_MAX_TOKENS=300
       # Production rate limiting
       - FETCH_RATE_LIMIT_MAX=15
@@ -216,14 +205,14 @@ services:
 
 ### TUI Tuning
 
-All pipeline parameters are editable from the **Fetch TUI** (Go Manager) under **Configure → Edit Configuration**. The editor shows all 44 configurable parameters (8 core + 36 `FETCH_*`) organized by subsystem with scrollable navigation. Model selection is also inside Configure at **Configure → Select Model**. The TUI writes to the same `.env` file that Docker Compose reads, so changes apply on next container restart.
+All pipeline parameters are editable from the **Fetch TUI** (Go Manager) under **Configure → Edit Configuration**. The editor shows all 31 configurable `FETCH_*` parameters organized by subsystem with scrollable navigation. Model selection is also inside Configure at **Configure → Select Model**. The TUI writes to the same `.env` file that Docker Compose reads, so changes apply on next container restart.
 
 ### Scaling Guide
 
 | Scenario | What to Tune | Suggested Values |
 |----------|-------------|-----------------|
 | Longer conversations | `FETCH_HISTORY_WINDOW`, `FETCH_COMPACTION_THRESHOLD` | 30, 60 |
-| Cheaper model (8K context) | `FETCH_HISTORY_WINDOW`, `FETCH_CHAT_MAX_TOKENS` | 10, 150 |
+| Cheaper model (8K context) | `FETCH_HISTORY_WINDOW`, `FETCH_TOOL_MAX_TOKENS` | 10, 300 |
 | Large context model (200K) | `FETCH_HISTORY_WINDOW`, `FETCH_COMPACTION_THRESHOLD` | 50, 100 |
 | High-traffic (multiple users) | `FETCH_RATE_LIMIT_MAX`, `FETCH_RATE_LIMIT_WINDOW` | 60, 60000 |
 | Slow harness (large repos) | `FETCH_HARNESS_TIMEOUT`, `FETCH_TASK_TIMEOUT` | 600000, 600000 |
@@ -287,7 +276,7 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 
 ### ✅ Shipped (v3.4.0)
 
-- **Centralized configuration** — 44 magic numbers replaced with `pipeline.*` config, tunable via env vars
+- **Centralized configuration** — 31 magic numbers replaced with `pipeline.*` config, tunable via env vars
 - **OpenAI multi-turn format** — `buildMessageHistory()` emits proper `tool_calls` + `tool_call_id` messages
 - **Tool call persistence** — assistant tool-call requests and tool results stored in session
 - **20-message sliding window** — up from 10, configurable via `FETCH_HISTORY_WINDOW`
@@ -305,8 +294,20 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 - **ToolContext.autonomyLevel** — Session’s autonomy preference flows through the tool registry to `ask_user` for guard decisions
 - **10 project types** — `detectProjectType()` now recognizes Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET (with glob pattern support)
 - **7 autonomy rules** — System prompt includes highest-priority directives enforcing agentic behavior (act first, summarize after)
-- **Pipeline token budget increase** — `chatMaxTokens` 300→512, `toolMaxTokens` 500→2048 for richer responses
+- **Pipeline token budget increase** — `toolMaxTokens` 500→2048 for richer responses
 - **Intent refinement** — Short-message cutoff reduced from 15 to 5 chars, with action verb exceptions; new greeting patterns ("hi <name>")
+
+### ✅ Shipped (v4.0.0) — LLM-First Architecture
+
+- **Single path** — Every message (except 5 safety escapes) takes the same single path through the LLM with all 12 tools. No more conversation/action handler split or intent classification
+- **Removed instinct layer** — 12 deterministic handlers deleted; replaced by 5 safety escapes (`/stop`, `/undo`, `/clear`, `/help`, `/status`)
+- **Removed intent classifier** — ~200 regex patterns deleted; the LLM inherently knows intent
+- **Removed mode detector** — Regex-based classification eliminated
+- **12 tools** — Added `workspace_sync` (commit + push to GitHub) bringing total from 11 to 12
+- **Docker exec container field** — Harness adapters set `container: 'fetch-kennel'`; spawner wraps with `docker exec`
+- **GitHub auto-sync** — `workspace_create` automatically creates a GitHub repo and pushes initial commit when `GH_TOKEN` is configured
+- **Kennel entrypoint** — Custom `entrypoint.sh` configures `gh` CLI auth and git identity from `GH_TOKEN`
+- **Net result** — ~2,800 lines deleted, 17 files removed, zero regressions. 185 tests pass
 
 ### 🔜 Phase 2: BM25 Memory & Precision Recall
 

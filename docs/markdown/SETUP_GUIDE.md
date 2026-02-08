@@ -38,6 +38,14 @@ OWNER_PHONE_NUMBER=15551234567
 OPENROUTER_API_KEY=sk-or-...
 ```
 
+Optionally, set `GH_TOKEN` for GitHub workspace sync (auto-push, repo creation):
+
+```env
+GH_TOKEN=ghp_...
+```
+
+> **Tip:** If you have the `gh` CLI authenticated, run `setup-dev.sh` — it auto-populates `GH_TOKEN` from `gh auth token`.
+
 See [Configuration](CONFIGURATION.md) for all environment variables.
 
 ### 3. Start with the TUI Manager
@@ -82,6 +90,15 @@ Fetch should respond with a greeting. Then try:
 @fetch /status
 ```
 
+## GitHub Integration (Optional)
+
+If you set `GH_TOKEN` in your `.env`, the Kennel container automatically configures GitHub CLI auth and git identity at startup via its entrypoint script. This enables:
+
+- **`workspace_create`** — Automatically creates a GitHub repo and pushes the initial commit
+- **`workspace_sync`** — Commits and pushes changes to the remote
+
+No manual `gh auth login` is needed inside the container.
+
 ## Docker Architecture
 
 <!-- DIAGRAM:docker -->
@@ -101,7 +118,7 @@ The Bridge talks to the Kennel by spawning CLI processes inside it via `docker e
 
 ## Pipeline Tuning (Optional)
 
-Fetch’s context pipeline has 44 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
+Fetch's context pipeline has 31 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -109,12 +126,11 @@ Fetch’s context pipeline has 44 tunable parameters with sane defaults. Overrid
 | `FETCH_COMPACTION_THRESHOLD` | `40` | Compact when total messages exceed this |
 | `FETCH_COMPACTION_MAX_TOKENS` | `500` | Max tokens for compaction summaries |
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per message |
-| `FETCH_CHAT_MAX_TOKENS` | `512` | Token budget for conversation responses |
+| `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per message |
 | `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
-| `FETCH_CHAT_TEMPERATURE` | `0.7` | Temperature for conversation responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
-Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 44 parameters with defaults. See `config/pipeline.ts` for the full list.
+Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 31 parameters with defaults. See `config/pipeline.ts` for the full list.
 
 ## Verifying the Installation
 

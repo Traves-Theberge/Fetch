@@ -12,116 +12,86 @@ All messages must start with `@fetch` to be processed:
 
 In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
-## Instinct Commands
+## Architecture: LLM-First with Safety Escapes
+
+As of v4.0, Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 12 orchestrator tools.
+
+The only slash commands that exist are **5 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
+
+## Safety Escape Commands
 
 These are handled deterministically without an LLM call (<5ms):
 
 | Command | Aliases | Description |
 |---------|---------|-------------|
+| `/stop` | `stop`, `/cancel` | Cancel the running task immediately |
+| `/undo` | — | Undo last commit (soft git reset) |
+| `/clear` | `clear` | Clear conversation history |
 | `/help` | `help`, `/commands` | Show available commands |
 | `/status` | `status`, `/st` | System and task status |
-| `/stop` | `stop`, `/cancel` | Cancel the running task |
-| `/pause` | `pause` | Pause the running task |
-| `/resume` | `resume`, `/continue` | Resume a paused task |
-| `/clear` | `clear` | Clear conversation context |
-| `yes` / `approve` | `y`, `ok`, `go` | Approve a pending action |
-| `no` / `reject` | `n`, `deny` | Reject a pending action |
-| `ping` | — | Health check |
 
-## System Commands
+Everything else — including project switching, git operations, settings, identity management, skills, scheduling, and coding tasks — is handled by sending natural language to the LLM.
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Full command list |
-| `/status`, `/st` | System status + active task info |
-| `/version`, `/v` | Show Fetch version (v3.5.0) |
-| `/clear` | Clear conversation history |
-| `/verbose` | Toggle verbose output |
+## Natural Language (Everything Else)
 
-## Project & Git Commands
+The LLM has access to 12 orchestrator tools and decides which to call based on your message. Here are examples:
 
-| Command | Description |
-|---------|-------------|
-| `/projects`, `/list`, `/ls` | List workspace projects |
-| `/project <name>` | Switch to a project |
-| `/clone <url>` | Clone a git repository |
-| `/init <name>` | Initialize a new project |
-| `/status` | Git status of active project |
-| `/diff` | Show uncommitted changes |
-| `/log [n]` | Show last n commits (default 10) |
-| `/undo` | Undo last commit (soft reset) |
+### Workspace Management
 
-## Settings Commands
+| Message | What Fetch Does |
+|---------|----------------|
+| "What projects do I have?" | Calls `workspace_list` — shows all workspace projects |
+| "Switch to my-api" | Calls `workspace_select` — changes active project |
+| "How's the project looking?" | Calls `workspace_status` — shows git status, recent commits |
+| "Create a new project called auth-service" | Calls `workspace_create` — scaffolds project, creates GitHub repo |
+| "Delete the test-api project" | Calls `workspace_delete` — removes project (with confirmation) |
+| "Sync my changes to GitHub" | Calls `workspace_sync` — commits and pushes to remote |
 
-| Command | Description |
-|---------|-------------|
-| `/verbose` | Toggle verbose mode on/off |
-| `/autocommit` | Toggle auto-commit on/off |
-| `/auto` | Toggle between autonomous and cautious mode |
-| `/mode [level]` | Set autonomy: `supervised`, `cautious`, or `autonomous` |
+### Task Delegation
 
-> **Note:** `/mode verbose` is a common mistake — Fetch helpfully redirects you to use `/verbose` instead.
-> Invalid mode names show all three options with descriptions.
+| Message | What Fetch Does |
+|---------|----------------|
+| "Build a REST API for users" | Calls `task_create` — delegates to Claude Code in the Kennel |
+| "Fix the auth bug in login.ts" | Calls `task_create` — targeted coding task |
+| "How's the task going?" | Calls `task_status` — shows progress and output |
+| "Cancel the current task" | Calls `task_cancel` — terminates the running harness |
+| "Actually, add JWT support too" | Calls `task_respond` — sends follow-up to the running harness |
 
-## Identity & Skills Commands
+### Interaction
 
-| Command | Description |
-|---------|-------------|
-| `/identity` | Show current identity info |
-| `/identity reset` | Reload identity from disk |
-| `/identity <section>` | Show a specific identity section |
-| `/skill` or `/skill list` | List all skills (enabled/disabled) |
-| `/skill enable <name>` | Enable a skill |
-| `/skill disable <name>` | Disable a skill |
-| `/thread` | Show current thread info |
-| `/thread list` | List all threads |
-| `/thread switch <id>` | Switch to a thread |
-| `/thread new` | Start a new thread |
+| Message | What Fetch Does |
+|---------|----------------|
+| "Hey Fetch!" | LLM responds directly — no tools needed |
+| "Explain how the rate limiter works" | LLM reads context and explains — may call workspace tools |
+| "What's the status of everything?" | Calls `report_progress` — comprehensive system summary |
 
-## Proactive Commands
+### Identity & Skills
 
-| Command | Description |
-|---------|-------------|
-| `/remind <time> <message>` | Set a one-shot reminder (e.g. `/remind 5m check tests`) |
-| `/schedule <cron> <message>` | Schedule a recurring task (e.g. `/schedule 0 9 * * * daily standup`) |
-| `/schedule list` | List all scheduled jobs |
-| `/cron list` | List all cron jobs |
-| `/cron remove <id>` | Remove a scheduled job |
+| Message | What Fetch Does |
+|---------|----------------|
+| "What skills do you have?" | LLM reads skill list from context and responds |
+| "Use the python skill" | LLM activates the skill for the session |
+| "Reset your identity" | LLM reloads identity files from disk |
+| "Who are you?" | LLM responds from its identity context |
 
-## Task Control Commands
+## Orchestrator Tools Reference
 
-| Command | Aliases | Description |
-|---------|---------|-------------|
-| `/stop` | `stop`, `/cancel`, `cancel` | Stop the running task |
-| `/pause` | `pause` | Pause current task |
-| `/resume` | `resume`, `/continue`, `continue` | Resume paused task |
+The LLM has access to these 12 tools:
 
-## Context Commands
-
-| Command | Description |
-|---------|-------------|
-| `/context <files>` | Add files to conversation context |
-| `/context clear` | Clear all context files |
-
-## Trust / Security Commands
-
-| Command | Description |
-|---------|-------------|
-| `/trust add <number>` | Add a phone number to the whitelist |
-| `/trust remove <number>` | Remove a number from the whitelist |
-| `/trust list` | Show all trusted numbers |
-
-## Natural Language
-
-You don't need slash commands for everything. Fetch understands natural language:
-
-| Message | What Happens |
-|---------|--------------|
-| "Hey Fetch!" | Chat response |
-| "What projects do I have?" | Lists workspace projects via tools |
-| "Build a REST API for users" | Creates a task, delegates to harness |
-| "Fix the auth bug in login.ts" | Targeted coding task |
-| "Explain how the rate limiter works" | Code explanation |
+| Tool | Category | Description |
+|------|----------|-------------|
+| `workspace_list` | Workspace | List all projects in /workspace |
+| `workspace_select` | Workspace | Switch active project (triggers prompt rebuild) |
+| `workspace_status` | Workspace | Git status, branch, recent commits |
+| `workspace_create` | Workspace | Create new project + GitHub repo |
+| `workspace_delete` | Workspace | Delete a workspace project |
+| `workspace_sync` | Workspace | Commit + push to GitHub remote |
+| `task_create` | Task | Delegate coding work to a harness (Claude/Gemini/Copilot) |
+| `task_status` | Task | Check running task progress |
+| `task_cancel` | Task | Kill a running task |
+| `task_respond` | Task | Send follow-up input to running task |
+| `ask_user` | Interaction | Ask user for clarification (autonomy-gated) |
+| `report_progress` | Interaction | Send structured progress update |
 
 ## Response Formats
 
@@ -149,7 +119,7 @@ Changed 3 files:
   • tests/auth.test.ts (created)
 ```
 
-**Approval required (GUARDING mode):**
+**Approval required (destructive action):**
 ```
 ⚠️ This will delete 5 files. Approve?
 Reply: yes/no

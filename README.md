@@ -1,6 +1,6 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v3.5.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v4.0.0** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
@@ -29,15 +29,14 @@ Fetch is a **lightweight orchestrator** that delegates coding tasks to specializ
 
 **Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
 
-### 🏗️ V3 Orchestrator Architecture
+### 🏗️ LLM-First Architecture (v4.0)
 
-Fetch automatically classifies your intent, checks Instincts for a fast-path, then routes to the appropriate handler:
+Every message (except 5 safety escapes) takes the same single path through the LLM with all 12 tools:
 
 | Layer | Trigger | Response | Latency |
 |-------|---------|----------|---------|
-| **Instinct** | Slash commands, safety words | Deterministic — no LLM | <5ms |
-| **Conversation** | Greetings, thanks, chat | Direct LLM response | ~500ms |
-| **Action** | Coding requests, project ops | Tool calls + harness delegation | 2–60s |
+| **Safety Gate** | `/stop`, `/undo`, `/clear`, `/help`, `/status` | Deterministic — no LLM | <5ms |
+| **LLM + Tools** | Everything else | Chat, tool calls, or harness delegation | ~500ms–60s |
 
 ### AI Harnesses
 
@@ -92,24 +91,17 @@ docker logs -f fetch-bridge  # Scan the QR code
 
 ## Commands
 
+### Safety Escapes (Deterministic, no LLM)
+
 | Command | Description |
 |---------|-------------|
-| `/help` | Show all commands |
-| `/status` | System + task status |
-| `/version` | Current version |
-| `/projects` | List workspace projects |
-| `/project <name>` | Switch active project |
-| `/clone <url>` | Clone a repository |
-| `/verbose` | Toggle verbose output |
-| `/mode <mode>` | Set autonomy (supervised/cautious/autonomous) |
-| `/remind <time> <msg>` | Set a one-shot reminder |
-| `/schedule <cron> <msg>` | Schedule a recurring task |
-| `/cron list` | List scheduled jobs |
-| `/identity reset` | Reset agent persona |
-| `/skill list` | List available skills |
-| `/trust add <number>` | Whitelist a phone number |
 | `/stop` | Cancel running task |
-| `/pause` / `/resume` | Pause/resume task |
+| `/undo` | Undo last commit (soft git reset) |
+| `/clear` | Clear conversation history |
+| `/help` | Show available commands |
+| `/status` | System + task status |
+
+Everything else is handled via natural language — project switching, settings, identity, skills, scheduling, and coding tasks all go through the LLM with 12 tools.
 
 Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
@@ -133,9 +125,9 @@ Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 |----------|----------|---------|-------------|
 | `OWNER_PHONE_NUMBER` | ✅ | — | Your WhatsApp number (e.g. `15551234567`) |
 | `OPENROUTER_API_KEY` | ✅ | — | OpenRouter API key |
-| `AGENT_MODEL` | — | `openai/gpt-4.1-nano` | LLM for agent reasoning |
-| `SUMMARY_MODEL` | — | `openai/gpt-4.1-nano` | LLM for conversation summaries |
-| `VISION_MODEL` | — | `openai/gpt-4.1-nano` | LLM for image analysis |
+| `AGENT_MODEL` | — | `openai/gpt-4o-mini` | LLM for agent reasoning (via OpenRouter) |
+| `SUMMARY_MODEL` | — | `openai/gpt-4o-mini` | LLM for conversation summaries |
+| `VISION_MODEL` | — | `openai/gpt-4o-mini` | LLM for image analysis |
 | `LOG_LEVEL` | — | `debug` | Minimum log level (`debug`/`info`/`warn`/`error`) |
 | `ADMIN_TOKEN` | — | auto-generated | Bearer token for admin API |
 | `TRUSTED_PHONE_NUMBERS` | — | — | Comma-separated trusted numbers |
@@ -164,25 +156,23 @@ Fetch/
 │   └── src/
 │       ├── index.ts            # Entry point, boot + shutdown
 │       ├── config/env.ts       # Zod-validated env (Proxy pattern)
-│       ├── config/pipeline.ts  # Context pipeline tuning (44 params)
-│       ├── agent/              # Core LLM loop, intent, formatting
+│       ├── config/pipeline.ts  # Context pipeline tuning (31 params)
+│       ├── agent/              # Core LLM loop, formatting, prompts
 │       ├── bridge/             # WhatsApp client + reconnection
-│       ├── commands/           # Router + 5 handler modules
+│       ├── commands/           # Safety gate (5 escape commands)
 │       ├── handler/            # Message entry, formatting
 │       ├── harness/            # Base class + Claude/Gemini/Copilot
 │       ├── identity/           # Hot-reloaded persona
-│       ├── instincts/          # Deterministic fast-path handlers
-│       ├── modes/              # State machine (5 modes)
-│       ├── proactive/          # Scheduler, watcher, polling
 │       ├── security/           # Gate, rate limiter, validator
-│       ├── session/            # Session + thread persistence
+│       ├── session/            # Session persistence (SQLite)
 │       ├── skills/             # Skill framework
 │       ├── task/               # Task lifecycle + SQLite
-│       ├── tools/              # 11 orchestrator tools
+│       ├── tools/              # 12 orchestrator tools
 │       ├── transcription/      # Voice → text (whisper.cpp)
+│       ├── validation/         # Zod schemas, message validation
 │       ├── vision/             # Image analysis
 │       └── workspace/          # Project discovery, repo maps
-│   └── tests/                  # 15 files, 200 tests
+│   └── tests/                  # 12 files, 173 tests
 ├── kennel/                     # AI CLI container (Ubuntu)
 ├── data/
 │   ├── identity/               # COLLAR.md, ALPHA.md
@@ -201,7 +191,7 @@ Fetch/
 cd fetch-app
 npm install
 npx tsc --noEmit          # Type check
-npm run test:run           # 200 tests
+npm run test:run           # 173 tests
 npm run test:unit          # Unit tests only
 npm run test:integration   # Integration tests only
 npm run lint               # ESLint

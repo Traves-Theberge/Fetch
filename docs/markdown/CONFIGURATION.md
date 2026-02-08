@@ -31,10 +31,11 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `TASKS_DB_PATH` | string | Override tasks database path |
 | `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
 | `TRUSTED_PHONE_NUMBERS` | string | Comma-separated phone numbers for initial whitelist |
+| `GH_TOKEN` | string | GitHub personal access token for workspace sync and repo creation. If set, the Kennel entrypoint auto-configures `gh` CLI auth and git identity |
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 44 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with 31 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -43,13 +44,9 @@ The context pipeline is configured via `config/pipeline.ts` with 44 tunable para
 | `FETCH_COMPACTION_MAX_TOKENS` | int | `500` | Max tokens for compaction summaries |
 | `FETCH_COMPACTION_MODEL` | string | `SUMMARY_MODEL` | Model for compaction (cheap + fast) |
 | `FETCH_MAX_TOOL_CALLS` | int | `5` | Max tool call rounds per message |
-| `FETCH_CHAT_MAX_TOKENS` | int | `512` | Token budget for conversation responses |
-| `FETCH_CHAT_TEMPERATURE` | float | `0.7` | Temperature for conversation responses |
-| `FETCH_TOOL_MAX_TOKENS` | int | `2048` | Token budget for tool-calling responses |
-| `FETCH_TOOL_TEMPERATURE` | float | `0.3` | Temperature for tool-calling responses |
+| `FETCH_TOOL_MAX_TOKENS` | int | `2048` | Token budget for LLM responses |
+| `FETCH_TOOL_TEMPERATURE` | float | `0.3` | Temperature for LLM responses |
 | `FETCH_FRAME_MAX_TOKENS` | int | `200` | Token budget for task framing prompt |
-| `FETCH_RECALL_LIMIT` | int | `5` | Max recalled results injected into context |
-| `FETCH_RECALL_SNIPPET_TOKENS` | int | `300` | Max tokens per recalled snippet |
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 
@@ -93,13 +90,18 @@ volumes:
   - ~/.config/gh:/root/.config/gh:ro # GitHub Copilot auth (read-only)
   - ~/.config/claude-code:/root/.config/claude-code:ro  # Claude auth
   - ~/.gemini:/root/.gemini:ro       # Gemini auth
+environment:
+  - GH_TOKEN=${GH_TOKEN}            # GitHub token for workspace sync
 deploy:
   resources:
     limits:
       memory: 2G
       cpus: "2"
-command: tail -f /dev/null          # Keep alive for docker exec
+entrypoint: /entrypoint.sh           # Configures gh auth + git identity from GH_TOKEN
+command: tail -f /dev/null            # Keep alive for docker exec
 ```
+
+> **Kennel Entrypoint (v4.0):** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that checks for `GH_TOKEN`, configures `gh` CLI authentication, and sets the git identity to match the GitHub account. This enables `workspace_sync` and `workspace_create` to push to GitHub automatically.
 
 ---
 
@@ -176,11 +178,10 @@ When working on React components:
 
 ### Managing Skills
 
-```
-/skill list              # Show all skills
-/skill enable <name>     # Enable a skill
-/skill disable <name>    # Disable a skill
-```
+Skills are managed through natural language:
+- "What skills do you have?" — Lists all skills with enabled/disabled status
+- "Enable the React skill" — Activates a skill
+- "Disable the Python skill" — Deactivates a skill
 
 ---
 

@@ -5,6 +5,92 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-02-07 (The Conversation IS the Interface 🐕)
+
+> Sprint 1 of the v4.0 Conversational Refactor — collapsing 5 pre-LLM routing layers into a single LLM-first architecture.
+> Based on competitive analysis of Claude Code, Goose, Cline, Aider, and Continue.dev.
+
+### 🏗️ Architecture — LLM-First Routing (Sprint 1)
+
+**The Big Change:** Every message now goes directly to the LLM with ALL 12 tools. No more intent classification, mode detection, or instinct pre-filtering. The LLM decides whether to chat or call tools — exactly how Claude Code, Goose, and Cline work.
+
+- **Deleted Intent Classifier** (`agent/intent.ts`, 520 lines): Removed ~200 regex patterns that pre-classified messages as `conversation`, `action`, or `clarify`. The LLM handles this natively through tool-calling.
+- **Deleted Mode Detector** (`conversation/detector.ts`, 73 lines): Removed keyword-based TASK/EXPLORATION/TEACHING/COLLABORATION/CHAT classification. Mode context now comes from the conversation itself.
+- **Deleted Instinct Registry** (12 files, ~1,400 lines): Removed all hardcoded instinct handlers (`help`, `status`, `commands`, `skills`, `tools`, `scheduling`, `safety`, `whoami`, `identity`, `thread`, `index`, `types`). The LLM answers these questions from its system prompt and tool descriptions.
+- **Unified Agent Core** (`agent/core.ts`, 1127→808 lines): Collapsed `handleConversation()` (3 read-only tools) + `handleWithTools()` (all tools) into a single `handleWithTools()` path. Removed `classifyIntent()` call, `handleInstinctAction()`, and the conversation/action split.
+- **Cleaned Conversation Types** (`conversation/types.ts`): Removed `ModeDetectionResult` interface (no longer needed without mode detector).
+
+### 🐛 Bug Fixes — Live Testing
+
+- **Degenerate Arg Detection** (`agent/core.ts`): Fixed regex that incorrectly rejected `{}` as "degenerate" empty args. `{}` is valid JSON for no-argument tools like `workspace_list`. Changed `/^[\s{}]*$/` → `/^\s*$/` in both the execution filter and persistence filter.
+- **Docker Exec Harness Path** (3 cascading fixes):
+  - Added `container` field to `HarnessConfig` interface — when set, the spawner wraps commands with `docker exec` for the dual-container bridge→kennel architecture.
+  - Updated `spawner.ts` to build `docker exec -w <cwd> [-e K=V] <container> <command> <args>` when `config.container` is set.
+  - Fixed `executor.ts` to pass full config object to `pool.acquire()` instead of destructuring (which dropped the `container` field).
+  - Updated all 3 harness adapters (`claude.ts`, `gemini.ts`, `copilot.ts`) to set `container: 'fetch-kennel'`.
+- **Docker CLI in Bridge** (`fetch-app/Dockerfile`): Bridge container had docker.sock mounted but no `docker` CLI binary. Added `curl`, `gnupg`, and `docker-ce-cli` installation layer so the bridge can execute `docker exec` commands against the kennel.
+
+### ✨ New Features
+
+- **`workspace_sync` Tool**: New tool for syncing workspaces to GitHub. Stages all changes, commits (auto-generates message if not provided), creates a private GitHub repo if none exists, and pushes. Triggered conversationally ("push my code", "sync to GitHub", "back this up").
+- **GitHub Auto-Sync on Create**: `workspace_create` now automatically creates a private GitHub repo and pushes the initial commit (non-blocking — workspace creation succeeds even if sync fails).
+- **Kennel Entrypoint** (`kennel/entrypoint.sh`): New entrypoint script configures `gh` CLI auth and git identity from `GH_TOKEN` at container runtime, replacing the read-only host keyring mount approach.
+- **Dev Setup GH_TOKEN** (`setup-dev.sh`): Auto-populates `GH_TOKEN` in `.env` from `gh auth token` if the host has `gh` CLI authenticated.
+
+### 🧪 Tests
+
+- **Deleted obsolete tests**: Removed `conversation.test.ts`, `workspace.test.ts` (integration tests that imported the deleted intent classifier), and `intent.test.ts` (unit tests for deleted module).
+- **Updated test mocks** (`task-execution.test.ts`): Replaced `intent.ts` mock with mocks for identity manager, skill manager, thread manager, prompts, and repo-map to match the new single-path architecture.
+- **New workspace sync tests** (`workspace-manager.test.ts`): Added 6 tests covering GitHub availability check, repo creation, existing repo linking, unavailable GitHub fallback, full sync flow, and non-existent workspace error.
+- **Updated tool registry tests** (`tool-registry.test.ts`): Updated expected tool count from 11 to 12, added `workspace_sync` assertion.
+- **Test suite:** 173 tests passing, tsc clean (0 errors).
+
+### 📊 Stats
+- **Deleted:** 17 files (~2,600 lines removed)
+- **Modified:** 21 files
+- **New files:** 3 (`CONVERSATIONAL_REFACTOR_PLAN.md`, `PLAN.md`, `kennel/entrypoint.sh`)
+- **Architecture:** 5 routing layers → 1 (safety gate only). 12 instinct handlers → 0. Intent classifier regex → 0.
+
+---
+
+## [4.0.1] - 2026-02-08 (Dead Code Purge & Dependency Audit 🧹)
+
+> Full codebase review sprint — systematic file-by-file audit of every src/ directory, config file, and dependency.
+
+### 🗑️ Removed — Dead Code & Dependencies
+
+- **Deleted `src/modes/`** (7 files, ~800 lines): Zombie directory from v4.0 refactor — entire mode system was superseded by LLM-first routing but directory persisted.
+- **Deleted `src/conversation/`** (4 files): Thread manager, summarizer, detector, and types — all dead after v4.0 collapsed conversation handling into agent core.
+- **Deleted `src/proactive/`** (3 files): Scheduler, watcher, and polling — proactive features deferred, 0 importers.
+- **Deleted `types/qrcode-terminal.d.ts`**: Dead type declaration (0 imports) — QR code handled by Go TUI manager, not Node.
+- **Deleted `fetch-app/data/`**: Stale duplicate of volume-mounted `data/` directory.
+- **Removed 4 dead runtime deps**: `@anthropic-ai/sdk` (0 imports), `qrcode-terminal` (0 imports), `natural` (0 imports), `cron-parser` (0 imports).
+- **Removed `@types/natural`** devDep (dead with `natural`).
+- **Un-exported `TranscriptionResult`** in `transcription/index.ts` (0 external importers).
+
+### 🐛 Bug Fixes
+
+- **Always-true `.unref()` guards** (`bridge/client.ts`, `security/rateLimiter.ts`): Removed unnecessary `if (timer.unref)` conditionals — `NodeJS.Timeout` always has `.unref()`.
+- **Test fixture type error** (`command-parser.test.ts`): Added missing `id` and `timestamp` fields to `Message` literal.
+
+### 📦 Maintenance
+
+- **Dockerfile**: Removed dead `git config --global` block (3 lines) — git identity is configured in Kennel, not Bridge.
+- **Regenerated `package-lock.json`**: Was stale at v3.1.0 with 5 phantom packages. Now clean at v4.0.1 with 0 stale entries.
+- **ARCHITECTURE.md**: Added **Dependencies (Runtime)** section documenting all 10 live packages with purposes. Includes note clarifying that the `openai` npm package routes through OpenRouter, not OpenAI.
+- **README.md**: Fixed model defaults (`gpt-4.1-nano` → `gpt-4o-mini`), removed deleted directories from project structure, added `validation/` directory.
+
+### 🧪 Tests
+
+- **Test suite:** 173 tests passing (12 tests removed with deleted modules), tsc clean (0 errors).
+
+### 📊 Stats
+- **Deleted:** 15+ files (~1,600+ lines removed)
+- **Dead dependencies removed:** 5 (4 runtime + 1 devDep)
+- **Modified:** 10+ files
+
+---
+
 ## [3.5.0] - 2026-02-07 (Make It Feel Alive 🧠)
 
 > Full implementation of FIX_PLAN.md — addressing all critical issues found during live testing.
@@ -786,6 +872,13 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 4.0.1 | 2026-02-08 | Dead Code Purge & Dependency Audit |
+| 4.0.0 | 2026-02-07 | The Conversation IS the Interface |
+| 3.5.0 | 2026-02-07 | Make It Feel Alive |
+| 3.4.0 | 2026-02-06 | Context Pipeline |
+| 3.3.0 | 2026-02-06 | Deep Refinement |
+| 3.2.1 | 2026-02-05 | Runtime Fixes, Security Hardening & Dead Code Purge |
+| 3.2.0 | 2026-02-05 | Identity & Skills Pipeline Unification |
 | 3.1.1 | 2026-02-05 | Code Audit & State Architecture |
 | 3.1.0 | 2026-02-05 | Dynamic Identity, Skills, Crash Recovery |
 | 3.0.0 | 2026-02-04 | Orchestrator Architecture & Mode System |
@@ -805,6 +898,13 @@ FETCH_V2_ROLLOUT_PERCENT=100
 | 0.2.0 | 2026-02-02 | TUI Redesign |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
+[4.0.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.0...v4.0.1
+[4.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.5.0...v4.0.0
+[3.5.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.4.0...v3.5.0
+[3.4.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.3.0...v3.4.0
+[3.3.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.2.1...v3.3.0
+[3.2.1]: https://github.com/Traves-Theberge/Fetch/compare/v3.2.0...v3.2.1
+[3.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.1.1...v3.2.0
 [3.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.4...v3.0.0

@@ -11,21 +11,29 @@ Returns system health and WhatsApp connection state.
 **Response:**
 ```json
 {
-  "state": "connected",
+  "state": "authenticated",
+  "qrCode": null,
+  "qrUrl": null,
   "uptime": 3600,
   "messageCount": 42,
-  "qrCode": null,
   "lastError": null
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `state` | string | `initializing`, `qr_ready`, `connected`, `disconnected` |
+| `state` | string | `initializing`, `qr_pending`, `authenticated`, `disconnected`, `error` |
+| `qrCode` | string\|null | Raw QR code data when `state` is `qr_pending` |
+| `qrUrl` | string\|null | URL to render QR code image when `state` is `qr_pending` |
 | `uptime` | number | Seconds since start |
 | `messageCount` | number | Messages processed this session |
-| `qrCode` | string\|null | Base64 QR code when `state` is `qr_ready` |
 | `lastError` | string\|null | Most recent error message |
+
+### GET /api/health
+
+Lightweight health check (used by the Go TUI manager).
+
+**Response:** `{ "healthy": true }`
 
 ### POST /api/logout
 
@@ -44,7 +52,7 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 11 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/tools/`.
+These are the 12 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 ### Workspace Tools
 
@@ -56,7 +64,7 @@ List all projects in the workspace directory.
 **Returns:** `{ projects: string[] }`
 
 #### workspace_select
-Switch the active project.
+Switch the active project. Triggers a system prompt rebuild so the LLM sees the new project context.
 
 **Parameters:**
 | Name | Type | Required | Description |
@@ -73,7 +81,7 @@ Get the active project's git status and file overview.
 **Returns:** `{ project: string, branch: string, status: string, recentFiles: string[] }`
 
 #### workspace_create
-Initialize a new project in the workspace.
+Initialize a new project in the workspace. Automatically creates a GitHub repository and pushes initial commit if `GH_TOKEN` is configured.
 
 **Parameters:**
 | Name | Type | Required | Description |
@@ -93,10 +101,20 @@ Remove a project from the workspace.
 
 **Returns:** `{ deleted: string }`
 
+#### workspace_sync
+Commit local changes and push to the GitHub remote. Generates a commit message from the diff if not provided.
+
+**Parameters:**
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `message` | string | — | Commit message (auto-generated if omitted) |
+
+**Returns:** `{ synced: boolean, commit: string, remote: string }`
+
 ### Task Tools
 
 #### task_create
-Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot).
+Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot) running in the Kennel container via `docker exec`.
 
 **Parameters:**
 | Name | Type | Required | Description |
@@ -149,7 +167,7 @@ Send a question to the user via WhatsApp and wait for a reply.
 
 **Returns:** `{ answer: string }`
 
-> **Autonomy Guard (v3.5.0):** In `cautious` or `autonomous` mode, questions matching unnecessary confirmation patterns ("Shall I...", "Would you like me to...", "Can I proceed...") are auto-approved without reaching the user. The LLM receives `"Yes, proceed."` as the answer. This is controlled by `ToolContext.autonomyLevel`.
+> **Autonomy Guard:** In `cautious` or `autonomous` mode, questions matching unnecessary confirmation patterns ("Shall I...", "Would you like me to...", "Can I proceed...") are auto-approved without reaching the user. The LLM receives `"Yes, proceed."` as the answer. This is controlled by `ToolContext.autonomyLevel`.
 
 #### report_progress
 Send a progress update to the user.
@@ -209,7 +227,7 @@ interface ToolContext {
 }
 ```
 
-The `autonomyLevel` field (added in v3.5.0) flows from the session’s preferences through the tool registry to individual tool handlers. The `ask_user` tool uses it to decide whether to auto-approve confirmation questions.
+The `autonomyLevel` field flows from the session's preferences through the tool registry to individual tool handlers. The `ask_user` tool uses it to decide whether to auto-approve confirmation questions.
 
 ---
 
