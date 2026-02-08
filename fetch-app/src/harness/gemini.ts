@@ -31,6 +31,7 @@
  */
 
 import type { AgentType } from '../task/types.js';
+import { env } from '../config/env.js';
 import type {
   HarnessConfig,
   HarnessOutputEventType,
@@ -137,6 +138,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
         // Ensure non-interactive environment
         CI: 'true',
         TERM: 'dumb',
+        ...(env.GEMINI_API_KEY ? { GEMINI_API_KEY: env.GEMINI_API_KEY } : {}),
       },
       cwd: workspacePath,
       timeoutMs,

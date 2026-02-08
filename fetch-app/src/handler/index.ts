@@ -97,7 +97,7 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(sessionId, `🐕 ✅ Task finished!\n\n${summary}`);
+        await sendWhatsApp(session.userId, `🐕 ✅ Task finished!\n\n${summary}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:completed event', err);
@@ -118,7 +118,7 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(sessionId, `🐕 ❌ Task failed: ${error ?? 'Unknown error'}`);
+        await sendWhatsApp(session.userId, `🐕 ❌ Task failed: ${error ?? 'Unknown error'}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:failed event', err);

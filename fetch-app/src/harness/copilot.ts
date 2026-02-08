@@ -57,43 +57,14 @@ const COPILOT_COMMAND = 'gh';
  */
 const DEFAULT_ARGS = [
   'copilot',
-  'suggest',
-  '-t', 'code',  // Target type: code suggestions
+  '--yolo', // Allow all tools and connections (non-interactive)
 ];
-
-/**
- * Pattern for suggestions
- */
-const SUGGESTION_PATTERN = /^Suggestion:\s*(.+)$/m;
-
-/**
- * Pattern for explanations
- */
-const EXPLANATION_PATTERN = /^Explanation:\s*(.+)$/m;
-
-/**
- * Pattern for code blocks
- */
-const CODE_BLOCK_PATTERN = /```[\w]*\n([\s\S]+?)```/g;
 
 /**
  * Pattern for questions/prompts
  */
 const QUESTION_PATTERN = /^(?:>|→)\s*(.+\?)\s*$/m;
 
-/**
- * Patterns for completion
- */
-const COMPLETION_PATTERNS = [
-  /^Done\.?$/im,
-  /^Suggestion complete/im,
-  /^Here's my suggestion/im,
-];
-
-/**
- * Pattern for errors
- */
-const ERROR_PATTERN = /^(?:Error|Failed):\s+(.+)$/im;
 
 // ============================================================================
 // CopilotAdapter Class
@@ -143,6 +114,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
       command: COPILOT_COMMAND,
       args: [
         ...DEFAULT_ARGS,
+        '-p',
         goal,
       ],
       env: {
@@ -164,34 +136,10 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
    * @param line - Raw output line
    * @returns Event type or null
    */
-  parseOutputLine(line: string): HarnessOutputEventType | null {
-    // Check for question
-    if (QUESTION_PATTERN.test(line)) {
-      return 'question';
-    }
-
-    // Check for suggestions (progress indicator)
-    if (SUGGESTION_PATTERN.test(line)) {
-      return 'progress';
-    }
-
-    // Check for explanations (progress indicator)
-    if (EXPLANATION_PATTERN.test(line)) {
-      return 'progress';
-    }
-
-    // Check for completion
-    if (COMPLETION_PATTERNS.some((p) => p.test(line))) {
-      return 'complete';
-    }
-
-    // Check for errors
-    if (ERROR_PATTERN.test(line)) {
-      return 'error';
-    }
-
-    // Regular output
-    return null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  parseOutputLine(_line: string): HarnessOutputEventType | null {
+    // Treat everything as stdout for new CLI
+    return 'stdout';
   }
 
   /**
@@ -238,12 +186,6 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
       suggestions.push(match[1].trim());
     }
 
-    // Extract code blocks
-    const codeMatches = output.matchAll(CODE_BLOCK_PATTERN);
-    for (const match of codeMatches) {
-      suggestions.push(match[1].trim());
-    }
-
     return suggestions;
   }
 
@@ -271,23 +213,10 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
    * before falling back to the base summary extraction.
    */
   extractSummary(output: string): string {
-    // Copilot-specific: suggestion/explanation patterns
-    const suggestionMatch = output.match(SUGGESTION_PATTERN);
-    if (suggestionMatch) return suggestionMatch[1].trim();
-
-    const explanationMatch = output.match(EXPLANATION_PATTERN);
-    if (explanationMatch) return explanationMatch[1].trim();
-
-    // Check for code blocks
-    const codeBlocks = this.extractSuggestions(output);
-    if (codeBlocks.length > 0) {
-      return `Generated ${codeBlocks.length} code suggestion(s).`;
-    }
-
     // Check for commands
     const commands = this.extractCommands(output);
     if (commands.length > 0) {
-      return `Suggested command: ${commands[0]}`;
+      return `Executed command: ${commands[0]}`;
     }
 
     // Fall back to base implementation

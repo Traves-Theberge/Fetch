@@ -51,14 +51,14 @@ type ConfigField struct {
 
 // Editor handles the configuration editing UI
 type Editor struct {
-	fields              []ConfigField
-	cursor              int
-	editing             bool
-	editBuffer          string
-	saved               bool
-	errorMessage        string
-	scrollOffset        int // viewport scroll offset
-	viewHeight          int // max visible rows
+	fields               []ConfigField
+	cursor               int
+	editing              bool
+	editBuffer           string
+	saved                bool
+	errorMessage         string
+	scrollOffset         int  // viewport scroll offset
+	viewHeight           int  // max visible rows
 	modelPickerRequested bool // signals parent to open model picker
 }
 
@@ -91,8 +91,11 @@ func NewEditor() *Editor {
 			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
 			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
 			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "Enable GitHub Copilot harness", Default: "false"},
+			{Key: "GH_TOKEN", Label: "GitHub Token", Help: "Token for Copilot (gh auth login)", Masked: true},
 			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "Enable Claude Code harness", Default: "false"},
+			{Key: "ANTHROPIC_API_KEY", Label: "Anthropic Key", Help: "Key for Claude harness", Masked: true},
 			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "Enable Gemini harness", Default: "false"},
+			{Key: "GEMINI_API_KEY", Label: "Gemini Key", Help: "Key for Gemini harness", Masked: true},
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},

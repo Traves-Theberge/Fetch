@@ -17,6 +17,7 @@ import { getTaskManager, TaskManager } from './manager.js';
 import { getHarnessExecutor } from '../harness/executor.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
 import type { Task, TaskId, AgentType } from './types.js';
 import type { HarnessResult } from '../harness/types.js';
 
@@ -231,9 +232,14 @@ export class TaskIntegration extends EventEmitter {
    */
   private selectAgent(agent: string): AgentType {
     if (agent === 'auto') {
-      // Default to claude for now
-      // Future: intelligent routing based on task type
-      return 'claude';
+      // Intelligent routing based on enabled harnesses
+      if (env.ENABLE_CLAUDE) return 'claude';
+      if (env.ENABLE_COPILOT) return 'copilot';
+      if (env.ENABLE_GEMINI) return 'gemini';
+      
+      // Fallback if nothing matches (shouldn't happen if properly configured)
+      logger.warn('No harnesses enabled! Defaulting to copilot.');
+      return 'copilot';
     }
     return agent as AgentType;
   }

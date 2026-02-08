@@ -54,6 +54,16 @@ const EnvSchema = z.object({
   // Security
   ADMIN_TOKEN: z.string().optional(),
   TRUSTED_PHONE_NUMBERS: z.string().optional(),
+
+  // Harness Feature Flags
+  ENABLE_COPILOT: z.string().transform(val => val === 'true').optional().default(true),
+  ENABLE_CLAUDE: z.string().transform(val => val === 'true').optional().default(false),
+  ENABLE_GEMINI: z.string().transform(val => val === 'true').optional().default(false),
+
+  // Harness Auth
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  GH_TOKEN: z.string().optional(),
 });
 
 // ============================================================================

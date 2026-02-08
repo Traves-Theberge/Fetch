@@ -31,6 +31,7 @@
  */
 
 import type { AgentType } from '../task/types.js';
+import { env } from '../config/env.js';
 import type {
   HarnessConfig,
   HarnessOutputEventType,
@@ -132,6 +133,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
         // Ensure non-interactive environment
         CI: 'true',
         TERM: 'dumb',
+        ...(env.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY } : {}),
       },
       cwd: workspacePath,
       timeoutMs,
