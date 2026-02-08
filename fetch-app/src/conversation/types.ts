@@ -21,15 +21,6 @@ export type ConversationMode =
   | 'TEACHING';
 
 /**
- * Result of analyzing a user message for mode signals
- */
-export interface ModeDetectionResult {
-  mode: ConversationMode;
-  confidence: number;
-  signals: string[]; // List of signals that triggered this detection
-}
-
-/**
  * Context Thread
  * 
  * Represents a continuous stream of related messages.

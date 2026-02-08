@@ -140,6 +140,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
       },
       cwd: workspacePath,
       timeoutMs,
+      container: 'fetch-kennel',
     };
   }
 

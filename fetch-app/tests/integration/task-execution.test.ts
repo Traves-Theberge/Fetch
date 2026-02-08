@@ -107,18 +107,39 @@ vi.mock('../../src/session/manager.js', () => ({
   getSessionManager: () => mockSessionManager
 }));
 
-// Mock Intent Classifier to force TASK intent
-vi.mock('../../src/agent/intent.js', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual as Record<string, unknown>,
-    classifyIntent: vi.fn().mockReturnValue({
-      type: 'action',
-      confidence: 0.95,
-      metadata: { goal: 'Create test.txt' }
-    })
-  };
-});
+// Mock Identity Manager
+vi.mock('../../src/identity/manager.js', () => ({
+  getIdentityManager: () => ({
+    buildSystemPrompt: vi.fn().mockReturnValue('You are Fetch, a helpful coding assistant.'),
+  }),
+}));
+
+// Mock Skill Manager
+vi.mock('../../src/skills/manager.js', () => ({
+  getSkillManager: () => ({
+    matchSkills: vi.fn().mockResolvedValue([]),
+    buildActivatedSkillsContext: vi.fn().mockReturnValue(''),
+  }),
+}));
+
+// Mock conversation thread manager
+vi.mock('../../src/conversation/thread.js', () => ({
+  threadManager: {
+    getActiveThread: vi.fn().mockReturnValue({ id: 'thd_test' }),
+    updateActivity: vi.fn(),
+  },
+}));
+
+// Mock prompts
+vi.mock('../../src/agent/prompts.js', () => ({
+  buildTaskFramePrompt: vi.fn().mockReturnValue('frame prompt'),
+  buildContextSection: vi.fn().mockResolvedValue('context section'),
+}));
+
+// Mock workspace/repo-map
+vi.mock('../../src/workspace/repo-map.js', () => ({
+  generateRepoMap: vi.fn().mockResolvedValue('mock repo map'),
+}));
 
 describe('E2E: Task Execution Flow', () => {
   beforeEach(() => {

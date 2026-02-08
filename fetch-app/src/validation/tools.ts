@@ -150,6 +150,24 @@ export const WorkspaceDeleteInputSchema = z
   .strict()
   .describe('Delete a workspace (requires explicit confirmation)');
 
+/**
+ * workspace_sync - Sync workspace to GitHub (commit + push)
+ */
+export const WorkspaceSyncInputSchema = z
+  .object({
+    /** Workspace to sync (uses active if not specified) */
+    name: WorkspaceNameSchema.optional()
+      .describe('Workspace to sync (uses active workspace if not specified)'),
+    
+    /** Commit message (auto-generated if not provided) */
+    message: z.string()
+      .max(256, 'Commit message too long (max 256 characters)')
+      .optional()
+      .describe('Commit message (auto-generated from changes if not provided)'),
+  })
+  .strict()
+  .describe('Sync workspace to GitHub — stages changes, commits, creates repo if needed, and pushes');
+
 // ============================================================================
 // Task Tool Schemas
 // ============================================================================
@@ -269,12 +287,13 @@ export const ReportProgressInputSchema = z
  * before calling tool handlers.
  */
 export const ToolInputSchemas = {
-  // Workspace tools (5)
+  // Workspace tools (6)
   workspace_list: WorkspaceListInputSchema,
   workspace_select: WorkspaceSelectInputSchema,
   workspace_status: WorkspaceStatusInputSchema,
   workspace_create: WorkspaceCreateInputSchema,
   workspace_delete: WorkspaceDeleteInputSchema,
+  workspace_sync: WorkspaceSyncInputSchema,
   // Task tools (4)
   task_create: TaskCreateInputSchema,
   task_status: TaskStatusInputSchema,
@@ -303,6 +322,7 @@ export type WorkspaceSelectInput = z.infer<typeof WorkspaceSelectInputSchema>;
 export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;
 export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInputSchema>;
 export type WorkspaceDeleteInput = z.infer<typeof WorkspaceDeleteInputSchema>;
+export type WorkspaceSyncInput = z.infer<typeof WorkspaceSyncInputSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateInputSchema>;
 export type TaskStatusInput = z.infer<typeof TaskStatusInputSchema>;
 export type TaskCancelInput = z.infer<typeof TaskCancelInputSchema>;
@@ -319,6 +339,7 @@ export type ToolInput =
   | WorkspaceStatusInput
   | WorkspaceCreateInput
   | WorkspaceDeleteInput
+  | WorkspaceSyncInput
   | TaskCreateInput
   | TaskStatusInput
   | TaskCancelInput

@@ -116,6 +116,15 @@ export interface HarnessConfig {
 
   /** Execution timeout in milliseconds */
   timeoutMs: number;
+
+  /**
+   * Docker container name to execute in via `docker exec`.
+   * When set, the spawner wraps the command with:
+   *   docker exec -w <cwd> [-e K=V ...] <container> <command> <args...>
+   * This is the core of the dual-container architecture:
+   * bridge (brain) controls kennel (muscle) via docker exec.
+   */
+  container?: string;
 }
 
 /**

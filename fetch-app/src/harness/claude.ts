@@ -135,6 +135,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
       },
       cwd: workspacePath,
       timeoutMs,
+      container: 'fetch-kennel',
     };
   }
 

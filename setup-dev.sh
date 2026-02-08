@@ -72,6 +72,21 @@ if [ ! -f ".env" ]; then
     echo "✅ Created .env from template"
 fi
 
+# Auto-populate GH_TOKEN if gh is authenticated
+if command -v gh &> /dev/null && gh auth status &> /dev/null; then
+    TOKEN=$(gh auth token 2>/dev/null)
+    if [ -n "$TOKEN" ]; then
+        if grep -q "^GH_TOKEN=" .env; then
+            sed -i "s|^GH_TOKEN=.*|GH_TOKEN=${TOKEN}|" .env
+        else
+            echo -e "\n# GitHub Token for workspace sync\nGH_TOKEN=${TOKEN}" >> .env
+        fi
+        echo "✅ GH_TOKEN auto-populated from gh auth"
+    fi
+else
+    echo "⚠️  gh CLI not authenticated — run 'gh auth login' for workspace GitHub sync"
+fi
+
 echo ""
 echo "🎉 Development setup complete!"
 echo ""

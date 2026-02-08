@@ -21,10 +21,12 @@ import {
   WorkspaceStatusInputSchema,
   WorkspaceCreateInputSchema,
   WorkspaceDeleteInputSchema,
+  WorkspaceSyncInputSchema,
   type WorkspaceSelectInput,
   type WorkspaceStatusInput,
   type WorkspaceCreateInput,
   type WorkspaceDeleteInput,
+  type WorkspaceSyncInput,
 } from '../validation/tools.js';
 import type { ToolResult } from './types.js';
 
@@ -438,6 +440,104 @@ export async function handleWorkspaceDelete(
 }
 
 // ============================================================================
+// workspace_sync
+// ============================================================================
+
+/**
+ * Sync workspace to GitHub
+ *
+ * Stages all changes, commits with optional message, creates a GitHub
+ * repo if none exists, and pushes. This is the "save my work" tool —
+ * the LLM should call this when the user says things like:
+ * - "push my code"
+ * - "sync to GitHub"
+ * - "save this project"
+ * - "back this up"
+ *
+ * @param input - Tool input with optional workspace name and commit message
+ * @returns Sync result with commit hash, remote URL, and push status
+ */
+export async function handleWorkspaceSync(
+  input: unknown
+): Promise<ToolResult> {
+  const start = Date.now();
+
+  // Validate input
+  const parseResult = WorkspaceSyncInputSchema.safeParse(input ?? {});
+  if (!parseResult.success) {
+    return {
+      success: false,
+      output: '',
+      error: `Invalid input: ${parseResult.error.message}`,
+      duration: Date.now() - start,
+    };
+  }
+
+  const { name, message } = parseResult.data as WorkspaceSyncInput;
+
+  // Use active workspace if not specified
+  const workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+
+  if (!workspaceId) {
+    return {
+      success: false,
+      output: '',
+      error: 'No workspace specified and no active workspace selected',
+      duration: Date.now() - start,
+    };
+  }
+
+  try {
+    const result = await workspaceManager.syncWorkspace(workspaceId, message);
+
+    if (!result.success) {
+      return {
+        success: false,
+        output: '',
+        error: result.error || 'Sync failed',
+        duration: Date.now() - start,
+      };
+    }
+
+    const syncData = {
+      workspace: workspaceId,
+      commitHash: result.commitHash,
+      commitMessage: result.commitMessage,
+      filesChanged: result.filesChanged,
+      remoteUrl: result.remoteUrl,
+      pushed: result.pushed,
+      repoCreated: result.repoCreated,
+      message: result.repoCreated
+        ? `Created GitHub repo and pushed ${result.filesChanged} file(s)`
+        : result.pushed
+          ? `Pushed ${result.filesChanged} change(s) to GitHub`
+          : result.filesChanged > 0
+            ? `Committed ${result.filesChanged} change(s) locally (no remote configured)`
+            : 'Everything is up to date',
+    };
+
+    return {
+      success: true,
+      output: JSON.stringify(syncData, null, 2),
+      duration: Date.now() - start,
+      metadata: {
+        workspace: workspaceId,
+        pushed: result.pushed,
+        repoCreated: result.repoCreated,
+        filesChanged: result.filesChanged,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      output: '',
+      error: err instanceof Error ? err.message : String(err),
+      duration: Date.now() - start,
+    };
+  }
+}
+
+// ============================================================================
 // Tool Registry Integration
 // ============================================================================
 
@@ -471,8 +571,14 @@ export const workspaceTools = {
   },
   workspace_delete: {
     name: 'workspace_delete',
-    description: 'Delete a workspace permanently. Requires explicit confirmation. Cannot delete active workspace.',
+    description: 'Delete a workspace permanently. IMPORTANT: Always call ask_user FIRST to confirm with the user, then call this tool with confirm: true in a single call. Never simulate a two-step confirmation — the user confirms via ask_user, then you call this with confirm: true immediately.',
     handler: handleWorkspaceDelete,
     schema: WorkspaceDeleteInputSchema,
+  },
+  workspace_sync: {
+    name: 'workspace_sync',
+    description: 'Sync workspace to GitHub. Stages changes, commits (auto-generates message if not provided), creates a private GitHub repo if none exists, and pushes. Use when user says "push my code", "sync to GitHub", "save this", or "back this up".',
+    handler: handleWorkspaceSync,
+    schema: WorkspaceSyncInputSchema,
   },
 } as const;

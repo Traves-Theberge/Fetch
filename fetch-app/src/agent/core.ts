@@ -1,16 +1,19 @@
 /**
- * @fileoverview Agent Core - Orchestrator Architecture
+ * @fileoverview Agent Core - Conversational Orchestrator (v4.0)
  *
- * The agent is a lightweight orchestrator that:
- * 1. Classifies user intent
- * 2. Routes to appropriate tools
- * 3. Delegates coding work to harnesses
+ * The agent is a conversational orchestrator that:
+ * 1. Receives ALL messages (no pre-classification)
+ * 2. Has access to ALL tools (no conversation/action split)
+ * 3. Delegates coding work to harnesses via tool calls
+ *
+ * The LLM IS the router. No regex intent classifier, no instinct
+ * registry, no mode detector. Safety escapes (/stop, /undo, /clear)
+ * are handled upstream in the command parser.
  *
  * System prompt is built by IdentityManager.buildSystemPrompt() — the single
  * source of truth for Fetch's persona, skills, pack, and session context.
  *
  * @module agent/core
- * @see {@link classifyIntent} - Intent classification
  * @see {@link ToolRegistry} - Tool registry
  * @see {@link IdentityManager} - System prompt builder
  */
@@ -18,7 +21,6 @@
 import OpenAI from 'openai';
 import { Session } from '../session/types.js';
 import { logger } from '../utils/logger.js';
-import { classifyIntent } from './intent.js';
 import {
   buildTaskFramePrompt,
   buildContextSection,
@@ -26,13 +28,11 @@ import {
 import { getToolRegistry } from '../tools/registry.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
-import { getInstinctRegistry, FetchMode, type InstinctAction } from '../instincts/index.js';
 import { getIdentityManager } from '../identity/manager.js';
 import { getSkillManager } from '../skills/manager.js';
 import { env } from '../config/env.js';
 import { pipeline } from '../config/pipeline.js';
-import { modeDetector } from '../conversation/detector.js'; // Phase 8: Mode Detection
-import { threadManager } from '../conversation/thread.js'; // Phase 8: Threading
+import { threadManager } from '../conversation/thread.js';
 
 // =============================================================================
 // TYPES
@@ -50,8 +50,6 @@ export interface AgentResponse {
   taskStarted?: boolean;
   /** Task ID if started */
   taskId?: string;
-  /** Detected conversation mode */
-  mode?: string;
 }
 
 /**
@@ -232,68 +230,15 @@ function getOpenAI(): OpenAI {
 }
 
 // =============================================================================
-// MODE & REFLEX HELPERS
-// =============================================================================
-
-/**
- * Handle instinct actions (stop, undo, clear, etc.)
- */
-async function handleInstinctAction(
-  action: InstinctAction,
-  session: Session,
-  sManager: ReturnType<typeof getSessionManager> extends Promise<infer T> ? T : never
-): Promise<void> {
-  switch (action.type) {
-    case 'stop':
-      // Cancel current task if any (V3.3: use TaskManager)
-      if (session.activeTaskId) {
-        const { getTaskManager } = await import('../task/manager.js');
-        const tm = await getTaskManager();
-        try {
-          await tm.cancelTask(session.activeTaskId);
-        } catch { /* may already be cancelled */ }
-        session.activeTaskId = null;
-        logger.info('Instinct action: stopping task');
-        await sManager.updateSession(session);
-      }
-      break;
-      
-    case 'undo':
-      // TODO: Implement git undo logic
-      logger.info('Instinct action: undo requested');
-      break;
-      
-    case 'clear':
-      // Clear session context but keep preferences
-      logger.info('Instinct action: clearing session');
-      session.messages = [];
-      session.activeFiles = [];
-      session.repoMap = null;
-      session.activeTaskId = null;
-      await sManager.updateSession(session);
-      break;
-      
-    case 'pause':
-      // TODO: Implement pause logic
-      logger.info('Instinct action: pause requested');
-      break;
-      
-    case 'resume':
-      // TODO: Implement resume logic
-      logger.info('Instinct action: resume requested');
-      break;
-      
-    default:
-      logger.warn('Unknown instinct action', { action });
-  }
-}
-
-// =============================================================================
 // MAIN AGENT FUNCTION
 // =============================================================================
 
 /**
- * Process a user message through the agent
+ * Process a user message through the agent.
+ *
+ * v4.0: Single path. ALL messages go to the LLM with ALL tools.
+ * The LLM decides whether to chat, call tools, or delegate to a harness.
+ * No intent classifier, no instinct registry, no mode detector.
  *
  * @param message - User message
  * @param session - Current session
@@ -338,109 +283,16 @@ export async function processMessage(
       }
     }
 
-    // =========================================================================
-    // 0. CHECK REFLEXS FIRST (Hardwired deterministic responses)
-    // =========================================================================
-    const instinctRegistry = getInstinctRegistry();
-    // Phase 8: Use ModeDetector first
-    const detectedMode = modeDetector.detect(message);
-    // Build active task context from TaskManager (V3.3)
-    let activeTask: { id: string; status: import('../task/types.js').TaskStatus; description: string; goal: string; harness?: string; startedAt?: string } | undefined;
-    if (session.activeTaskId) {
-      const { getTaskManager } = await import('../task/manager.js');
-      const tm = await getTaskManager();
-      const tmTask = tm.getTask(session.activeTaskId);
-      if (tmTask) {
-        activeTask = {
-          id: tmTask.id,
-          status: tmTask.status,
-          description: tmTask.goal,
-          goal: tmTask.goal,
-          harness: tmTask.agent,
-          startedAt: tmTask.startedAt,
-        };
-      }
-    }
-    
-    // Use the explicit mode if instincts don't override
-    const instinctContextMode: FetchMode = (detectedMode.mode === 'TASK' && activeTask?.status === 'running') 
-        ? FetchMode.WORKING 
-        : FetchMode.ALERT;
-
-    const instinctResult = await instinctRegistry.check({
-      message: message.toLowerCase().trim(),
-      originalMessage: message,
-      session,
-      mode: instinctContextMode, 
-      activeTask,
-      workspace: session.currentProject?.path,
-    });
-    
-    if (instinctResult.matched && instinctResult.response) {
-      logger.info('Instinct matched', {
-        instinct: instinctResult.instinct,
-        action: instinctResult.response.action?.type,
-      });
-      
-      // Handle instinct actions
-      if (instinctResult.response.action) {
-        await handleInstinctAction(instinctResult.response.action, session, sManager);
-      }
-      
-      // Return if instinct doesn't want to continue processing
-      if (!instinctResult.response.continueProcessing) {
-        return { 
-          text: instinctResult.response.response || "Task updated.", 
-          mode: detectedMode.mode
-        };
-      }
-    }
-
-    // Phase 8: Update Thread Context
+    // Update thread activity
     const thread = threadManager.getActiveThread();
-    threadManager.updateActivity(thread.id, { mode: detectedMode.mode });
+    threadManager.updateActivity(thread.id);
 
-    // 1. Classify intent
-    const intent = classifyIntent(message, session);
-    logger.info('Intent classified', {
-      type: intent.type,
-      confidence: intent.confidence,
-      reason: intent.reason,
-    });
-
-    // 2. Route based on intent
-    let response: AgentResponse;
-    switch (intent.type) {
-      case 'conversation':
-        response = await handleWithRetry(
-          (attempt) => handleConversation(message, session, attempt),
-          session.id,
-          onProgress
-        );
-        break;
-
-      case 'action':
-        response = await handleWithRetry(
-          (attempt) => handleWithTools(message, session, attempt),
-          session.id,
-          onProgress
-        );
-        break;
-
-      case 'clarify':
-        // V3.1: Clarification flow
-        response = {
-            text: "🐕 I'm eager to help, but I'm not sure what you mean! Can you be more specific? *head tilt*"
-        };
-        break;
-
-      default:
-        response = await handleWithRetry(
-          (attempt) => handleConversation(message, session, attempt),
-          session.id,
-          onProgress
-        );
-    }
+    // Single path: LLM with ALL tools — the LLM IS the router
+    const response = await handleWithRetry(
+      (attempt) => handleWithTools(message, session, attempt),
+      session.id,
+      onProgress
+    );
 
     // Success - reset error count
     resetErrorCount(session.id);
@@ -478,177 +330,15 @@ export async function processMessage(
 }
 
 // =============================================================================
-// CONVERSATION HANDLER
+// UNIFIED MESSAGE HANDLER (All Tools)
 // =============================================================================
 
 /**
- * Read-only tools that conversation handler can use
- * These let the LLM answer questions like "what project am I on?" or "what changed?"
- */
-const CONVERSATION_TOOLS = ['workspace_list', 'workspace_select', 'workspace_status'];
-
-/**
- * Handle conversation intent (with read-only tools for context awareness)
- */
-async function handleConversation(
-  message: string,
-  session: Session,
-  attempt: number = 1
-): Promise<AgentResponse> {
-  const openai = getOpenAI();
-
-  // Match skills against this message and build activated context
-  const skillManager = getSkillManager();
-  const matchedSkills = await skillManager.matchSkills(message);
-  const activatedContext = skillManager.buildActivatedSkillsContext(matchedSkills);
-
-  // Build session context (workspace, task, git state, summaries)
-  const sessionContext = await buildContextSection(session);
-
-  const history = buildMessageHistory(session);
-  
-  // If retrying from a failure (likely 400 Bad Request or token limit),
-  // simplify the history to just the last few exchanges
-  const finalHistory = attempt > 1 
-    ? history.slice(-3) // Keep only last 3 messages
-    : history;
-
-  // Phase 3: Give conversation handler read-only tools so it can answer
-  // questions like "what project?" or "what changed?" without hallucinating
-  const registry = getToolRegistry();
-  const readOnlyTools = registry.toOpenAIFormat()
-    .filter((t: { function: { name: string } }) => CONVERSATION_TOOLS.includes(t.function.name));
-
-  const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    {
-      role: 'system',
-      content: getIdentityManager().buildSystemPrompt(activatedContext, sessionContext),
-    },
-    ...finalHistory,
-    { role: 'user', content: message },
-  ];
-
-  let response = await openai.chat.completions.create({
-    model: MODEL,
-    messages,
-    tools: readOnlyTools.length > 0 ? readOnlyTools as OpenAI.Chat.Completions.ChatCompletionTool[] : undefined,
-    tool_choice: readOnlyTools.length > 0 ? 'auto' : undefined,
-    max_tokens: pipeline.chatMaxTokens,
-    temperature: pipeline.chatTemperature,
-  });
-
-  // Handle tool calls if conversation LLM decides to use read-only tools
-  let callCount = 0;
-  while (
-    response.choices[0]?.message?.tool_calls &&
-    response.choices[0].message.tool_calls.length > 0 &&
-    callCount < 2 // Max 2 tool calls for conversation
-  ) {
-    const assistantMessage = response.choices[0].message;
-    const currentToolCalls = assistantMessage.tool_calls!;
-    messages.push(assistantMessage);
-
-    const sManager = await getSessionManager();
-
-    for (const toolCall of currentToolCalls) {
-      callCount++;
-      const fn = 'function' in toolCall ? toolCall.function : null;
-      if (!fn) continue;
-
-      const toolName = fn.name;
-      if (!CONVERSATION_TOOLS.includes(toolName)) {
-        // Safety: don't execute non-read-only tools from conversation
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ success: false, error: 'Tool not available in conversation mode' }),
-        });
-        continue;
-      }
-
-      let toolArgs: Record<string, unknown>;
-      const rawConvArgs = fn.arguments?.trim() ?? '';
-      if (!rawConvArgs || /^[\s{}]*$/.test(rawConvArgs)) {
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ success: false, error: `Empty arguments for ${toolName}. Provide valid JSON.` }),
-        });
-        continue;
-      }
-      try {
-        toolArgs = JSON.parse(rawConvArgs);
-      } catch {
-        messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ success: false, error: `Invalid JSON arguments for ${toolName}` }),
-        });
-        continue;
-      }
-
-      const result = await registry.execute(toolName, toolArgs, {
-        sessionId: session.id,
-        autonomyLevel: session.preferences.autonomyLevel,
-      });
-
-      // Sync workspace selection from conversation too
-      if (toolName === 'workspace_select' && result.success) {
-        try {
-          const workspace = JSON.parse(result.output);
-          session.currentProject = {
-            name: workspace.name,
-            path: workspace.path,
-            type: workspace.projectType,
-            mainFiles: [],
-            gitBranch: workspace.git?.branch || null,
-            lastCommit: null,
-            hasUncommitted: workspace.git?.dirty || false,
-            refreshedAt: new Date().toISOString()
-          };
-          session.repoMap = null;
-          await sManager.updateSession(session);
-          
-          const updatedCtx = await buildContextSection(session);
-          messages[0] = {
-            role: 'system',
-            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedCtx),
-          };
-        } catch (e) {
-          logger.error('Failed to sync workspace from conversation tool', e);
-        }
-      }
-
-      messages.push({
-        role: 'tool',
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(result),
-      });
-    }
-
-    response = await openai.chat.completions.create({
-      model: MODEL,
-      messages,
-      tools: readOnlyTools as OpenAI.Chat.Completions.ChatCompletionTool[],
-      tool_choice: 'auto',
-      max_tokens: pipeline.chatMaxTokens,
-      temperature: pipeline.chatTemperature,
-    });
-  }
-
-  const text = response.choices[0]?.message?.content ?? "Hey! 🐕";
-
-  return {
-    text,
-  };
-}
-
-// =============================================================================
-// TOOL HANDLER
-// =============================================================================
-
-/**
- * Handle workspace/task intent (with tools)
+ * Unified message handler — ALL messages, ALL tools.
+ *
+ * The LLM naturally handles both conversational messages and action
+ * requests. For "hi" it responds without tools. For "fix the bug" it
+ * calls task_create. No pre-classification needed.
  */
 async function handleWithTools(
   message: string,
@@ -716,9 +406,10 @@ async function handleWithTools(
       const toolName = fn.name;
       let toolArgs: Record<string, unknown> | null = null;
 
-      // Detect degenerate arguments (LLM sometimes emits whitespace-only JSON)
+      // Detect degenerate arguments (LLM sometimes emits whitespace-only instead of JSON)
+      // Note: {} is valid empty JSON for no-arg tools like workspace_list
       const rawArgs = fn.arguments?.trim() ?? '';
-      if (!rawArgs || /^[\s{}]*$/.test(rawArgs)) {
+      if (!rawArgs || /^\s*$/.test(rawArgs)) {
         logger.warn('Degenerate tool call arguments (whitespace-only)', {
           tool: toolName,
           rawLength: fn.arguments?.length ?? 0,
@@ -818,7 +509,6 @@ async function handleWithTools(
           };
           session.repoMap = null; // Clear old map
           
-          const sManager = await getSessionManager();
           await sManager.updateSession(session);
           
           // PHASE 1 FIX: Rebuild system prompt so LLM sees the new workspace
@@ -849,7 +539,6 @@ async function handleWithTools(
           };
           session.repoMap = null;
           
-          const sManager = await getSessionManager();
           await sManager.updateSession(session);
           
           const updatedContext = await buildContextSection(session);
@@ -869,7 +558,6 @@ async function handleWithTools(
           const taskResult = JSON.parse(result.output);
           if (taskResult.taskId) {
             session.activeTaskId = taskResult.taskId;
-            const sManager = await getSessionManager();
             await sManager.updateSession(session);
           }
         } catch (e) {
@@ -888,12 +576,13 @@ async function handleWithTools(
     // Persist assistant's tool_call request AFTER all tools executed
     // (avoids orphaned assistant entries if execution crashes mid-loop)
     // Filter out degenerate tool calls (whitespace-only args) to prevent session poisoning
+    // Note: {} is valid empty JSON for no-arg tools — only skip truly empty/whitespace
     const persistableToolCalls = currentToolCalls
       .filter(tc => {
         if (!('function' in tc) || !tc.function) return false;
         const args = tc.function.arguments?.trim() ?? '';
-        // Skip degenerate calls — whitespace-only or empty braces
-        if (!args || /^[\s{}]*$/.test(args)) return false;
+        // Skip degenerate calls — whitespace-only (but NOT {}, which is valid empty JSON)
+        if (!args || /^\s*$/.test(args)) return false;
         // Skip calls that failed JSON parse (check if we can parse)
         try { JSON.parse(args); return true; } catch { return false; }
       })
@@ -1118,9 +807,3 @@ export async function frameTaskGoal(
     response.choices[0]?.message?.content ?? message
   );
 }
-
-// =============================================================================
-// EXPORTS
-// =============================================================================
-
-export { classifyIntent };

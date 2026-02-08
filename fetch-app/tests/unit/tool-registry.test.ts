@@ -15,8 +15,8 @@ describe('Tool Registry', () => {
   describe('Tool Registration', () => {
     it('should have built-in orchestrator tools', () => {
       const tools = registry.list();
-      // 5 workspace + 4 task + 2 interaction = 11 built-in
-      expect(tools.length).toBeGreaterThanOrEqual(11);
+      // 6 workspace + 4 task + 2 interaction = 12 built-in
+      expect(tools.length).toBeGreaterThanOrEqual(12);
     });
 
     it('should have workspace tools', () => {
@@ -25,6 +25,7 @@ describe('Tool Registry', () => {
       expect(registry.get('workspace_status')).toBeDefined();
       expect(registry.get('workspace_create')).toBeDefined();
       expect(registry.get('workspace_delete')).toBeDefined();
+      expect(registry.get('workspace_sync')).toBeDefined();
     });
 
     it('should have task tools', () => {

@@ -53,6 +53,12 @@ RUN git config --global user.email "fetch@kennel.local" \
     && git config --global init.defaultBranch main
 
 # ============================================
+# Entrypoint: configure git auth from GH_TOKEN at runtime
+# ============================================
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# ============================================
 # Create workspace directory
 # ============================================
 RUN mkdir -p /workspace && chmod 777 /workspace
@@ -69,4 +75,5 @@ RUN mkdir -p /root/.config/gh \
 WORKDIR /workspace
 
 # Default command (keep container running)
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["tail", "-f", "/dev/null"]

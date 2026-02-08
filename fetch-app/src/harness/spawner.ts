@@ -40,11 +40,41 @@ export class HarnessSpawner extends EventEmitter {
     
     // Spawn process
     try {
-      logger.info(`Spawning harness ${id}: ${config.command} ${config.args.join(' ')}`);
+      // If a container is specified, wrap the command with `docker exec`
+      // This is the dual-container bridge→kennel execution path
+      let spawnCommand = config.command;
+      let spawnArgs = config.args;
+      let spawnCwd: string | undefined = config.cwd;
+      let spawnEnv = { ...process.env, ...config.env };
+
+      if (config.container) {
+        // Build docker exec command: docker exec -w <cwd> [-e K=V] <container> <command> <args>
+        const dockerArgs = ['exec'];
+
+        // Set working directory inside the container
+        if (config.cwd) {
+          dockerArgs.push('-w', config.cwd);
+        }
+
+        // Forward environment variables
+        for (const [key, value] of Object.entries(config.env)) {
+          dockerArgs.push('-e', `${key}=${value}`);
+        }
+
+        // Container name + original command + original args
+        dockerArgs.push(config.container, config.command, ...config.args);
+
+        spawnCommand = 'docker';
+        spawnArgs = dockerArgs;
+        spawnCwd = undefined; // cwd is inside the container, not on host
+        spawnEnv = { ...process.env }; // only pass host env to docker CLI itself
+      }
+
+      logger.info(`Spawning harness ${id}: ${spawnCommand} ${spawnArgs.join(' ')}`);
       
-      const child = spawn(config.command, config.args, {
-        cwd: config.cwd,
-        env: { ...process.env, ...config.env },
+      const child = spawn(spawnCommand, spawnArgs, {
+        cwd: spawnCwd,
+        env: spawnEnv,
         stdio: ['pipe', 'pipe', 'pipe']
       });
 

@@ -140,4 +140,148 @@ describe('WorkspaceManager', () => {
       await expect(manager.createWorkspace({ name: 'existing' })).rejects.toThrow('Workspace already exists');
     });
   });
+
+  describe('GitHub Sync', () => {
+    it('should check if GitHub is available', async () => {
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+        timedOut: false,
+      });
+
+      const available = await manager.isGitHubAvailable();
+      expect(available).toBe(true);
+    });
+
+    it('should report GitHub unavailable when GH_TOKEN not set', async () => {
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 1,
+        stdout: '',
+        stderr: 'not logged in',
+        timedOut: false,
+      });
+
+      const available = await manager.isGitHubAvailable();
+      expect(available).toBe(false);
+    });
+
+    it('should create a GitHub repo for a workspace', async () => {
+      // isGitHubAvailable check
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+
+      // gh repo create
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: 'https://github.com/TestUser/my-project\n',
+        stderr: '',
+        timedOut: false,
+      });
+
+      const url = await manager.createGitHubRepo('/workspace/my-project', 'my-project', 'A test project');
+      expect(url).toBe('https://github.com/TestUser/my-project');
+
+      // Verify gh repo create was called with correct args
+      expect(dockerUtils.dockerExec).toHaveBeenCalledWith(
+        'gh',
+        expect.arrayContaining(['repo', 'create', 'my-project', '--private']),
+        expect.any(Object)
+      );
+    });
+
+    it('should handle repo already exists by linking', async () => {
+      // isGitHubAvailable check
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+
+      // gh repo create → already exists
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 1,
+        stdout: '',
+        stderr: 'already exists',
+        timedOut: false,
+      });
+
+      // gh api user (for linkExistingRepo)
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
+      });
+
+      // git remote get-url (no remote)
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 1, stdout: '', stderr: '', timedOut: false,
+      });
+
+      // git remote add
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+
+      // git push
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+
+      const url = await manager.createGitHubRepo('/workspace/existing', 'existing');
+      expect(url).toBe('https://github.com/TestUser/existing');
+    });
+
+    it('should return undefined when GitHub is not available', async () => {
+      // isGitHubAvailable → false
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 1, stdout: '', stderr: '', timedOut: false,
+      });
+
+      const url = await manager.createGitHubRepo('/workspace/test', 'test');
+      expect(url).toBeUndefined();
+    });
+
+    it('should sync workspace with commit and push', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+
+      // Pre-populate cache and mark it fresh
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // git status --porcelain
+        .mockResolvedValueOnce({ exitCode: 0, stdout: ' 1 file changed, 10 insertions(+)\n', stderr: '', timedOut: false }) // git diff --cached --stat
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'abc1234', stderr: '', timedOut: false }) // git log -1 --format=%h
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'https://github.com/TestUser/test-project', stderr: '', timedOut: false }) // git remote get-url origin
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }); // git push
+
+      const result = await manager.syncWorkspace('test-project');
+
+      expect(result.success).toBe(true);
+      expect(result.filesChanged).toBe(1);
+      expect(result.pushed).toBe(true);
+      expect(result.commitHash).toBe('abc1234');
+    });
+
+    it('should return error for non-existent workspace', async () => {
+      // Pre-set lastCacheRefresh to make cache "fresh"
+      (manager as any).lastCacheRefresh = Date.now();
+      
+      // fetchWorkspace calls docker to check if dir exists — return not found
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValue({
+        exitCode: 1, stdout: '', stderr: 'not found', timedOut: false,
+      });
+      
+      const result = await manager.syncWorkspace('nonexistent');
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('not found');
+    });
+  });
 });

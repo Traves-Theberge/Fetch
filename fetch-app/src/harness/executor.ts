@@ -122,13 +122,7 @@ export class HarnessExecutor extends EventEmitter {
     // 1. Acquire instance (manages concurrency)
     let instance;
     try {
-      instance = await pool.acquire({
-        command: config.command,
-        args: config.args,
-        env: config.env,
-        cwd: config.cwd,
-        timeoutMs: config.timeoutMs
-      });
+      instance = await pool.acquire(config);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       logger.error(`Failed to acquire harness from pool: ${errorMsg}`);

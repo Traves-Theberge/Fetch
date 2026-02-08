@@ -52,6 +52,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # GH_TOKEN overrides keyring-based auth inside container
+      # gh CLI and git both respect this env var
+      - GH_TOKEN=${GH_TOKEN}
     volumes:
       # Shared workspace for code operations
       - ./workspace:/workspace

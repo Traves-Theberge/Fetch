@@ -209,7 +209,8 @@ export type WorkspaceEventType =
   | 'workspace:created'
   | 'workspace:deleted'
   | 'workspace:updated'
-  | 'workspace:scaffolding';
+  | 'workspace:scaffolding'
+  | 'workspace:synced';
 
 /**
  * Workspace event payload

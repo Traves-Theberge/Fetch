@@ -549,6 +549,12 @@ export class WorkspaceManager extends EventEmitter {
     // Initialize git if requested
     if (initGit) {
       await this.initializeGit(path);
+
+      // Create GitHub repo and push (non-blocking — workspace creation succeeds even if this fails)
+      const repoUrl = await this.createGitHubRepo(path, name, description);
+      if (repoUrl) {
+        this.emitEvent('workspace:scaffolding', name, { template, status: 'github-synced', repoUrl });
+      }
     }
 
     // Fetch the workspace data
@@ -737,6 +743,282 @@ export class WorkspaceManager extends EventEmitter {
     await dockerExec('git', ['-C', path, 'init']);
     await dockerExec('git', ['-C', path, 'add', '.']);
     await dockerExec('git', ['-C', path, 'commit', '-m', 'Initial commit']);
+  }
+
+  // ==========================================================================
+  // GitHub Sync
+  // ==========================================================================
+
+  /**
+   * Check if GitHub integration is available (GH_TOKEN set in kennel)
+   */
+  async isGitHubAvailable(): Promise<boolean> {
+    const result = await dockerExec('sh', ['-c', 'test -n "$GH_TOKEN" && gh auth status'], {
+      timeoutMs: 10000,
+    });
+    return result.exitCode === 0;
+  }
+
+  /**
+   * Create a private GitHub repository and push the initial commit
+   *
+   * Uses `gh repo create` to create a private repo under the authenticated
+   * user's account, then pushes the local workspace to it.
+   *
+   * @param workspacePath - Absolute path to workspace in kennel
+   * @param name - Workspace/repo name
+   * @param description - Optional repo description
+   * @returns The GitHub repo URL, or undefined if sync failed
+   */
+  async createGitHubRepo(
+    workspacePath: string,
+    name: string,
+    description?: string
+  ): Promise<string | undefined> {
+    if (!(await this.isGitHubAvailable())) {
+      logger.warn('GitHub not available — skipping repo creation');
+      return undefined;
+    }
+
+    try {
+      // Build gh repo create command
+      // --private: default to private repos
+      // --source=.: use current directory as source
+      // --push: push the initial commit
+      const args = [
+        'repo', 'create', name,
+        '--private',
+        `--source=${workspacePath}`,
+        '--push',
+      ];
+
+      if (description) {
+        args.push('--description', description);
+      }
+
+      this.emitEvent('workspace:scaffolding', name, { status: 'github-creating' });
+
+      const result = await dockerExec('gh', args, {
+        cwd: workspacePath,
+        timeoutMs: 30000,
+      });
+
+      if (result.exitCode !== 0) {
+        // Repo might already exist — try to add remote and push instead
+        if (result.stderr.includes('already exists')) {
+          logger.info(`GitHub repo ${name} already exists, linking...`);
+          return await this.linkExistingRepo(workspacePath, name);
+        }
+        logger.error(`Failed to create GitHub repo: ${result.stderr}`);
+        return undefined;
+      }
+
+      // Extract repo URL from output
+      const url = result.stdout.trim().split('\n').pop()?.trim();
+      
+      this.emitEvent('workspace:scaffolding', name, { status: 'github-created', url });
+      logger.info(`Created GitHub repo: ${url}`);
+
+      return url;
+    } catch (err) {
+      logger.error('GitHub repo creation failed', { error: err });
+      return undefined;
+    }
+  }
+
+  /**
+   * Link a workspace to an existing GitHub repo
+   */
+  private async linkExistingRepo(
+    workspacePath: string,
+    name: string
+  ): Promise<string | undefined> {
+    // Get the authenticated user's GitHub username
+    const userResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
+      timeoutMs: 10000,
+    });
+    
+    if (userResult.exitCode !== 0) return undefined;
+    
+    const username = userResult.stdout.trim();
+    const repoUrl = `https://github.com/${username}/${name}`;
+
+    // Check if remote already exists
+    const remoteCheck = await dockerExec('git', ['-C', workspacePath, 'remote', 'get-url', 'origin']);
+    
+    if (remoteCheck.exitCode !== 0) {
+      // No remote — add it
+      await dockerExec('git', ['-C', workspacePath, 'remote', 'add', 'origin', repoUrl]);
+    }
+
+    // Push
+    const pushResult = await dockerExec('git', ['-C', workspacePath, 'push', '-u', 'origin', 'main'], {
+      timeoutMs: 30000,
+    });
+
+    if (pushResult.exitCode !== 0) {
+      logger.warn(`Push to ${repoUrl} failed: ${pushResult.stderr}`);
+      return undefined;
+    }
+
+    return repoUrl;
+  }
+
+  /**
+   * Sync a workspace to GitHub
+   *
+   * Stages all changes, commits with the provided message (or auto-generates one),
+   * and pushes to the remote. If no remote exists, creates a GitHub repo first.
+   *
+   * @param workspaceId - Workspace to sync
+   * @param message - Optional commit message (auto-generated if not provided)
+   * @returns Sync result with commit info and remote URL
+   */
+  async syncWorkspace(
+    workspaceId: WorkspaceId,
+    message?: string
+  ): Promise<{
+    success: boolean;
+    commitHash?: string;
+    commitMessage: string;
+    remoteUrl?: string;
+    filesChanged: number;
+    pushed: boolean;
+    repoCreated: boolean;
+    error?: string;
+  }> {
+    const workspace = await this.getWorkspace(workspaceId);
+    if (!workspace) {
+      return {
+        success: false,
+        commitMessage: '',
+        filesChanged: 0,
+        pushed: false,
+        repoCreated: false,
+        error: `Workspace not found: ${workspaceId}`,
+      };
+    }
+
+    const wsPath = getWorkspacePath(workspaceId);
+
+    // Check if it's a git repo
+    const gitCheck = await dockerExec('test', ['-d', `${wsPath}/.git`]);
+    if (gitCheck.exitCode !== 0) {
+      // Initialize git if not already
+      await this.initializeGit(wsPath);
+    }
+
+    // Stage all changes
+    await dockerExec('git', ['-C', wsPath, 'add', '-A']);
+
+    // Check if there are changes to commit
+    const statusResult = await dockerExec('git', ['-C', wsPath, 'status', '--porcelain']);
+    const changedFiles = statusResult.stdout.trim().split('\n').filter(l => l.trim()).length;
+
+    let commitHash: string | undefined;
+    let commitMessage = message || '';
+    let repoCreated = false;
+
+    if (changedFiles > 0) {
+      // Auto-generate commit message if not provided
+      if (!commitMessage) {
+        commitMessage = await this.generateCommitMessage(wsPath, changedFiles);
+      }
+
+      // Commit
+      const commitResult = await dockerExec(
+        'git', ['-C', wsPath, 'commit', '-m', commitMessage],
+        { timeoutMs: 10000 }
+      );
+
+      if (commitResult.exitCode !== 0) {
+        return {
+          success: false,
+          commitMessage,
+          filesChanged: changedFiles,
+          pushed: false,
+          repoCreated: false,
+          error: `Commit failed: ${commitResult.stderr}`,
+        };
+      }
+
+      // Get the commit hash
+      const hashResult = await dockerExec('git', ['-C', wsPath, 'log', '-1', '--format=%h']);
+      commitHash = hashResult.stdout.trim();
+    } else {
+      commitMessage = 'No changes to commit';
+    }
+
+    // Check if remote exists
+    const remoteResult = await dockerExec('git', ['-C', wsPath, 'remote', 'get-url', 'origin']);
+    let remoteUrl = remoteResult.exitCode === 0 ? remoteResult.stdout.trim() : undefined;
+
+    // If no remote, create GitHub repo
+    if (!remoteUrl && await this.isGitHubAvailable()) {
+      remoteUrl = await this.createGitHubRepo(wsPath, workspaceId, workspace.description);
+      if (remoteUrl) {
+        repoCreated = true;
+        // Repo creation includes the push, so we're done
+        this.emitEvent('workspace:synced', workspaceId, { remoteUrl, commitHash });
+        return {
+          success: true,
+          commitHash,
+          commitMessage,
+          remoteUrl,
+          filesChanged: changedFiles,
+          pushed: true,
+          repoCreated: true,
+        };
+      }
+    }
+
+    // Push if remote exists and we have changes
+    let pushed = false;
+    if (remoteUrl && (changedFiles > 0 || commitHash)) {
+      const pushResult = await dockerExec(
+        'git', ['-C', wsPath, 'push', '-u', 'origin', 'main'],
+        { timeoutMs: 30000 }
+      );
+      pushed = pushResult.exitCode === 0;
+
+      if (!pushed) {
+        logger.warn(`Push failed: ${pushResult.stderr}`);
+      }
+    }
+
+    if (commitHash || pushed) {
+      this.emitEvent('workspace:synced', workspaceId, { remoteUrl, commitHash });
+    }
+
+    return {
+      success: true,
+      commitHash,
+      commitMessage,
+      remoteUrl,
+      filesChanged: changedFiles,
+      pushed,
+      repoCreated,
+    };
+  }
+
+  /**
+   * Generate a descriptive commit message from the staged changes
+   */
+  private async generateCommitMessage(wsPath: string, fileCount: number): Promise<string> {
+    // Get a summary of what changed
+    const diffResult = await dockerExec(
+      'git', ['-C', wsPath, 'diff', '--cached', '--stat'],
+      { timeoutMs: 5000 }
+    );
+
+    if (diffResult.exitCode === 0 && diffResult.stdout.trim()) {
+      const lines = diffResult.stdout.trim().split('\n');
+      const summary = lines[lines.length - 1]?.trim() || '';
+      // e.g. "3 files changed, 45 insertions(+), 12 deletions(-)"
+      return `Update: ${summary}`;
+    }
+
+    return `Update ${fileCount} file${fileCount !== 1 ? 's' : ''}`;
   }
 
   // ==========================================================================

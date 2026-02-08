@@ -154,6 +154,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
       },
       cwd: workspacePath,
       timeoutMs,
+      container: 'fetch-kennel',
     };
   }
 
@@ -336,6 +337,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
       },
       cwd: workspacePath,
       timeoutMs,
+      container: 'fetch-kennel',
     };
   }
 }

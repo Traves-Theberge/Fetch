@@ -137,7 +137,7 @@ npx vitest run tests/e2e/
 |---|---------|----------|--------|
 | B1 | `/projects` or `/ls` | Lists workspace dirs with types | ✅ (names shown, no type labels) |
 | B2 | `/project <name>` or `/cd <name>` | Switches active project, shows info | ✅ (branch, last commit, clean tree) |
-| B3 | `/project` (no args, with project active) | Shows current project info | |
+| B3 | `/project` (no args, with project active) | Shows current project info | ✅ (name, type, branch, clean tree) |
 | B4 | `/project` (no args, no project) | "No project selected" message | |
 | B5 | `/clone <git-url>` | Clones repo into workspace | |
 | B6 | `/init <name>` | Creates new empty project dir | |
@@ -147,9 +147,9 @@ npx vitest run tests/e2e/
 | # | Command | Expected | Result |
 |---|---------|----------|--------|
 | B7 | `/status` or `/st` or `/gs` | Shows project + git status | ✅ (no project = shows settings + mode) |
-| B8 | `/diff` | Shows uncommitted changes | |
-| B9 | `/log` or `/log 5` | Shows recent commits | |
-| B10 | `/undo` | Reverts last change (git) | |
+| B8 | `/diff` | Shows uncommitted changes | ✅ ("No changes to show" — correct for clean tree) |
+| B9 | `/log` or `/log 5` | Shows recent commits | ✅ (showed fe042df Initial commit) |
+| B10 | `/undo` | Reverts last change (git) | ⚠️ (`/undo` shows help text; `undo` without slash triggers LLM which ran git reset) |
 | B11 | `/undo all` | Reverts all session changes | |
 
 #### Task Control
@@ -252,13 +252,13 @@ Send these as **natural language** (not slash commands).
 | # | Send Message | Expected Tool Call | Expected Behavior | Result |
 |---|-------------|-------------------|-------------------|--------|
 | C1 | `what projects do we have?` | `workspace_list` | Returns project directories with types | ✅ (lists with branches + active workspace) |
-| C2 | `show me available projects` | `workspace_list` | Same — flexible phrasing | ❌ (400 error from poisoned session. Retested below) |
+| C2 | `show me available projects` | `workspace_list` | Same — flexible phrasing | ⚠️ (tool error — fallback response acknowledged demo-test exists) |
 | C3 | `any projects?` | `workspace_list` | Same — minimal phrasing | |
 | C4 | `switch to <project-name>` | `workspace_select` | Activates project | ✅ (recognized already active, didn't re-select) |
 | C5 | `switch to it` (after listing) | `workspace_select` | Pronoun resolution | |
-| C6 | `project status` | `workspace_status` | Git info, modified files | ❌ (400 error — session poisoned by prior bad tool call. Retested below) |
-| C7 | `create a project called demo` | `workspace_create` | Creates dir with template (no confirmation) | ❌ (LLM sent whitespace-only args — fix: degenerate arg detection added) |
-| C8 | `delete demo` (project context) | `workspace_delete` | Confirms, then deletes | |
+| C6 | `project status` | `workspace_status` | Git info, modified files | ✅ (branch, clean tree, last commit, project type) |
+| C7 | `create a project called demo` | `workspace_create` | Creates dir with template (no confirmation) | ✅ (v3.5.0: `demo-test` created with empty template + Git init) |
+| C8 | `delete demo` (project context) | `workspace_delete` | Confirms, then deletes | ❌ (LLM asked confirmation correctly, but on "yes" said it can't delete — tool not invoked on follow-up) |
 
 #### Task Tools
 
