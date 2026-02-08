@@ -1,7 +1,8 @@
 /**
- * @fileoverview Task Control Command Handlers
+ * @fileoverview Task Control — Safety Escape Handlers
  *
- * Handlers for /stop, /pause, /resume, /undo, /undo all.
+ * Deterministic handlers for /stop, /undo, /undo all.
+ * These bypass the LLM because they must work instantly and reliably.
  *
  * @module commands/task
  */
@@ -51,55 +52,6 @@ export async function handleStop(
     handled: true,
     responses: ['🛑 Task stopped. Changes remain - say /undo to revert.'],
   };
-}
-
-export async function handlePause(
-  session: Session,
-  _sessionManager: SessionManager
-): Promise<CommandResult> {
-  const { getTaskManager } = await import('../task/manager.js');
-  const taskManager = await getTaskManager();
-  const task = session.activeTaskId
-    ? taskManager.getTask(session.activeTaskId)
-    : undefined;
-
-  if (!task) {
-    return { handled: true, responses: ['No active task to pause.'] };
-  }
-
-  if (task.status === 'paused') {
-    return {
-      handled: true,
-      responses: ['Task is already paused. Say /resume to continue.'],
-    };
-  }
-
-  await taskManager.pauseTask(task.id, 'Paused by user');
-
-  return { handled: true, responses: ['⏸️ Task paused. Say /resume to continue.'] };
-}
-
-export async function handleResume(
-  session: Session,
-  _sessionManager: SessionManager
-): Promise<CommandResult> {
-  const { getTaskManager } = await import('../task/manager.js');
-  const taskManager = await getTaskManager();
-  const task = session.activeTaskId
-    ? taskManager.getTask(session.activeTaskId)
-    : undefined;
-
-  if (!task) {
-    return { handled: true, responses: ['No paused task to resume.'] };
-  }
-
-  if (task.status !== 'waiting_input' && task.status !== 'paused') {
-    return { handled: true, responses: ['Task is not paused.'] };
-  }
-
-  await taskManager.resumeTask(task.id);
-
-  return { handled: true, responses: ['▶️ Task resumed. Send a message to continue.'] };
 }
 
 export async function handleUndo(

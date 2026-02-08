@@ -32,7 +32,6 @@ import { getIdentityManager } from '../identity/manager.js';
 import { getSkillManager } from '../skills/manager.js';
 import { env } from '../config/env.js';
 import { pipeline } from '../config/pipeline.js';
-import { threadManager } from '../conversation/thread.js';
 
 // =============================================================================
 // TYPES
@@ -283,10 +282,6 @@ export async function processMessage(
       }
     }
 
-    // Update thread activity
-    const thread = threadManager.getActiveThread();
-    threadManager.updateActivity(thread.id);
-
     // Single path: LLM with ALL tools — the LLM IS the router
     const response = await handleWithRetry(
       (attempt) => handleWithTools(message, session, attempt),
@@ -511,7 +506,7 @@ async function handleWithTools(
           
           await sManager.updateSession(session);
           
-          // PHASE 1 FIX: Rebuild system prompt so LLM sees the new workspace
+          // Rebuild system prompt so LLM sees the new workspace
           const updatedContext = await buildContextSection(session);
           messages[0] = {
             role: 'system',
@@ -777,17 +772,19 @@ function buildMessageHistory(
 // =============================================================================
 
 /**
- * Frame a user request as a task goal
+ * Frame a user request as a task goal.
+ *
+ * Sends the user's raw message through a secondary LLM call to produce
+ * a self-contained, actionable goal string for the harness (Claude Code,
+ * Gemini, etc.) which has no access to our conversation history.
  *
  * @param message - Original user message
- * @param session - Current session
- * @param _attempt - Optional attempt count
+ * @param session - Current session (workspace/branch context)
  * @returns Framed task goal
  */
 export async function frameTaskGoal(
   message: string,
   session: Session,
-  _attempt: number = 1
 ): Promise<string> {
   const openai = getOpenAI();
 

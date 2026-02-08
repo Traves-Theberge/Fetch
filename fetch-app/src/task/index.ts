@@ -17,6 +17,4 @@ export {
   TaskIntegration,
   getTaskIntegration,
   initializeTaskIntegration,
-  type TaskExecutionResult,
-  type ProgressCallback,
 } from './integration.js';

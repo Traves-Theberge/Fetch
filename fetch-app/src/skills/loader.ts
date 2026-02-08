@@ -103,13 +103,8 @@ export async function checkRequirements(reqs?: SkillRequirements): Promise<boole
     }
   }
 
-  // Check binaries (basic check using 'which')
-  if (reqs.binaries) {
-    // This is expensive to do on every load, should be cached.
-    // For now, we assume if we are running effectively, we might skip this 
-    // or implement a lightweight check later.
-    // TODO: Implement binary check using `which`
-  }
+  // Binary checks (reqs.binaries) are skipped at load time.
+  // Runtime failures surface naturally when the harness tries to exec.
 
   return true;
 }

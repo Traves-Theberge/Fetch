@@ -11,7 +11,7 @@
  * Skill definition loaded from SKILL.md
  */
 export interface Skill {
-  /** Unqiue ID (e.g., "git-ops") */
+  /** Unique ID (e.g., "git-ops") */
   id: string;
   /** Display name */
   name: string;
@@ -32,12 +32,6 @@ export interface Skill {
   /** Is this skill currently enabled? */
   enabled: boolean;
 }
-
-/**
- * Lightweight metadata for listing skills
- */
-export type SkillMetadata = Omit<Skill, 'instructions'>;
-
 /**
  * Requirements for a skill to run
  */

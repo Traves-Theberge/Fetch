@@ -4,13 +4,16 @@
  *
  * ## Orchestrator Tools
  *
- * The architecture uses 8 high-level tools that delegate
+ * The architecture uses 12 high-level tools that delegate
  * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  *
- * ### Workspace (3)
+ * ### Workspace (6)
  * - `workspace_list` - List available workspaces
  * - `workspace_select` - Select active workspace
  * - `workspace_status` - Get workspace status
+ * - `workspace_create` - Create a new workspace
+ * - `workspace_delete` - Delete a workspace
+ * - `workspace_sync` - Sync workspace to GitHub
  *
  * ### Task (4)
  * - `task_create` - Create a new task
@@ -31,6 +34,10 @@ export { ToolRegistry, getToolRegistry } from './registry.js';
 export type { OrchestratorTool, ToolHandler } from './registry.js';
 
 // Tool handlers
-export { workspaceTools, handleWorkspaceList, handleWorkspaceSelect, handleWorkspaceStatus } from './workspace.js';
+export { workspaceTools, handleWorkspaceList, handleWorkspaceSelect, handleWorkspaceStatus, handleWorkspaceCreate, handleWorkspaceDelete, handleWorkspaceSync } from './workspace.js';
 export { taskTools, handleTaskCreate, handleTaskStatus, handleTaskCancel, handleTaskRespond } from './task.js';
 export { interactionTools, handleAskUser, handleReportProgress } from './interaction.js';
+
+// Custom tool loader
+export { loadToolDefinition, buildToolSchema } from './loader.js';
+export type { CustomToolDefinition } from './loader.js';

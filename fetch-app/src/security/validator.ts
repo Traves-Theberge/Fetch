@@ -20,11 +20,12 @@
  * | Pattern | Risk |
  * |---------|------|
  * | `$(...)` | Command substitution |
- * | Backticks | Backtick execution |
  * | `; rm -rf` | Command injection |
- * | Pipe to sh | Pipe to shell |
+ * | `> /dev/` | Device redirection |
+ * | Pipe to sh/bash | Pipe to shell |
  * | `eval(` | Code injection |
  * | `__proto__` | Prototype pollution |
+ * | `constructor[` | Prototype pollution |
  * 
  * @example
  * ```typescript

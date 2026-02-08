@@ -64,9 +64,6 @@ export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 /** Custom tool definitions (*.json files) */
 export const TOOLS_DIR = path.join(DATA_DIR, 'tools');
 
-/** Polling configuration file */
-export const POLLING_FILE = path.join(DATA_DIR, 'POLLING.md');
-
 /** Sessions database */
 export const SESSIONS_DB = env.DATABASE_PATH || path.join(DATA_DIR, 'sessions.db');
 

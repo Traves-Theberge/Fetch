@@ -61,7 +61,7 @@ export class RateLimiter {
     // Periodic eviction: remove keys with no recent activity
     this.evictionTimer = setInterval(() => this.evictStale(), windowMs * 2);
     // Allow Node to exit even if the timer is still alive
-    if (this.evictionTimer.unref) this.evictionTimer.unref();
+    this.evictionTimer.unref();
   }
 
   /**

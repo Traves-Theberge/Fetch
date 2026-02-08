@@ -110,54 +110,6 @@ export function getDefaultAgent(): AgentType {
   return 'claude';
 }
 
-/**
- * Get adapter capabilities summary
- *
- * Returns information about what each adapter can do.
- */
-export function getAdapterCapabilities(): Record<AgentType, {
-  name: string;
-  canModifyFiles: boolean;
-  canExecuteCommands: boolean;
-  interactiveMode: boolean;
-}> {
-  return {
-    claude: {
-      name: 'Claude Code',
-      canModifyFiles: true,
-      canExecuteCommands: true,
-      interactiveMode: true,
-    },
-    gemini: {
-      name: 'Gemini CLI',
-      canModifyFiles: true,
-      canExecuteCommands: true,
-      interactiveMode: true,
-    },
-    copilot: {
-      name: 'GitHub Copilot CLI',
-      canModifyFiles: false,  // Provides suggestions only
-      canExecuteCommands: true,
-      interactiveMode: false,
-    },
-  };
-}
-
-// ============================================================================
-// Initialization
-// ============================================================================
-
-/**
- * Initialize the harness registry
- *
- * Logs available adapters.
- */
-export function initializeHarnessRegistry(): void {
-  const agents = listAgents();
-  logger.info(`Harness registry initialized with ${agents.length} adapters`);
-  logger.debug('Available agents:', agents);
-}
-
 // ============================================================================
 // Re-exports
 // ============================================================================

@@ -35,8 +35,6 @@ export {
   getAllAdapters,
   registerAdapter,
   getDefaultAgent,
-  getAdapterCapabilities,
-  initializeHarnessRegistry,
 } from './registry.js';
 
 // Adapters
@@ -55,7 +53,7 @@ export { HarnessExecutor } from './executor.js';
 // Output Parser
 export { OutputParser } from './output-parser.js';
 
-// Spawning & Pooling (New v3 Architecture)
+// Spawning & Pooling
 export { HarnessSpawner } from './spawner.js';
 export { HarnessPool, getHarnessPool } from './pool.js';
 

@@ -1,7 +1,13 @@
 /**
- * Identity System Types
- * 
- * Defines the personality and core directives of the agent.
+ * @fileoverview Identity System Types
+ *
+ * Defines the personality, directives, and pack structure used by the
+ * Identity Manager to build the system prompt.
+ *
+ * - {@link AgentIdentity} — Fetch's core persona (loaded from COLLAR.md + ALPHA.md)
+ * - {@link PackMember} — Harness agent profiles (loaded from data/agents/*.md)
+ *
+ * @module identity/types
  */
 
 /**
@@ -38,8 +44,6 @@ export interface AgentIdentity {
   emoji: string;
   voice: {
     tone: string;
-    style: string[];
-    vocabulary: string[];
   };
   directives: {
     primary: string[];   // Unbreakable rules
@@ -48,8 +52,6 @@ export interface AgentIdentity {
   };
   context: {
     owner: string;
-    projectRoot: string;
-    platform: string;
   };
   /** Pack members (harness agents) loaded from data/agents/ */
   pack: PackMember[];

@@ -310,36 +310,6 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
     return { created: [], modified: [], deleted: [] };
   }
 
-  /**
-   * Build config for explanation mode
-   *
-   * @param code - Code to explain
-   * @param workspacePath - Working directory
-   * @param timeoutMs - Execution timeout
-   * @returns Harness configuration
-   */
-  buildExplainConfig(
-    code: string,
-    workspacePath: string,
-    timeoutMs: number
-  ): HarnessConfig {
-    return {
-      command: COPILOT_COMMAND,
-      args: [
-        'copilot',
-        'explain',
-        code,
-      ],
-      env: {
-        CI: 'true',
-        TERM: 'dumb',
-        GH_NO_UPDATE_NOTIFIER: '1',
-      },
-      cwd: workspacePath,
-      timeoutMs,
-      container: 'fetch-kennel',
-    };
-  }
 }
 
 // ============================================================================
@@ -351,9 +321,3 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
  */
 export const copilotAdapter = new CopilotAdapter();
 
-/**
- * Get the Copilot adapter singleton
- */
-export function getCopilotAdapter(): CopilotAdapter {
-  return copilotAdapter;
-}

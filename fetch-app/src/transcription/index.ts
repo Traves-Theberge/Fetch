@@ -30,9 +30,9 @@ const WHISPER_BIN = '/usr/local/bin/whisper-cpp';
 const TEMP_DIR = '/tmp';
 
 /**
- * Transcription result
+ * Transcription result returned by {@link transcribeAudio}.
  */
-export interface TranscriptionResult {
+interface TranscriptionResult {
   text: string;
   language?: string;
   duration?: number;

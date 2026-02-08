@@ -4,7 +4,7 @@
  * Manages Fetch's identity lifecycle:
  * - Loads persona from COLLAR.md (system) and ALPHA.md (user)
  * - Loads pack members from data/agents/*.md (YAML frontmatter)
- * - Builds the complete system prompt (identity + skills + pack + session context + mode)
+ * - Builds the complete system prompt (identity + skills + pack + session context)
  * - Hot-reloads on file changes via chokidar watchers
  *
  * @module identity/manager
@@ -12,8 +12,6 @@
 
 import { AgentIdentity } from './types.js';
 import { getSkillManager } from '../skills/manager.js';
-import { getModeManager } from '../modes/manager.js';
-import { FetchMode } from '../modes/types.js';
 import { IdentityLoader } from './loader.js';
 import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
@@ -27,13 +25,11 @@ const DEFAULT_IDENTITY: AgentIdentity = {
   emoji: '🤖',
   voice: {
     tone: 'Confident, concise, and professional',
-    style: ['Direct', 'Action-oriented', 'Protective'],
-    vocabulary: ['System', 'Execute', 'Guard', 'Fetch', 'Analysis']
   },
   directives: {
     primary: [
       'Protect the User and the Codebase at all costs.',
-      'Never hallucinations; verify before executing.',
+      'Never hallucinate; verify before executing.',
       'Maintain the "Orchestrator" persona naturally.'
     ],
     secondary: [
@@ -49,8 +45,6 @@ const DEFAULT_IDENTITY: AgentIdentity = {
   },
   context: {
     owner: env.OWNER_PHONE_NUMBER || 'Admin',
-    projectRoot: process.cwd(),
-    platform: 'Linux'
   },
   pack: []
 };
@@ -127,22 +121,17 @@ export class IdentityManager {
     return IdentityManager.instance;
   }
 
-  public getIdentity(): AgentIdentity {
-    return this.identity;
-  }
-
   /**
    * Build the complete System Prompt for the LLM.
    * This is the SINGLE source of truth for Fetch's system prompt.
    * Identity comes from COLLAR.md/ALPHA.md, skills from SkillManager,
-   * session context from the caller, mode from ModeManager.
+   * session context from the caller.
    * 
    * @param activatedSkillsContext - Optional pre-built context from matched skills
    * @param sessionContext - Optional pre-built session context (workspace, task, git, etc.)
    */
   public buildSystemPrompt(activatedSkillsContext?: string, sessionContext?: string): string {
     const skills = getSkillManager().buildSkillsSummary();
-    const mode = getModeManager().getState();
     const date = new Date().toISOString();
 
     const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as expert procedural guidance.\n- If no skill applies, proceed with your general knowledge.` : '';
@@ -180,7 +169,7 @@ RESPONSE FORMAT (WhatsApp mobile):
 - Bullets over paragraphs — mobile screens are small
 - Bold **key items** for scannability
 
-${this.getModeInstructions(mode.mode)}
+MODE: Ready. Execute the user's request using tools. Be concise and action-oriented. Do not ask unnecessary questions.
 ${skills ? `\nAVAILABLE SKILLS:\n${skills}${skillGuidance}` : ''}
 ${activatedSection}
 `.trim();
@@ -213,21 +202,6 @@ ${activatedSection}
     xml += '</available_agents>\n';
     xml += 'When delegating tasks via task_create, select the harness whose triggers best match the request. Default to the lowest fallback_priority agent for ambiguous requests.';
     return xml;
-  }
-
-  private getModeInstructions(mode: FetchMode): string {
-    switch (mode) {
-      case FetchMode.ALERT:
-        return 'MODE: Ready. Execute the user\'s request using tools. Be concise and action-oriented. Do not ask unnecessary questions.';
-      case FetchMode.WORKING:
-        return 'MODE: Working on a task. Focus on completion. Report progress, not plans. If the task is done, summarize what changed.';
-      case FetchMode.WAITING:
-        return 'MODE: Waiting for user input. Process their response as an answer to your previous question. Do not re-ask.';
-      case FetchMode.GUARDING:
-        return 'MODE: Security alert. Confirm destructive actions only. Everything else proceeds normally.';
-      default:
-        return 'MODE: Ready.';
-    }
   }
 }
 

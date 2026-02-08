@@ -1,7 +1,7 @@
 /**
  * @fileoverview Workspace domain types and interfaces
  *
- * Defines all types related to workspace management in Fetch v2.
+ * Defines all types related to workspace management in Fetch.
  * Workspaces are project directories mounted into the Kennel container.
  *
  * @module workspace/types
@@ -81,19 +81,6 @@ export interface GitStatus {
   /** Last commit message */
   lastCommitMessage?: string;
 }
-
-/**
- * Default git status (for non-git directories)
- */
-export const DEFAULT_GIT_STATUS: GitStatus = {
-  branch: '',
-  dirty: false,
-  ahead: 0,
-  behind: 0,
-  modifiedFiles: [],
-  stagedFiles: [],
-  untrackedFiles: [],
-};
 
 // ============================================================================
 // Main Workspace Entity

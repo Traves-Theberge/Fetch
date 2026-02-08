@@ -37,18 +37,16 @@
  */
 
 import { promises as fs } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import path from 'path';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
+import { DATA_DIR } from '../config/paths.js';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = join(__dirname, '..', '..', 'data');
-const WHITELIST_FILE = join(DATA_DIR, 'whitelist.json');
+const WHITELIST_FILE = path.join(DATA_DIR, 'whitelist.json');
 
 // =============================================================================
 // TYPES
@@ -92,7 +90,7 @@ export class WhitelistStore {
     logger.section('🔐 Whitelist Store Initializing');
 
     // Load from environment variable first
-    await this.loadFromEnv();
+    this.loadFromEnv();
 
     // Then load from persistent file (adds to existing)
     await this.loadFromFile();
@@ -106,7 +104,7 @@ export class WhitelistStore {
    * Load trusted numbers from TRUSTED_PHONE_NUMBERS environment variable.
    * Format: comma-separated phone numbers (e.g., "15551234567,15559876543")
    */
-  private async loadFromEnv(): Promise<void> {
+  private loadFromEnv(): void {
     const envNumbers = env.TRUSTED_PHONE_NUMBERS;
     
     if (!envNumbers || envNumbers.trim() === '') {

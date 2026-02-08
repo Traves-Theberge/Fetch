@@ -269,9 +269,3 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
  */
 export const geminiAdapter = new GeminiAdapter();
 
-/**
- * Get the Gemini adapter singleton
- */
-export function getGeminiAdapter(): GeminiAdapter {
-  return geminiAdapter;
-}

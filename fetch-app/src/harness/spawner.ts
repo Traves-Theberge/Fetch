@@ -144,12 +144,6 @@ export class HarnessSpawner extends EventEmitter {
       this.emit('status', { id, status: finalStatus, code });
       logger.info(`Harness ${id} exited with code ${code}`);
     });
-
-    child.on('error', (err) => {
-      logger.error(`Harness ${id} error:`, err);
-      instance.status = 'failed';
-      this.emit('status', { id, status: 'failed', error: err.message });
-    });
   }
 
   /**

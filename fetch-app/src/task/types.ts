@@ -1,7 +1,7 @@
 /**
  * @fileoverview Task domain types and interfaces
  *
- * Defines all types related to task management in Fetch v2.
+ * Defines all types related to task management.
  * Tasks represent coding work delegated to harnesses (Claude, Gemini, Copilot).
  *
  * @module task/types
@@ -47,22 +47,6 @@ export type AgentType = 'claude' | 'gemini' | 'copilot';
  * - `auto`: Let the router choose based on task complexity
  */
 export type AgentSelection = AgentType | 'auto';
-
-// ===================================
-// Scheduling Types
-// ===================================
-
-export interface CronJob {
-  id: string;
-  schedule: string; // Cron expression
-  command: string;  // Command to run or internal handler name
-  description: string;
-  enabled: boolean;
-  lastRun?: number;
-  nextRun?: number;
-  /** If true, job is automatically removed after the first execution. */
-  oneShot?: boolean;
-}
 
 /**
  * Task lifecycle states
@@ -141,16 +125,6 @@ export interface TaskConstraints {
   maxRetries: number;
 }
 
-/**
- * Default task constraints
- */
-import { pipeline } from '../config/pipeline.js';
-export const DEFAULT_TASK_CONSTRAINTS: TaskConstraints = {
-  timeoutMs: pipeline.taskTimeout,
-  requireApproval: false,
-  maxRetries: pipeline.taskMaxRetries,
-};
-
 // ============================================================================
 // Progress & Result Types
 // ============================================================================
@@ -227,7 +201,7 @@ export interface TaskResult {
  *   agentSelection: 'auto',
  *   status: 'running',
  *   priority: 'normal',
- *   constraints: DEFAULT_TASK_CONSTRAINTS,
+ *   constraints: { timeoutMs: 300000, requireApproval: false, maxRetries: 1 },
  *   progress: [],
  *   retryCount: 0,
  *   createdAt: '2026-02-02T10:00:00.000Z',

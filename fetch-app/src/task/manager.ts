@@ -2,7 +2,7 @@
  * @fileoverview Task lifecycle management
  *
  * The TaskManager is responsible for creating, tracking, and managing
- * the lifecycle of coding tasks in Fetch v2. It coordinates with the
+ * the lifecycle of coding tasks. It coordinates with the
  * HarnessExecutor to execute tasks.
  *
  * @module task/manager
@@ -37,8 +37,6 @@
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { generateTaskId, generateProgressId } from '../utils/id.js';
-import { getModeManager } from '../modes/manager.js';
-import { FetchMode } from '../modes/types.js';
 import { getTaskStore, TaskStore } from './store.js';
 import type {
   Task,
@@ -242,17 +240,6 @@ export class TaskManager extends EventEmitter {
     
     // Persist
     await this.store.saveTask(task);
-    
-    // V3.1: Trigger Guarding Mode for user attention & safety
-    try {
-        const mm = getModeManager();
-        await mm.transitionTo(FetchMode.GUARDING, 'Task requires input', { 
-            action: question,
-            taskId: taskId 
-        });
-    } catch (e) {
-        logger.warn('Failed to set GUARDING mode', e);
-    }
     
     this.emitTaskEvent('task:question', taskId, { question });
 
@@ -463,30 +450,6 @@ export class TaskManager extends EventEmitter {
     if (!this.currentTaskId) return false;
     const task = this.tasks.get(this.currentTaskId);
     return task !== undefined && ['pending', 'running', 'waiting_input'].includes(task.status);
-  }
-
-  /**
-   * Get all tasks for a session
-   *
-   * @param sessionId - Session ID
-   * @returns Array of tasks
-   */
-  getTasksForSession(sessionId: string): Task[] {
-    return Array.from(this.tasks.values()).filter(
-      (task) => task.sessionId === sessionId
-    );
-  }
-
-  /**
-   * Get recent tasks (last N)
-   *
-   * @param limit - Maximum number of tasks to return
-   * @returns Array of recent tasks
-   */
-  getRecentTasks(limit: number = 10): Task[] {
-    return Array.from(this.tasks.values())
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, limit);
   }
 
   // ==========================================================================

@@ -9,7 +9,7 @@
 import path from 'path';
 import fs from 'fs/promises';
 import { logger } from '../utils/logger.js';
-import type { Skill, SkillConfig, SkillMetadata } from './types.js';
+import type { Skill, SkillConfig } from './types.js';
 import { loadSkill, checkRequirements } from './loader.js';
 import { SKILLS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
@@ -38,10 +38,8 @@ export class SkillManager {
 
     logger.info('Initializing SkillManager...');
 
-    // Ensure directories exist
-    await this.ensureDir(this.config.userSkillsDir);
-    // Builtin dir should be part of the codebase, so we don't create it if missing,
-    // but we check if it exists before reading.
+    // Ensure user skills directory exists (builtin dir is part of the codebase)
+    await fs.mkdir(this.config.userSkillsDir, { recursive: true });
 
     // Load built-in skills
     await this.loadSkillsFromDir(this.config.builtinSkillsDir, true);
@@ -102,24 +100,6 @@ export class SkillManager {
        }
   }
 
-
-  /**
-   * List all skills with metadata
-   */
-  listSkills(): SkillMetadata[] {
-    return Array.from(this.skills.values()).map(skill => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { instructions, ...metadata } = skill;
-      return metadata;
-    });
-  }
-
-  /**
-   * Get a specific skill by ID
-   */
-  getSkill(id: string): Skill | undefined {
-    return this.skills.get(id);
-  }
 
   /**
    * Match skills based on a query/message
@@ -185,99 +165,6 @@ export class SkillManager {
       }
     } catch (error) {
       logger.error(`Error loading skills from ${baseDir}`, { error });
-    }
-  }
-
-  private async ensureDir(dir: string): Promise<void> {
-    try {
-      await fs.mkdir(dir, { recursive: true });
-    } catch (error) {
-      const err = error as NodeJS.ErrnoException;
-      if (err.code !== 'EEXIST') throw error;
-    }
-  }
-
-  // Management methods
-  
-  async enableSkill(id: string): Promise<boolean> {
-    const skill = this.skills.get(id);
-    if (!skill) return false;
-    skill.enabled = true;
-    return true;
-  }
-
-  async disableSkill(id: string): Promise<boolean> {
-    const skill = this.skills.get(id);
-    if (!skill) return false;
-    skill.enabled = false;
-    return true;
-  }
-
-  /**
-   * Create a new user skill
-   */
-  async createSkill(id: string, name: string, description: string): Promise<boolean> {
-    if (this.skills.has(id)) {
-      throw new Error(`Skill with ID "${id}" already exists`);
-    }
-
-    const skillDir = path.join(this.config.userSkillsDir, id);
-    const skillFile = path.join(skillDir, 'SKILL.md');
-
-    try {
-      await this.ensureDir(skillDir);
-
-      const content = `---
-name: ${name}
-description: ${description}
-triggers:
-  - ${name.toLowerCase()}
----
-
-# ${name}
-
-Write your skill instructions here.
-`;
-
-      await fs.writeFile(skillFile, content, 'utf-8');
-      
-      // Load the new skill
-      const skill = await loadSkill(skillDir, false);
-      if (skill) {
-        this.skills.set(skill.id, skill);
-        logger.info(`Created new skill: ${id}`);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      logger.error(`Failed to create skill ${id}`, { error });
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a user skill
-   */
-  async deleteSkill(id: string): Promise<boolean> {
-    const skill = this.skills.get(id);
-    if (!skill) return false;
-
-    if (skill.isBuiltin) {
-      throw new Error('Cannot delete built-in skills');
-    }
-
-    try {
-      // Remove from map
-      this.skills.delete(id);
-      
-      // Remove from disk
-      await fs.rm(skill.sourcePath, { recursive: true, force: true });
-      
-      logger.info(`Deleted skill: ${id}`);
-      return true;
-    } catch (error) {
-      logger.error(`Failed to delete skill ${id}`, { error });
-      throw error;
     }
   }
 

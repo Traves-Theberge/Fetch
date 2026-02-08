@@ -15,6 +15,8 @@
  * | Method | Path | Description |
  * |--------|------|------------|
  * | GET | /api/status | Current bridge status (JSON) |
+ * | GET | /api/health | Lightweight health check (Go TUI) |
+ * | POST | /api/logout | Disconnect WhatsApp (admin token) |
  * | GET | /docs/* | Documentation site (static) |
  * 
  * ## Status States

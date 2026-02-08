@@ -17,7 +17,7 @@
  * const gate = await SecurityGate.create();
  * const limiter = new RateLimiter();
  * 
- * if (gate.isAuthorized(senderId, participantId, message) && limiter.checkLimit(phoneNumber)) {
+ * if (gate.isAuthorized(senderId, participantId, message) && limiter.isAllowed(phoneNumber)) {
  *   const result = validateInput(message);
  *   // Process message...
  * }

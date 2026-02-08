@@ -31,8 +31,6 @@ describe('Pipeline Configuration', () => {
       expect(pipeline.compactionThreshold).toBe(40);
       expect(pipeline.compactionMaxTokens).toBe(500);
       expect(pipeline.maxToolCalls).toBe(5);
-      expect(pipeline.chatMaxTokens).toBe(512);
-      expect(pipeline.chatTemperature).toBe(0.7);
       expect(pipeline.toolMaxTokens).toBe(2048);
       expect(pipeline.toolTemperature).toBe(0.3);
       expect(pipeline.frameMaxTokens).toBe(200);
@@ -58,9 +56,6 @@ describe('Pipeline Configuration', () => {
       expect(pipeline.repoMapTtl).toBe(300_000);
       expect(pipeline.workspaceCacheTtl).toBe(30_000);
       expect(pipeline.gitCommandTimeout).toBe(5_000);
-      expect(pipeline.recallLimit).toBe(5);
-      expect(pipeline.recallSnippetTokens).toBe(300);
-      expect(pipeline.recallDecayFactor).toBe(0.1);
     });
 
     it('should export PipelineConfig type', async () => {
@@ -74,7 +69,6 @@ describe('Pipeline Configuration', () => {
     it('should override int values from env', async () => {
       process.env.FETCH_HISTORY_WINDOW = '30';
       process.env.FETCH_MAX_TOOL_CALLS = '10';
-      process.env.FETCH_CHAT_MAX_TOKENS = '200';
 
       // Force re-evaluation of the module
       // Note: pipeline reads process.env at import time, so we test the helper functions
@@ -85,12 +79,11 @@ describe('Pipeline Configuration', () => {
     });
 
     it('should override float values from env', async () => {
-      process.env.FETCH_CHAT_TEMPERATURE = '0.5';
       process.env.FETCH_TOOL_TEMPERATURE = '0.1';
 
-      const val = process.env.FETCH_CHAT_TEMPERATURE;
-      expect(val).toBe('0.5');
-      expect(parseFloat(val!)).toBe(0.5);
+      const val = process.env.FETCH_TOOL_TEMPERATURE;
+      expect(val).toBe('0.1');
+      expect(parseFloat(val!)).toBe(0.1);
     });
 
     it('should override int array values from env', async () => {
@@ -111,12 +104,12 @@ describe('Pipeline Configuration', () => {
     });
 
     it('should ignore invalid float env vars (NaN protection)', () => {
-      process.env.FETCH_CHAT_TEMPERATURE = 'invalid';
+      process.env.FETCH_TOOL_TEMPERATURE = 'invalid';
 
-      const v = process.env.FETCH_CHAT_TEMPERATURE;
+      const v = process.env.FETCH_TOOL_TEMPERATURE;
       const parsed = parseFloat(v!);
       expect(Number.isNaN(parsed)).toBe(true);
-      // In pipeline.ts, this would fall back to 0.7
+      // In pipeline.ts, this would fall back to 0.3
     });
 
     it('should ignore invalid int array env vars', () => {

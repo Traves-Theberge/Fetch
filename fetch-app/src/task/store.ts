@@ -97,14 +97,6 @@ export class TaskStore {
   }
 
   /**
-   * Delete a task
-   */
-  async deleteTask(taskId: TaskId): Promise<void> {
-    await this.ensureInitialized();
-    this.db!.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
-  }
-
-  /**
    * Save current task ID
    */
   async saveCurrentTaskId(taskId: TaskId | null): Promise<void> {

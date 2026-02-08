@@ -33,7 +33,7 @@
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import type { TaskId, AgentType } from '../task/types.js';
-import { getHarnessPool } from './pool.js'; // V3 Pool Integration
+import { getHarnessPool } from './pool.js';
 import { getAdapter as getRegistryAdapter } from './registry.js';
 import type {
   HarnessId,

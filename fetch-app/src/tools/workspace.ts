@@ -12,6 +12,9 @@
  * - `workspace_list` - List available workspaces
  * - `workspace_select` - Select active workspace
  * - `workspace_status` - Get workspace status
+ * - `workspace_create` - Create a new workspace
+ * - `workspace_delete` - Delete a workspace
+ * - `workspace_sync` - Sync workspace to GitHub
  */
 
 import { workspaceManager } from '../workspace/manager.js';

@@ -28,8 +28,7 @@ import {
   type TaskCancelInput,
   type TaskRespondInput,
 } from '../validation/tools.js';
-import type { ToolResult } from './types.js';
-import type { ToolContext } from './registry.js';
+import type { ToolResult, ToolContext } from './types.js';
 import type { Task, TaskId } from '../task/types.js';
 import { logger } from '../utils/logger.js';
 
@@ -145,12 +144,11 @@ export async function handleTaskCreate(
     
     // Execute asynchronously - don't await, let it run in background
     integration.executeTask(task, (taskId, message, percent) => {
-      // Progress callback - could emit events here for real-time updates
-      console.log(`[Task ${taskId}] ${percent ?? 0}% - ${message}`);
+      logger.debug(`Task ${taskId} progress: ${percent ?? 0}% — ${message}`);
     }).then(result => {
-      console.log(`[Task ${task.id}] Completed:`, result.success ? 'SUCCESS' : 'FAILED');
+      logger.info(`Task ${task.id} completed`, { success: result.success });
     }).catch(err => {
-      console.error(`[Task ${task.id}] Error:`, err);
+      logger.error(`Task ${task.id} execution error`, err);
     });
 
     const taskData = formatTaskOutput(task);

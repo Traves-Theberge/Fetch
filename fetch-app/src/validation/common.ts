@@ -2,7 +2,7 @@
  * @fileoverview Common Zod validation schemas
  *
  * Provides reusable validation schemas for IDs, paths, timestamps,
- * and other common data types used throughout Fetch v2.
+ * and other common data types used throughout Fetch.
  *
  * @module validation/common
  * @see {@link ToolInputSchemas} - Tool-specific schemas
@@ -18,12 +18,12 @@ import { z } from 'zod';
 /**
  * Minimum timeout: 1 second
  */
-export const MIN_TIMEOUT_MS = 1000;
+const MIN_TIMEOUT_MS = 1000;
 
 /**
  * Maximum timeout: 30 minutes
  */
-export const MAX_TIMEOUT_MS = 1800000;
+const MAX_TIMEOUT_MS = 1800000;
 
 /**
  * Default timeout: 5 minutes
@@ -63,23 +63,6 @@ export const TaskIdSchema = z
   });
 
 /**
- * Session ID schema
- *
- * Format: `ses_{nanoid(8)}`
- */
-export const SessionIdSchema = z
-  .string()
-  .refine((val) => val.startsWith('ses_'), {
-    message: 'Session ID must start with "ses_"',
-  })
-  .refine((val) => val.length === 12, {
-    message: 'Session ID must be exactly 12 characters (ses_ + 8 chars)',
-  })
-  .refine((val) => NANOID_PATTERN.test(val.slice(4)), {
-    message: 'Session ID contains invalid characters',
-  });
-
-/**
  * Harness ID schema
  *
  * Format: `hrn_{nanoid(8)}`
@@ -94,23 +77,6 @@ export const HarnessIdSchema = z
   })
   .refine((val) => NANOID_PATTERN.test(val.slice(4)), {
     message: 'Harness ID contains invalid characters',
-  });
-
-/**
- * Message ID schema
- *
- * Format: `msg_{nanoid(8)}`
- */
-export const MessageIdSchema = z
-  .string()
-  .refine((val) => val.startsWith('msg_'), {
-    message: 'Message ID must start with "msg_"',
-  })
-  .refine((val) => val.length === 12, {
-    message: 'Message ID must be exactly 12 characters (msg_ + 8 chars)',
-  })
-  .refine((val) => NANOID_PATTERN.test(val.slice(4)), {
-    message: 'Message ID contains invalid characters',
   });
 
 /**
@@ -290,16 +256,3 @@ export const ProgressMessageSchema = z
   .min(1, 'Message is required')
   .max(500, 'Message too long (max 500 characters)');
 
-// ============================================================================
-// Type Exports
-// ============================================================================
-
-/**
- * Inferred types from schemas
- */
-export type TaskIdType = z.infer<typeof TaskIdSchema>;
-export type SessionIdType = z.infer<typeof SessionIdSchema>;
-export type HarnessIdType = z.infer<typeof HarnessIdSchema>;
-export type WorkspaceNameType = z.infer<typeof WorkspaceNameSchema>;
-export type SafePathType = z.infer<typeof SafePathSchema>;
-export type ISOTimestampType = z.infer<typeof ISOTimestampSchema>;

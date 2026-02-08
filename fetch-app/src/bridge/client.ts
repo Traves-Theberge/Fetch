@@ -13,7 +13,7 @@
  * 
  * | Type | Trigger | Notes |
  * |------|---------|-------|
- * | Direct message | `@fetch ...` | Standard command |
+ * | Direct message | `@fetch ...` | Natural language or /safety escape |
  * | Self-chat | `@fetch ...` | Message yourself |
  * | Thread reply | Reply to Fetch msg | No @fetch needed |
  * | Emoji reaction | 👍/👎 on Fetch msg | Approve/reject (WIP) |
@@ -179,7 +179,7 @@ class MessageDeduplicator {
   constructor() {
     // Sweep every TTL interval instead of per-message
     this.cleanupTimer = setInterval(() => this.evict(), this.TTL_MS);
-    if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+    this.cleanupTimer.unref();
   }
   
   /**

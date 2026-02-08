@@ -11,7 +11,6 @@
 
 import { z } from 'zod';
 import { ToolResult, ToolContext, DangerLevel } from './types.js';
-export type { ToolContext }; // Re-export for backward compatibility
 import { logger } from '../utils/logger.js';
 import { ToolInputSchemas, type ToolName } from '../validation/tools.js';
 
@@ -285,16 +284,9 @@ export class ToolRegistry {
   }
 
   private registerBuiltins(): void {
-    this.register({
-      name: 'workspace_list',
-      description: workspaceTools.workspace_list.description,
-      handler: handleWorkspaceList,
-      schema: ToolInputSchemas.workspace_list,
-      danger: DangerLevel.SAFE
-    });
-    // ... (We will register the rest programmatically to save lines)
     const builtins: Record<string, { h: ToolHandler; s: z.ZodSchema; d: DangerLevel }> = {
       // WORKSPACE
+      workspace_list: { h: handleWorkspaceList, s: ToolInputSchemas.workspace_list, d: DangerLevel.SAFE },
       workspace_select: { h: handleWorkspaceSelect, s: ToolInputSchemas.workspace_select, d: DangerLevel.SAFE },
       workspace_status: { h: handleWorkspaceStatus, s: ToolInputSchemas.workspace_status, d: DangerLevel.SAFE },
       workspace_create: { h: handleWorkspaceCreate, s: ToolInputSchemas.workspace_create, d: DangerLevel.MODERATE },

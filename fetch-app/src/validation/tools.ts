@@ -1,7 +1,7 @@
 /**
  * @fileoverview Tool input validation schemas
  *
- * Zod schemas for validating all Fetch v2 tool inputs.
+ * Zod schemas for validating all Fetch tool inputs.
  * Each tool has a corresponding schema that validates its parameters.
  *
  * @module validation/tools
@@ -25,13 +25,6 @@ import {
 // ============================================================================
 // Agent Schemas
 // ============================================================================
-
-/**
- * Agent type enum schema
- */
-export const AgentTypeSchema = z.enum(['claude', 'gemini', 'copilot'], {
-  error: 'Agent must be one of: claude, gemini, copilot',
-});
 
 /**
  * Agent selection schema (includes 'auto')
@@ -310,11 +303,6 @@ export const ToolInputSchemas = {
 export type ToolName = keyof typeof ToolInputSchemas;
 
 /**
- * Array of all tool names
- */
-export const TOOL_NAMES: ToolName[] = Object.keys(ToolInputSchemas) as ToolName[];
-
-/**
  * Inferred input types for each tool
  */
 export type WorkspaceListInput = z.infer<typeof WorkspaceListInputSchema>;
@@ -329,20 +317,3 @@ export type TaskCancelInput = z.infer<typeof TaskCancelInputSchema>;
 export type TaskRespondInput = z.infer<typeof TaskRespondInputSchema>;
 export type AskUserInput = z.infer<typeof AskUserInputSchema>;
 export type ReportProgressInput = z.infer<typeof ReportProgressInputSchema>;
-
-/**
- * Union type of all tool inputs
- */
-export type ToolInput =
-  | WorkspaceListInput
-  | WorkspaceSelectInput
-  | WorkspaceStatusInput
-  | WorkspaceCreateInput
-  | WorkspaceDeleteInput
-  | WorkspaceSyncInput
-  | TaskCreateInput
-  | TaskStatusInput
-  | TaskCancelInput
-  | TaskRespondInput
-  | AskUserInput
-  | ReportProgressInput;

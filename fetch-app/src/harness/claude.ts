@@ -177,13 +177,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
     return QUESTION_PATTERN;
   }
 
-  /**
-   * Format user response for Claude stdin
-   *
-   * @param response - User's response
-   * @returns Formatted response with newline
-   */
-  // formatResponse inherited from AbstractHarnessAdapter
+  // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
    * Extract file operations from output
@@ -247,9 +241,3 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
  */
 export const claudeAdapter = new ClaudeAdapter();
 
-/**
- * Get the Claude adapter singleton
- */
-export function getClaudeAdapter(): ClaudeAdapter {
-  return claudeAdapter;
-}

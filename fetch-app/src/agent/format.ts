@@ -37,7 +37,7 @@ export async function formatStatus(session: Session): Promise<string> {
     message += `📂 No project selected\n\n`;
   }
 
-  // Current task (V3.3 — fetched from TaskManager)
+  // Current task
   if (session.activeTaskId) {
     const taskManager = await getTaskManager();
     const task = taskManager.getTask(session.activeTaskId);
@@ -73,107 +73,62 @@ export async function formatStatus(session: Session): Promise<string> {
 }
 
 /**
- * Format the help message showing all available commands.
+ * Format the help message for v4.0 LLM-first architecture.
  * 
- * Creates a comprehensive command reference organized by category:
- * projects, git, tasks, context, settings, and responses.
+ * Shows only the 5 safety escape commands (deterministic, no LLM)
+ * and guides the user toward natural language for everything else.
  * 
- * @returns {string} Formatted help message with all commands
+ * @returns {string} Formatted help message
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch - Your AI Coding Assistant*
+  return `🐕 *Fetch v4.0 — AI Coding Assistant*
 
-I'm Fetch! I can help you with coding tasks directly from WhatsApp. Just describe what you need and I'll help you build it.
+Just describe what you need in plain language. I have 12 tools and I'll figure out the rest.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💬 *What I Can Do:*
+🛑 *Safety Commands* (always work, no LLM):
+• \`/stop\` — Cancel the running task
+• \`/undo\` — Undo last git commit
+• \`/clear\` — Clear conversation history
+• \`/help\` — Show this message
+• \`/status\` — System and task status
 
-*Chat & Questions*
-Just ask me anything! No commands needed.
-• "What does this function do?"
-• "How do I use React hooks?"
-• "Explain this error message"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-*Code Exploration*
-• "Show me the contents of src/app.ts"
-• "What files are in this project?"
-• "Find where login is defined"
-• "Search for TODO comments"
+💬 *Everything Else — Just Ask:*
 
-*Code Changes*
-• "Fix the typo in line 42"
-• "Add a loading spinner to the button"
-• "Refactor this function to use async/await"
-• "Create a new component called Header"
+*Projects*
+• "What projects do I have?"
+• "Switch to my-api"
+• "Create a new project called auth-service"
+• "Sync my changes to GitHub"
 
-*Full Tasks*
-• "Build a login form with validation"
+*Coding Tasks*
+• "Build a REST API for users"
+• "Fix the auth bug in login.ts"
+• "Write tests for the payment module"
 • "Add dark mode to the app"
-• "Write tests for the auth module"
-• "Set up ESLint configuration"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*Questions*
+• "How does the rate limiter work?"
+• "What does this function do?"
+• "Explain the error in auth.ts"
 
-📂 *Project Commands:*
-• \`/projects\` (\`/ls\`) - List available projects
-• \`/project <name>\` (\`/cd\`) - Switch to project
-• \`/clone <url>\` - Clone a repository
-• \`/init <name>\` - Create new project
-
-📊 *Git Commands:*
-• \`/status\` (\`/st\`, \`/gs\`) - Show git status
-• \`/diff\` - Show uncommitted changes
-• \`/log [n]\` - Show recent commits
-• \`/undo\` - Revert last change
-• \`/undo all\` - Revert all session changes
-
-📝 *Task Control:*
-• \`/task\` - Show current task status
-• \`/stop\` (\`/cancel\`) - Cancel current task
-• \`/pause\` - Pause task execution
-• \`/resume\` (\`/continue\`) - Resume paused task
-
-📁 *Context:*
-• \`/add <file>\` - Add file to context
-• \`/drop <file>\` (\`/remove\`) - Remove from context
-• \`/files\` (\`/context\`) - Show active files
-• \`/clear\` (\`/reset\`) - Reset conversation
-
-⚙️ *Settings:*
-• \`/auto\` - Toggle autonomous mode
-• \`/mode [level]\` - Show/set autonomy level
-• \`/verbose\` - Toggle detailed output
-• \`/autocommit\` - Toggle auto-commit on changes
-
-ℹ️ *Info:*
-• \`/help\` (\`/h\`, \`/?\`) - Show this help
-• \`/version\` (\`/v\`) - Show Fetch version
-
-🔐 *Security:*
-• \`/trust add <number>\` - Add trusted phone
-• \`/trust remove <number>\` - Remove trusted phone
-• \`/trust list\` - Show trusted numbers
-• \`/trust clear\` - Remove all trusted (owner only)
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-✅ *Approval Responses:*
-When I ask for permission:
-• \`yes\` (\`y\`) - Approve this action
-• \`no\` (\`n\`) - Reject this action
-• \`skip\` (\`s\`) - Skip and continue
-• \`yesall\` (\`ya\`) - Approve all remaining
+*Task Control*
+• "How's the task going?"
+• "Cancel the current task"
+• "Actually, add JWT support too"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 💡 *Tips:*
 • Start messages with \`@fetch\` in groups
-• I remember our conversation context
+• I remember our full conversation
 • Describe what you want, not how to do it
-• I'll ask if I need clarification
+• I'll ask only if I genuinely need info
 
-Just type what you need - I'm here to help! 🐕`;
+Just type what you need! 🐕`;
 }
 
 

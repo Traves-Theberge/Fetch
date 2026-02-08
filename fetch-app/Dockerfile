@@ -113,11 +113,6 @@ COPY docs ./docs
 # Create data directory with proper permissions
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Configure git identity for /init and /clone operations
-RUN git config --global user.email "fetch@kennel.local" \
-    && git config --global user.name "Fetch" \
-    && git config --global init.defaultBranch main
-
 # Entrypoint cleans stale Chromium lock files before starting Node.
 # This prevents crash loops after unclean container shutdowns.
 COPY fetch-app/entrypoint.sh /app/entrypoint.sh

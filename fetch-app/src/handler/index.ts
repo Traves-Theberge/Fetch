@@ -1,18 +1,20 @@
 /**
- * @fileoverview Message Handler - Orchestrator Architecture
+ * @fileoverview Message Handler
  *
- * Handles incoming WhatsApp messages using the orchestrator
- * architecture that delegates to harnesses.
+ * Entry point for incoming WhatsApp messages. Manages session lifecycle,
+ * delegates to the agent core (LLM-first single path), and builds
+ * WhatsApp-formatted responses.
  *
  * @module handler
- * @see {@link processMessage} - Agent entry point
  * @see {@link handleMessage} - Main message handler
+ * @see {@link processMessage} - Agent core (LLM + tools)
  */
 
 import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, type AgentResponse } from '../agent/core.js';
-import { TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
+import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
+import { formatForWhatsApp } from '../agent/whatsapp-format.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -190,7 +192,7 @@ export async function handleMessage(
 
     return responses;
   } catch (error) {
-    logger.error('[V2] Message handling failed', error);
+    logger.error('Message handling failed', error);
 
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error';
@@ -199,12 +201,6 @@ export async function handleMessage(
     ];
   }
 }
-
-import { getModeManager } from '../modes/manager.js';
-import { FetchMode } from '../modes/types.js';
-import { formatForWhatsApp } from '../agent/whatsapp-format.js';
-
-// ... existing imports ...
 
 // =============================================================================
 // RESPONSE BUILDING
@@ -215,20 +211,10 @@ import { formatForWhatsApp } from '../agent/whatsapp-format.js';
  */
 function buildResponses(response: AgentResponse): string[] {
   const responses: string[] = [];
-  const mm = getModeManager();
-  const state = mm.getState();
-  
-  let emoji = '🟢'; // DEFAULT: ALERT
-  switch(state.mode) {
-      case FetchMode.WORKING: emoji = '🔵'; break;
-      case FetchMode.GUARDING: emoji = '🔴'; break;
-      case FetchMode.WAITING: emoji = '🟡'; break;
-      case FetchMode.RESTING: emoji = '💤'; break;
-  }
 
   // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {
-      responses.push(`${emoji} ${formatForWhatsApp(response.text)}`);
+      responses.push(`🐕 ${formatForWhatsApp(response.text)}`);
   }
 
   // Task started notification
@@ -239,30 +225,6 @@ function buildResponses(response: AgentResponse): string[] {
   }
 
   return responses;
-}
-
-// =============================================================================
-// TASK MANAGEMENT
-// =============================================================================
-
-/**
- * Get task manager instance
- */
-export function getTaskManager(): TaskManager {
-  if (!taskManager) {
-    throw new Error('V2 Handler not initialized');
-  }
-  return taskManager;
-}
-
-/**
- * Get session manager instance
- */
-export function getSessionManagerV2(): SessionManager {
-  if (!sessionManager) {
-    throw new Error('V2 Handler not initialized');
-  }
-  return sessionManager;
 }
 
 // =============================================================================

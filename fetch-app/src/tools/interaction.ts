@@ -47,7 +47,7 @@ import type { TaskId } from '../task/types.js';
  * ```
  */
 // Patterns that indicate the LLM is asking an unnecessary confirmation
-// instead of just doing the work. These get auto-approved in non-supervised modes.
+// instead of just doing the work. These get auto-approved at higher autonomy levels.
 const UNNECESSARY_CONFIRMATION_PATTERNS = [
   /^(shall|should|would you like me to|do you want me to|can i|may i|let me)\s/i,
   /^(i('ll| will| can| could) (go ahead|proceed|create|make|write|implement|add|update|fix|modify|delete|remove))/i,
@@ -82,7 +82,7 @@ export async function handleAskUser(
   // Schema has 'question' and 'options' fields
   const { question, options } = parseResult.data as AskUserInput;
 
-  // Phase 2.2: Auto-approve unnecessary confirmations in non-supervised modes
+  // Phase 2.2: Auto-approve unnecessary confirmations at higher autonomy levels
   const level = context?.autonomyLevel || 'cautious';
   if (level !== 'supervised' && isUnnecessaryConfirmation(question)) {
     return {

@@ -106,7 +106,7 @@ export interface Message {
 }
 
 // ============================================================================
-// Task Reference (V3.3 — tasks tracked by TaskManager, session holds ID only)
+// Task Reference (TaskManager is sole authority, session holds ID only)
 // ============================================================================
 
 import type { TaskId } from '../task/types.js';
@@ -120,12 +120,12 @@ export interface Session {
   id: string;
   /** User's phone number (WhatsApp JID) */
   userId: string;
-  /** Flexible metadata storage (V3.1) */
+  /** Flexible metadata storage */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
   
   // Conversation
-  /** Current active thread ID (V3.1) */
+  /** Current active thread ID */
   currentThreadId?: string;
   /** Full message history */
   messages: Message[];
@@ -148,7 +148,7 @@ export interface Session {
   /** User's autonomy and behavior preferences */
   preferences: UserPreferences;
   
-  // Task tracking (V3.3 — TaskManager is sole authority)
+  // Task tracking (TaskManager is sole authority)
   /** Active task ID (null if idle). Task data lives in TaskManager. */
   activeTaskId: TaskId | null;
   

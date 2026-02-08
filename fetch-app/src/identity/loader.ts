@@ -37,13 +37,12 @@ export class IdentityLoader {
 
     const alphaPath = path.join(this.dataDir, 'ALPHA.md');
     if (fs.existsSync(alphaPath)) {
-        const content = fs.readFileSync(alphaPath, 'utf-8');
-        const user = this.parseUser(content);
-        // Merge user context
-        if (user.context) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            loaded.context = { ...(loaded.context || {}), ...user.context } as any;
-        }
+      const content = fs.readFileSync(alphaPath, 'utf-8');
+      const user = this.parseUser(content);
+      if (user.context) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        loaded.context = { ...(loaded.context || {}), ...user.context } as any;
+      }
     }
 
     // Load pack members from individual agent files in data/agents/
@@ -111,22 +110,21 @@ export class IdentityLoader {
   }
 
   private parseUser(content: string): Partial<AgentIdentity> {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const identity: Partial<AgentIdentity> = { context: {} as any };
-      // Simple parsing like parseSystem
-       const sections = content.split(/^## /m);
-       for (const section of sections) {
-            const lines = section.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const title = lines[0].toLowerCase();
-            const body = lines.slice(1);
-            
-            if (title.startsWith('user profile') || title.startsWith('administrator')) {
-                for (const line of body) {
-                    if (line.startsWith('- **Name:**')) identity.context!.owner = this.extractValue(line);
-                }
-            }
-       }
-       return identity;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const identity: Partial<AgentIdentity> = { context: {} as any };
+    const sections = content.split(/^## /m);
+    for (const section of sections) {
+      const lines = section.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const title = lines[0].toLowerCase();
+      const body = lines.slice(1);
+
+      if (title.startsWith('user profile') || title.startsWith('administrator')) {
+        for (const line of body) {
+          if (line.startsWith('- **Name:**')) identity.context!.owner = this.extractValue(line);
+        }
+      }
+    }
+    return identity;
   }
 
   private parseSystem(content: string): Partial<AgentIdentity> {

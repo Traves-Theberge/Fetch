@@ -467,49 +467,6 @@ export async function dockerExecStream(
   });
 }
 
-// ============================================================================
-// Utility Functions
-// ============================================================================
-
-/**
- * List files in a directory inside the container
- *
- * @param path - Directory path
- * @returns Array of file/directory names
- */
-export async function listDirectory(path: string): Promise<string[]> {
-  const result = await dockerExec('ls', ['-1', path]);
-  if (result.exitCode !== 0) {
-    throw new Error(`Failed to list directory: ${result.stderr}`);
-  }
-  return result.stdout.split('\n').filter((line) => line.trim());
-}
-
-/**
- * Check if a path exists in the container
- *
- * @param path - Path to check
- * @returns True if path exists
- */
-export async function pathExists(path: string): Promise<boolean> {
-  const result = await dockerExec('test', ['-e', path]);
-  return result.exitCode === 0;
-}
-
-/**
- * Get file contents from the container
- *
- * @param path - File path
- * @returns File contents
- */
-export async function readFile(path: string): Promise<string> {
-  const result = await dockerExec('cat', [path]);
-  if (result.exitCode !== 0) {
-    throw new Error(`Failed to read file: ${result.stderr}`);
-  }
-  return result.stdout;
-}
-
 /**
  * Get workspace path for a project
  *

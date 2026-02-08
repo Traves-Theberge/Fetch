@@ -6,7 +6,6 @@
  *
  * @module harness/output-parser
  * @see {@link HarnessExecutor} - Uses this for output processing
- * @see {@link ClaudeAdapter} - Agent-specific parsing
  *
  * ## Overview
  *
@@ -37,7 +36,6 @@
 
 import { EventEmitter } from 'events';
 import stripAnsi from 'strip-ansi';
-import type { AgentType } from '../task/types.js';
 
 // ============================================================================
 // Types
@@ -83,8 +81,6 @@ export interface ParserConfig {
   stripAnsi: boolean;
   /** Maximum line length before forcing a break */
   maxLineLength: number;
-  /** Agent type for specific parsing rules */
-  agent?: AgentType;
 }
 
 /**
@@ -488,11 +484,10 @@ export function extractSummary(parser: OutputParser): string {
 }
 
 /**
- * Create parser for a specific agent
+ * Create a configured output parser
  *
- * @param agent - Agent type
- * @returns Configured parser
+ * @returns Configured parser with ANSI stripping enabled
  */
-export function createParser(agent: AgentType): OutputParser {
-  return new OutputParser({ agent, stripAnsi: true });
+export function createParser(): OutputParser {
+  return new OutputParser({ stripAnsi: true });
 }

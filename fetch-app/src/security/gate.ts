@@ -41,7 +41,7 @@
  * - Unauthorized messages are dropped WITHOUT response
  * - This prevents information leakage about the bot's existence
  * - Broadcast messages are always rejected
- * - Owner can manage whitelist via /trust commands
+ * - Owner can manage whitelist via natural language (LLM tool)
  * 
  * @example
  * ```typescript

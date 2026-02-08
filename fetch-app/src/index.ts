@@ -62,11 +62,10 @@ import 'dotenv/config';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
 import { startStatusServer, setLogoutCallback } from './api/status.js';
-import { initModes } from './modes/index.js';
-import { getProactiveSystem } from './proactive/index.js';
 import { validateEnv } from './config/env.js';
 import { getSessionStore } from './session/store.js';
 import { getTaskStore } from './task/store.js';
+import { getSkillManager } from './skills/manager.js';
 
 /** Module-scoped bridge reference for graceful shutdown */
 let activeBridge: Bridge | null = null;
@@ -93,15 +92,11 @@ async function main(): Promise<void> {
 
   // Start status API server
   startStatusServer();
-  
-  // Initialize Mode System
-  await initModes();
-  logger.info('✅ Mode System initialized');
-
-  // Initialize Proactive Systems (V3)
-  await getProactiveSystem().start();
 
   try {
+    // Load skills (builtin + user) before bridge starts accepting messages
+    await getSkillManager().init();
+
     const bridge = new Bridge();
     await bridge.initialize();
     activeBridge = bridge;
@@ -131,8 +126,8 @@ async function main(): Promise<void> {
 let shuttingDown = false;
 
 /**
- * Orderly shutdown: stop proactive system, destroy WhatsApp bridge,
- * kill harness child processes, flush & close SQLite databases.
+ * Orderly shutdown: destroy WhatsApp bridge, kill harness child
+ * processes, flush & close SQLite databases.
  */
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return; // guard against double-signal
@@ -140,23 +135,20 @@ async function shutdown(signal: string): Promise<void> {
   logger.info(`🛑 Received ${signal}, shutting down gracefully...`);
 
   try {
-    // 1. Stop proactive timers & watchers
-    getProactiveSystem().stop();
-
-    // 2. Kill any running harness child processes
+    // 1. Kill any running harness child processes
     const { getHarnessPool } = await import('./harness/pool.js');
     try {
       const pool = getHarnessPool();
       pool.getSpawner().killAll();
     } catch { /* pool may never have been created */ }
 
-    // 3. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
+    // 2. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
     if (activeBridge) {
       await activeBridge.destroy();
       activeBridge = null;
     }
 
-    // 4. Flush & close SQLite databases
+    // 3. Flush & close SQLite databases
     try { getSessionStore().close(); } catch { /* may not be initialized */ }
     try { getTaskStore().close(); } catch { /* may not be initialized */ }
   } catch (error) {

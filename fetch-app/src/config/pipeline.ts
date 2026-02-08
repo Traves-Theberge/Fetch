@@ -52,13 +52,9 @@ export const pipeline = {
   // ─── Agent LLM ────────────────────────────────────────────
   /** Max tool call rounds per single user message */
   maxToolCalls: int('FETCH_MAX_TOOL_CALLS', 5),
-  /** Token budget for conversation (no tools) responses */
-  chatMaxTokens: int('FETCH_CHAT_MAX_TOKENS', 512),
-  /** Temperature for conversation responses */
-  chatTemperature: float('FETCH_CHAT_TEMPERATURE', 0.7),
-  /** Token budget for tool-calling responses */
+  /** Token budget for LLM responses (all paths go through handleWithTools) */
   toolMaxTokens: int('FETCH_TOOL_MAX_TOKENS', 2048),
-  /** Temperature for tool-calling responses */
+  /** Temperature for LLM responses */
   toolTemperature: float('FETCH_TOOL_TEMPERATURE', 0.3),
   /** Token budget for task framing prompt */
   frameMaxTokens: int('FETCH_FRAME_MAX_TOKENS', 200),
@@ -123,13 +119,6 @@ export const pipeline = {
   /** Git command execution timeout (ms) */
   gitCommandTimeout: int('FETCH_GIT_TIMEOUT', 5_000),
 
-  // ─── BM25 Memory (Phase 2) ────────────────────────────────
-  /** Max recalled results injected into context */
-  recallLimit: int('FETCH_RECALL_LIMIT', 5),
-  /** Max tokens per recalled result snippet */
-  recallSnippetTokens: int('FETCH_RECALL_SNIPPET_TOKENS', 300),
-  /** Recency decay factor (higher = faster decay) */
-  recallDecayFactor: float('FETCH_RECALL_DECAY', 0.1),
 } as const;
 
 // =============================================================================

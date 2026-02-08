@@ -83,7 +83,7 @@ Now write the goal:`;
 export async function buildContextSection(session: Session): Promise<string> {
   const parts: string[] = [];
 
-  // V3.1: Add Metadata
+  // Thread metadata
   const threadId = session.metadata?.activeThreadId;
   if(threadId) parts.push(`🧵 **Thread**: \`${threadId}\``);
 
@@ -105,7 +105,7 @@ export async function buildContextSection(session: Session): Promise<string> {
     }
   }
 
-  // Active task (V3.3 — fetched from TaskManager by ID)
+  // Active task
   if (session.activeTaskId) {
     const { getTaskManager } = await import('../task/manager.js');
     const taskManager = await getTaskManager();
@@ -119,7 +119,7 @@ export async function buildContextSection(session: Session): Promise<string> {
     }
   }
 
-  // Compaction summary (replaces V3.1 rolling summaries)
+  // Compaction summary
   if (session.metadata?.compactionSummary) {
     parts.push('\n## Conversation History 🧠');
     parts.push(session.metadata.compactionSummary);

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Harness domain types and interfaces
  *
- * Defines all types related to harness execution in Fetch v2.
+ * Defines all types related to harness execution.
  * Harnesses are adapters that execute coding tasks via external CLI tools
  * (Claude Code, Gemini CLI, Copilot CLI).
  *

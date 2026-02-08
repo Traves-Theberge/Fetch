@@ -25,9 +25,9 @@ import type { HarnessResult } from '../harness/types.js';
 // ============================================================================
 
 /**
- * Task execution result
+ * Task execution result (internal to integration layer)
  */
-export interface TaskExecutionResult {
+interface TaskExecutionResult {
   taskId: TaskId;
   success: boolean;
   output?: string;
@@ -36,9 +36,9 @@ export interface TaskExecutionResult {
 }
 
 /**
- * Progress callback for streaming updates
+ * Progress callback for streaming updates (internal to integration layer)
  */
-export type ProgressCallback = (
+type ProgressCallback = (
   taskId: TaskId,
   message: string,
   percent?: number
@@ -159,40 +159,6 @@ export class TaskIntegration extends EventEmitter {
       this.progressCallbacks.delete(task.id);
       this.taskSessions.delete(task.id);
     }
-  }
-
-  /**
-   * Cancel an executing task
-   *
-   * @param taskId - Task ID to cancel
-   */
-  async cancelExecution(taskId: TaskId): Promise<void> {
-    const abort = this.activeExecutions.get(taskId);
-    if (abort) {
-      abort.abort();
-      logger.info(`Cancelled task execution: ${taskId}`);
-    }
-
-    await this.manager!.cancelTask(taskId);
-  }
-
-  /**
-   * Send a response to a waiting task
-   *
-   * @param taskId - Task ID
-   * @param response - User response
-   */
-  async respondToTask(taskId: TaskId, response: string): Promise<void> {
-    const executor = getHarnessExecutor();
-
-    // Find the harness for this task
-    const execution = executor.getActiveExecution(taskId);
-    if (!execution) {
-      throw new Error(`No active execution for task: ${taskId}`);
-    }
-
-    await executor.sendInput(execution.id, response);
-    logger.info(`Sent response to task: ${taskId}`, { response });
   }
 
   // ==========================================================================
@@ -334,5 +300,3 @@ export async function initializeTaskIntegration(): Promise<void> {
   const integration = getTaskIntegration();
   await integration.initialize();
 }
-
-export { taskIntegration };
