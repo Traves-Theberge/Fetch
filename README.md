@@ -42,6 +42,14 @@ Fetch is a **lightweight orchestrator** that delegates coding tasks to specializ
 
 **Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues) and cats 🐈 (sneaky creatures that don't respect personal space).
 
+### ✨ Key Features
+
+- **📱 WhatsApp Native** — No new apps to install. Code from anywhere, even your lock screen.
+- **🎙️ Voice Commands** — Send voice notes. Fetch transcribes them via `whisper.cpp` and gets to work.
+- **🖼️ Vision Support** — Send screenshots of errors or UI mockups. Fetch analyzes them to fix bugs or build components.
+- **🧠 Skill Framework** — Extend Fetch with custom skills (YAML-defined prompts and tools).
+- **🎭 Hot-Reloaded Identity** — Give Fetch a new persona by editing `COLLAR.md` without restarting.
+
 ### 🏗️ LLM-First Architecture
 
 Every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools:
@@ -133,7 +141,11 @@ docker logs -f fetch-bridge  # Scan the QR code
 | `/help` | Show available commands |
 | `/status` | System + task status |
 
-Everything else is handled via natural language — project switching, settings, identity, skills, scheduling, and coding tasks all go through the LLM with 13 tools.
+Everything else is handled via natural language — the LLM uses **13 specialized tools** to manage your environment:
+
+- **📁 Workspace (7)** — `list`, `select`, `status`, `create`, `delete`, `sync`, `publish` (to GitHub)
+- **🛠️ Tasks (4)** — `create` (scaffold/refactor), `status`, `cancel`, `respond` (input for AI CLIs)
+- **💬 Interaction (2)** — `ask_user` (for clarification), `report_progress`
 
 Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
@@ -173,8 +185,14 @@ graph LR
 | `OWNER_PHONE_NUMBER` | ✅ | — | Your WhatsApp number (e.g. `15551234567`) |
 | `OPENROUTER_API_KEY` | ✅ | — | OpenRouter API key |
 | `AGENT_MODEL` | — | `openai/gpt-4o-mini` | LLM for agent reasoning (via OpenRouter) |
+| `GH_TOKEN` | — | — | GitHub token (required for `publish` and Copilot) |
+| `ANTHROPIC_API_KEY` | — | — | Required if using Claude Code harness |
+| `GEMINI_API_KEY` | — | — | Required if using Gemini CLI harness |
+| `ENABLE_CLAUDE` | — | `false` | Set to `true` to enable Claude harness |
+| `ENABLE_GEMINI` | — | `false` | Set to `true` to enable Gemini harness |
 | `SUMMARY_MODEL` | — | `openai/gpt-4o-mini` | LLM for conversation summaries |
 | `VISION_MODEL` | — | `openai/gpt-4o-mini` | LLM for image analysis |
+| `WHISPER_MODEL` | — | `tiny` | whisper.cpp model (tiny/base/small/medium/large) |
 | `LOG_LEVEL` | — | `debug` | Minimum log level (`debug`/`info`/`warn`/`error`) |
 | `ADMIN_TOKEN` | — | auto-generated | Bearer token for admin API |
 | `TRUSTED_PHONE_NUMBERS` | — | — | Comma-separated trusted numbers |
