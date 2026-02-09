@@ -99,6 +99,11 @@ func NewEditor() *Editor {
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
+			// ─── Harness Configuration ───────────────────────────────
+			{IsSeparator: true, Label: "─── Harness Models ───"},
+			{Key: "COPILOT_MODEL", Label: "Copilot Model", Help: "e.g., gpt-4, gpt-3.5-turbo", Default: ""},
+			{Key: "CLAUDE_MODEL", Label: "Claude Model", Help: "e.g., claude-3-opus-20240229", Default: ""},
+			{Key: "GEMINI_MODEL", Label: "Gemini Model", Help: "e.g., gemini-1.5-pro-latest", Default: ""},
 			// ─── Context Window ──────────────────────────────────────
 			{IsSeparator: true, Label: "─── Context Window ───"},
 			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},

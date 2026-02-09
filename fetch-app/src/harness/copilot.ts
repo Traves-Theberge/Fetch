@@ -42,6 +42,7 @@ import type {
   HarnessOutputEventType,
 } from './types.js';
 import { AbstractHarnessAdapter } from './base.js';
+import { env } from '../config/env.js';
 
 // ============================================================================
 // Constants
@@ -110,24 +111,32 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
     workspacePath: string,
     timeoutMs: number
   ): HarnessConfig {
-    return {
+    const config: HarnessConfig = {
       command: COPILOT_COMMAND,
       args: [
         ...DEFAULT_ARGS,
-        '-p',
+        'suggest',
+        '-t',
+        'code',
         goal,
       ],
       env: {
         // Ensure non-interactive environment
         CI: 'true',
         TERM: 'dumb',
-        // GitHub CLI should be authenticated already
-        GH_NO_UPDATE_NOTIFIER: '1',
+        ...(env.GH_TOKEN ? { GH_TOKEN: env.GH_TOKEN } : {}),
       },
       cwd: workspacePath,
       timeoutMs,
       container: 'fetch-kennel',
     };
+
+    // Inject model selection if configured
+    if (env.COPILOT_MODEL) {
+      config.args.push('--model', env.COPILOT_MODEL);
+    }
+
+    return config;
   }
 
   /**

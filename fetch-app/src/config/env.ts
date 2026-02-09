@@ -60,6 +60,11 @@ const EnvSchema = z.object({
   ENABLE_CLAUDE: z.string().transform(val => val === 'true').optional().default(false),
   ENABLE_GEMINI: z.string().transform(val => val === 'true').optional().default(false),
 
+  // Agent Models (Optional overrides)
+  COPILOT_MODEL: z.string().optional(),
+  CLAUDE_MODEL: z.string().optional(),
+  GEMINI_MODEL: z.string().optional(),
+
   // Harness Auth
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),

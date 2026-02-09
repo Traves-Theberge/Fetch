@@ -179,6 +179,9 @@ graph LR
 | `GEMINI_API_KEY` | — | — | Required if using Gemini CLI harness |
 | `ENABLE_CLAUDE` | — | `false` | Set to `true` to enable Claude harness |
 | `ENABLE_GEMINI` | — | `false` | Set to `true` to enable Gemini harness |
+| `COPILOT_MODEL` | — | `(empty)` | Override Copilot model (e.g. `gpt-4`) |
+| `CLAUDE_MODEL` | — | `(empty)` | Override Claude model (e.g. `claude-3-opus-20240229`) |
+| `GEMINI_MODEL` | — | `(empty)` | Override Gemini model (e.g. `gemini-1.5-pro`) |
 | `SUMMARY_MODEL` | — | `openai/gpt-4o-mini` | LLM for conversation summaries |
 | `VISION_MODEL` | — | `openai/gpt-4o-mini` | LLM for image analysis |
 | `WHISPER_MODEL` | — | `tiny` | whisper.cpp model (tiny/base/small/medium/large) |

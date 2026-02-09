@@ -122,7 +122,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
     workspacePath: string,
     timeoutMs: number
   ): HarnessConfig {
-    return {
+    const config: HarnessConfig = {
       command: CLAUDE_COMMAND,
       args: [
         ...DEFAULT_ARGS,
@@ -139,6 +139,13 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
       timeoutMs,
       container: 'fetch-kennel',
     };
+
+    // Inject model selection if configured
+    if (env.CLAUDE_MODEL) {
+      config.args.push('--model', env.CLAUDE_MODEL);
+    }
+
+    return config;
   }
 
   /**

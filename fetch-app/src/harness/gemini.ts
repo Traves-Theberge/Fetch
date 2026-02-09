@@ -127,7 +127,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
     workspacePath: string,
     timeoutMs: number
   ): HarnessConfig {
-    return {
+    const config: HarnessConfig = {
       command: GEMINI_COMMAND,
       args: [
         ...DEFAULT_ARGS,
@@ -144,6 +144,13 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
       timeoutMs,
       container: 'fetch-kennel',
     };
+
+    // Inject model selection if configured
+    if (env.GEMINI_MODEL) {
+      config.args.push('--model', env.GEMINI_MODEL);
+    }
+
+    return config;
   }
 
   /**

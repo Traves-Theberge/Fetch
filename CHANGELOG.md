@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Improved Harness Error Reporting**:
   - **Issue**: Failed harness tasks returned vague "Process failed" errors without details.
   - **Fix**: Updated `HarnessExecutor.executeWithConfig()` to capture and include the last lines of harness output in error messages.
+  
+  ### 🚀 New Features
+  
+  - **TUI Model Configuration**:
+    - **Feature**: Added configuration fields to the TUI manager for specifying agent models (`COPILOT_MODEL`, `CLAUDE_MODEL`, `GEMINI_MODEL`).
+    - **Benefit**: Allows users to override the default models (e.g., set Copilot to use `gpt-4` or Claude to use `claude-3-opus`) without editing `.env` manually.
 
 ### 🔒 Security Hardening
 
