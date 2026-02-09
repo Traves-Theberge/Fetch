@@ -146,8 +146,8 @@ Fetch employs a "Defense in Depth" strategy with 5 layers of protection:
 ```mermaid
 graph LR
     Input[Incoming Msg] --> Gate{Trigger Check}
-    Gate -->|No @fetch| Drop[Silent Drop]
-    Gate -->|@fetch| Auth{Whitelist}
+    Gate -->|"No @fetch"| Drop[Silent Drop]
+    Gate -->|"@fetch"| Auth{Whitelist}
     Auth -->|Unknown| Drop
     Auth -->|Known| Rate{Rate Limit}
     Rate -->|Exceeded| Block[429 Reject]
