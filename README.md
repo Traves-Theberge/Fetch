@@ -30,7 +30,7 @@ graph TD
     
     subgraph Host ["Host Machine"]
         subgraph Docker ["🐳 Docker Compose"]
-            Bridge[🌉 Bridge Node.js]
+            Bridge["🐕 Fetch (Bridge Node.js)"]
             Kennel[🏠 Kennel Ubuntu]
         end
         Workspace[(📁 /workspace)]
@@ -79,8 +79,8 @@ Every message (except 5 safety escapes) takes the same single path through the L
 ```mermaid
 sequenceDiagram
     participant U as WhatsApp User
-    participant B as Bridge (Agent Core)
-    participant K as Kennel (AI CLI)
+    participant B as 🐕 Fetch (Bridge Node.js)
+    participant K as 🏠 Kennel (AI Sandbox)
     
     U->>B: "@fetch fix the auth logic"
     B->>B: Security Gate (Whitelist/Rate Limit)
@@ -182,7 +182,7 @@ graph LR
     Rate -->|Exceeded| Block[429 Reject]
     Rate -->|Within Limit| Val{Validation}
     Val -->|Suspicious| Alert[Guard Dog Alert]
-    Val -->|Safe| LLM[Agent Core]
+    Val -->|Safe| LLM["🐕 Fetch (Agent Core)"]
 ```
 
 - **@fetch trigger** — Messages must start with `@fetch` to be processed
