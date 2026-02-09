@@ -6,21 +6,34 @@
 
 A headless development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters and cats 🦞)
 
-```
-  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
-  ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀                                             
-  ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀    ███████╗███████╗████████╗ ██████╗██╗  ██╗
-  ⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀    ██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
-  ⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀    █████╗  █████╗     ██║   ██║     ███████║
-  ⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿    ██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
-  ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
-  ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
-  ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀                                             
-  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion                  
-  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀                  
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀                                             
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀                                             
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀                                             
+```mermaid
+graph TD
+    User([📱 User on WhatsApp])
+    Manager[🎛️ Go Manager TUI]
+    
+    subgraph Host ["Host Machine"]
+        subgraph Docker ["🐳 Docker Compose"]
+            Bridge[🌉 Bridge Node.js]
+            Kennel[🏠 Kennel Ubuntu]
+        end
+        Workspace[(📁 /workspace)]
+    end
+
+    User <-->|WhatsApp API| Bridge
+    Manager -->|Control| Docker
+    Bridge -->|docker exec| Kennel
+    Bridge <-->|Access| Workspace
+    Kennel <-->|Work| Workspace
+    
+    subgraph AI ["AI Harnesses (Inside Kennel)"]
+        Claude[Claude Code]
+        Gemini[Gemini CLI]
+        Copilot[GH Copilot]
+    end
+    
+    Kennel --> Claude
+    Kennel --> Gemini
+    Kennel --> Copilot
 ```
 
 ## 🎯 Overview
@@ -34,14 +47,33 @@ Fetch is a **lightweight orchestrator** that delegates coding tasks to specializ
 Every message (except 5 safety escapes) takes the same single path through the LLM with all 12 tools:
 
 | Layer | Trigger | Response | Latency |
-|-------|---------|----------|---------|
+| :--- | :--- | :--- | :--- |
 | **Safety Gate** | `/stop`, `/undo`, `/clear`, `/help`, `/status` | Deterministic — no LLM | <5ms |
 | **LLM + Tools** | Everything else | Chat, tool calls, or harness delegation | ~500ms–60s |
+
+```mermaid
+sequenceDiagram
+    participant U as WhatsApp User
+    participant B as Bridge (Agent Core)
+    participant K as Kennel (AI CLI)
+    
+    U->>B: "@fetch fix the auth logic"
+    B->>B: Security Gate (Whitelist/Rate Limit)
+    B->>B: LLM decides: task_create
+    B->>K: docker exec (claude/gemini)
+    K->>K: Executes coding tasks
+    K-->>B: Question/Input Needed
+    B-->>U: "Wait! I need your help with..."
+    U->>B: "Go ahead with X"
+    B->>K: send input
+    K-->>B: Task Completed
+    B->>U: "Good boy reporting back! I fixed it."
+```
 
 ### AI Harnesses
 
 | Harness | CLI | Strengths |
-|---------|-----|-----------|
+| :--- | :--- | :--- |
 | **Claude Code** | `claude` | Multi-file refactoring, architecture, deep reasoning |
 | **Gemini CLI** | `gemini` | Fast edits, explanations, boilerplate |
 | **Copilot CLI** | `gh copilot` | Suggestions, command help |
@@ -80,7 +112,7 @@ docker logs -f fetch-bridge  # Scan the QR code
 
 ### 3. Message Fetch on WhatsApp
 
-```
+```text
 @fetch what projects do I have?
 @fetch switch to my-api
 @fetch add input validation to the signup form
@@ -94,7 +126,7 @@ docker logs -f fetch-bridge  # Scan the QR code
 ### Safety Escapes (Deterministic, no LLM)
 
 | Command | Description |
-|---------|-------------|
+| :--- | :--- |
 | `/stop` | Cancel running task |
 | `/undo` | Undo last commit (soft git reset) |
 | `/clear` | Clear conversation history |
@@ -107,7 +139,22 @@ Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
 ---
 
-## Security
+## 🔒 Security
+
+Fetch employs a "Defense in Depth" strategy with 5 layers of protection:
+
+```mermaid
+graph LR
+    Input[Incoming Msg] --> Gate{Trigger Check}
+    Gate -->|No @fetch| Drop[Silent Drop]
+    Gate -->|@fetch| Auth{Whitelist}
+    Auth -->|Unknown| Drop
+    Auth -->|Known| Rate{Rate Limit}
+    Rate -->|Exceeded| Block[429 Reject]
+    Rate -->|Within Limit| Val{Validation}
+    Val -->|Suspicious| Alert[Guard Dog Alert]
+    Val -->|Safe| LLM[Agent Core]
+```
 
 - **@fetch trigger** — Messages must start with `@fetch` to be processed
 - **Phone whitelist** — Only `OWNER_PHONE_NUMBER` + explicitly trusted numbers
@@ -119,10 +166,10 @@ Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
 ---
 
-## Configuration
+## 🛠️ Configuration
 
 | Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
+| :--- | :--- | :--- | :--- |
 | `OWNER_PHONE_NUMBER` | ✅ | — | Your WhatsApp number (e.g. `15551234567`) |
 | `OPENROUTER_API_KEY` | ✅ | — | OpenRouter API key |
 | `AGENT_MODEL` | — | `openai/gpt-4o-mini` | LLM for agent reasoning (via OpenRouter) |
@@ -139,9 +186,9 @@ Full reference → [CONFIGURATION.md](docs/markdown/CONFIGURATION.md)
 
 ---
 
-## Project Structure
+## 📂 Project Structure
 
-```
+```text
 Fetch/
 ├── manager/                    # Go TUI (Bubble Tea)
 │   ├── main.go                 # Screen router, Bubble Tea model
