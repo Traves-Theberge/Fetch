@@ -34,14 +34,15 @@ These bypass the LLM entirely because they must work even when the LLM is unreac
 ```
 Message → Security Gate → Safety Gate (5 commands)
                               ↓ (not matched)
-                         LLM with ALL 12 tools
+                         LLM with ALL 13 tools
                               ↓
                          ReAct loop (reason → act → observe)
                               ↓
                          Response or task delegation
 ```
 
-Every message that isn't a safety escape gets the full LLM with all 12 orchestrator tools. The LLM has the intelligence to:
+Every message that isn't a safety escape gets the full LLM with all 13 orchestrator tools. The LLM has the intelligence to:
+
 - Respond conversationally to greetings
 - Call `workspace_list` when asked about projects
 - Call `task_create` when asked to build something
@@ -54,7 +55,7 @@ Every message that isn't a safety escape gets the full LLM with all 12 orchestra
 The single `handleWithTools()` method runs a ReAct (Reason + Act) loop for every non-safety message:
 
 1. **Decide** — LLM examines the goal, session context, and tool results
-2. **Execute** — LLM calls one of 12 orchestrator tools (or responds directly)
+2. **Execute** — LLM calls one of 13 orchestrator tools (or responds directly)
 3. **Observe** — Tool result is appended to context
 4. **Reflect** — LLM decides whether to continue or report completion
 5. Loop repeats until task is complete, cancelled, or max iterations reached
@@ -84,6 +85,7 @@ This replaces the previous approach where the command format was hardcoded.
 ### Adapter Hierarchy
 
 All three harness adapters extend `AbstractHarnessAdapter`, which provides shared logic for:
+
 - `formatGoal()` — Prepare the task description
 - `isQuestion()` — Detect when the harness is asking a question
 - `extractSummary()` — Parse completion summary from output
@@ -101,7 +103,7 @@ The system prompt is built dynamically by `IdentityManager.buildSystemPrompt()`:
 4. **Available skills** — Skill summaries as `<available_skills>` XML
 5. **Activated skills** — Full instruction bodies for triggered skills
 6. **Session context** — Active project, git state, repo map, task state
-7. **Tool definitions** — 12 orchestrator tools with Zod schemas
+7. **Tool definitions** — 13 orchestrator tools with Zod schemas
 
 ### Dynamic Prompt Rebuild
 

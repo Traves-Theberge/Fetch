@@ -24,7 +24,7 @@ const DEFAULT_IDENTITY: AgentIdentity = {
   role: 'Orchestrator & Senior Developer',
   emoji: '🤖',
   voice: {
-    tone: 'Confident, concise, and professional',
+    tone: 'Warm, eager, and senior — a professional developer who is also a very good boy',
   },
   directives: {
     primary: [
@@ -39,8 +39,10 @@ const DEFAULT_IDENTITY: AgentIdentity = {
     ],
     behavioral: [
       'Use the 🤖 emoji to sign off major accomplishments.',
+      'Briefly explain your intent before calling task_create (e.g., "I\'m on it! I\'ll set up that script for you... 🐕").',
       'When confused, ask for clarification immediately.',
-      'Treat the User as the "Administrator".'
+      'Treat the User as the "Administrator".',
+      'Maintain a healthy distaste for lobsters 🦞 and cats 🐈.'
     ]
   },
   context: {
@@ -65,52 +67,52 @@ export class IdentityManager {
 
   private setupWatchers(dir: string) {
     try {
-        const watcher = chokidar.watch(dir, {
-            // eslint-disable-next-line no-useless-escape
-            ignored: /(^|[\/\\])\../, // ignore dotfiles
-            persistent: true
-        });
+      const watcher = chokidar.watch(dir, {
+        // eslint-disable-next-line no-useless-escape
+        ignored: /(^|[\/\\])\../, // ignore dotfiles
+        persistent: true
+      });
 
-        watcher.on('change', (path) => {
-            logger.info(`Identity file changed: ${path}. Reloading...`);
-            this.reloadIdentity();
-        });
-        
-        this.watchers.push(watcher);
+      watcher.on('change', (path) => {
+        logger.info(`Identity file changed: ${path}. Reloading...`);
+        this.reloadIdentity();
+      });
+
+      this.watchers.push(watcher);
     } catch (error) {
-        logger.error('Failed to setup identity watcher', error);
+      logger.error('Failed to setup identity watcher', error);
     }
   }
 
   public reloadIdentity() {
     try {
-        const loaded = this.loader.load();
-        
-        // Deep merge or simple override? Simple override for top level, specific for arrays
-        if (loaded.name) this.identity.name = loaded.name;
-        if (loaded.role) this.identity.role = loaded.role;
-        if (loaded.emoji) this.identity.emoji = loaded.emoji;
-        if (loaded.voice && loaded.voice.tone) this.identity.voice.tone = loaded.voice.tone;
-        
-        if (loaded.directives?.primary?.length) {
-             this.identity.directives.primary = loaded.directives.primary;
-        }
-        if (loaded.directives?.secondary?.length) {
-             this.identity.directives.secondary = loaded.directives.secondary;
-        }
-        if (loaded.directives?.behavioral?.length) {
-             this.identity.directives.behavioral = loaded.directives.behavioral;
-        }
+      const loaded = this.loader.load();
 
-        // Pack members from data/agents/*.md
-        if (loaded.pack?.length) {
-            this.identity.pack = loaded.pack;
-            logger.info(`Pack loaded: ${loaded.pack.map(m => m.name).join(', ')}`);
-        }
+      // Deep merge or simple override? Simple override for top level, specific for arrays
+      if (loaded.name) this.identity.name = loaded.name;
+      if (loaded.role) this.identity.role = loaded.role;
+      if (loaded.emoji) this.identity.emoji = loaded.emoji;
+      if (loaded.voice && loaded.voice.tone) this.identity.voice.tone = loaded.voice.tone;
 
-        logger.info(`Identity loaded: ${this.identity.name}`);
+      if (loaded.directives?.primary?.length) {
+        this.identity.directives.primary = loaded.directives.primary;
+      }
+      if (loaded.directives?.secondary?.length) {
+        this.identity.directives.secondary = loaded.directives.secondary;
+      }
+      if (loaded.directives?.behavioral?.length) {
+        this.identity.directives.behavioral = loaded.directives.behavioral;
+      }
+
+      // Pack members from data/agents/*.md
+      if (loaded.pack?.length) {
+        this.identity.pack = loaded.pack;
+        logger.info(`Pack loaded: ${loaded.pack.map(m => m.name).join(', ')}`);
+      }
+
+      logger.info(`Identity loaded: ${this.identity.name}`);
     } catch (error) {
-        logger.error('Failed to reload identity', error);
+      logger.error('Failed to reload identity', error);
     }
   }
 
@@ -140,10 +142,60 @@ export class IdentityManager {
     const sessionSection = sessionContext || '';
     const packSection = this.buildPackContext();
 
+    // Capabilities section for "what can you do" queries
+    const capabilitiesSection = `
+## YOUR CAPABILITIES
+
+When asked "what can you do" or similar, reference this section:
+
+### Safety Commands (Instant, no LLM)
+- \`/stop\` — Cancel running task
+- \`/undo\` — Undo last commit (soft git reset)
+- \`/clear\` — Clear conversation history
+- \`/help\` — Show available commands
+- \`/status\` — System and task status
+
+### Orchestrator Tools (13 tools)
+**Workspace Management:**
+- \`workspace_list\` — List all projects
+- \`workspace_select\` — Switch active project
+- \`workspace_status\` — Git status, branch, files
+- \`workspace_create\` — Create new project with template
+- \`workspace_delete\` — Delete a project
+- \`workspace_sync\` — Commit and push to GitHub
+- \`workspace_publish\` — Create new GitHub repo from existing project
+
+**Task Delegation:**
+- \`task_create\` — Delegate coding work to a harness (Claude Code, Gemini CLI, or Copilot)
+- \`task_status\` — Check running task progress
+- \`task_cancel\` — Kill a running task
+- \`task_respond\` — Send follow-up to running task
+
+**Interaction:**
+- \`ask_user\` — Request clarification (use sparingly)
+- \`report_progress\` — Send structured update
+
+### AI Harnesses (for task_create)
+- **GitHub Copilot** 🎯 — Fast suggestions, command help, quick edits
+- **Claude Code** 🧠 — Deep reasoning, multi-file refactoring, architecture
+- **Gemini CLI** ⚡ — Fast edits, explanations, boilerplate generation
+`;
+
     return `
 You are ${this.identity.name} ${this.identity.emoji}, the ${this.identity.role}.
 Voice: ${this.identity.voice.tone}.
 Platform: WhatsApp (mobile). Time: ${date}.
+
+## DIRECTIVES (CORE STACK)
+
+### Primary Directives (Unbreakable)
+${this.identity.directives.primary.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+### Operational Guidelines
+${this.identity.directives.secondary.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+### Behavioral Traits (Personality)
+${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')}
 
 ## AUTONOMY RULES (HIGHEST PRIORITY)
 
@@ -153,8 +205,10 @@ Platform: WhatsApp (mobile). Time: ${date}.
 4. **Use ask_user ONLY when genuinely missing information** that cannot be inferred from context. Never use it to confirm what was already requested.
 5. **Prefer doing and reporting over asking and waiting.** Show what you DID, not what you're ABOUT to do.
 6. **Never repeat the user's request back to them as a question.** If they said "add a health check", do not respond with "Would you like me to add a health check?".
-7. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
+7. **Intent & Personality**: Briefly express your plan/intent naturally before acting. Use personality in task transitions (starting/finishing). 🐕
+8. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
 
+${capabilitiesSection}
 ${sessionSection}
 ${packSection}
 

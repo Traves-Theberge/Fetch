@@ -19,7 +19,7 @@ The Bridge communicates with the Kennel by running `docker exec` commands into i
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Safety Gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) — if matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with **all 12 tools** available
+4. **Everything else** goes to the LLM with **all 13 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
@@ -88,7 +88,7 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 12 tools
+│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 13 tools
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
@@ -111,7 +111,8 @@ src/
 ├── identity/
 │   ├── manager.ts        # System prompt builder, hot-reload watcher
 │   ├── loader.ts         # Parse COLLAR.md, ALPHA.md, agents/*.md
-│   └── types.ts          # AgentIdentity, PackMember interfaces
+│   ├── types.ts          # AgentIdentity, PackMember interfaces
+│   └── docs/             # See [IDENTITY_SYSTEM.md](./IDENTITY_SYSTEM.md) for details
 ├── skills/
 │   ├── index.ts          # Barrel re-exports
 │   ├── loader.ts         # Parse SKILL.md frontmatter (gray-matter)
@@ -130,15 +131,15 @@ src/
 │   └── types.ts          # Task, TaskStatus, TaskConstraints interfaces
 ├── tools/
 │   ├── index.ts          # Barrel exports for tools module
-│   ├── registry.ts       # Tool registry (12 tools) with custom tool hot-reload
+│   ├── registry.ts       # Tool registry (13 tools) with custom tool hot-reload
 │   ├── types.ts          # ToolContext, ToolResult, DangerLevel interfaces
 │   ├── loader.ts         # Custom tool loader (data/tools/*.json → shell handlers)
-│   ├── workspace.ts      # Workspace tools (list, select, status, create, delete, sync)
+│   ├── workspace.ts      # Workspace tools (list, select, status, create, delete, sync, publish)
 │   ├── task.ts           # Task tools (create, status, cancel, respond)
 │   └── interaction.ts    # Interaction tools (ask_user with autonomy guard, report_progress)
 ├── validation/
 │   ├── common.ts         # Reusable Zod schemas (IDs, paths, timestamps, strings)
-│   └── tools.ts          # Zod schemas for all 12 tool inputs
+│   └── tools.ts          # Zod schemas for all 13 tool inputs
 ├── transcription/
 │   └── index.ts          # whisper.cpp voice transcription
 ├── vision/
@@ -188,6 +189,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 ### Kennel Entrypoint
 
 The Kennel container uses a custom entrypoint (`kennel/entrypoint.sh`) that:
+
 1. Checks for `GH_TOKEN` environment variable
 2. Configures `gh` CLI authentication from the token
 3. Sets git identity to match the GitHub account

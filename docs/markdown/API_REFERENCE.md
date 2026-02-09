@@ -9,6 +9,7 @@ The Bridge exposes an HTTP API on port 8765.
 Returns system health and WhatsApp connection state.
 
 **Response:**
+
 ```json
 {
   "state": "authenticated",
@@ -40,6 +41,7 @@ Lightweight health check (used by the Go TUI manager).
 Disconnects the WhatsApp session. Requires authentication.
 
 **Headers:**
+
 ```
 Authorization: Bearer <ADMIN_TOKEN>
 ```
@@ -52,11 +54,12 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 12 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 13 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 ### Workspace Tools
 
 #### workspace_list
+
 List all projects in the workspace directory.
 
 **Parameters:** none
@@ -64,9 +67,11 @@ List all projects in the workspace directory.
 **Returns:** `{ projects: string[] }`
 
 #### workspace_select
+
 Switch the active project. Triggers a system prompt rebuild so the LLM sees the new project context.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | string | ✅ | Project directory name |
@@ -74,6 +79,7 @@ Switch the active project. Triggers a system prompt rebuild so the LLM sees the 
 **Returns:** `{ selected: string, path: string }`
 
 #### workspace_status
+
 Get the active project's git status and file overview.
 
 **Parameters:** none
@@ -81,9 +87,11 @@ Get the active project's git status and file overview.
 **Returns:** `{ project: string, branch: string, status: string, recentFiles: string[] }`
 
 #### workspace_create
+
 Initialize a new project in the workspace. Automatically creates a GitHub repository and pushes initial commit if `GH_TOKEN` is configured.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | string | ✅ | Project name (alphanumeric, hyphens, underscores) |
@@ -92,9 +100,11 @@ Initialize a new project in the workspace. Automatically creates a GitHub reposi
 **Returns:** `{ created: string, path: string }`
 
 #### workspace_delete
+
 Remove a project from the workspace.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | string | ✅ | Project to delete |
@@ -102,21 +112,38 @@ Remove a project from the workspace.
 **Returns:** `{ deleted: string }`
 
 #### workspace_sync
+
 Commit local changes and push to the GitHub remote. Generates a commit message from the diff if not provided.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `message` | string | — | Commit message (auto-generated if omitted) |
 
 **Returns:** `{ synced: boolean, commit: string, remote: string }`
 
+#### workspace_publish
+
+Create a new GitHub repository from an existing project. Useful when a project was created without a remote or the auto-creation failed.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | ✅ | Repository name |
+| `private` | boolean | — | Whether repo should be private (default: true) |
+
+**Returns:** `{ published: boolean, url: string }`
+
 ### Task Tools
 
 #### task_create
+
 Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot) running in the Kennel container via `docker exec`.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `goal` | string | ✅ | What to accomplish |
@@ -125,9 +152,11 @@ Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilo
 **Returns:** `{ taskId: string, status: string, harness: string }`
 
 #### task_status
+
 Check the status of a running task.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `taskId` | string | — | Specific task (defaults to active) |
@@ -135,9 +164,11 @@ Check the status of a running task.
 **Returns:** `{ taskId: string, status: string, output: string }`
 
 #### task_cancel
+
 Cancel a running task.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `taskId` | string | — | Specific task (defaults to active) |
@@ -145,9 +176,11 @@ Cancel a running task.
 **Returns:** `{ cancelled: string }`
 
 #### task_respond
+
 Send user input to a task that is waiting for a response.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `response` | string | ✅ | User's response text |
@@ -158,9 +191,11 @@ Send user input to a task that is waiting for a response.
 ### Interaction Tools
 
 #### ask_user
+
 Send a question to the user via WhatsApp and wait for a reply.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `question` | string | ✅ | Question to ask |
@@ -170,9 +205,11 @@ Send a question to the user via WhatsApp and wait for a reply.
 > **Autonomy Guard:** In `cautious` or `autonomous` mode, questions matching unnecessary confirmation patterns ("Shall I...", "Would you like me to...", "Can I proceed...") are auto-approved without reaching the user. The LLM receives `"Yes, proceed."` as the answer. This is controlled by `ToolContext.autonomyLevel`.
 
 #### report_progress
+
 Send a progress update to the user.
 
 **Parameters:**
+
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `message` | string | ✅ | Progress message |

@@ -22,7 +22,7 @@ import { getTaskManager } from '../task/manager.js';
  */
 export async function formatStatus(session: Session): Promise<string> {
   let message = `📊 *Fetch Status*\n\n`;
-  
+
   // Active project — prominent
   if (session.currentProject) {
     const type = session.currentProject.type === 'unknown' ? '' : ` (${session.currentProject.type})`;
@@ -50,13 +50,13 @@ export async function formatStatus(session: Session): Promise<string> {
   } else {
     message += `No active task\n\n`;
   }
-  
+
   // Preferences
   message += `⚙️ *Settings:*\n`;
   message += `• Mode: ${session.preferences.autonomyLevel}\n`;
   message += `• Auto-commit: ${session.preferences.autoCommit ? 'ON' : 'OFF'}\n`;
   message += `• Verbose: ${session.preferences.verboseMode ? 'ON' : 'OFF'}\n\n`;
-  
+
   // Context
   if (session.activeFiles.length > 0) {
     const projectName = session.currentProject?.name || '';
@@ -68,7 +68,7 @@ export async function formatStatus(session: Session): Promise<string> {
       message += `... and ${session.activeFiles.length - 5} more\n`;
     }
   }
-  
+
   return message;
 }
 
@@ -81,9 +81,9 @@ export async function formatStatus(session: Session): Promise<string> {
  * @returns {string} Formatted help message
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch v4.0 — AI Coding Assistant*
+  return `🐕 *Fetch v4.0.3 — AI Coding Assistant*
 
-Just describe what you need in plain language. I have 12 tools and I'll figure out the rest.
+Just describe what you need in plain language. I have 13 tools and I'll figure out the rest.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

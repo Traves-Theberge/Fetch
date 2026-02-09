@@ -56,7 +56,7 @@ export async function handleWorkspaceList(
   input: unknown
 ): Promise<ToolResult> {
   const start = Date.now();
-  
+
   // Validate input (empty object expected)
   const parseResult = WorkspaceListInputSchema.safeParse(input ?? {});
   if (!parseResult.success) {
@@ -117,7 +117,7 @@ export async function handleWorkspaceSelect(
   input: unknown
 ): Promise<ToolResult> {
   const start = Date.now();
-  
+
   // Validate input
   const parseResult = WorkspaceSelectInputSchema.safeParse(input);
   if (!parseResult.success) {
@@ -195,7 +195,7 @@ export async function handleWorkspaceStatus(
   input: unknown
 ): Promise<ToolResult> {
   const start = Date.now();
-  
+
   // Validate input
   const parseResult = WorkspaceStatusInputSchema.safeParse(input ?? {});
   if (!parseResult.success) {
@@ -302,7 +302,7 @@ export async function handleWorkspaceCreate(
   input: unknown
 ): Promise<ToolResult> {
   const start = Date.now();
-  
+
   // Validate input
   const parseResult = WorkspaceCreateInputSchema.safeParse(input);
   if (!parseResult.success) {
@@ -382,7 +382,7 @@ export async function handleWorkspaceDelete(
   input: unknown
 ): Promise<ToolResult> {
   const start = Date.now();
-  
+
   // Validate input
   const parseResult = WorkspaceDeleteInputSchema.safeParse(input);
   if (!parseResult.success) {
@@ -541,6 +541,125 @@ export async function handleWorkspaceSync(
 }
 
 // ============================================================================
+// workspace_publish
+// ============================================================================
+
+import {
+  WorkspacePublishInputSchema,
+  type WorkspacePublishInput,
+} from '../validation/tools.js';
+
+/**
+ * Publish workspace to GitHub
+ *
+ * Creates a new GitHub repository from the current workspace and pushes
+ * all local commits. Unlike workspace_sync, this explicitly creates a new
+ * repo even if there are no uncommitted changes.
+ *
+ * @param input - Tool input with optional workspace name, description, and visibility
+ * @returns Publish result with new repo URL
+ *
+ * @example
+ * ```typescript
+ * const result = await handleWorkspacePublish({ description: 'My new project' });
+ * // Returns: { success: true, output: JSON with new repo URL }
+ * ```
+ */
+export async function handleWorkspacePublish(
+  input: unknown
+): Promise<ToolResult> {
+  const start = Date.now();
+
+  // Validate input
+  const parseResult = WorkspacePublishInputSchema.safeParse(input ?? {});
+  if (!parseResult.success) {
+    return {
+      success: false,
+      output: '',
+      error: `Invalid input: ${parseResult.error.message}`,
+      duration: Date.now() - start,
+    };
+  }
+
+  const { name, description, isPublic } = parseResult.data as WorkspacePublishInput;
+
+  // Use active workspace if not specified
+  const workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+
+  if (!workspaceId) {
+    return {
+      success: false,
+      output: '',
+      error: 'No workspace specified and no active workspace selected',
+      duration: Date.now() - start,
+    };
+  }
+
+  try {
+    // Verify workspace exists
+    const workspace = await workspaceManager.getWorkspace(workspaceId);
+    if (!workspace) {
+      return {
+        success: false,
+        output: '',
+        error: `Workspace not found: ${workspaceId}`,
+        duration: Date.now() - start,
+      };
+    }
+
+    // Check if already has a remote
+    const status = await workspaceManager.getWorkspaceStatus(workspaceId);
+    if (status?.git?.remoteUrl) {
+      return {
+        success: false,
+        output: '',
+        error: `Workspace already has a remote: ${status.git.remoteUrl}. Use workspace_sync to push changes.`,
+        duration: Date.now() - start,
+      };
+    }
+
+    // Create GitHub repo
+    const repoUrl = await workspaceManager.publishToGitHub(
+      workspaceId,
+      description,
+      isPublic ?? false
+    );
+
+    if (!repoUrl) {
+      return {
+        success: false,
+        output: '',
+        error: 'Failed to create GitHub repository. Check that gh CLI is authenticated.',
+        duration: Date.now() - start,
+      };
+    }
+
+    return {
+      success: true,
+      output: JSON.stringify({
+        workspace: workspaceId,
+        repoUrl,
+        visibility: isPublic ? 'public' : 'private',
+        message: `Created GitHub repo: ${repoUrl}`,
+      }, null, 2),
+      duration: Date.now() - start,
+      metadata: {
+        workspace: workspaceId,
+        repoUrl,
+        isPublic: isPublic ?? false,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      output: '',
+      error: err instanceof Error ? err.message : String(err),
+      duration: Date.now() - start,
+    };
+  }
+}
+
+// ============================================================================
 // Tool Registry Integration
 // ============================================================================
 
@@ -583,5 +702,11 @@ export const workspaceTools = {
     description: 'Sync workspace to GitHub. Stages changes, commits (auto-generates message if not provided), creates a private GitHub repo if none exists, and pushes. Use when user says "push my code", "sync to GitHub", "save this", or "back this up".',
     handler: handleWorkspaceSync,
     schema: WorkspaceSyncInputSchema,
+  },
+  workspace_publish: {
+    name: 'workspace_publish',
+    description: 'Create a new GitHub repository from an existing local workspace. Use when user says "publish to GitHub", "create a new repo", "put this on GitHub". Unlike workspace_sync, this is for creating new repos from existing local projects that don\'t have a remote yet.',
+    handler: handleWorkspacePublish,
+    schema: WorkspacePublishInputSchema,
   },
 } as const;

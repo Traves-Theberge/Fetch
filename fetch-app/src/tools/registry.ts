@@ -91,96 +91,96 @@ export class ToolRegistry {
   }
 
   private initCustomTools() {
-      // Ensure dir exists (or try to)
-      if (!fs.existsSync(this.customToolsDir)) {
-          // Ideally we create it, but constructor sync content... 
-          // Async init pattern better, but singleton is sync accessed usually.
-          // We'll set up watcher and let it fire on existing files if configured right.
-      }
-      
-      this.setupWatcher();
+    // Ensure dir exists (or try to)
+    if (!fs.existsSync(this.customToolsDir)) {
+      // Ideally we create it, but constructor sync content... 
+      // Async init pattern better, but singleton is sync accessed usually.
+      // We'll set up watcher and let it fire on existing files if configured right.
+    }
+
+    this.setupWatcher();
   }
 
   private setupWatcher() {
-      try {
-          const watcher = chokidar.watch(this.customToolsDir, {
-              ignored: /(^|[/\\])\../,
-              persistent: true,
-              depth: 0
-          });
+    try {
+      const watcher = chokidar.watch(this.customToolsDir, {
+        ignored: /(^|[/\\])\../,
+        persistent: true,
+        depth: 0
+      });
 
-          watcher.on('add', (f) => this.loadCustomTool(f));
-          watcher.on('change', (f) => this.loadCustomTool(f));
-          watcher.on('unlink', (f) => this.unloadCustomTool(f));
+      watcher.on('add', (f) => this.loadCustomTool(f));
+      watcher.on('change', (f) => this.loadCustomTool(f));
+      watcher.on('unlink', (f) => this.unloadCustomTool(f));
 
-          this.watchers.push(watcher);
-      } catch (err) {
-          logger.error('Failed to setup tool watcher', err);
-      }
+      this.watchers.push(watcher);
+    } catch (err) {
+      logger.error('Failed to setup tool watcher', err);
+    }
   }
 
   private async loadCustomTool(filePath: string) {
-      if (!filePath.endsWith('.json')) return;
+    if (!filePath.endsWith('.json')) return;
 
-      const def = await loadToolDefinition(filePath);
-      if (!def) return;
+    const def = await loadToolDefinition(filePath);
+    if (!def) return;
 
-      const schema = buildToolSchema(def);
-      const handler = this.createShellHandler(def);
+    const schema = buildToolSchema(def);
+    const handler = this.createShellHandler(def);
 
-      const tool: OrchestratorTool = {
-          name: def.name,
-          description: def.description,
-          danger: def.danger,
-          schema,
-          handler,
-          isCustom: true
-      };
+    const tool: OrchestratorTool = {
+      name: def.name,
+      description: def.description,
+      danger: def.danger,
+      schema,
+      handler,
+      isCustom: true
+    };
 
-      this.register(tool);
-      logger.info(`Custom tool loaded: ${tool.name}`);
+    this.register(tool);
+    logger.info(`Custom tool loaded: ${tool.name}`);
   }
 
   private unloadCustomTool(filePath: string) {
-       // Logic to map file to tool name needed if we want to support delete
-       // Since we didn't store file->name map, we might just re-scan or ignore for V1
-       // For now, logging.
-       logger.info(`Custom tool file removed: ${filePath} (Tool unloading not fully implemented yet)`);
+    // Logic to map file to tool name needed if we want to support delete
+    // Since we didn't store file->name map, we might just re-scan or ignore for V1
+    // For now, logging.
+    logger.info(`Custom tool file removed: ${filePath} (Tool unloading not fully implemented yet)`);
   }
 
   private createShellHandler(def: CustomToolDefinition): ToolHandler {
-      return async (input: unknown) => {
-          const params = input as Record<string, unknown>;
-          let command = def.command;
-          
-          // Template replacement: {{param}} with shell-safe escaping
-          Object.keys(params).forEach(key => {
-              const val = String(params[key]);
-              // Escape single quotes and wrap in single quotes for shell safety
-              const escaped = "'" + val.replace(/'/g, "'\\''") + "'";
-              command = command.replace(new RegExp(`{{${key}}}`, 'g'), escaped);
-          });
+    return async (input: unknown) => {
+      const params = input as Record<string, unknown>;
+      let command = def.command;
 
-          const start = Date.now();
-          try {
-              const cwd = def.cwd || process.cwd();
-              const { stdout, stderr } = await execPromise(command, { cwd });
-              
-              return {
-                  success: true,
-                  output: stdout || stderr || 'Command executed successfully', // sometimes only stderr has info
-                  duration: Date.now() - start
-              };
-          } catch (error) {
-              const err = error as { stdout?: string; message?: string; stderr?: string };
-              return {
-                  success: false,
-                  output: err.stdout || '',
-                  error: err.message || err.stderr || 'Unknown execution error',
-                  duration: Date.now() - start
-              };
-          }
-      };
+      // Template replacement: {{param}} with shell-safe escaping
+      Object.keys(params).forEach(key => {
+        const val = String(params[key]);
+        // Escape single quotes and wrap in single quotes for shell safety
+        const escaped = "'" + val.replace(/'/g, "'\\''") + "'";
+        command = command.replace(new RegExp(`{{${key}}}`, 'g'), escaped);
+      });
+
+      const start = Date.now();
+      try {
+        const cwd = def.cwd || process.cwd();
+        const { stdout, stderr } = await execPromise(command, { cwd });
+
+        return {
+          success: true,
+          output: stdout || stderr || 'Command executed successfully', // sometimes only stderr has info
+          duration: Date.now() - start
+        };
+      } catch (error) {
+        const err = error as { stdout?: string; message?: string; stderr?: string };
+        return {
+          success: false,
+          output: err.stdout || '',
+          error: err.message || err.stderr || 'Unknown execution error',
+          duration: Date.now() - start
+        };
+      }
+    };
   }
 
   public static getInstance(): ToolRegistry {
@@ -227,7 +227,7 @@ export class ToolRegistry {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public toOpenAIFormat(): any[] {
     const result = Array.from(this.tools.values()).map(tool => _mapToOpenAIFunction(tool));
-    
+
     // Log schemas once on first call for debugging
     if (!this._schemaLogged) {
       this._schemaLogged = true;
@@ -240,10 +240,10 @@ export class ToolRegistry {
         });
       }
     }
-    
+
     return result;
   }
-  
+
   private _schemaLogged = false;
 
   /**
@@ -254,6 +254,7 @@ export class ToolRegistry {
    */
   public async execute(name: string, args: unknown, context?: ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(name);
+    logger.info(`ToolRegistry.execute called: ${name}`, { found: !!tool, hasHandler: !!tool?.handler });
     if (!tool) {
       return {
         success: false,
@@ -261,7 +262,7 @@ export class ToolRegistry {
         duration: 0
       };
     }
-    
+
     const startTime = Date.now();
     try {
       // Validate args
@@ -270,7 +271,7 @@ export class ToolRegistry {
       const result = await tool.handler(args, context);
       // Ensure duration is present if tool doesn't provide it
       if (result.duration === undefined) {
-         result.duration = Date.now() - startTime;
+        result.duration = Date.now() - startTime;
       }
       return result;
     } catch (error) {
@@ -292,13 +293,13 @@ export class ToolRegistry {
       workspace_create: { h: handleWorkspaceCreate, s: ToolInputSchemas.workspace_create, d: DangerLevel.MODERATE },
       workspace_delete: { h: handleWorkspaceDelete, s: ToolInputSchemas.workspace_delete, d: DangerLevel.DANGEROUS },
       workspace_sync: { h: handleWorkspaceSync, s: ToolInputSchemas.workspace_sync, d: DangerLevel.MODERATE },
-      
+
       // TASK
       task_create: { h: handleTaskCreate, s: ToolInputSchemas.task_create, d: DangerLevel.MODERATE },
       task_status: { h: handleTaskStatus, s: ToolInputSchemas.task_status, d: DangerLevel.SAFE },
       task_cancel: { h: handleTaskCancel, s: ToolInputSchemas.task_cancel, d: DangerLevel.MODERATE },
       task_respond: { h: handleTaskRespond, s: ToolInputSchemas.task_respond, d: DangerLevel.SAFE },
-      
+
       // INTERACTION
       ask_user: { h: handleAskUser, s: ToolInputSchemas.ask_user, d: DangerLevel.SAFE },
       report_progress: { h: handleReportProgress, s: ToolInputSchemas.report_progress, d: DangerLevel.SAFE },
@@ -308,10 +309,13 @@ export class ToolRegistry {
       const wTools = workspaceTools as Record<string, { description: string }>;
       const tTools = taskTools as Record<string, { description: string }>;
       const iTools = interactionTools as Record<string, { description: string }>;
-      
+
+      const description = (wTools[name] || tTools[name] || iTools[name])?.description || 'No description';
+      logger.info(`Registering builtin tool: ${name}`, { hasHandler: !!meta.h });
+
       this.register({
         name: name as ToolName,
-        description: (wTools[name] || tTools[name] || iTools[name])?.description || 'No description',
+        description,
         handler: meta.h,
         schema: meta.s,
         danger: meta.d
@@ -339,7 +343,7 @@ function zodToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
   // Zod v4: use .type and .def instead of ._def.typeName
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const s = schema as any;
-  
+
   if (s.type === 'object' && s.def?.shape) {
     const shape = s.def.shape;
     const properties: Record<string, unknown> = {};
@@ -348,14 +352,14 @@ function zodToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
     for (const [key, value] of Object.entries(shape)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const field = value as any;
-      
+
       // Use Zod v4's built-in isOptional() method
       const isOptional = typeof field.isOptional === 'function' ? field.isOptional() : false;
-      
+
       // Unwrap wrapper types to get the core type
       const innerSchema = unwrapZodType(field);
       properties[key] = zodTypeToJsonSchema(innerSchema, field);
-      
+
       if (!isOptional) required.push(key);
     }
 
@@ -390,13 +394,13 @@ function unwrapZodType(schema: any): any {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function zodTypeToJsonSchema(innerSchema: any, outerSchema?: any): Record<string, unknown> {
   const base: Record<string, unknown> = {};
-  
+
   // In Zod v4, .description is a direct property, also available via .meta()
   const desc = outerSchema?.description ?? innerSchema?.description;
   if (desc) base.description = desc;
 
   const type = innerSchema?.type ?? innerSchema?.def?.type;
-  
+
   switch (type) {
     case 'string': return { ...base, type: 'string' };
     case 'number': return { ...base, type: 'number' };

@@ -60,6 +60,7 @@ export async function handleTaskCreate(
   context?: ToolContext
 ): Promise<ToolResult> {
   const start = Date.now();
+  logger.info('handleTaskCreate called', { input });
 
   // Resolve sessionId from context (passed by registry) or fallback
   const sessionId = context?.sessionId;
@@ -85,7 +86,7 @@ export async function handleTaskCreate(
       const { getSessionManager } = await import('../session/manager.js');
       const sManager = await getSessionManager();
       const session = await sManager.getSessionById(sessionId);
-      
+
       if (session) {
         framedGoal = await frameTaskGoal(goal, session);
         logger.info('Task goal framed for harness', { original: goal.substring(0, 50), framed: framedGoal.substring(0, 50) });
@@ -123,17 +124,20 @@ export async function handleTaskCreate(
   try {
     // Create the task via TaskManager
     const manager = await getTaskManager();
+    logger.debug('TaskManager instance retrieved');
 
     // Check if a task is already running (single-task constraint)
     if (manager.hasRunningTask()) {
       const currentTaskId = manager.getCurrentTaskId();
+      logger.warn('Task creation rejected: another task is already running', { currentTaskId });
       return {
         success: false,
         output: '',
-        error: `Cannot create task: another task (${currentTaskId}) is already running`,
+        error: `Cannot create task: another task (${currentTaskId}) is already running. Please cancel it first with task_cancel.`,
         duration: Date.now() - start,
       };
     }
+    logger.info('Creating task in manager...', { framedGoal, agent, workspaceId });
     const task = await manager.createTask(
       {
         goal: framedGoal,
@@ -146,7 +150,7 @@ export async function handleTaskCreate(
 
     // Start task execution in the background via harness
     const integration = getTaskIntegration();
-    
+
     // Execute asynchronously - don't await, let it run in background
     integration.executeTask(task, (taskId, message, percent) => {
       logger.debug(`Task ${taskId} progress: ${percent ?? 0}% — ${message}`);
@@ -168,10 +172,30 @@ export async function handleTaskCreate(
       },
     };
   } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    // Help the LLM/User if it's an agent selection issue
+    if (errorMessage.includes('agent selection') || errorMessage.includes('agents are currently enabled')) {
+      const outputObj = {
+        error: 'AMBIGUOUS_AGENT_SELECTION',
+        message: errorMessage,
+        action_required: 'Ask the user to clarify which agent to use (e.g., "use copilot" or "use gemini").'
+      };
+      const response = {
+        success: true, // Return true so LLM processes the output naturally
+        output: JSON.stringify(outputObj),
+        error: undefined,
+        duration: Date.now() - start,
+      };
+      logger.info('Returning ambiguity response to LLM:', response);
+      return response;
+    }
+
+    logger.error('handleTaskCreate failed', { error: err, sessionId });
     return {
       success: false,
       output: '',
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage,
       duration: Date.now() - start,
     };
   }

@@ -30,9 +30,9 @@ import {
  * Agent selection schema (includes 'auto')
  */
 export const AgentSelectionSchema = z.enum(
-  ['copilot', 'auto'],
+  ['copilot', 'gemini', 'claude', 'auto'],
   {
-    error: 'Agent must be one of: copilot, auto',
+    error: 'Agent must be one of: copilot, gemini, claude, auto',
   }
 );
 
@@ -104,18 +104,18 @@ export const WorkspaceCreateInputSchema = z
       .max(64, 'Workspace name too long (max 64 characters)')
       .regex(/^[a-zA-Z0-9_-]+$/, 'Workspace name can only contain letters, numbers, hyphens, and underscores')
       .describe('Name for the new workspace'),
-    
+
     /** Project template to use */
     template: ProjectTemplateSchema.optional()
       .default('empty')
       .describe('Project template: empty, node, python, rust, go, react, next'),
-    
+
     /** Optional description for the project */
     description: z.string()
       .max(256, 'Description too long (max 256 characters)')
       .optional()
       .describe('Brief description of the project'),
-    
+
     /** Initialize git repository */
     initGit: z.boolean()
       .optional()
@@ -132,7 +132,7 @@ export const WorkspaceDeleteInputSchema = z
   .object({
     /** Name of workspace to delete */
     name: WorkspaceNameSchema.describe('Name of the workspace to delete'),
-    
+
     /** Confirmation that user wants to delete */
     confirm: z.boolean()
       .refine((val) => val === true, {
@@ -151,7 +151,7 @@ export const WorkspaceSyncInputSchema = z
     /** Workspace to sync (uses active if not specified) */
     name: WorkspaceNameSchema.optional()
       .describe('Workspace to sync (uses active workspace if not specified)'),
-    
+
     /** Commit message (auto-generated if not provided) */
     message: z.string()
       .max(256, 'Commit message too long (max 256 characters)')
@@ -160,6 +160,30 @@ export const WorkspaceSyncInputSchema = z
   })
   .strict()
   .describe('Sync workspace to GitHub — stages changes, commits, creates repo if needed, and pushes');
+
+/**
+ * workspace_publish - Create a new GitHub repo from an existing workspace
+ */
+export const WorkspacePublishInputSchema = z
+  .object({
+    /** Workspace to publish (uses active if not specified) */
+    name: WorkspaceNameSchema.optional()
+      .describe('Workspace to publish (uses active workspace if not specified)'),
+
+    /** Optional description for the GitHub repo */
+    description: z.string()
+      .max(256, 'Description too long (max 256 characters)')
+      .optional()
+      .describe('Description for the new GitHub repository'),
+
+    /** Make the repo public (default: private) */
+    isPublic: z.boolean()
+      .optional()
+      .default(false)
+      .describe('Make the repository public (default: private)'),
+  })
+  .strict()
+  .describe('Create a new GitHub repository from an existing workspace and push all commits');
 
 // ============================================================================
 // Task Tool Schemas
@@ -280,13 +304,14 @@ export const ReportProgressInputSchema = z
  * before calling tool handlers.
  */
 export const ToolInputSchemas = {
-  // Workspace tools (6)
+  // Workspace tools (7)
   workspace_list: WorkspaceListInputSchema,
   workspace_select: WorkspaceSelectInputSchema,
   workspace_status: WorkspaceStatusInputSchema,
   workspace_create: WorkspaceCreateInputSchema,
   workspace_delete: WorkspaceDeleteInputSchema,
   workspace_sync: WorkspaceSyncInputSchema,
+  workspace_publish: WorkspacePublishInputSchema,
   // Task tools (4)
   task_create: TaskCreateInputSchema,
   task_status: TaskStatusInputSchema,
@@ -311,6 +336,7 @@ export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;
 export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInputSchema>;
 export type WorkspaceDeleteInput = z.infer<typeof WorkspaceDeleteInputSchema>;
 export type WorkspaceSyncInput = z.infer<typeof WorkspaceSyncInputSchema>;
+export type WorkspacePublishInput = z.infer<typeof WorkspacePublishInputSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateInputSchema>;
 export type TaskStatusInput = z.infer<typeof TaskStatusInputSchema>;
 export type TaskCancelInput = z.infer<typeof TaskCancelInputSchema>;

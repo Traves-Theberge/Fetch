@@ -73,8 +73,26 @@ export async function initializeHandler(): Promise<void> {
   await initializeTaskIntegration();
   logger.success('Task-harness integration ready');
 
-  // Subscribe to task completion events — write to session + notify WhatsApp
+  // Subscribe to task events — write to session + notify WhatsApp
   const integration = getTaskIntegration();
+
+  integration.on('task:started', async ({ sessionId, goal }: { taskId: string; sessionId?: string; goal: string }) => {
+    if (!sessionId || sessionId === 'unknown') return;
+
+    try {
+      const sManager = sessionManager!;
+      const session = await sManager.getSessionById(sessionId);
+
+      if (!session) return;
+
+      // Notify WhatsApp with persona
+      if (sendWhatsApp) {
+        await sendWhatsApp(session.userId, `🐕 🐾 *Woof!* I'm diving in to the task now:\n\n_"${goal}"_\n\nI'll keep you posted! 🔄`);
+      }
+    } catch (err) {
+      logger.error('Failed to handle task:started event', err);
+    }
+  });
 
   integration.on('task:completed', async ({ taskId, sessionId }: { taskId: string; sessionId?: string }) => {
     if (!sessionId || sessionId === 'unknown') return;
@@ -82,12 +100,12 @@ export async function initializeHandler(): Promise<void> {
     try {
       const sManager = sessionManager!;
       const session = await sManager.getSessionById(sessionId);
-      
+
       if (!session) {
-          logger.warn(`Session not found for task completion`, { sessionId });
-          return;
+        logger.warn(`Session not found for task completion`, { sessionId });
+        return;
       }
-      
+
       const taskMgr = await getPersistentTaskManager();
       const task = taskMgr.getTask(taskId as TaskId);
 
@@ -103,7 +121,7 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, `🐕 ✅ Task finished!\n\n${summary}`);
+        await sendWhatsApp(session.userId, `🐕 ✅ *Task finished!* 🦴\n\n${summary}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:completed event', err);
@@ -118,8 +136,8 @@ export async function initializeHandler(): Promise<void> {
       const session = await sManager.getSessionById(sessionId);
 
       if (!session) {
-          logger.warn(`Session not found for task failure`, { sessionId });
-          return;
+        logger.warn(`Session not found for task failure`, { sessionId });
+        return;
       }
 
       await sManager.addAssistantMessage(session, `❌ Task failed: ${error ?? 'Unknown error'}`);
@@ -129,7 +147,7 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, `🐕 ❌ Task failed: ${error ?? 'Unknown error'}`);
+        await sendWhatsApp(session.userId, `🐕 ❌ *Grrr, the task hit a snag...*\n\nError: ${error ?? 'Unknown error'}\n\nI'll stay on it if you need me! 🐾`);
       }
     } catch (err) {
       logger.error('Failed to handle task:failed event', err);
@@ -225,15 +243,11 @@ function buildResponses(response: AgentResponse): string[] {
 
   // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {
-      responses.push(`🐕 ${formatForWhatsApp(response.text)}`);
+    responses.push(`🐕 ${formatForWhatsApp(response.text)}`);
   }
 
-  // Task started notification
-  if (response.taskStarted && response.taskId) {
-    responses.push(
-      `\n📋 *Task Started*: ${response.taskId}\nI'll update you on progress!`
-    );
-  }
+  // Task started notification — now handled via proactive event in task:started
+  // Remove mechanical message here to prevent double-notifying
 
   return responses;
 }

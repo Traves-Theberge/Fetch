@@ -82,23 +82,23 @@ const errorTracker = new Map<string, { count: number; lastError: number }>();
 function trackError(sessionId: string): boolean {
   const now = Date.now();
   const tracker = errorTracker.get(sessionId) ?? { count: 0, lastError: 0 };
-  
+
   // Reset if last error was more than the configured reset window
   if (now - tracker.lastError > pipeline.circuitBreakerResetMs) {
     tracker.count = 0;
   }
-  
+
   tracker.count++;
   tracker.lastError = now;
   errorTracker.set(sessionId, tracker);
-  
+
   if (tracker.count >= MAX_CONSECUTIVE_ERRORS) {
     logger.warn(`Circuit breaker triggered for session ${sessionId}`, {
       errorCount: tracker.count,
     });
     return false;
   }
-  
+
   return true;
 }
 
@@ -129,23 +129,23 @@ function isRetriableError(error: unknown, attempt: number): boolean {
     // Check for HTTP status codes in error message or properties
     const errorAny = error as Error & { status?: number; statusCode?: number; code?: string };
     const status = errorAny.status ?? errorAny.statusCode;
-    
+
     // 429 (rate limit) is retriable
     if (status === 429) return true;
-    
+
     // 400 (bad request) is retriable once with simplified context
     if (status === 400) return attempt < 2;
-    
+
     // Network errors are retriable
     if (errorAny.code === 'ECONNRESET' || errorAny.code === 'ETIMEDOUT') return true;
-    
+
     // 5xx errors are retriable
     if (status && status >= 500) return true;
-    
+
     // Other 4xx errors are not retriable
     if (status && status >= 400 && status < 500) return false;
   }
-  
+
   // Default to retriable for unknown errors
   return true;
 }
@@ -177,7 +177,7 @@ async function handleWithRetry<T>(
       if (attempt > 1) {
         const delay = backoffs[attempt - 1] ?? 10000;
         logger.info(`Retrying request for session ${sessionId}`, { attempt, delay });
-        
+
         // Report progress to user if callback provided
         if (onProgress) {
           const retryMessage = retryMessages[attempt - 2] ?? "Still trying... 🐕";
@@ -189,14 +189,14 @@ async function handleWithRetry<T>(
       return await fn(attempt);
     } catch (error) {
       lastError = error;
-      
+
       const isRetriable = isRetriableError(error, attempt);
       const isLastAttempt = attempt === maxAttempts;
-      
+
       if (!isRetriable || isLastAttempt) {
         throw error;
       }
-      
+
       logger.warn(`Request failed, will retry`, {
         sessionId,
         attempt,
@@ -220,7 +220,7 @@ function getOpenAI(): OpenAI {
     if (!apiKey) {
       throw new Error('OPENROUTER_API_KEY not set');
     }
-    openaiClient = new OpenAI({ 
+    openaiClient = new OpenAI({
       apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
     });
@@ -258,7 +258,7 @@ export async function processMessage(
     if (tracker && tracker.count >= MAX_CONSECUTIVE_ERRORS) {
       const timeSinceError = Date.now() - tracker.lastError;
       const backoff = getBackoffTime(session.id);
-      
+
       if (timeSinceError < backoff) {
         logger.warn('Circuit breaker active, rejecting request', {
           sessionId: session.id,
@@ -295,26 +295,26 @@ export async function processMessage(
 
   } catch (error) {
     logger.error('Agent error', { error, sessionId: session.id });
-    
+
     // Track error for circuit breaker
     const shouldContinue = trackError(session.id);
-    
+
     // Check if it's a retriable error
     const isRetriable = isRetriableError(error, 1);
-    
+
     if (!shouldContinue) {
       return {
         text: "🐕 I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
       };
     }
-    
+
     if (!isRetriable) {
       // Non-retriable errors (400, 401, 404) - don't suggest retry
       return {
         text: `🐕 Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}`,
       };
     }
-    
+
     return {
       text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
     };
@@ -354,9 +354,9 @@ async function handleWithTools(
   const sessionContext = await buildContextSection(session);
 
   const history = buildMessageHistory(session);
-  
+
   // If retrying from a failure, simplify context
-  const finalHistory = attempt > 1 
+  const finalHistory = attempt > 1
     ? history.slice(-2) // Keep even less for tool calls to avoid token limits
     : history;
 
@@ -397,7 +397,7 @@ async function handleWithTools(
       // Handle both standard and custom tool call formats
       const fn = 'function' in toolCall ? toolCall.function : null;
       if (!fn) continue;
-      
+
       const toolName = fn.name;
       let toolArgs: Record<string, unknown> | null = null;
 
@@ -466,7 +466,7 @@ async function handleWithTools(
       // At this point toolArgs is guaranteed non-null (all null paths `continue` above)
       const finalArgs = toolArgs!;
 
-      logger.debug('Executing tool', { tool: toolName, args: finalArgs });
+      logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id, args: finalArgs });
 
       // Execute via registry (pass session context for session-aware tools)
       const result = await registry.execute(toolName, finalArgs, {
@@ -503,9 +503,9 @@ async function handleWithTools(
             refreshedAt: new Date().toISOString()
           };
           session.repoMap = null; // Clear old map
-          
+
           await sManager.updateSession(session);
-          
+
           // Rebuild system prompt so LLM sees the new workspace
           const updatedContext = await buildContextSection(session);
           messages[0] = {
@@ -533,9 +533,9 @@ async function handleWithTools(
             refreshedAt: new Date().toISOString()
           };
           session.repoMap = null;
-          
+
           await sManager.updateSession(session);
-          
+
           const updatedContext = await buildContextSection(session);
           messages[0] = {
             role: 'system',
@@ -614,8 +614,8 @@ async function handleWithTools(
   const taskId = taskCall?.result &&
     typeof taskCall.result === 'object' &&
     'metadata' in (taskCall.result as Record<string, unknown>)
-      ? ((taskCall.result as Record<string, unknown>).metadata as Record<string, unknown>)?.taskId as string
-      : undefined;
+    ? ((taskCall.result as Record<string, unknown>).metadata as Record<string, unknown>)?.taskId as string
+    : undefined;
 
   return {
     text,

@@ -38,6 +38,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { generateTaskId, generateProgressId } from '../utils/id.js';
 import { getTaskStore, TaskStore } from './store.js';
+import { env } from '../config/env.js';
 import type {
   Task,
   TaskId,
@@ -122,14 +123,14 @@ export class TaskManager extends EventEmitter {
   async init(): Promise<void> {
     try {
       await this.store.init();
-      
+
       const loadedTasks = await this.store.loadAllTasks();
       for (const task of loadedTasks) {
         this.tasks.set(task.id, task);
       }
-      
+
       this.currentTaskId = await this.store.loadCurrentTaskId();
-      
+
       logger.info(`TaskManager initialized with ${loadedTasks.length} tasks`, {
         currentTaskId: this.currentTaskId
       });
@@ -164,6 +165,7 @@ export class TaskManager extends EventEmitter {
 
     // Determine agent
     const agent = this.selectAgent(input.agent ?? 'auto', input.goal);
+    logger.info(`Final agent selected: ${agent}`);
 
     // Create task
     const task: Task = {
@@ -187,10 +189,13 @@ export class TaskManager extends EventEmitter {
     // Store task
     this.tasks.set(task.id, task);
     this.currentTaskId = task.id;
-    
+
     // Persist
+    logger.debug(`Saving task to disk: ${task.id}`);
     await this.store.saveTask(task);
+    logger.debug(`Saving current task ID to disk: ${task.id}`);
     await this.store.saveCurrentTaskId(task.id);
+    logger.info('Task persistence complete');
 
     // Emit event
     this.emitTaskEvent('task:created', task.id, { task });
@@ -218,10 +223,10 @@ export class TaskManager extends EventEmitter {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'running');
     task.startedAt = new Date().toISOString();
-    
+
     // Persist
     await this.store.saveTask(task);
-    
+
     this.emitTaskEvent('task:started', taskId);
 
     logger.info(`Task started: ${taskId}`);
@@ -237,10 +242,10 @@ export class TaskManager extends EventEmitter {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'waiting_input');
     task.pendingQuestion = question;
-    
+
     // Persist
     await this.store.saveTask(task);
-    
+
     this.emitTaskEvent('task:question', taskId, { question });
 
     logger.info(`Task waiting for input: ${taskId}`, { question });
@@ -258,7 +263,7 @@ export class TaskManager extends EventEmitter {
     }
     this.transitionTo(task, 'running');
     task.pendingQuestion = undefined;
-    
+
     // Persist
     await this.store.saveTask(task);
 
@@ -277,11 +282,11 @@ export class TaskManager extends EventEmitter {
     task.result = result;
     task.completedAt = new Date().toISOString();
     this.currentTaskId = null;
-    
+
     // Persist
     await this.store.saveTask(task);
     await this.store.saveCurrentTaskId(null);
-    
+
     this.emitTaskEvent('task:completed', taskId, { result });
 
     logger.success(`Task completed: ${taskId}`, {
@@ -312,11 +317,11 @@ export class TaskManager extends EventEmitter {
     };
     task.completedAt = new Date().toISOString();
     this.currentTaskId = null;
-    
+
     // Persist
     await this.store.saveTask(task);
     await this.store.saveCurrentTaskId(null);
-    
+
     this.emitTaskEvent('task:failed', taskId, { error });
 
     logger.error(`Task failed: ${taskId}`, { error });
@@ -334,11 +339,11 @@ export class TaskManager extends EventEmitter {
     if (this.currentTaskId === taskId) {
       this.currentTaskId = null;
     }
-    
+
     // Persist
     await this.store.saveTask(task);
     await this.store.saveCurrentTaskId(this.currentTaskId);
-    
+
     this.emitTaskEvent('task:cancelled', taskId);
 
     logger.warn(`Task cancelled: ${taskId}`);
@@ -385,10 +390,10 @@ export class TaskManager extends EventEmitter {
     };
 
     task.progress.push(progress);
-    
+
     // Persist
     await this.store.saveTask(task);
-    
+
     this.emitTaskEvent('task:progress', taskId, { progress });
 
     logger.debug(`Task progress: ${taskId}`, { message, percent });
@@ -477,18 +482,57 @@ export class TaskManager extends EventEmitter {
    * Select an agent for a task
    *
    * @param selection - Agent selection ('auto' or specific agent)
-   * @param _goal - Task goal (for auto-selection logic, unused currently)
+   * @param _goal - Task goal
    * @returns Selected agent type
+   * @throws Error if selection is ambiguous or no agents are enabled
    */
   private selectAgent(selection: string, _goal: string): AgentType {
+    // Helper to check if a string flag is 'true'
+    const isTrue = (val: any) => String(val) === 'true';
+
+    const copilotEnabled = isTrue(env.ENABLE_COPILOT);
+    const geminiEnabled = isTrue(env.ENABLE_GEMINI);
+    const claudeEnabled = isTrue(env.ENABLE_CLAUDE);
+
+    // 1. Explicit selection
     if (selection !== 'auto') {
-      return selection as AgentType;
+      const agent = selection as AgentType;
+      const isEnabled = (agent === 'copilot' && copilotEnabled) ||
+        (agent === 'gemini' && geminiEnabled) ||
+        (agent === 'claude' && claudeEnabled);
+
+      if (!isEnabled) {
+        throw new Error(
+          `Requested agent "${selection}" is not enabled. ` +
+          `Enabled agents: ${copilotEnabled ? 'copilot ' : ''}${geminiEnabled ? 'gemini ' : ''}${claudeEnabled ? 'claude' : ''}`.trim()
+        );
+      }
+      return agent;
     }
 
-    // Auto-selection logic
-    // For now, default to Claude as it's the most capable
-    // Future: analyze goal complexity to route appropriately
-    return 'claude';
+    // 2. Auto-selection based on env flags
+    const enabled: AgentType[] = [];
+    if (copilotEnabled) enabled.push('copilot');
+    if (geminiEnabled) enabled.push('gemini');
+    if (claudeEnabled) enabled.push('claude');
+    logger.info(`Enabled agents for selection: ${enabled.join(', ')}`);
+
+    if (enabled.length === 1) {
+      logger.info(`Auto-selected agent: ${enabled[0]}`);
+      return enabled[0];
+    }
+
+    if (enabled.length > 1) {
+      throw new Error(
+        `Ambiguous agent selection: Multiple agents are enabled (${enabled.join(', ')}). ` +
+        `Please specify which agent to use (e.g., "use gemini to...") or disable others in .env.`
+      );
+    }
+
+    throw new Error(
+      'No agents are currently enabled in configuration (ENABLE_COPILOT, ENABLE_GEMINI, or ENABLE_CLAUDE). ' +
+      'Please check your .env settings.'
+    );
   }
 
   /**

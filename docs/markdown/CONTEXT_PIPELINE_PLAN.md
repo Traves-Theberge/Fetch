@@ -14,7 +14,7 @@ The pipeline provides three layers of memory:
 
 | Layer | What It Does | Status |
 |-------|-------------|--------|
-| **Sliding Window** | Last 20 messages in full OpenAI multi-turn format (user, assistant, tool calls, tool results) | ✅ Shipped |
+| **Sliding Window** | Last 20 messages in full OpenAI multi-turn format (user, assistant, tool calls, tool results) with 13 tools available | ✅ Shipped |
 | **Compaction** | When messages exceed 40, older ones are LLM-summarized into a single digest and the array shrinks | ✅ Shipped |
 | **BM25 Recall** | Full-text search across all messages (including compacted ones) for precision retrieval | 🔜 Planned |
 | **Vector Search** | Semantic similarity search for when keyword matching isn't enough | 🔜 Planned |
@@ -59,6 +59,7 @@ This means the LLM can see across turns: "I selected workspace `test-api` two me
 The most recent **20 messages** (configurable via `FETCH_HISTORY_WINDOW`) are sent to the LLM in full. This covers approximately 10 conversation turns or 5 tool-call rounds.
 
 Messages include all metadata:
+
 - User text
 - Assistant responses
 - Tool call requests (which tool, what arguments)
@@ -76,6 +77,7 @@ When the session exceeds **40 messages** (configurable via `FETCH_COMPACTION_THR
 The compaction summary is injected into the system prompt as a `## Conversation History 🧠` section, giving the LLM awareness of the full conversation even after hundreds of messages.
 
 **Why compaction over rolling summaries:**
+
 - Message array never grows unbounded
 - One summary, refreshed each cycle — simpler than chained summaries
 - Token-bounded: system prompt + summary (~500 tok) + last 20 messages is always predictable
@@ -299,11 +301,11 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 
 ### ✅ Shipped (v4.0.0) — LLM-First Architecture
 
-- **Single path** — Every message (except 5 safety escapes) takes the same single path through the LLM with all 12 tools. No more conversation/action handler split or intent classification
+- **Single path** — Every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools. No more conversation/action handler split or intent classification
 - **Removed instinct layer** — 12 deterministic handlers deleted; replaced by 5 safety escapes (`/stop`, `/undo`, `/clear`, `/help`, `/status`)
 - **Removed intent classifier** — ~200 regex patterns deleted; the LLM inherently knows intent
 - **Removed mode detector** — Regex-based classification eliminated
-- **12 tools** — Added `workspace_sync` (commit + push to GitHub) bringing total from 11 to 12
+- **13 tools** — Added `workspace_sync` and `workspace_publish` (bringing total from 11 to 13)
 - **Docker exec container field** — Harness adapters set `container: 'fetch-kennel'`; spawner wraps with `docker exec`
 - **GitHub auto-sync** — `workspace_create` automatically creates a GitHub repo and pushes initial commit when `GH_TOKEN` is configured
 - **Kennel entrypoint** — Custom `entrypoint.sh` configures `gh` CLI auth and git identity from `GH_TOKEN`
@@ -314,6 +316,7 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 Compaction provides the gist of older conversation, but sometimes you need specific details — "what was the port number we chose?" BM25 retrieval provides keyword-based precision recall from the full message history, including messages that were compacted away.
 
 **How it works:**
+
 - Messages are indexed in SQLite FTS5 **before** compaction
 - On each new message, a BM25 search runs against the current query
 - Top results (scored by relevance × recency) are injected into the system prompt as a `## Relevant Memory 🧠` section
@@ -324,6 +327,7 @@ Compaction provides the gist of older conversation, but sometimes you need speci
 Semantic search for when BM25 keyword matching isn't enough. "What was that auth fix?" should find messages about "JWT token refresh" even without keyword overlap.
 
 **Planned approach:**
+
 - `all-MiniLM-L6-v2` embeddings (22MB ONNX model, runs on CPU in Node.js)
 - 384-dimensional vectors stored in SQLite, cosine similarity in JavaScript
 - Hybrid scoring: `α × BM25 + (1-α) × cosine_similarity` where α = 0.6

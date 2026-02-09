@@ -97,7 +97,7 @@ export async function parseCommand(
 
     case 'version':
     case 'v':
-      return { handled: true, responses: ['🐕 Fetch v4.0.0 (The Conversation IS the Interface)'] };
+      return { handled: true, responses: ['🐕 Fetch v4.0.3 (Good Boy Reporting!)'] };
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

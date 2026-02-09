@@ -15,9 +15,9 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `AGENT_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for agent reasoning and tool use |
-| `SUMMARY_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for conversation summarization |
-| `VISION_MODEL` | string | `openai/gpt-4.1-nano` | LLM model for image/screenshot analysis |
+| `AGENT_MODEL` | string | `openai/gpt-4o-mini` | LLM model for agent reasoning and tool use |
+| `SUMMARY_MODEL` | string | `openai/gpt-4o-mini` | LLM model for conversation summarization |
+| `VISION_MODEL` | string | `openai/gpt-4o-mini` | LLM model for image/screenshot analysis |
 | `WHISPER_MODEL` | string | `/app/models/ggml-tiny.bin` | Path to whisper.cpp model for voice transcription |
 | `WORKSPACE_ROOT` | string | `/workspace` | Root directory for project workspaces |
 | `LOG_LEVEL` | enum | `debug` | Minimum log level: `debug`, `info`, `warn`, `error` |
@@ -31,7 +31,22 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `TASKS_DB_PATH` | string | Override tasks database path |
 | `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
 | `TRUSTED_PHONE_NUMBERS` | string | Comma-separated phone numbers for initial whitelist |
-| `GH_TOKEN` | string | GitHub personal access token for workspace sync and repo creation. If set, the Kennel entrypoint auto-configures `gh` CLI auth and git identity |
+| `GH_TOKEN` | string | GitHub personal access token for workspace sync and repo creation. |
+| `ANTHROPIC_API_KEY` | string | API key for Claude Code harness (if used) |
+| `GEMINI_API_KEY` | string | API key for Gemini CLI harness (if used) |
+
+### Harness Selection (Feature Flags)
+
+Fetch defaults to using **GitHub Copilot** as the primary harness. You can enable others via these flags:
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_COPILOT` | boolean | `true` | Enable the GitHub Copilot CLI harness |
+| `ENABLE_CLAUDE` | boolean | `false` | Enable the Claude Code harness |
+| `ENABLE_GEMINI` | boolean | `false` | Enable the Gemini CLI harness |
+
+> [!IMPORTANT]
+> **Ambiguous Selection:** If more than one agent is enabled and you don't explicitly specify an agent (e.g., "use claude to..."), Fetch will prompt you to choose an agent before starting the task. If only one agent is enabled, it is selected automatically.
 
 ### Pipeline Tuning (FETCH_* Variables)
 
@@ -179,6 +194,7 @@ When working on React components:
 ### Managing Skills
 
 Skills are managed through natural language:
+
 - "What skills do you have?" — Lists all skills with enabled/disabled status
 - "Enable the React skill" — Activates a skill
 - "Disable the Python skill" — Deactivates a skill

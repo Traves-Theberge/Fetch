@@ -128,6 +128,14 @@ export class TaskIntegration extends EventEmitter {
 
       // Update task status
       await this.manager!.startTask(task.id);
+
+      // Notify listeners (like WhatsApp handler) that task is actually moving
+      this.emit('task:started', {
+        taskId: task.id,
+        sessionId: task.sessionId,
+        goal: task.goal
+      });
+
       onProgress?.(task.id, 'Starting execution...', 0);
 
       // Get timeout from constraints (default 10 min)
@@ -236,7 +244,7 @@ export class TaskIntegration extends EventEmitter {
       if (env.ENABLE_CLAUDE) return 'claude';
       if (env.ENABLE_COPILOT) return 'copilot';
       if (env.ENABLE_GEMINI) return 'gemini';
-      
+
       // Fallback if nothing matches (shouldn't happen if properly configured)
       logger.warn('No harnesses enabled! Defaulting to copilot.');
       return 'copilot';

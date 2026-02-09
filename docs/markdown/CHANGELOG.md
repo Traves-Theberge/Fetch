@@ -5,6 +5,89 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.3] - 2026-02-09
+
+### ✨ UX Improvements
+
+- **Informative "What can you do?" Response**:
+  - Added a `## YOUR CAPABILITIES` section to the system prompt.
+  - The agent now has explicit awareness of its safety commands (/stop, /undo, etc.), 13 orchestrator tools, and available AI harnesses.
+- **New `workspace_publish` Tool**:
+  - **Issue**: `workspace_sync` would skip creating a GitHub repository if the local project already had commits but no uncommitted changes.
+  - **Fix**: Introduced `workspace_publish` for explicit, reliable creation of new GitHub repositories from existing local projects.
+- **Improved Tool Awareness**: Updated the system prompt to explicitly list all available tools and their categories for better ReAct loop performance.
+
+## [4.0.2] - 2026-02-09
+
+### 🐛 Critical Bug Fixes
+
+- **Session Recursion / Identity Crisis**:
+  - **Issue**: `task_create` handler was receiving a `sessionId` (UUID) but passing it to `getOrCreateSession`, which expects a `userId` (Phone Number). This caused the system to create "nested" sessions where the `userId` field was populated with the previous UUID (`04fmpqa3...`), disconnecting the user from their phone number.
+  - **Fix**: Implemented and used `getSessionById(sessionId)` in `fetch-app/src/session/manager.ts` and updated `fetch-app/src/tools/task.ts` to strictly distinguish between `startTime` UUIDs and phone numbers.
+
+- **Notification Breakdown**:
+  - **Issue**: Proactive notifications (e.g., "Task completed") were failing because the bridge was attempting to send WhatsApp messages to the internal `sessionId` UUID instead of the user's phone number.
+  - **Fix**: Updated `fetch-app/src/bridge/client.ts` to look up the `userId` from the `SessionManager` before sending proactive messages. It now correctly resolves `bo0ejfbe...` -> `25565...`.
+
+- **Agent Hallucination & Selection Ambiguity**:
+  - **Issue**: The LLM would sometimes select disabled agents or fail to prompt when multiple agents were enabled.
+  - **Fix**: Updated `fetch-app/src/validation/tools.ts` to restrict `AgentSelectionSchema` to only explicitly enabled agents.
+  - **Fix**: Refined `TaskManager.selectAgent` to correctly handle `auto` selection and prompt for choice when multiple agents are active.
+  - **Fix**: Fixed boolean string evaluation for `ENABLE_COPILOT`, `ENABLE_GEMINI`, and `ENABLE_CLAUDE` flags using an `isTrue()` helper.
+
+### ⚡ Harness & Environment Updates
+
+- **ESM/CommonJS Mismatch**:
+  - **Issue**: An inline `require('../config/env.js')` in `TaskManager.selectAgent` caused silent crashes in the ESM-based bridge.
+  - **Fix**: Replaced with a standard ES module `import`.
+
+- **Kennel Tooling**:
+  - **Issue**: The `kennel` container lacked the necessary CLIs for Gemini and Copilot task execution.
+  - **Fix**: Updated `kennel/Dockerfile` to install `gh` and `gemini` (Google Generative AI) CLIs by default.
+
+- **GitHub Copilot CLI Syntax**:
+  - **Issue**: The previous `gh copilot suggest` CLI syntax was deprecated/incorrect for the installed version.
+  - **Fix**: Updated `fetch-app/src/harness/copilot.ts` to use `gh copilot --yolo -p` for headless execution.
+
+## [4.0.1] - 2026-02-08 (Dead Code Purge & Dependency Audit 🧹)
+
+> Full codebase review sprint — systematic file-by-file audit of every src/ directory, config file, and dependency.
+
+### 🗑️ Removed — Dead Code & Dependencies
+
+- **Deleted `src/modes/`** (7 files, ~800 lines): Zombie directory from v4.0 refactor — entire mode system was superseded by LLM-first routing but directory persisted.
+- **Deleted `src/conversation/`** (4 files): Thread manager, summarizer, detector, and types — all dead after v4.0 collapsed conversation handling into agent core.
+- **Deleted `src/proactive/`** (3 files): Scheduler, watcher, and polling — proactive features deferred, 0 importers.
+- **Deleted `types/qrcode-terminal.d.ts`**: Dead type declaration (0 imports) — QR code handled by Go TUI manager, not Node.
+- **Deleted `fetch-app/data/`**: Stale duplicate of volume-mounted `data/` directory.
+- **Removed 4 dead runtime deps**: `@anthropic-ai/sdk` (0 imports), `qrcode-terminal` (0 imports), `natural` (0 imports), `cron-parser` (0 imports).
+- **Removed `@types/natural`** devDep (dead with `natural`).
+- **Un-exported `TranscriptionResult`** in `transcription/index.ts` (0 external importers).
+
+### 🐛 Bug Fixes
+
+- **Always-true `.unref()` guards** (`bridge/client.ts`, `security/rateLimiter.ts`): Removed unnecessary `if (timer.unref)` conditionals — `NodeJS.Timeout` always has `.unref()`.
+- **Test fixture type error** (`command-parser.test.ts`): Added missing `id` and `timestamp` fields to `Message` literal.
+
+### 📦 Maintenance
+
+- **Dockerfile**: Removed dead `git config --global` block (3 lines) — git identity is configured in Kennel, not Bridge.
+- **Regenerated `package-lock.json`**: Was stale at v3.1.0 with 5 phantom packages. Now clean at v4.0.1 with 0 stale entries.
+- **ARCHITECTURE.md**: Added **Dependencies (Runtime)** section documenting all 10 live packages with purposes. Includes note clarifying that the `openai` npm package routes through OpenRouter, not OpenAI.
+- **README.md**: Fixed model defaults (`gpt-4.1-nano` → `gpt-4o-mini`), removed deleted directories from project structure, added `validation/` directory.
+
+### 🧪 Tests
+
+- **Test suite:** 173 tests passing (12 tests removed with deleted modules), tsc clean (0 errors).
+
+### 📊 Stats
+
+- **Deleted:** 15+ files (~1,600+ lines removed)
+- **Dead dependencies removed:** 5 (4 runtime + 1 devDep)
+- **Modified:** 10+ files
+
+---
+
 ## [4.0.0] - 2026-02-07 (The Conversation IS the Interface 🐕)
 
 > Sprint 1 of the v4.0 Conversational Refactor — collapsing 5 pre-LLM routing layers into a single LLM-first architecture.
@@ -12,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🏗️ Architecture — LLM-First Routing (Sprint 1)
 
-**The Big Change:** Every message now goes directly to the LLM with ALL 12 tools. No more intent classification, mode detection, or instinct pre-filtering. The LLM decides whether to chat or call tools — exactly how Claude Code, Goose, and Cline work.
+**The Big Change:** Every message now goes directly to the LLM with ALL 13 tools. No more intent classification, mode detection, or instinct pre-filtering. The LLM decides whether to chat or call tools — exactly how Claude Code, Goose, and Cline work.
 
 - **Deleted Intent Classifier** (`agent/intent.ts`, 520 lines): Removed ~200 regex patterns that pre-classified messages as `conversation`, `action`, or `clarify`. The LLM handles this natively through tool-calling.
 - **Deleted Mode Detector** (`conversation/detector.ts`, 73 lines): Removed keyword-based TASK/EXPLORATION/TEACHING/COLLABORATION/CHAT classification. Mode context now comes from the conversation itself.
@@ -46,6 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test suite:** 173 tests passing, tsc clean (0 errors).
 
 ### 📊 Stats
+
 - **Deleted:** 17 files (~2,600 lines removed)
 - **Modified:** 21 files
 - **New files:** 3 (`CONVERSATIONAL_REFACTOR_PLAN.md`, `PLAN.md`, `kennel/entrypoint.sh`)
@@ -85,6 +169,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test suite:** 173 tests passing (12 tests removed with deleted modules), tsc clean (0 errors).
 
 ### 📊 Stats
+
 - **Deleted:** 15+ files (~1,600+ lines removed)
 - **Dead dependencies removed:** 5 (4 runtime + 1 devDep)
 - **Modified:** 10+ files
@@ -97,37 +182,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Goal: Make Fetch feel like an intelligent agent, not a boxy command processor.
 
 ### 🧠 Phase 1 — Context Amnesia Fix
+
 - **System Prompt Rebuild (1.1):** After `workspace_select`, `workspace_create`, and `task_create` tool calls, the system prompt (`messages[0]`) is now rebuilt with fresh session state. The LLM immediately sees the updated workspace context instead of stale "no project selected."
 - **Workspace as Top-Level Directive (1.2):** Active workspace now appears as the **first** section in the context block with a bold `🎯 ACTIVE WORKSPACE` header and an explicit directive: "Do NOT ask the user to select or confirm a workspace."
 - **Post-Create Persistence (1.3):** After `workspace_create` and `task_create`, session state is persisted and the system prompt rebuilt — the LLM sees its own actions reflected immediately.
 
 ### 🤖 Phase 2 — Autonomy & Confirmation Loop Fix
+
 - **Autonomy Rules (2.1):** 7 autonomy rules injected as `HIGHEST PRIORITY` at the top of the system prompt. Includes: "Act first, summarize after", "Never ask for confirmation on non-destructive actions", "If user says 'create X', create X."
 - **ask_user Guard (2.2):** The `ask_user` tool now pattern-matches unnecessary confirmations ("Shall I proceed?", "Would you like me to?", "Is that okay?"). In cautious/autonomous mode, these auto-approve with "Yes, proceed" without ever reaching the user's phone.
 - **ToolContext Pipeline (2.2b):** `ToolContext` interface extended with `autonomyLevel` field. `ToolContext` moved from `registry.ts` to `types.ts` to eliminate circular imports. Both `handleWithTools()` and `handleConversation()` pass the session's autonomy level through.
 - **Mode-Aware Instructions (2.3):** System prompt behavioral section now changes based on mode — supervised gets "ask before every action", cautious gets "ask only for destructive", autonomous gets "execute everything immediately."
 
 ### 🎯 Phase 3 — Intent Classification & Conversation Tools
+
 - **Conversation Gets Tools (3.1):** `handleConversation()` now has 3 read-only tools: `workspace_list`, `workspace_select`, `workspace_status`. Questions like "what project am I on?" get real tool-based answers instead of hallucinated responses. Includes a 2-call tool loop and workspace state sync.
 - **Short Message Cutoff (3.2):** Reduced from 15 chars to 5 chars with an action verb exception pattern (`fix`, `add`, `rm`, `ls`, `cd`, `run`, `git`). "fix auth" (8 chars) now correctly routes to action handler.
 - **Greeting Pattern Fix (3.2b):** Added pattern for "hi <name>" style greetings (e.g., "hi Fetch") that were falling to the fallback classifier.
 - **Reactions Pattern Fix (3.2c):** Added "maybe" to conversation reactions — was falling through to fallback with the tighter cutoff.
 
 ### 💅 Phase 4 — Command UX Polish
+
 - **Descriptive Mode Toggles (4.1):** `/auto` and `/mode <name>` now return bullet-pointed explanations of what each mode does, not just "Switched to X mode."
 - **`/mode verbose` Redirect (4.2):** Instead of "Invalid mode", now explains that verbose is a setting (use `/verbose`) and lists the actual modes.
 - **Invalid Mode Help (4.2b):** `/mode <invalid>` now shows all 3 available modes with emoji and descriptions instead of a bare error.
 - **Context-Aware `/files` (4.3):** `/files` shows project name in header. Empty state mentions project name. `/add` response includes project name.
-- **Expanded Project Detection (4.4):** `ProjectType` expanded from 5 to 10 types: added `typescript` (tsconfig.json), `java` (pom.xml, build.gradle), `ruby` (Gemfile), `php` (composer.json), `dotnet` (*.csproj, *.sln). Glob pattern support added to `detectProjectType()`.
+- **Expanded Project Detection (4.4):** `ProjectType` expanded from 5 to 10 types: added `typescript` (tsconfig.json), `java` (pom.xml, build.gradle), `ruby` (Gemfile), `php` (composer.json), `dotnet` (*.csproj,*.sln). Glob pattern support added to `detectProjectType()`.
 - **`/status` Shows Project (4.5):** `formatStatus()` rewritten to prominently show project info (name, path, branch, clean/dirty) before task and settings sections.
 - **Version Bump (4.6):** `/version` now shows "Fetch v3.5.0 (Make It Feel Alive)".
 
 ### 📝 Phase 5 — System Prompt Optimization
+
 - **Slimmed Prompt (5.1):** System prompt reduced from 12+ sections to ~6 focused sections. Removed redundant CORE DIRECTIVES, OPERATIONAL GUIDELINES, and UNDERSTANDING REQUESTS sections.
 - **Conditional Skills (5.2):** Skills section only included when skills are actually loaded, reducing prompt noise.
 - **Test Alignment:** Updated `pipeline-config.test.ts` to match actual config values (`chatMaxTokens: 512`, `toolMaxTokens: 2048`).
 
 ### 📊 Stats
+
 - **Test suite:** 15 files, 200 tests, 0 failures
 - **Modified files:** 14 source + test files
 - **Net impact:** +347 lines, −108 lines
@@ -136,6 +227,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.4.0] - 2026-02-06 (Context Pipeline 🧠)
 
 ### 🧠 Phase 0 — Centralized Configuration Layer
+
 - **Pipeline Config Module (0.1):** Created `config/pipeline.ts` — single source of truth for all 44 tunable pipeline parameters. Every threshold, token budget, temperature, and limit reads from here.
 - **Magic Number Replacement (0.2):** Replaced hardcoded constants across 9 source files (`agent/core.ts`, `session/manager.ts`, `agent/prompts.ts`, `handler/index.ts`, `tools/task.ts`, `tools/interaction.ts`, `harness/executor.ts`, `security/rateLimiter.ts`, `task/manager.ts`) with `pipeline.*` references.
 - **Env-Tunable Overrides (0.3):** All 44 parameters are overridable via `FETCH_*` environment variables (e.g. `FETCH_HISTORY_WINDOW=30`, `FETCH_COMPACTION_THRESHOLD=60`). Sane defaults work out of the box.
@@ -143,6 +235,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker Compose Integration (0.5):** Wired 10 pipeline env vars through `docker-compose.yml` with commented defaults for quick tuning without code changes.
 
 ### 🔌 Phase 1 — Wire the Pipes
+
 - **Handler API Fix (1.1):** Replaced bare `session.messages.push()` in `handler/index.ts` with `sManager.addUserMessage()` + `sManager.addAssistantMessage()` — messages now persist through the full SessionManager lifecycle.
 - **Tool Call Persistence (1.2):** After tool execution in `agent/core.ts`, now calls `sManager.addAssistantToolCallMessage()` and `sManager.addToolMessage()` — tool interactions survive across turns.
 - **OpenAI Multi-Turn Format (1.3):** Rewrote `buildMessageHistory()` to emit proper OpenAI function calling format: `assistant` messages with `tool_calls` array, `tool` messages with matching `tool_call_id`. Orphan tool messages gracefully fall back to `assistant` role.
@@ -153,6 +246,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dead Code Removal:** Removed `conversation/summarizer.ts` import from session manager (replaced by built-in compaction). Legacy `conversation_summaries` table retained for backward compatibility.
 
 ### 📊 Stats
+
 - **Test suite:** 15 files, 200 tests, 0 failures (up from 13 files / 177 tests)
 - **New files:** `config/pipeline.ts`, `tests/unit/context-pipeline.test.ts`
 - **Modified files:** 18 source files across Phase 0 + Phase 1
@@ -164,6 +258,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.3.0] - 2026-02-06 (Deep Refinement 🏗️)
 
 ### 🏗️ Phase 4 — Architecture Simplification
+
 - **Unified Dual Task System (4.1):** Deleted `SessionTask` from session types. `session/manager.ts` task methods now delegate to `task/manager.ts` — single source of truth for task state. Eliminated `taskApproval` session system.
 - **Eliminated Redundant Task Queue (4.2):** Deleted `task/queue.ts` (267 lines). Exposed `getRunningTask()` / `hasRunningTask()` on `TaskManager`. All consumers use TaskManager directly.
 - **Centralized Env Config (4.3):** Created `config/env.ts` with Zod schema validating all 13 env vars at startup. Proxy-based lazy access for test compatibility. All files import from `env.ts` instead of reading `process.env` directly.
@@ -174,6 +269,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Intent Collapse (4.8):** Merged `workspace` and `task` intents into single `action` intent — the distinction served no purpose since both took the identical LLM+tools path.
 
 ### ⚙️ Phase 5 — Infrastructure & Reliability
+
 - **WhatsApp Reconnection (5.1):** Implemented exponential backoff reconnection (5s base, 5min cap, jitter) with fresh `Client` instance. Max 10 retries. Resets on successful reconnect.
 - **Graceful Shutdown (5.2):** Ordered cleanup sequence: proactive system → harness `killAll()` → bridge destroy → SQLite `close()`. Module-scoped bridge reference. `TaskStore.close()` and `HarnessSpawner.killAll()` methods added.
 - **Unhandled Rejection Handler (5.3):** Global `unhandledRejection` / `uncaughtException` handlers trigger graceful shutdown. Spawner error handler attached immediately after `spawn()` (fixes ENOENT crash).
@@ -183,18 +279,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dedup Optimization (5.8):** `MessageDeduplicator` switched from O(n) per-message Map scan to interval-based eviction. `isNew()` is now O(1).
 
 ### 📡 Phase 6 — Proactive System Completion
+
 - **Wired Proactive Commands (6.1):** `/remind`, `/schedule`, `/cron` (list/remove) now routed through the command parser to proactive handlers.
 - **One-Shot Reminders (6.2):** Added `oneShot` flag to `CronJob` interface. Scheduler auto-deletes one-shot jobs after first execution. `/remind` sets `oneShot: true`.
 - **Watcher Events (6.3):** `WatcherService` now extends `EventEmitter` with typed events (`file:add`, `file:change`, `file:remove`, `git:behind`). Events are emitted instead of dead-ending into logger.
 - **`/schedule list` (6.4):** Implemented sub-command parsing in `handleScheduleCommand` — `list`/`ls` routes to `handleCronList()`.
 
 ### 🧪 Phase 7 — Test Coverage & Strictness
+
 - **Command Parser Tests (7.1):** 27 tests covering passthrough, unknown commands, help/aliases, status, version, settings (verbose/autocommit/auto/mode), project, context, proactive (remind/schedule/cron), task control, and aliases.
 - **Security Tests (7.2):** 41 tests covering `InputValidator` (14), `sanitizePath` (4), `RateLimiter` (6), and `SecurityGate` (17) — including injection detection, authorization flows, group behavior, and broadcast handling.
 - **Renamed e2e → integration (7.3):** Moved all test files from `tests/e2e/` to `tests/integration/`. Removed `test:e2e` script. Fixed flaky timing threshold (100ms → 90ms).
 - **Strict tsconfig (7.5):** Enabled `noUnusedLocals` and `noUnusedParameters`. Fixed 4 violations (dead import, dead method, unused params).
 
 ### 📊 Stats
+
 - **Test suite:** 13 files, 177 tests, 0 failures (up from 11 files / 109 tests)
 - **New files:** 10 (5 command handlers, base class, env config, command types, 2 test suites)
 - **Deleted files:** `task/queue.ts` (267 lines), `tests/e2e/` directory (moved)
@@ -203,12 +302,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
 
 ### 🔴 Runtime Crash Fixes (P0)
+
 - **Session Store DDL:** Fixed `conversation_threads` table DDL that had completely mismatched columns vs prepared statements (would crash on first thread operation). Added missing `meta` table DDL. Removed dead `memory_facts` and `working_context` tables (zero readers/writers).
 - **Harness Executor:** `sendInput()` and `kill()` were reading from a `processes` Map that the pool-based execution path never populated — every call threw "Harness not found". Rewired both through `pool.sendInput()` → `spawner.sendInput()` using the actual ChildProcess stdin.
 - **Task Respond:** `handleTaskRespond()` had a `// TODO: Send response to harness via stdin` — it resumed task state but never actually delivered the user's response. Now wired through `executor.sendInput()`.
 - **Env Validation Order:** `validateEnvironment()` ran *after* 3 subsystems had already started. Moved to first line of `main()` so missing API keys fail fast.
 
 ### 🔒 Security Hardening (P1)
+
 - **Shell Injection — Custom Tools:** `tools/registry.ts` `createShellHandler()` did raw `{{param}}` string interpolation into shell commands. Now escapes values with single-quote wrapping.
 - **Shell Injection — Workspace Manager:** Workspace names passed directly into `sh -c` strings. Added `^[a-zA-Z0-9._-]+$` validation and switched to heredoc-based template creation.
 - **Shell Injection — Command Parser:** Git commit SHAs passed unsanitized to `exec()`. Added `/^[0-9a-f]{7,40}$/i` validation. Git clone switched from `exec()` to `execFile()` with args array.
@@ -216,41 +317,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Validator Blocks Code:** The backtick pattern `/`.*`/` in `SUSPICIOUS_PATTERNS` rejected any message containing inline code. Removed — Docker isolation is the real protection.
 
 ### 🧹 Dead Code Purge (~880 lines)
+
 - **`whatsapp-format.ts`:** Removed 8 dead exports (`formatMobileResponse`, `formatCode`, `formatDiff`, `formatCompactDiff`, `formatError`, `formatFileList`, `formatProgressBar`, `formatToolAction`) plus 5 helper functions. Kept only `formatForWhatsApp()`. File: 628 → 96 lines (−532).
 - **`harness/executor.ts`:** Removed `spawnAndWait()` (130-line dead method), `getOutputBuffer()`, `processes` Map, unused `child_process`/`output-parser` imports. File: 596 → 403 lines (−193).
 - **`utils/logger.ts`:** Removed 4 unused background color constants and dead `box()` function.
 - **`config/paths.ts`:** Removed `MEMORY_DIR` export (no memory system exists).
 
 ### 📦 Infrastructure
+
 - **Test Scripts:** Added `test`, `test:run`, `test:unit`, `test:e2e`, `test:integration` to package.json.
 - **Pool stdin:** Added `sendInput()` to `HarnessSpawner` and `HarnessPool` for proper stdin passthrough.
 
 ### Files Changed (25 files, +227/−880)
+
 - `session/store.ts`, `harness/executor.ts`, `harness/spawner.ts`, `harness/pool.ts`, `tools/task.ts`, `index.ts`, `tools/registry.ts`, `workspace/manager.ts`, `commands/parser.ts`, `api/status.ts`, `security/validator.ts`, `agent/whatsapp-format.ts`, `utils/logger.ts`, `config/paths.ts`, plus 11 doc files
 
 ## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
 
 ### 🧬 Unified Identity Pipeline
+
 - **Single Source of Truth:** `IdentityManager.buildSystemPrompt()` is now the only system prompt builder. Deleted the static `CORE_IDENTITY`, `CAPABILITIES`, `TOOL_REFERENCE`, `UNDERSTANDING_PATTERNS` constants and 5 dead prompt functions (`buildOrchestratorPrompt`, `buildIntentPrompt`, `buildSummarizePrompt`, `buildErrorRecoveryPrompt`, `buildConversationPrompt`) from `agent/prompts.ts` — 418 lines of dead code removed.
 - **Session Context Wired:** `buildContextSection()` (workspace, task, git state, summaries, repo map) was defined but never called in a live code path. Now injected into both `handleConversation()` and `handleWithTools()` so the LLM always sees session state.
 
 ### 🧩 Skill Discovery → Activation Pattern
+
 - **Two-Phase Skills:** Available skills are listed in `<available_skills>` XML (discovery). When a skill's triggers match the user's message, its full instruction body is injected as `<activated_skill>` (activation). Previously, skill `.instructions` were loaded but never surfaced to the LLM.
 - **`<location>` Field:** Each skill summary now includes `<location>` pointing to its `SKILL.md` file, following the AgentSkills spec pattern.
 
 ### 🐺 Pack Agent Sub-Files
+
 - **Individual Agent Profiles:** Monolithic `data/identity/AGENTS.md` replaced by individual files in `data/agents/` — `claude.md`, `gemini.md`, `copilot.md` — each with YAML frontmatter parsed by gray-matter.
 - **Structured Pack Data:** New `PackMember` interface (13 fields: name, alias, emoji, harness, cli, role, fallback_priority, triggers, avoid, body, sourcePath). System prompt now includes `<available_agents>` XML with routing info.
 - **Routing Rules:** `data/agents/ROUTING.md` documents cross-cutting routing behavior (manual override, fallback chain, delegation protocol).
 - **Hot-Reload:** `IdentityManager` now watches `data/agents/` for changes alongside `data/identity/`.
 
 ### 🧹 Legacy Cleanup
+
 - **Dead Code Removed:** `agent/prompts.ts` gutted from 571 → 153 lines. Removed `SystemPromptConfig` interface (unused). Deleted 2 dead commented-out functions (`getCurrentMode`, `buildConversationPrompt`) from `agent/core.ts`.
 - **JSDoc Updated:** All modified files have current `@fileoverview` and `@see` references. Removed stale references to `AGENTS.md`, `buildOrchestratorPrompt`, legacy tool wrapper comments.
 - **Tests Fixed:** Rewrote `tool-registry.test.ts` to use actual ToolRegistry API (`list()`, `get()`, `execute()`). Was calling nonexistent methods (`getToolNames`, `has`, `getAll`, `toClaudeFormat`) and using `new ToolRegistry()` against a private constructor. Fixed `identity-loader.test.ts` "Canid" → "Orchestrator" assertion and parameterized `agentsDir` for test isolation. Added pack member loading test. All **109 tests pass**.
 - **Deprecated:** `data/identity/AGENTS.md` — kept as human-readable reference with deprecation header.
 
 ### Files Changed
+
 - `agent/core.ts` — Wired skill activation + session context into both LLM code paths, removed dead functions
 - `agent/prompts.ts` — 571 → 153 lines, kept only `buildTaskFramePrompt()` + `buildContextSection()`
 - `identity/manager.ts` — Accepts `activatedSkillsContext` + `sessionContext`, builds pack XML, watches agents dir
@@ -267,17 +376,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
 
 ### 🧹 Comprehensive Code Audit
+
 - **20 dead files removed:** Entire `memory/` module (3 files), `retrieval/` module (6 files), `executor/docker.ts`, `utils/stream.ts`, `utils/sanitize.ts`, `tools/types.ts` (rebuilt), 7 dead barrel `index.ts` files, and empty `executor/` directory.
 - **Dead code cleaned from live files:** Removed unused `cron_jobs` table DDL from `task/store.ts`, 10 dead exports from `utils/id.ts`, 6 dead functions from `agent/format.ts`, dead `SessionSummary` and `Database` interfaces from `session/types.ts`.
 - **`tools/types.ts` rebuilt:** Kept only `ToolResult` and `DangerLevel` (removed ~30 dead exports).
 
 ### 📐 State Management Architecture Doc
+
 - Created `docs/markdown/STATE_MANAGEMENT.md` documenting all 22 stateful singletons across 6 layers.
 - Mapped 9 SQLite tables across 2 databases, filesystem watchers, and in-memory stores.
 - Catalogued 7 EventEmitter chains, 3 singleton patterns, and initialization order.
 - Identified 5 redundancies: dual task tracking, two ThreadManagers, dead cron_jobs table, dual process maps, mode naming collision.
 
 ### 📝 Documentation
+
 - Updated `CODE_AUDIT_CHECKLIST.md` — all deleted/cleaned files annotated.
 - Added State Management link to docs site sidebar.
 - Updated README.md — fixed project structure, removed dead module references, corrected V2→V3 terminology.
@@ -286,15 +398,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.1.0] - 2026-02-05 (The Responsive Orchestrator)
 
 ### 🎭 Dynamic Identity System
+
 - **Filesystem Hot-Reloading:** Fetch's personality is now fully customizable via Markdown files in `data/identity/`.
 - **Live Updates:** Editing `SYSTEM.md` (Core rules) or `USER.md` (User info) instantly updates the system prompt without a restart.
 - **New Commands:** `/identity reset` and `/identity <section>` to manage the agent's persona on the fly.
 
 ### 🧠 Runtime Skill Teaching
+
 - **Dynamic Skills:** Skills (in `data/skills/`) are now hot-reloaded. You can "teach" Fetch new capabilities by dropping a Markdown file.
 - **Skill Management:** Added `/skill` command suite to list, enable, disable, and manage skills at runtime.
 
 ### 💾 Robust Persistence & Recovery
+
 - **Crash Recovery:** Fetch now persists its exact state (WORKING, WAITING, etc.) to the database.
 - **Resurrection:** If the server crashes during a task, Fetch wakes up, checks the DB, restores the state, and resumes work (or alerts the user).
 - **Thread Management:** Introduction of `/thread` commands for switching contexts and manually archiving conversations.
@@ -302,15 +417,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.0.0] - 2026-02-04 (The Orchestrator Architecture)
 
 ### 🏗️ Core Architecture Overhaul
+
 - **Orchestrator Philosophy:** Re-architected Fetch to be an *orchestrator* of specialized "sub-agents" (Claude, Gemini, Copilot) rather than just a chatbot.
 - **New Mode System:** Introduced formal state machine modes: `ALERT` (Listening), `WORKING` (Executing), `WAITING` (Input), `GUARDING` (Safety), `RESTING` (Idle).
 - **Instincts Layer:** Deterministic "fast-path" reactions that bypass the LLM for immediate control (e.g., `stop`, `status`).
 
 ### 🛡️ Safety
+
 - **Safety Mode:** High-risk operations (file deletion, large refactors) now trigger a `GUARDING` mode that locks the context until approved.
 - **Impact Analysis:** (Beta) Pre-execution diff reviews for critical changes.
 
 ### 🧩 Skills Framework
+
 - **Modular Capabilities:** Created a plugin-like system for "Skills" (Git, Docker, React, etc.) defined in Markdown files.
 - **Auto-Loading:** Skills are automatically discovered and loaded on startup.
 
@@ -319,21 +437,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔧 Bug Fixes
 
 #### Message Deduplication
+
 - Fixed **triple message response** bug where WhatsApp's `message_create` event fired multiple times
 - Added `MessageDeduplicator` class with 30-second TTL to prevent duplicate processing
 - Messages are now tracked by ID and processed exactly once
 
 #### Voice Transcription (Local Whisper)
+
 - Fixed **whisper binary path** mismatch in Dockerfile (`whisper-cli` → `whisper-cpp`)
 - Voice notes now transcribe correctly using local `whisper.cpp` (100% free, no API)
 - Added proper binary permissions and verification logging
 
 #### Help & Capabilities
+
 - Updated `CAPABILITIES` prompt to include all slash commands and aliases
 - Now shows consistent information when asking "what can you do" or "what commands do you have"
 - Commands now show aliases (e.g., `/status` shows `/st`, `/gs`)
 
 ### 📝 Changed Files
+
 - `bridge/client.ts` - Added MessageDeduplicator for event deduplication
 - `agent/prompts.ts` - Rewrote CAPABILITIES to include all commands
 - `Dockerfile` - Fixed whisper binary copy command
@@ -341,6 +463,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.4.3] - 2026-02-04 (Zero Trust Bonding 🔐)
 
 ### 🔐 Phone Number Whitelist (Issue #13)
+
 - Implemented **Zero Trust Bonding** security model for group chat access control.
 - Created `WhitelistStore` class for managing trusted phone numbers with file persistence.
 - Added `/trust` commands for owner to manage whitelist via WhatsApp:
@@ -354,6 +477,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unauthorized `@fetch` messages are silently dropped (no information leakage).
 
 ### 🛡️ Security Flow
+
 ```
 Incoming @fetch message
     ↓
@@ -367,6 +491,7 @@ DROP (silent)
 ## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
 
 ### 🗺️ Smart Repo Maps (Issue #9)
+
 - Implemented **Repository Mapping** to give the agent architectural awareness of large projects.
 - Added `repo-map.ts` to generate a tree-based summary of the workspace, including symbols (classes, functions, exports).
 - Added `symbols.ts` for regex-based symbol extraction for TypeScript, Python, and Go.
@@ -374,16 +499,19 @@ DROP (silent)
 - The agent now understands project structure *before* taking action, reducing "blind" file searches.
 
 ### 🎙️ Voice & Vision (Issues #6 & #7)
+
 - **Voice Notes:** Built-in Whisper integration automatically transcribes voice notes and PTT into text commands.
 - **Image Intelligence:** Send screenshots or diagrams! Fetch now uses OpenAI Vision to analyze images and provide context (e.g., "Fix this error" + screenshot).
 - Added multimedia support to the WhatsApp Bridge, allowing seamlessly mixing voice, text, and images.
 
 ### 🌊 Live Progress Streaming (Issue #8)
+
 - Added real-time feedback for long-running tasks.
 - Fetch now streams progress updates (e.g., "📝 Editing file...", "🧪 Running tests...") directly to WhatsApp.
 - Implemented intelligent throttling to prevent message spans.
 
 ### 🔧 Core Improvements
+
 - **Unified Command Parser:** Consolidated all slash command logic (`/status`, `/select`, etc.) into a single robust parser.
 - **Session Sync:** Fixed state synchronization issues where agent-initiated workspace changes weren't persisting.
 - **Self-Healing:** The agent now detects and automatically recovers from 429 Rate Limits and 500 errors.
@@ -391,17 +519,20 @@ DROP (silent)
 ## [2.4.1] - 2026-02-04 (Harness Alignment & Diagnostics 🛠️)
 
 ### 🧩 Harness Interface Alignment
+
 - Unified `HarnessAdapter` interface across Claude, Gemini, and Copilot.
 - Implemented `extractFileOperations` in Copilot CLI adapter for consistent task summaries.
 - Refined output parsing to accurately detect interactive questions vs completion summaries.
 
 ### 🛡️ System Diagnostics & Hardening
+
 - Resolved "Cannot redeclare block-scoped variable" shadowing issues in tool layer.
 - Fixed import naming collisions in main orchestrator handler (`getTaskManager` vs singleton).
 - Added strict null safety checks and type-safe manager accessors.
 - Cleaned up Go TUI diagnostics and optimized QR code rendering logic.
 
 ### 🧹 Code Quality
+
 - Migrated to Flat Config (`eslint.config.js`) for ESLint 9 compatibility.
 - Fixed useless regex escape characters and unused variable warnings.
 - Achieved 100% test pass rate (104/104 tests) across Unit, E2E, and Integration suites.
@@ -409,18 +540,21 @@ DROP (silent)
 ## [2.4.0] - 2026-02-04 (Reliability & Persistence 🔄 💾)
 
 ### 🔄 Better Error Recovery & Retry Logic
+
 - Implemented robust retry strategy with backoffs [0s, 1s, 3s, 10s].
 - Added user-facing progress reporting during retries ("Hold on, fetching again... 🐕").
 - Added specialized handling for `400 Bad Request`, retrying once with simplified context history.
 - Consolidated all LLM calls (conversation, tools, task framing) into a unified retry handler.
 
 ### 💾 Persistent Task Management
+
 - Created SQLite-based `TaskStore` for reliable task state preservation.
 - Implemented automatic state loading on application startup.
 - Ensured all task transitions and progress updates are persisted in real-time.
 - Synchronized `TaskQueue` with stored active tasks to prevent data loss across restarts.
 
 ### ⚡ Docker Kennel Performance
+
 - Optimized `Kennel` Dockerfile with multi-language runtimes (Python, Go, Rust).
 - Added essential developer tools (`jq`, `tree`, `build-essential`) to the sandbox.
 - Reduced image layers by grouping installations.
@@ -434,6 +568,7 @@ Auto-scaffolding for new workspaces using popular project templates.
 ### Added
 
 **Templates:**
+
 - `empty`: Basic directory with README and .gitignore
 - `node`: Scaffolds with `npm init -y` and creates a sample `index.js`
 - `python`: Creates basic structure and initializes a virtual environment (`venv`)
@@ -443,6 +578,7 @@ Auto-scaffolding for new workspaces using popular project templates.
 - `next`: Scaffolds a Next.js app using `create-next-app` (non-interactive)
 
 **Features:**
+
 - Real-time progress events for workspace scaffolding
 - Generous timeouts for heavy scaffolders (Next.js, Vite)
 - Automatic git initialization for all scaffolded projects
@@ -450,12 +586,14 @@ Auto-scaffolding for new workspaces using popular project templates.
 ### Changed
 
 **Kennel Container:**
+
 - Updated `kennel/Dockerfile` to include essential runtimes:
   - Python 3 + venv
   - Go 1.21+
   - Rust (cargo + rustc)
 
 **Workspace Manager:**
+
 - Refactored `WorkspaceManager.createWorkspace` to use actual CLI scaffolders instead of manual file creation where possible
 - Added `workspace:scaffolding` events to track process lifecycle
 
@@ -476,12 +614,14 @@ Comprehensive integration test suite for the CLI harness adapters (Claude, Gemin
 ### Added
 
 **Test Coverage:**
+
 - Created `/fetch-app/tests/integration/harness.test.ts` with 34 comprehensive tests
 - OutputParser tests: question detection, progress indicators, file operations, completion detection, error handling
 - Adapter integration tests: ClaudeAdapter, GeminiAdapter, CopilotAdapter output parsing
 - HarnessExecutor tests: timeout handling, error recovery, event emission
 
 **Test Categories:**
+
 - Question Detection (4 tests): `?` endings, `[y/n]` prompts, yes/no patterns
 - Progress Detection (2 tests): spinner indicators, percentage progress
 - File Operation Detection (4 tests): created/modified/deleted files, Gemini bracket format
@@ -509,11 +649,13 @@ Removed all remnants of the old lowdb/JSON-based session storage.
 ### Fixed
 
 **Documentation:**
+
 - Updated API_REFERENCE.md with correct SQLite-based SessionStore API
 - Updated SETUP_GUIDE.md to reference `sessions.db` instead of `sessions.json`
 - Updated PLAN.md file structure to show SQLite database
 
 **Configuration:**
+
 - Updated .dockerignore to exclude SQLite files (sessions.db, sessions.db-wal, sessions.db-shm)
 
 ### Removed
@@ -532,12 +674,14 @@ Enhanced documentation with better diagrams and clearer intent classification.
 ### Changed
 
 **README.md:**
+
 - Redesigned architecture diagram with emoji icons and better visual hierarchy
 - Updated message flow diagram to show 4-mode intent classification (Chat, Inquiry, Action, Task)
 - Added interactive diagrams link pointing to docs server
 - Improved ASCII art formatting for better readability
 
 **Documentation:**
+
 - Updated DOCUMENTATION.md with 4-mode intent classification system:
   - 💬 Conversation — Greetings, thanks, general chat (direct response)
   - 🔍 Inquiry — Questions about code (read-only tools)
@@ -547,6 +691,7 @@ Enhanced documentation with better diagrams and clearer intent classification.
 - Added diagram placeholders for message flow, harness system, and tools
 
 **Styling:**
+
 - Enhanced diagram container styles with better spacing and shadows
 - Added responsive SVG support with max-width and auto height
 - Improved dark mode diagram appearance with elevated card background
@@ -562,12 +707,14 @@ Fetch is now a proper good boy who just wants to help! Woof!
 ### Added
 
 **New Tools:**
+
 - `workspace_create` - Create new projects with templates (empty, node, python, rust, go, react, next)
 - `workspace_delete` - Delete projects with required confirmation
 
 **Tool Count:** 9 → 11 tools total (5 workspace + 4 task + 2 interaction)
 
 **Personality:**
+
 - Full good boy energy with tail wags and woofs
 - Lobster hatred 🦞 - Fetch DESPISES lobsters (weird ocean bugs with claws!)
 - "Guard dog mode" for security concerns
@@ -575,6 +722,7 @@ Fetch is now a proper good boy who just wants to help! Woof!
 - Error messages: "Ruff, hit a snag!" instead of cold errors
 
 **Project Templates:**
+
 - `empty` - Just README
 - `node` - package.json, index.js, .gitignore
 - `python` - main.py, requirements.txt
@@ -586,6 +734,7 @@ Fetch is now a proper good boy who just wants to help! Woof!
 ### Changed
 
 **Prompts Rewritten:**
+
 - `CORE_IDENTITY` - Now a loyal coding companion, not just a tool
 - `CAPABILITIES` - "What I Can Fetch For You 🦴" with dog personality
 - `TOOL_REFERENCE` - Complete table of all 11 tools
@@ -593,6 +742,7 @@ Fetch is now a proper good boy who just wants to help! Woof!
 - Error recovery with "Good dogs don't give up!"
 
 **Documentation:**
+
 - Updated PROMPT_ENGINEERING.md with cleaner structure
 - Removed excessive dog metaphors from code comments (kept in user-facing prompts)
 
@@ -613,18 +763,21 @@ Major prompt engineering improvements to make Fetch a better companion.
 ### Added
 
 **Prompt System:**
+
 - `CORE_IDENTITY` - Enhanced personality with "good sniffer dog" metaphor
 - `UNDERSTANDING_PATTERNS` - Smart interpretation of vague requests
 - `CAPABILITIES` - Clear, scannable list of what Fetch can do
 - [docs/PROMPT_ENGINEERING.md](docs/PROMPT_ENGINEERING.md) - Complete prompt engineering guide
 
 **Ethical Guidelines:**
+
 - "DO no evil, protect and serve" philosophy
 - Explicit confirmation for destructive operations
 - Safety-first approach to data changes
 - Secret protection (never log credentials)
 
 **Intent Classification:**
+
 - Reorganized patterns into semantic categories
 - Added entity extraction (file paths, actions, destructive flag)
 - Improved confidence scoring with better thresholds
@@ -634,12 +787,14 @@ Major prompt engineering improvements to make Fetch a better companion.
 ### Changed
 
 **Orchestrator Prompt:**
+
 - Added "Understanding Your Human" section for vague requests
 - Added emotional signal handling (frustration, urgency, uncertainty)
 - Improved edge case examples with dog personality
 - Added smart interpretation examples ("fix it", "make it work", "the usual")
 
 **Intent Patterns:**
+
 - Split `CONVERSATION_PATTERNS` into subcategories (greetings, thanks, farewells, help, reactions)
 - Split `WORKSPACE_PATTERNS` into subcategories (list, select, status, context)
 - Split `TASK_PATTERNS` into subcategories (create, modify, refactor, destructive, test, debug)
@@ -647,6 +802,7 @@ Major prompt engineering improvements to make Fetch a better companion.
 - Added code indicator patterns (keywords, syntax markers)
 
 **Response Style:**
+
 - More consistent dog personality ("Let me fetch that!", "Sniffing around...")
 - Better error recovery messages with supportive tone
 - Confirmation prompts for destructive operations
@@ -671,32 +827,38 @@ Fetch V2 transforms from a **24-tool coding assistant** to an **8-tool orchestra
 #### 🎯 V2 Orchestrator Architecture
 
 **Core Components:**
+
 - `agent/core-v2.ts` - V2 agent with 3-intent classification and tool execution loop
 - `agent/intent-v2.ts` - Simplified intent classifier (conversation, workspace, task)
 - `agent/prompts-v2.ts` - Orchestrator prompts for routing, framing, summarizing, error recovery
 - `handler/v2.ts` - V2 message handler with feature flags for gradual rollout
 
 **Task Management:**
+
 - `task/types.ts` - Complete task domain types (Task, TaskStatus, TaskResult, TaskProgress)
 - `task/manager.ts` - Task lifecycle management with state machine
 - `task/queue.ts` - Single-task queue with capacity management
 - `task/integration.ts` - Task-harness integration layer with event routing
 
 **Harness Execution:**
+
 - `harness/types.ts` - Harness types (HarnessConfig, HarnessExecution, HarnessResult, HarnessEvent)
 - `harness/executor.ts` - Process spawning, output streaming, question detection
 - `harness/claude.ts` - Claude Code adapter with `--print` mode
 - `harness/output-parser.ts` - Output parsing for questions, errors, and completion
 
 **Workspace Management:**
+
 - `workspace/types.ts` - Workspace and project context types
 - `workspace/manager.ts` - Workspace discovery, selection, git status
 
 **Validation:**
+
 - `validation/common.ts` - Common Zod schemas (SafePath, PositiveInt, etc.)
 - `validation/tools.ts` - Tool-specific input/output schemas for all 8 V2 tools
 
 **Utilities:**
+
 - `utils/id.ts` - ID generators with prefixes (tsk_, hrn_, ses_, prg_)
 - `utils/docker.ts` - Docker utilities for container operations
 - `utils/stream.ts` - Stream utilities for output handling
@@ -704,6 +866,7 @@ Fetch V2 transforms from a **24-tool coding assistant** to an **8-tool orchestra
 #### 🛠️ New V2 Tools (8 total)
 
 **Workspace Tools:**
+
 | Tool | Description |
 |------|-------------|
 | `workspace_list` | List available workspaces in /workspace |
@@ -711,6 +874,7 @@ Fetch V2 transforms from a **24-tool coding assistant** to an **8-tool orchestra
 | `workspace_status` | Get workspace git status and info |
 
 **Task Tools:**
+
 | Tool | Description |
 |------|-------------|
 | `task_create` | Create a coding task for harness execution |
@@ -719,6 +883,7 @@ Fetch V2 transforms from a **24-tool coding assistant** to an **8-tool orchestra
 | `task_respond` | Respond to a task's pending question |
 
 **Interaction Tools:**
+
 | Tool | Description |
 |------|-------------|
 | `ask_user` | Ask user a question during task execution |
@@ -796,32 +961,38 @@ FETCH_V2_ROLLOUT_PERCENT=100
 ### Added
 
 #### 🛠️ Zod Runtime Validation
+
 - **Tool argument validation** using Zod schemas for all 24 tools
 - **Type-safe schemas** with runtime constraint checking
 - **Validation function** `validateToolArgs()` with detailed error messages
 - **Schema registry** `toolSchemas` mapping tool names to Zod schemas
 
 #### 📚 Comprehensive JSDoc Documentation
+
 - **36 TypeScript files** with full `@fileoverview` documentation
 - Module-level documentation with `@module` identifiers
 - Cross-references with `@see` tags between related modules
 
 #### 🧠 4-Mode Architecture
+
 - **Conversation Mode** - Quick chat without tools
 - **Inquiry Mode** - Read-only code exploration
 - **Action Mode** - Single edit cycle with approval
 - **Task Mode** - Full multi-step task execution
 
 #### 🎯 Intent Classification
+
 - Automatic intent detection based on message patterns
 - Routes to appropriate mode without user intervention
 
 #### 📁 Project Management
+
 - `/projects` - List all git repositories in workspace
 - `/project <name>` - Switch active project context
 - `/clone <url>` - Clone repositories into workspace
 
 ### Fixed
+
 - **WhatsApp Self-Chat Message Handling** - Messages sent to yourself now properly processed
 - **Naming Convention Cleanup** - Renamed `ValidationResult` → `ToolValidationResult`
 
@@ -830,6 +1001,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 ## [0.2.0] - 2026-02-02
 
 ### Added
+
 - **TUI Redesign** - Complete visual overhaul using Charmbracelet ecosystem
 - **Model Selector** - Interactive OpenRouter model browser
 - **@fetch trigger system** - All messages must now start with `@fetch` prefix
@@ -838,11 +1010,13 @@ FETCH_V2_ROLLOUT_PERCENT=100
 - **Documentation site** - Beautiful HTML docs with HLLM design system
 
 ### Changed
+
 - **Manager Menu Streamlined** - Reduced from 11 to 9 items
 - Status API port changed from 3001 to **8765**
 - Security gate completely rewritten for @fetch trigger support
 
 ### Fixed
+
 - Group messages now properly supported with owner verification
 
 ---
@@ -850,6 +1024,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 ## [0.1.0] - 2026-02-01
 
 ### Added
+
 - Initial release of Fetch - Your Faithful Code Companion
 - WhatsApp bridge using `whatsapp-web.js` for messaging interface
 - Go TUI Manager with Bubble Tea framework for service management
@@ -861,6 +1036,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 - Multi-agent support: Claude Code, Gemini CLI, GitHub Copilot
 
 ### Security
+
 - Whitelist-only authentication (OWNER_PHONE_NUMBER)
 - Rate limiting (30 requests/minute)
 - Input validation and sanitization

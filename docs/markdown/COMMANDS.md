@@ -14,7 +14,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-As of v4.0, Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 12 orchestrator tools.
+As of v4.0, Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 13 orchestrator tools.
 
 The only slash commands that exist are **5 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
@@ -34,7 +34,7 @@ Everything else — including project switching, git operations, settings, ident
 
 ## Natural Language (Everything Else)
 
-The LLM has access to 12 orchestrator tools and decides which to call based on your message. Here are examples:
+The LLM has access to 13 orchestrator tools and decides which to call based on your message. Here are examples:
 
 ### Workspace Management
 
@@ -76,7 +76,7 @@ The LLM has access to 12 orchestrator tools and decides which to call based on y
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 12 tools:
+The LLM has access to these 13 tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|
@@ -86,6 +86,7 @@ The LLM has access to these 12 tools:
 | `workspace_create` | Workspace | Create new project + GitHub repo |
 | `workspace_delete` | Workspace | Delete a workspace project |
 | `workspace_sync` | Workspace | Commit + push to GitHub remote |
+| `workspace_publish` | Workspace | Create new GitHub repo from existing project |
 | `task_create` | Task | Delegate coding work to a harness (Claude/Gemini/Copilot) |
 | `task_status` | Task | Check running task progress |
 | `task_cancel` | Task | Kill a running task |
@@ -98,6 +99,7 @@ The LLM has access to these 12 tools:
 When Fetch is working on a task, you'll see structured responses:
 
 **Task started:**
+
 ```
 🚀 Task started: Add input validation
 🤖 Using Claude Code
@@ -105,12 +107,14 @@ When Fetch is working on a task, you'll see structured responses:
 ```
 
 **Progress update:**
+
 ```
 📝 Editing src/routes/auth.ts...
 📝 Creating src/middleware/validate.ts...
 ```
 
 **Task complete:**
+
 ```
 ✅ Task complete!
 Changed 3 files:
@@ -120,6 +124,7 @@ Changed 3 files:
 ```
 
 **Approval required (destructive action):**
+
 ```
 ⚠️ This will delete 5 files. Approve?
 Reply: yes/no

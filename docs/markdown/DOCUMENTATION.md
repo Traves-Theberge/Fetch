@@ -1,6 +1,6 @@
 # Documentation
 
-This is the master documentation index for Fetch v4.0.0.
+This is the master documentation index for Fetch v4.0.3.
 
 ## Getting Started
 
@@ -18,6 +18,7 @@ This is the master documentation index for Fetch v4.0.0.
 ## Architecture
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
+- [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
 - [Agentic Architecture](AGENTIC_PLAN.md) — LLM-first model, ReAct loop, harness delegation
 - [Context Pipeline](CONTEXT_PIPELINE_PLAN.md) — Multi-turn context, tool memory, compaction engine
 - [State Management](STATE_MANAGEMENT.md) — Database schema, singletons, events, boot order
@@ -35,7 +36,7 @@ This is the master documentation index for Fetch v4.0.0.
 1. **WhatsApp** delivers the message to the Bridge via whatsapp-web.js
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Safety gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`). If matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with all 12 tools available — there is no intent classification or conversation/action split
+4. **Everything else** goes to the LLM with all 13 tools available — there is no intent classification or conversation/action split
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 7. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness

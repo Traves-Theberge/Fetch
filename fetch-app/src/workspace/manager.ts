@@ -611,10 +611,10 @@ export class WorkspaceManager extends EventEmitter {
   private async createNodeProject(path: string, name: string, description?: string): Promise<void> {
     // Scaffold using npm init
     await dockerExec('npm', ['init', '-y'], { cwd: path });
-    
+
     // Create a basic index.js (name already validated as safe alphanumeric)
     await dockerExec('sh', ['-c', `cat > ${path}/index.js << 'HEREDOC'\nconsole.log("Hello from ${name}!");\nHEREDOC`]);
-    
+
     // Update package.json description if provided
     if (description) {
       const safeDesc = description.replace(/[\\/"']/g, '');
@@ -629,7 +629,7 @@ export class WorkspaceManager extends EventEmitter {
     // Create basic python structure (name already validated as safe alphanumeric)
     await dockerExec('sh', ['-c', `cat > ${path}/main.py << 'HEREDOC'\n# ${name}\n\nprint("Hello from ${name}!")\nHEREDOC`]);
     await dockerExec('sh', ['-c', `echo '' > ${path}/requirements.txt`]);
-    
+
     // Create venv if python3 is available
     const venvResult = await dockerExec('python3', ['-m', 'venv', 'venv'], { cwd: path, timeoutMs: 60000 });
     if (venvResult.exitCode !== 0) {
@@ -643,7 +643,7 @@ export class WorkspaceManager extends EventEmitter {
   private async createRustProject(path: string, name: string, description?: string): Promise<void> {
     // Use cargo init if available
     const cargoResult = await dockerExec('cargo', ['init', '--name', name], { cwd: path, timeoutMs: 30000 });
-    
+
     if (cargoResult.exitCode !== 0) {
       logger.warn(`Cargo init failed, creating manual Rust structure: ${cargoResult.stderr}`);
       // Manual creation fallback (name already validated as safe alphanumeric)
@@ -658,7 +658,7 @@ export class WorkspaceManager extends EventEmitter {
   private async createGoProject(path: string, name: string): Promise<void> {
     // Use go mod init
     const goResult = await dockerExec('go', ['mod', 'init', name], { cwd: path, timeoutMs: 30000 });
-    
+
     if (goResult.exitCode !== 0) {
       logger.warn(`Go mod init failed, creating manual Go structure: ${goResult.stderr}`);
       await dockerExec('sh', ['-c', `cat > ${path}/go.mod << 'HEREDOC'\nmodule ${name}\n\ngo 1.21\nHEREDOC`]);
@@ -673,10 +673,10 @@ export class WorkspaceManager extends EventEmitter {
     // Scaffold using Vite (non-interactive)
     // We clean the directory first because vite might complain
     await dockerExec('rm', ['-rf', '*'], { cwd: path });
-    
-    const viteResult = await dockerExec('npm', ['create', 'vite@latest', '.', '--', '--template', 'react'], { 
-      cwd: path, 
-      timeoutMs: 120000 
+
+    const viteResult = await dockerExec('npm', ['create', 'vite@latest', '.', '--', '--template', 'react'], {
+      cwd: path,
+      timeoutMs: 120000
     });
 
     if (viteResult.exitCode !== 0) {
@@ -694,18 +694,18 @@ export class WorkspaceManager extends EventEmitter {
     await dockerExec('rm', ['-rf', '*'], { cwd: path });
 
     const nextResult = await dockerExec('npx', [
-      'create-next-app@latest', 
-      '.', 
-      '--ts', 
-      '--no-tailwind', 
-      '--no-eslint', 
-      '--app', 
-      '--use-npm', 
-      '--no-src-dir', 
+      'create-next-app@latest',
+      '.',
+      '--ts',
+      '--no-tailwind',
+      '--no-eslint',
+      '--app',
+      '--use-npm',
+      '--no-src-dir',
       '--import-alias', '@/*'
-    ], { 
-      cwd: path, 
-      timeoutMs: 300000 
+    ], {
+      cwd: path,
+      timeoutMs: 300000
     });
 
     if (nextResult.exitCode !== 0) {
@@ -815,7 +815,7 @@ export class WorkspaceManager extends EventEmitter {
 
       // Extract repo URL from output
       const url = result.stdout.trim().split('\n').pop()?.trim();
-      
+
       this.emitEvent('workspace:scaffolding', name, { status: 'github-created', url });
       logger.info(`Created GitHub repo: ${url}`);
 
@@ -837,15 +837,15 @@ export class WorkspaceManager extends EventEmitter {
     const userResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,
     });
-    
+
     if (userResult.exitCode !== 0) return undefined;
-    
+
     const username = userResult.stdout.trim();
     const repoUrl = `https://github.com/${username}/${name}`;
 
     // Check if remote already exists
     const remoteCheck = await dockerExec('git', ['-C', workspacePath, 'remote', 'get-url', 'origin']);
-    
+
     if (remoteCheck.exitCode !== 0) {
       // No remote — add it
       await dockerExec('git', ['-C', workspacePath, 'remote', 'add', 'origin', repoUrl]);
@@ -999,6 +999,98 @@ export class WorkspaceManager extends EventEmitter {
       pushed,
       repoCreated,
     };
+  }
+
+  /**
+   * Publish a workspace to GitHub as a new repository
+   *
+   * Unlike syncWorkspace, this explicitly creates a new GitHub repo
+   * from an existing local project that doesn't have a remote yet.
+   * All existing commits are pushed to the new remote.
+   *
+   * @param workspaceId - Workspace to publish
+   * @param description - Optional description for the GitHub repo
+   * @param isPublic - Whether to create a public repo (default: private)
+   * @returns GitHub repo URL if successful, undefined if failed
+   */
+  async publishToGitHub(
+    workspaceId: WorkspaceId,
+    description?: string,
+    isPublic = false
+  ): Promise<string | undefined> {
+    const workspace = await this.getWorkspace(workspaceId);
+    if (!workspace) {
+      logger.error(`Workspace not found: ${workspaceId}`);
+      return undefined;
+    }
+
+    const wsPath = getWorkspacePath(workspaceId);
+
+    // Ensure git repo exists
+    const gitCheck = await dockerExec('test', ['-d', `${wsPath}/.git`]);
+    if (gitCheck.exitCode !== 0) {
+      // Initialize git if not already
+      await this.initializeGit(wsPath);
+      // Make initial commit if no commits
+      await dockerExec('git', ['-C', wsPath, 'add', '-A']);
+      await dockerExec('git', ['-C', wsPath, 'commit', '-m', 'Initial commit'], {
+        timeoutMs: 10000,
+      });
+    }
+
+    // Check if remote already exists
+    const remoteResult = await dockerExec('git', ['-C', wsPath, 'remote', 'get-url', 'origin']);
+    if (remoteResult.exitCode === 0 && remoteResult.stdout.trim()) {
+      logger.warn(`Workspace ${workspaceId} already has remote: ${remoteResult.stdout.trim()}`);
+      return remoteResult.stdout.trim();
+    }
+
+    // Create GitHub repo
+    if (!(await this.isGitHubAvailable())) {
+      logger.warn('GitHub CLI not available or not authenticated');
+      return undefined;
+    }
+
+    const visibility = isPublic ? '--public' : '--private';
+    const args = [
+      'repo', 'create', workspaceId,
+      visibility,
+      `--source=${wsPath}`,
+      '--push',
+    ];
+
+    if (description) {
+      args.push('--description', description);
+    }
+
+    this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-creating' });
+
+    const result = await dockerExec('gh', args, {
+      cwd: wsPath,
+      timeoutMs: 60000,
+    });
+
+    if (result.exitCode !== 0) {
+      // Check if repo already exists on GitHub
+      if (result.stderr.includes('already exists')) {
+        logger.info(`GitHub repo ${workspaceId} already exists, linking...`);
+        return await this.linkExistingRepo(wsPath, workspaceId);
+      }
+      logger.error(`Failed to create GitHub repo: ${result.stderr}`);
+      this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-failed' });
+      return undefined;
+    }
+
+    // Extract repo URL from output
+    const repoUrl = result.stdout.trim().split('\n').pop()?.trim();
+
+    if (repoUrl) {
+      this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-created', repoUrl });
+      this.emitEvent('workspace:synced', workspaceId, { remoteUrl: repoUrl });
+      logger.info(`Published to GitHub: ${repoUrl}`);
+    }
+
+    return repoUrl;
   }
 
   /**
