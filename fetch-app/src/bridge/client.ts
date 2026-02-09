@@ -120,30 +120,30 @@ interface TaskQuestionEvent {
  */
 function cleanupChromeLocks(authPath: string): void {
   const lockNames = new Set(['SingletonLock', 'SingletonCookie', 'SingletonSocket']);
-  
+
   try {
     if (!fs.existsSync(authPath)) {
       return; // No auth directory yet, nothing to clean
     }
-    
+
     // Find session directories (session / session-* folders)
     const topEntries = fs.readdirSync(authPath, { withFileTypes: true });
-    
+
     for (const entry of topEntries) {
       if (!entry.isDirectory() || !entry.name.startsWith('session')) continue;
-      
+
       const sessionPath = path.join(authPath, entry.name);
-      
+
       // Directories to scan: the session root and its Default/ subfolder
       const dirsToScan = [sessionPath];
       const defaultPath = path.join(sessionPath, 'Default');
       try { if (fs.statSync(defaultPath).isDirectory()) dirsToScan.push(defaultPath); } catch { /* no Default dir */ }
-      
+
       for (const dir of dirsToScan) {
         // readdirSync lists ALL directory entries including broken symlinks
         let entries: string[];
         try { entries = fs.readdirSync(dir); } catch { continue; }
-        
+
         for (const name of entries) {
           if (!lockNames.has(name)) continue;
           const lockPath = path.join(dir, name);
@@ -181,7 +181,7 @@ class MessageDeduplicator {
     this.cleanupTimer = setInterval(() => this.evict(), this.TTL_MS);
     this.cleanupTimer.unref();
   }
-  
+
   /**
    * Check if message was already processed. Returns true if new, false if duplicate.
    */
@@ -220,6 +220,7 @@ export class Bridge {
   private securityGate: SecurityGate;
   private rateLimiter: RateLimiter;
   private deduplicator = new MessageDeduplicator();
+  private isReady = false;
 
   // Reconnection state
   private reconnectAttempts = 0;
@@ -257,10 +258,10 @@ export class Bridge {
   async initialize(): Promise<void> {
     // Clean up any stale Chrome lock files from previous crashes
     cleanupChromeLocks('/app/data/.wwebjs_auth');
-    
+
     // Initialize security gate with Zero Trust Bonding whitelist
     this.securityGate = await SecurityGate.create();
-    
+
     // Initialize agentic handler
     await initializeHandler();
 
@@ -277,7 +278,7 @@ export class Bridge {
         logger.error(`Failed to send proactive WhatsApp message to ${userId}`, err);
       }
     });
-    
+
     this.setupEventHandlers();
     this.setupTaskProgressListeners();
     await this.client.initialize();
@@ -287,14 +288,14 @@ export class Bridge {
     // QR Code for authentication
     this.client.on('qr', (qr: string) => {
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qr)}`;
-      
+
       // Update status API
       updateStatus({
         state: 'qr_pending',
         qrCode: qr,
         qrUrl: qrUrl
       });
-      
+
       // Console output - show URL only (QR too large for terminal)
       console.log('');
       console.log('╔══════════════════════════════════════════════════╗');
@@ -318,6 +319,7 @@ export class Bridge {
       }
       this.reconnectAttempts = 0;
       this.isReconnecting = false;
+      this.isReady = true;
 
       logger.section('🐕 Fetch is Ready!');
       logger.success('WhatsApp connected and listening for commands');
@@ -355,22 +357,23 @@ export class Bridge {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js has no typed Reaction export
     this.client.on('message_reaction', async (reaction: any) => {
       try {
-        // Only process reactions from owner
+        // 1. Skip if bridge not fully ready (prevents startup sync spam)
+        if (!this.isReady) return;
+
+        // 2. Only process reactions from owner or trusted whitelist members
         const senderId = reaction.senderId;
-        if (!senderId || !this.securityGate.isOwnerMessage(senderId, undefined)) {
-          logger.debug(`Skipped reaction from non-owner: ${senderId}`);
+        if (!senderId || !this.securityGate.isAuthorizedUser(senderId)) {
+          // Log only at debug level to keep the main logs clean
+          logger.debug(`Skipped unauthorized reaction from: ${senderId}`);
           return;
         }
 
-        // Only process reactions on our messages (fromMe)
+        // 3. Only process reactions on our messages (fromMe)
         const msgId = reaction.msgId;
-        if (!msgId) {
-          logger.debug('Reaction missing msgId');
-          return;
-        }
+        if (!msgId) return;
 
         const emoji = reaction.reaction;
-        logger.info(`Reaction received: ${emoji} on message ${msgId._serialized || msgId}`);
+        logger.info(`Reaction received: ${emoji} from authorized user on message ${msgId._serialized || msgId}`);
 
         // Map reactions to actions
         // 👍 = approve/continue, 👎 = cancel/reject, ❌ = cancel
@@ -396,7 +399,7 @@ export class Bridge {
     // ==========================================================================
     // MESSAGE HANDLERS
     // ==========================================================================
-    
+
     // Use message_create to catch ALL messages including self-chat
     this.client.on('message_create', async (message: Message) => {
       // DEDUPLICATION: WhatsApp fires message_create multiple times for same message
@@ -406,9 +409,9 @@ export class Bridge {
         logger.debug(`Skipped duplicate message: ${msgId}`);
         return;
       }
-      
+
       logger.debug(`message_create: from=${message.from}, type=${message.type}, fromMe=${message.fromMe}`);
-      
+
       // Handle Voice Notes (PTT)
       if (message.type === 'ptt' || message.type === 'audio') {
         const success = await this.handleVoiceMessage(message);
@@ -429,7 +432,7 @@ export class Bridge {
         logger.debug('Skipped: empty message body');
         return;
       }
-      
+
       // Check if this is a reply to a Fetch message (thread continuation)
       // IMPORTANT: Only check for non-fromMe messages. For fromMe messages,
       // we CANNOT use thread replies because Fetch's own bot responses also
@@ -440,7 +443,7 @@ export class Bridge {
       //   isReplyToFetch=true → processes Fetch's own reply → loop forever
       const isReplyToFetch = message.fromMe ? false : await this.isReplyToFetchMessage(message);
       const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
-      
+
       // For messages from us (fromMe=true), ONLY process with explicit @fetch trigger.
       // Thread replies are disabled for fromMe to prevent infinite response loops.
       if (message.fromMe) {
@@ -455,7 +458,7 @@ export class Bridge {
         }
         logger.info(`Processing incoming message from ${message.from}${isReplyToFetch ? ' (thread reply)' : ''}`);
       }
-      
+
       incrementMessageCount();
       await this.handleIncomingMessage(message, isReplyToFetch);
     });
@@ -469,7 +472,7 @@ export class Bridge {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js getQuotedMessage not in type defs
       const quotedMsg = await (message as any).getQuotedMessage();
       if (!quotedMsg) return false;
-      
+
       // Check if the quoted message is from us (fromMe)
       if (quotedMsg.fromMe) {
         logger.debug('Message is reply to Fetch response');
@@ -492,7 +495,7 @@ export class Bridge {
 
     try {
       logger.info('🖼️ Processing image...');
-      
+
       const media = await message.downloadMedia();
       if (!media || !media.data) {
         logger.error('Failed to download image media');
@@ -506,12 +509,12 @@ export class Bridge {
 
       const originalCaption = message.body || '';
       const analysis = await analyzeImage(media.data, media.mimetype, originalCaption);
-      
+
       if (!analysis) return false;
 
       // Update message body to include analysis context
       message.body = `${originalCaption}\n\n[CONTEXT: Image Analysis]\n${analysis}`.trim();
-      
+
       logger.success('🖼️ Image analysis added to message context');
       return true;
     } catch (error) {
@@ -532,20 +535,20 @@ export class Bridge {
 
     // Helper to resolve user ID from session ID
     const resolveTarget = async (sessionId: string): Promise<string | null> => {
-        if (!sessionId) return null;
-        // If it looks like a JID, use it directly (legacy/direct support)
-        if (sessionId.includes('@c.us') || sessionId.includes('@g.us')) return sessionId;
-        
-        // Otherwise, resolve via SessionManager
-        try {
-            const { getSessionManager } = await import('../session/manager.js');
-            const manager = await getSessionManager();
-            const session = await manager.getSessionById(sessionId);
-            return session ? session.userId : null;
-        } catch (err) {
-            logger.warn('Failed to resolve session owner', { sessionId });
-            return null;
-        }
+      if (!sessionId) return null;
+      // If it looks like a JID, use it directly (legacy/direct support)
+      if (sessionId.includes('@c.us') || sessionId.includes('@g.us')) return sessionId;
+
+      // Otherwise, resolve via SessionManager
+      try {
+        const { getSessionManager } = await import('../session/manager.js');
+        const manager = await getSessionManager();
+        const session = await manager.getSessionById(sessionId);
+        return session ? session.userId : null;
+      } catch (err) {
+        logger.warn('Failed to resolve session owner', { sessionId });
+        return null;
+      }
     };
 
     integration.on('task:progress', async (event: TaskProgressEvent) => {
@@ -560,7 +563,7 @@ export class Bridge {
 
       // Always send priority patterns, throttle others
       const isPriority = /starting|done|complete|failed|error|waiting/i.test(message);
-      
+
       if (isPriority || (now - lastUpdate > THROTTLE_MS)) {
         try {
           await this.client.sendMessage(targetId, `🐕 ${message}`);
@@ -581,7 +584,7 @@ export class Bridge {
       try {
         const emoji = operation === 'create' ? '🆕' : operation === 'modify' ? '✏️' : '🗑️';
         const action = operation === 'modify' ? 'Modifying' : operation === 'create' ? 'Creating' : 'Deleting';
-        
+
         await this.client.sendMessage(targetId, `${emoji} ${action} ${path}...`);
       } catch (error) {
         logger.error('Failed to send file_op message', error);
@@ -597,7 +600,7 @@ export class Bridge {
 
       try {
         await this.client.sendMessage(
-          targetId, 
+          targetId,
           `❓ *Fetch needs your help:*\n\n${question}\n\n_(Reply to this message to answer)_`
         );
       } catch (error) {
@@ -617,15 +620,15 @@ export class Bridge {
 
     try {
       logger.info('🎤 Processing voice note...');
-      
+
       const media = await message.downloadMedia();
 
       const buffer = Buffer.from(media.data, 'base64');
       const filename = media.filename || `voice-${Date.now()}.ogg`;
-      
+
       const result = await transcribeAudio(buffer, filename);
       const transcription = result.text;
-      
+
       if (!transcription || transcription.trim().length === 0) {
         logger.warn('Transcription returned empty text');
         return false;
@@ -634,7 +637,7 @@ export class Bridge {
       // Prepend a microphone emoji to indicate it was a voice note
       // and inject into the message body for normal processing
       message.body = transcription;
-      
+
       logger.success(`🎤 Transcribed voice (${result.language || 'unknown'}): "${transcription}"`);
       return true;
     } catch (error) {
@@ -652,7 +655,7 @@ export class Bridge {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js Message.author not in type defs
     const participantId = (message as any).author; // Group message author
     const messageBody = message.body;
-    
+
     // SECURITY GATE 1: Validate authorization
     // For thread replies, we skip the @fetch trigger check but still verify identity
     if (isThreadReply) {
@@ -661,7 +664,7 @@ export class Bridge {
       const checkId = isGroup ? participantId : senderId;
       if (!checkId) return;
       if (!this.securityGate.isOwnerMessage(senderId, participantId) &&
-          !this.securityGate.getWhitelist()?.has(checkId.replace(/@(c|g|s)\.us$/, '').replace(/\D/g, '') || '')) {
+        !this.securityGate.getWhitelist()?.has(checkId.replace(/@(c|g|s)\.us$/, '').replace(/\D/g, '') || '')) {
         return;
       }
     } else {
@@ -693,7 +696,7 @@ export class Bridge {
 
     try {
       let firstMessageSent = false;
-      
+
       // Determine prefix for different media types
       let mediaPrefix = '';
       if (message.type === 'ptt' || message.type === 'audio') {
@@ -705,7 +708,7 @@ export class Bridge {
 
       // Process through agentic handler
       const responses = await handleMessage(
-        rateLimitId, 
+        rateLimitId,
         validation.sanitized,
         async (text) => {
           let output = text;
@@ -716,11 +719,11 @@ export class Bridge {
           await message.reply(output);
         }
       );
-      
+
       // Send all response messages
       for (let i = 0; i < responses.length; i++) {
         let response = responses[i];
-        
+
         // Prepend media info prefix if it was a voice note or image and we haven't sent the prefix yet
         if (!firstMessageSent && mediaPrefix) {
           response = mediaPrefix + response;
@@ -729,7 +732,7 @@ export class Bridge {
 
         await message.reply(response);
         logger.success(`Reply sent (${response.length} chars)`);
-        
+
         // Small delay between messages to avoid rate limiting
         if (responses.length > 1 && i < responses.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 500));

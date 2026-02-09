@@ -118,7 +118,7 @@ export class HarnessExecutor extends EventEmitter {
     config: HarnessConfig
   ): Promise<HarnessResult> {
     const pool = getHarnessPool();
-    
+
     // 1. Acquire instance (manages concurrency)
     let instance;
     try {
@@ -159,7 +159,7 @@ export class HarnessExecutor extends EventEmitter {
 
     // 3. Setup event listeners
     const spawner = pool.getSpawner();
-    
+
     const outputHandler = (event: { id: HarnessId, type: string, data: string }) => {
       if (event.id === harnessId) {
         const timestamp = new Date().toISOString();
@@ -172,7 +172,7 @@ export class HarnessExecutor extends EventEmitter {
         this.emitHarnessEvent('harness:output', harnessId, taskId, outputEvent);
       }
     };
-    
+
     const statusHandler = (event: { id: HarnessId, status: HarnessStatus }) => {
       if (event.id === harnessId) {
         this.updateStatus(harnessId, event.status);
@@ -184,25 +184,33 @@ export class HarnessExecutor extends EventEmitter {
 
     try {
       const finalInstance = await pool.waitFor(harnessId);
-      
+
       const success = finalInstance.status === 'completed';
       const output = finalInstance.stdout.join('') + finalInstance.stderr.join(''); // Note: simplistic concatenation
-      
+
+      const errorOutput = finalInstance.stderr.length > 0
+        ? finalInstance.stderr.slice(-3).join('').trim()
+        : finalInstance.stdout.slice(-3).join('').trim();
+
+      const errorMsg = errorOutput
+        ? `Process failed: ${errorOutput}`
+        : `Process execution status: ${finalInstance.status}`;
+
       if (success) {
-          this.updateStatus(harnessId, 'completed');
-          this.emitHarnessEvent('harness:completed', harnessId, taskId);
+        this.updateStatus(harnessId, 'completed');
+        this.emitHarnessEvent('harness:completed', harnessId, taskId);
       } else {
-          this.updateStatus(harnessId, 'failed');
-          this.emitHarnessEvent('harness:failed', harnessId, taskId, { 
-              error: `Process failed with status: ${finalInstance.status}` 
-          });
+        this.updateStatus(harnessId, 'failed');
+        this.emitHarnessEvent('harness:failed', harnessId, taskId, {
+          error: errorMsg
+        });
       }
 
       return {
         success,
         output,
         exitCode: success ? 0 : 1,
-        error: success ? undefined : `Process execution status: ${finalInstance.status}`,
+        error: success ? undefined : errorMsg,
         durationMs: Date.now() - finalInstance.startTime,
       };
     } catch (error) {

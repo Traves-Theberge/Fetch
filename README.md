@@ -1,6 +1,6 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v4.0.3** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v4.0.4** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
@@ -23,35 +23,7 @@ Fetch: An autonomous coding environment that handles complex development tasks v
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀                                             
 ```
 
-```mermaid
-graph TD
-    User([📱 User on WhatsApp])
-    Manager[🎛️ Go Manager TUI]
-    
-    subgraph Host ["Host Machine"]
-        subgraph Docker ["🐳 Docker Compose"]
-            Bridge["🐕 Fetch (Bridge Node.js)"]
-            Kennel[🏠 Kennel Ubuntu]
-        end
-        Workspace[(📁 /workspace)]
-    end
-
-    User <-->|WhatsApp API| Bridge
-    Manager -->|Control| Docker
-    Bridge -->|docker exec| Kennel
-    Bridge <-->|Access| Workspace
-    Kennel <-->|Work| Workspace
-    
-    subgraph AI ["AI Harnesses (Inside Kennel)"]
-        Claude[Claude Code]
-        Gemini[Gemini CLI]
-        Copilot[GH Copilot]
-    end
-    
-    Kennel --> Claude
-    Kennel --> Gemini
-    Kennel --> Copilot
-```
+![Architecture Diagram](Architecture.png)
 
 ## 🎯 Overview
 

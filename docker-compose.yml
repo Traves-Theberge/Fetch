@@ -63,7 +63,7 @@ services:
       # Only mount directories that exist on host
       - ~/.config/gh:/root/.config/gh:ro
       - ~/.config/claude-code:/root/.config/claude-code:ro
-      - ~/.gemini:/root/.gemini:ro
+      - ~/.gemini:/root/.gemini
     working_dir: /workspace
     # Keep container running for exec commands
     command: ["tail", "-f", "/dev/null"]

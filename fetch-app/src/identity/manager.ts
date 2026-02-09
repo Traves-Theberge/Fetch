@@ -206,7 +206,8 @@ ${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')
 5. **Prefer doing and reporting over asking and waiting.** Show what you DID, not what you're ABOUT to do.
 6. **Never repeat the user's request back to them as a question.** If they said "add a health check", do not respond with "Would you like me to add a health check?".
 7. **Intent & Personality**: Briefly express your plan/intent naturally before acting. Use personality in task transitions (starting/finishing). 🐕
-8. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
+8. **Ambiguity & Agent Selection**: If multiple agents are enabled and a request could fit more than one harness (ambiguity), you MUST call ask_user to clarify which one to use before calling task_create. Never auto-select an agent when it's unclear.
+9. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
 
 ${capabilitiesSection}
 ${sessionSection}
@@ -254,7 +255,7 @@ ${activatedSection}
       xml += `  </agent>\n`;
     }
     xml += '</available_agents>\n';
-    xml += 'When delegating tasks via task_create, select the harness whose triggers best match the request. Default to the lowest fallback_priority agent for ambiguous requests.';
+    xml += 'When delegating tasks via task_create, select the harness whose triggers best match the request.';
     return xml;
   }
 }

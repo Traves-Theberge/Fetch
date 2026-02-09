@@ -85,7 +85,7 @@ export class SecurityGate {
 
   constructor() {
     const ownerNumber = env.OWNER_PHONE_NUMBER;
-    
+
     if (!ownerNumber) {
       throw new Error('CRITICAL: OWNER_PHONE_NUMBER environment variable is not set');
     }
@@ -109,7 +109,7 @@ export class SecurityGate {
    */
   async initializeWhitelist(): Promise<void> {
     this.whitelist = await getWhitelistStore();
-    
+
     logger.section('🔒 Security Gate Initialized');
     logger.info(`Owner: +${this.ownerNumberClean} (always trusted)`);
     logger.info(`Trusted numbers: ${this.whitelist.count()}`);
@@ -196,6 +196,17 @@ export class SecurityGate {
   }
 
   /**
+   * Check if a specific WhatsApp ID is authorized (Owner or Trusted)
+   * This is used for events like reactions that don't have a message trigger.
+   * 
+   * @param whatsappId - The ID to check (@c.us, @g.us, or participant ID)
+   */
+  isAuthorizedUser(whatsappId: string): boolean {
+    const number = this.extractNumber(whatsappId);
+    return this.isOwner(whatsappId) || (this.whitelist?.has(number) ?? false);
+  }
+
+  /**
    * Check if a message is authorized (Zero Trust Bonding)
    * Requires: @fetch trigger + (owner OR trusted whitelist member)
    * 
@@ -225,7 +236,7 @@ export class SecurityGate {
 
       // Determine which ID to check
       const checkId = isGroup ? participantId : senderId;
-      
+
       if (isGroup && !participantId) {
         logger.warn('Group message missing participant ID');
         return false;

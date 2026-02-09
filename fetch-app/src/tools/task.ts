@@ -179,7 +179,8 @@ export async function handleTaskCreate(
       const outputObj = {
         error: 'AMBIGUOUS_AGENT_SELECTION',
         message: errorMessage,
-        action_required: 'Ask the user to clarify which agent to use (e.g., "use copilot" or "use gemini").'
+        instruction: 'You MUST NOT auto-select an agent. Stop and ask the user for clarification using ask_user.',
+        choices: ['copilot', 'gemini']
       };
       const response = {
         success: true, // Return true so LLM processes the output naturally
@@ -531,7 +532,7 @@ function formatTaskOutput(task: Task): Record<string, unknown> {
 export const taskTools = {
   task_create: {
     name: 'task_create',
-    description: 'Create a new coding task. The task is queued and executed by a coding agent (Claude Code, Gemini CLI, etc.). Requires an active workspace.',
+    description: 'Create a new coding task. IMPORTANT: If multiple agents are enabled (Copilot, Gemini, Claude) and the user has not explicitly specified which one to use, you MUST call ask_user to clarify the agent choice BEFORE calling this tool. Requires an active workspace.',
     handler: handleTaskCreate,
     schema: TaskCreateInputSchema,
   },

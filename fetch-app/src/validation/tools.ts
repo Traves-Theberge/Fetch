@@ -200,7 +200,7 @@ export const TaskCreateInputSchema = z
     /** Which agent to use (default: auto) */
     agent: AgentSelectionSchema.optional()
       .default('auto')
-      .describe('Agent to use: claude, gemini, copilot, or auto'),
+      .describe('Agent to use. If multiple agents are enabled AND the user has not specified a preference, you MUST call ask_user BEFORE calling this tool. Omit or use "auto" for system default.'),
 
     /** Workspace name (uses active workspace if not specified) */
     workspace: WorkspaceNameSchema.optional().describe(

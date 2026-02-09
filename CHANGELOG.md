@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.4] - 2026-02-09
+
+### 🐛 Bug Fixes
+
+- **Agent Selection Ambiguity (Final Fix)**:
+  - **Issue**: LLM was bypassing the ambiguity check by explicitly selecting an agent (e.g., `agent: 'gemini'`) instead of asking the user when multiple agents were enabled.
+  - **Fix**: Updated `task_create` tool description and `TaskCreateInputSchema.agent` description to explicitly instruct the LLM to call `ask_user` BEFORE calling `task_create` when multiple agents are enabled.
+
+- **Gemini CLI Read-Only Crash**:
+  - **Issue**: Gemini CLI failed because `~/.gemini` was mounted read-only, blocking OAuth credential caching and temp file writes.
+  - **Fix**: Changed `docker-compose.yml` mount from `:ro` to read-write.
+
+- **Workspace Name Case Sensitivity**:
+  - **Issue**: npm's `create-next-app` rejected workspace names with capital letters (e.g., `Nextjs-Demo`).
+  - **Fix**: Added automatic lowercase normalization in `WorkspaceNameSchema` and `WorkspaceManager.createWorkspace()`. Names like `MyNextApp` are now normalized to `mynextapp`.
+
+- **Improved Harness Error Reporting**:
+  - **Issue**: Failed harness tasks returned vague "Process failed" errors without details.
+  - **Fix**: Updated `HarnessExecutor.executeWithConfig()` to capture and include the last lines of harness output in error messages.
+
+### 🔒 Security Hardening
+
+- **Reaction Filtering**: Updated `SecurityGate` to filter out historical WhatsApp reactions and non-whitelisted emoji reactions, preventing stale reactions from being processed as active input.
+
 ## [4.0.3] - 2026-02-09
 
 ### ✨ UX Improvements

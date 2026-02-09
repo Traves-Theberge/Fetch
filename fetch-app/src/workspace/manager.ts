@@ -516,7 +516,10 @@ export class WorkspaceManager extends EventEmitter {
     description?: string;
     initGit?: boolean;
   }): Promise<Workspace> {
-    const { name, template = 'empty', description, initGit = true } = options;
+    const { template = 'empty', description, initGit = true } = options;
+
+    // Normalize name to lowercase (npm naming restriction)
+    const name = options.name.toLowerCase();
 
     // Validate workspace name to prevent shell injection
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(name)) {

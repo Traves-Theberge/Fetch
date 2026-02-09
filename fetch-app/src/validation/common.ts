@@ -108,10 +108,12 @@ export const ProgressIdSchema = z
  * - Starts with alphanumeric
  * - Contains only alphanumeric, dot, underscore, hyphen
  * - No path traversal (..)
+ * - Automatically lowercased (npm naming restriction)
  *
  * @example
  * ```typescript
- * WorkspaceNameSchema.parse('my-project'); // OK
+ * WorkspaceNameSchema.parse('my-project'); // OK → 'my-project'
+ * WorkspaceNameSchema.parse('My-Project'); // OK → 'my-project'
  * WorkspaceNameSchema.parse('../secret'); // throws
  * ```
  */
@@ -125,7 +127,8 @@ export const WorkspaceNameSchema = z
   )
   .refine((name) => !name.includes('..'), {
     message: 'Path traversal (..) not allowed in workspace name',
-  });
+  })
+  .transform((name) => name.toLowerCase());
 
 /**
  * Safe file path schema (within workspace)
