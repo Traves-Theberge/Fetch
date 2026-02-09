@@ -1,10 +1,10 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v4.0.2** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v4.0.3** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
-A headless development environment. Send natural language coding tasks via WhatsApp and let AI agents do the work. Fetch is a good boy who just wants to help! 🐕 (But he hates lobsters and cats 🦞)
+Fetch: An autonomous coding environment that handles complex development tasks via natural language. Just message Fetch on WhatsApp to refactor code, fix bugs, or scaffold projects.
 
 ```mermaid
 graph TD
@@ -40,11 +40,11 @@ graph TD
 
 Fetch is a **lightweight orchestrator** that delegates coding tasks to specialized AI harnesses (Claude Code, Gemini CLI, GitHub Copilot CLI) while managing conversation state and user interaction via WhatsApp.
 
-**Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues).
+**Personality:** Fetch is a loyal coding companion - eager, helpful, and always ready to fetch code for you! He uses dog expressions like "Let me fetch that!" and "Good boy reporting back!" and *really* hates lobsters 🦞 (weird ocean bugs with anger issues) and cats 🐈 (sneaky creatures that don't respect personal space).
 
-### 🏗️ LLM-First Architecture (v4.0)
+### 🏗️ LLM-First Architecture
 
-Every message (except 5 safety escapes) takes the same single path through the LLM with all 12 tools:
+Every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools:
 
 | Layer | Trigger | Response | Latency |
 | :--- | :--- | :--- | :--- |
@@ -133,7 +133,7 @@ docker logs -f fetch-bridge  # Scan the QR code
 | `/help` | Show available commands |
 | `/status` | System + task status |
 
-Everything else is handled via natural language — project switching, settings, identity, skills, scheduling, and coding tasks all go through the LLM with 12 tools.
+Everything else is handled via natural language — project switching, settings, identity, skills, scheduling, and coding tasks all go through the LLM with 13 tools.
 
 Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
@@ -214,7 +214,7 @@ Fetch/
 │       ├── session/            # Session persistence (SQLite)
 │       ├── skills/             # Skill framework
 │       ├── task/               # Task lifecycle + SQLite
-│       ├── tools/              # 12 orchestrator tools
+│       ├── tools/              # 13 orchestrator tools
 │       ├── transcription/      # Voice → text (whisper.cpp)
 │       ├── validation/         # Zod schemas, message validation
 │       ├── vision/             # Image analysis
