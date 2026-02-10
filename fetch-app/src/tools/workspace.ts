@@ -513,10 +513,10 @@ export async function handleWorkspaceSync(
       message: result.repoCreated
         ? `Created GitHub repo and pushed ${result.filesChanged} file(s)`
         : result.pushed
-          ? `Pushed ${result.filesChanged} change(s) to GitHub`
+          ? `Pushed changes to GitHub`
           : result.filesChanged > 0
             ? `Committed ${result.filesChanged} change(s) locally (no remote configured)`
-            : 'Everything is up to date',
+            : 'Everything is up to date with GitHub',
     };
 
     return {

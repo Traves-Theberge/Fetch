@@ -55,6 +55,20 @@ export async function parseCommand(
   sessionManager: SessionManager
 ): Promise<CommandResult> {
   const trimmed = message.trim();
+  const lower = trimmed.toLowerCase();
+
+  // Natural language capability queries → return formatted help directly
+  const capabilityTriggers = [
+    'what can you do',
+    'what are your capabilities',
+    'what are you capable of',
+    'what do you do',
+    'show me your tools',
+    'list your abilities'
+  ];
+  if (capabilityTriggers.some(trigger => lower.includes(trigger))) {
+    return { handled: true, responses: [formatHelp()] };
+  }
 
   if (!trimmed.startsWith('/')) {
     return { handled: false, shouldProcess: true };
@@ -97,7 +111,7 @@ export async function parseCommand(
 
     case 'version':
     case 'v':
-      return { handled: true, responses: ['🐕 Fetch v4.0.3 (Good Boy Reporting!)'] };
+      return { handled: true, responses: ['🐕 Fetch v4.0.5 (Good Boy Reporting!)'] };
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

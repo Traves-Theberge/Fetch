@@ -81,9 +81,9 @@ export async function formatStatus(session: Session): Promise<string> {
  * @returns {string} Formatted help message
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch v4.0.3 — AI Coding Assistant*
+  return `🐕 *Fetch v4.0.5 — AI Coding Assistant*
 
-Just describe what you need in plain language. I have 13 tools and I'll figure out the rest.
+Just describe what you need in plain language. I have 21 tools and I'll figure out the rest.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

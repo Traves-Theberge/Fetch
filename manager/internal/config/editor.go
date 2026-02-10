@@ -290,8 +290,17 @@ func (e *Editor) ensureVisible() {
 	}
 }
 
-// Update handles keyboard input
-func (e *Editor) Update(msg tea.KeyMsg) {
+// Update handles key messages. Returns true if a restart is requested (after save).
+func (e *Editor) Update(msg tea.Msg) bool {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		return e.handleKey(msg)
+	}
+	return false
+}
+
+// handleKey handles keyboard input
+func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 	if e.editing {
 		switch msg.String() {
 		case "enter":
@@ -308,7 +317,7 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 				e.editBuffer += msg.String()
 			}
 		}
-		return
+		return false
 	}
 
 	switch msg.String() {
@@ -333,7 +342,7 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 			// AGENT_MODEL opens the model picker overlay
 			if e.fields[e.cursor].Key == "AGENT_MODEL" {
 				e.modelPickerRequested = true
-				return
+				return false
 			}
 			e.editing = true
 			e.editBuffer = e.fields[e.cursor].Value
@@ -345,8 +354,11 @@ func (e *Editor) Update(msg tea.KeyMsg) {
 		} else {
 			e.saved = true
 			e.errorMessage = ""
+			// We returned true here to signal to the parent that a restart is needed
+			return true
 		}
 	}
+	return false
 }
 
 // View renders the configuration editor

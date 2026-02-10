@@ -294,6 +294,203 @@ export const ReportProgressInputSchema = z
   .describe('Report progress to the user during task execution');
 
 // ============================================================================
+// GitHub Tool Schemas
+// ============================================================================
+
+/**
+ * github_pr_create - Create a pull request
+ */
+export const GitHubPRCreateInputSchema = z
+  .object({
+    /** PR title */
+    title: z.string()
+      .min(1, 'PR title is required')
+      .max(256, 'PR title too long (max 256 characters)')
+      .describe('Title for the pull request'),
+
+    /** PR body/description */
+    body: z.string()
+      .max(4000, 'PR body too long (max 4000 characters)')
+      .optional()
+      .describe('Description body for the pull request'),
+
+    /** Base branch to merge into */
+    base: z.string()
+      .max(100, 'Branch name too long')
+      .optional()
+      .default('main')
+      .describe('Base branch to merge into (default: main)'),
+
+    /** Create as draft PR */
+    draft: z.boolean()
+      .optional()
+      .default(true)
+      .describe('Create as a draft pull request (default: true)'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('Create a pull request on GitHub from the current branch');
+
+/**
+ * github_pr_list - List pull requests
+ */
+export const GitHubPRListInputSchema = z
+  .object({
+    /** Filter by state */
+    state: z.enum(['open', 'closed', 'all'])
+      .optional()
+      .default('open')
+      .describe('Filter by PR state (default: open)'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('List pull requests for the current repository');
+
+/**
+ * github_pr_view - View a specific pull request
+ */
+export const GitHubPRViewInputSchema = z
+  .object({
+    /** PR number */
+    number: z.number()
+      .int('PR number must be an integer')
+      .positive('PR number must be positive')
+      .describe('Pull request number'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('View details of a specific pull request');
+
+/**
+ * github_issue_create - Create an issue
+ */
+export const GitHubIssueCreateInputSchema = z
+  .object({
+    /** Issue title */
+    title: z.string()
+      .min(1, 'Issue title is required')
+      .max(256, 'Issue title too long (max 256 characters)')
+      .describe('Title for the issue'),
+
+    /** Issue body */
+    body: z.string()
+      .max(4000, 'Issue body too long (max 4000 characters)')
+      .optional()
+      .describe('Description body for the issue'),
+
+    /** Labels */
+    labels: z.array(z.string().max(50, 'Label too long'))
+      .max(10, 'Maximum 10 labels')
+      .optional()
+      .describe('Labels to apply to the issue'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('Create a GitHub issue in the current repository');
+
+/**
+ * github_issue_list - List issues
+ */
+export const GitHubIssueListInputSchema = z
+  .object({
+    /** Filter by state */
+    state: z.enum(['open', 'closed', 'all'])
+      .optional()
+      .default('open')
+      .describe('Filter by issue state (default: open)'),
+
+    /** Filter by assignee */
+    assignee: z.string()
+      .max(39, 'GitHub username too long')
+      .optional()
+      .describe('Filter by assignee username'),
+
+    /** Filter by labels */
+    labels: z.array(z.string().max(50, 'Label too long'))
+      .max(10, 'Maximum 10 labels')
+      .optional()
+      .describe('Filter by labels'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('List issues for the current repository');
+
+/**
+ * github_branch_create - Create a new branch
+ */
+export const GitHubBranchCreateInputSchema = z
+  .object({
+    /** Branch name */
+    name: z.string()
+      .min(1, 'Branch name is required')
+      .max(100, 'Branch name too long (max 100 characters)')
+      .regex(/^[a-zA-Z0-9._/-]+$/, 'Branch name contains invalid characters')
+      .describe('Name for the new branch'),
+
+    /** Base branch to create from */
+    from: z.string()
+      .max(100, 'Branch name too long')
+      .optional()
+      .describe('Branch to create from (defaults to current branch)'),
+
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('Create a new git branch and optionally push it to GitHub');
+
+/**
+ * github_action_status - Get GitHub Actions status
+ */
+export const GitHubActionStatusInputSchema = z
+  .object({
+    /** Workspace (uses active if not specified) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace (uses active workspace if not specified)'),
+  })
+  .strict()
+  .describe('Get the status of recent GitHub Actions workflow runs');
+
+/**
+ * github_search_repos - Search GitHub repositories
+ */
+export const GitHubSearchReposInputSchema = z
+  .object({
+    /** Search query */
+    query: z.string()
+      .min(1, 'Search query is required')
+      .max(256, 'Search query too long (max 256 characters)')
+      .describe('Search query for GitHub repositories'),
+
+    /** Max results */
+    limit: z.number()
+      .int('Limit must be an integer')
+      .min(1, 'Minimum 1 result')
+      .max(20, 'Maximum 20 results')
+      .optional()
+      .default(5)
+      .describe('Maximum number of results (default: 5, max: 20)'),
+  })
+  .strict()
+  .describe('Search GitHub repositories');
+
+// ============================================================================
 // Schema Registry
 // ============================================================================
 
@@ -320,6 +517,15 @@ export const ToolInputSchemas = {
   // Interaction tools (2)
   ask_user: AskUserInputSchema,
   report_progress: ReportProgressInputSchema,
+  // GitHub tools (8)
+  github_pr_create: GitHubPRCreateInputSchema,
+  github_pr_list: GitHubPRListInputSchema,
+  github_pr_view: GitHubPRViewInputSchema,
+  github_issue_create: GitHubIssueCreateInputSchema,
+  github_issue_list: GitHubIssueListInputSchema,
+  github_branch_create: GitHubBranchCreateInputSchema,
+  github_action_status: GitHubActionStatusInputSchema,
+  github_search_repos: GitHubSearchReposInputSchema,
 } as const;
 
 /**
@@ -343,3 +549,11 @@ export type TaskCancelInput = z.infer<typeof TaskCancelInputSchema>;
 export type TaskRespondInput = z.infer<typeof TaskRespondInputSchema>;
 export type AskUserInput = z.infer<typeof AskUserInputSchema>;
 export type ReportProgressInput = z.infer<typeof ReportProgressInputSchema>;
+export type GitHubPRCreateInput = z.infer<typeof GitHubPRCreateInputSchema>;
+export type GitHubPRListInput = z.infer<typeof GitHubPRListInputSchema>;
+export type GitHubPRViewInput = z.infer<typeof GitHubPRViewInputSchema>;
+export type GitHubIssueCreateInput = z.infer<typeof GitHubIssueCreateInputSchema>;
+export type GitHubIssueListInput = z.infer<typeof GitHubIssueListInputSchema>;
+export type GitHubBranchCreateInput = z.infer<typeof GitHubBranchCreateInputSchema>;
+export type GitHubActionStatusInput = z.infer<typeof GitHubActionStatusInputSchema>;
+export type GitHubSearchReposInput = z.infer<typeof GitHubSearchReposInputSchema>;

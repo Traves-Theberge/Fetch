@@ -10,7 +10,7 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 2. The **Bridge** (Node.js) receives the message via whatsapp-web.js
 3. The **Security Gate** verifies the sender (phone whitelist + rate limiting)
 4. The **Safety Gate** checks for escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) — if matched, responds instantly without LLM
-5. **Everything else** goes directly to the **LLM** with all 13 tools available
+5. **Everything else** goes directly to the **LLM** with all 21 tools available
 6. The LLM decides what to do: respond conversationally, call workspace tools, or delegate coding work to a harness
 7. For coding tasks, the **Harness System** spawns a CLI process in the **Kennel** container via `docker exec`
 8. The agent (Claude/Gemini/Copilot) works on your code in the mounted `/workspace`
@@ -26,7 +26,7 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 
 ## Key Features
 
-- **LLM-First Architecture** — Every message goes directly to the LLM with all 13 tools. No pre-classification, no regex routing. The LLM decides whether to chat or call tools — exactly how Claude Code and Goose work
+- **LLM-First Architecture** — Every message goes directly to the LLM with all 21 tools. No pre-classification, no regex routing. The LLM decides whether to chat or call tools — exactly how Claude Code and Goose work
 - **5 Safety Escapes** — Only `/stop`, `/undo`, `/clear`, `/help`, `/status` are deterministic. Everything else is conversational
 - **Context Pipeline** — Full OpenAI multi-turn format with tool call memory, sliding window (20 messages), and automatic compaction
 - **Live Context Awareness** — System prompt rebuilt after every state-changing tool call. The LLM always sees current workspace, project, and task state
@@ -39,6 +39,7 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 - **Task Notifications** — Task completion/failure alerts pushed to WhatsApp automatically
 - **Voice + Vision** — Send voice notes (transcribed via whisper.cpp) or screenshots for analysis
 - **Pipeline Tuning** — 31 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
+- **Automated Service Hotreload** — The TUI Manager automatically restarts Fetch services after configuration saves to apply new settings instantly
 - **Crash Recovery** — State persisted to SQLite; Fetch resumes tasks after restart
 
 ## Quick Links

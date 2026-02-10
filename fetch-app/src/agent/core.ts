@@ -390,6 +390,29 @@ async function handleWithTools(
 
     const sManager = await getSessionManager();
 
+    // Persist assistant's tool_call request IMMEDIATELY (before executing tools)
+    // This prevents malformed history if tool execution or turn transition fails.
+    // filter out degenerate tool calls (whitespace-only args)
+    const persistableToolCalls = currentToolCalls
+      .filter(tc => {
+        if (!('function' in tc) || !tc.function) return false;
+        const args = tc.function.arguments?.trim() ?? '';
+        if (!args || /^\s*$/.test(args)) return false;
+        try { JSON.parse(args); return true; } catch { return false; }
+      })
+      .map(tc => {
+        const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
+        return { id: tc.id, name: fn.name, arguments: fn.arguments };
+      });
+
+    if (persistableToolCalls.length > 0) {
+      await sManager.addAssistantToolCallMessage(
+        session,
+        assistantMessage.content || '',
+        persistableToolCalls
+      );
+    }
+
     // Execute each tool call
     for (const toolCall of currentToolCalls) {
       callCount++;
@@ -568,30 +591,8 @@ async function handleWithTools(
       });
     }
 
-    // Persist assistant's tool_call request AFTER all tools executed
-    // (avoids orphaned assistant entries if execution crashes mid-loop)
-    // Filter out degenerate tool calls (whitespace-only args) to prevent session poisoning
-    // Note: {} is valid empty JSON for no-arg tools — only skip truly empty/whitespace
-    const persistableToolCalls = currentToolCalls
-      .filter(tc => {
-        if (!('function' in tc) || !tc.function) return false;
-        const args = tc.function.arguments?.trim() ?? '';
-        // Skip degenerate calls — whitespace-only (but NOT {}, which is valid empty JSON)
-        if (!args || /^\s*$/.test(args)) return false;
-        // Skip calls that failed JSON parse (check if we can parse)
-        try { JSON.parse(args); return true; } catch { return false; }
-      })
-      .map(tc => {
-        const fn = (tc as { function: { name: string; arguments: string }; id: string }).function;
-        return { id: tc.id, name: fn.name, arguments: fn.arguments };
-      });
-    if (persistableToolCalls.length > 0) {
-      await sManager.addAssistantToolCallMessage(
-        session,
-        assistantMessage.content || '',
-        persistableToolCalls
-      );
-    }
+    // Clean up toolCalls local var for logging (not for history, already persisted)
+    // Removed duplicate persistence here as it's now handled before the loop starts
 
     // Get next response
     response = await openai.chat.completions.create({

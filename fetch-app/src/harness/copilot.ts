@@ -58,7 +58,6 @@ const COPILOT_COMMAND = 'gh';
  */
 const DEFAULT_ARGS = [
   'copilot',
-  '--yolo', // Allow all tools and connections (non-interactive)
 ];
 
 /**
@@ -115,10 +114,10 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
       command: COPILOT_COMMAND,
       args: [
         ...DEFAULT_ARGS,
-        'suggest',
-        '-t',
-        'code',
+        '--',
+        '-p',
         goal,
+        '--yolo', // Automatically approve all tools, paths, and URLs
       ],
       env: {
         // Ensure non-interactive environment
@@ -132,8 +131,10 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
     };
 
     // Inject model selection if configured
-    if (env.COPILOT_MODEL) {
-      config.args.push('--model', env.COPILOT_MODEL);
+    const copilotModel = env.COPILOT_MODEL;
+    if (copilotModel) {
+      // Flags after -- are passed to the underlying binary
+      config.args.push('--model', copilotModel);
     }
 
     return config;

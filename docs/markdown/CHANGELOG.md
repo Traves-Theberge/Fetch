@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.5] - 2026-02-09
+
+### 🔄 Hotreload & TUI UX
+
+- **Automated Service Restart**:
+  - **Feature**: The TUI Manager now automatically restarts the `fetch-bridge` container after saving configuration changes.
+  - **Benefit**: Ensures newly configured environment variables (like agent models) are applied immediately without manual Docker commands.
+- **Global Link Fix**: Streamlined the installation process for linking the local `fetch-manager` to the global `fetch` command.
+
+## [4.0.4] - 2026-02-09
+
+### 🚀 New Features
+
+- **TUI Model Configuration**:
+  - **Feature**: Added configuration fields to the TUI manager for specifying agent models (`COPILOT_MODEL`, `CLAUDE_MODEL`, `GEMINI_MODEL`).
+  - **Benefit**: Allows users to override the default models (e.g., set Copilot to use `gpt-4` or Claude to use `claude-3-opus`) without editing `.env` manually.
+
 ## [4.0.3] - 2026-02-09
 
 ### ✨ UX Improvements

@@ -756,10 +756,26 @@ export class WorkspaceManager extends EventEmitter {
    * Check if GitHub integration is available (GH_TOKEN set in kennel)
    */
   async isGitHubAvailable(): Promise<boolean> {
-    const result = await dockerExec('sh', ['-c', 'test -n "$GH_TOKEN" && gh auth status'], {
+    // Basic env check
+    const envResult = await dockerExec('sh', ['-c', 'test -n "$GH_TOKEN"']);
+    if (envResult.exitCode !== 0) {
+      logger.debug('GitHub unavailable: GH_TOKEN not set');
+      return false;
+    }
+
+    // Connectivity test (similar to github-mcp-server "get_me")
+    // gh auth status is too strict and fails on minor sync issues; 
+    // gh api user is a direct proof of connectivity.
+    const authResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,
     });
-    return result.exitCode === 0;
+
+    if (authResult.exitCode !== 0) {
+      logger.warn('GitHub authentication check failed', { error: authResult.stderr });
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -817,7 +833,8 @@ export class WorkspaceManager extends EventEmitter {
       }
 
       // Extract repo URL from output
-      const url = result.stdout.trim().split('\n').pop()?.trim();
+      const urlMatch = result.stdout.match(/https:\/\/github\.com\/[^\n\s]+/);
+      const url = urlMatch ? urlMatch[0] : result.stdout.trim().split('\n').pop()?.trim();
 
       this.emitEvent('workspace:scaffolding', name, { status: 'github-created', url });
       logger.info(`Created GitHub repo: ${url}`);
@@ -975,17 +992,26 @@ export class WorkspaceManager extends EventEmitter {
       }
     }
 
-    // Push if remote exists and we have changes
+    // Push if remote exists
     let pushed = false;
-    if (remoteUrl && (changedFiles > 0 || commitHash)) {
-      const pushResult = await dockerExec(
-        'git', ['-C', wsPath, 'push', '-u', 'origin', 'main'],
-        { timeoutMs: 30000 }
-      );
-      pushed = pushResult.exitCode === 0;
+    if (remoteUrl) {
+      // Check if we actually have anything to push (local commits vs remote)
+      const unpushedResult = await dockerExec('git', ['-C', wsPath, 'rev-list', '--count', 'origin/main..main']);
+      const hasUnpushed = unpushedResult.exitCode === 0 && parseInt(unpushedResult.stdout.trim()) > 0;
 
-      if (!pushed) {
-        logger.warn(`Push failed: ${pushResult.stderr}`);
+      if (hasUnpushed || changedFiles > 0 || commitHash) {
+        logger.info(`Pushing changes to GitHub for workspace ${workspaceId}...`);
+        const pushResult = await dockerExec(
+          'git', ['-C', wsPath, 'push', '-u', 'origin', 'main'],
+          { timeoutMs: 30000 }
+        );
+        pushed = pushResult.exitCode === 0;
+
+        if (!pushed) {
+          logger.warn(`Push failed for ${workspaceId}: ${pushResult.stderr}`);
+        }
+      } else {
+        logger.info(`Workspace ${workspaceId} is already up to date with remote.`);
       }
     }
 
@@ -1050,8 +1076,18 @@ export class WorkspaceManager extends EventEmitter {
 
     // Create GitHub repo
     if (!(await this.isGitHubAvailable())) {
-      logger.warn('GitHub CLI not available or not authenticated');
+      logger.warn('GitHub integration not available or authentication failed');
       return undefined;
+    }
+
+    // Double check if repo already exists on GitHub side before creating
+    const checkResult = await dockerExec('gh', ['repo', 'view', workspaceId], {
+      cwd: wsPath,
+    });
+
+    if (checkResult.exitCode === 0) {
+      logger.info(`GitHub repo ${workspaceId} already exists, linking...`);
+      return await this.linkExistingRepo(wsPath, workspaceId);
     }
 
     const visibility = isPublic ? '--public' : '--private';
@@ -1074,18 +1110,14 @@ export class WorkspaceManager extends EventEmitter {
     });
 
     if (result.exitCode !== 0) {
-      // Check if repo already exists on GitHub
-      if (result.stderr.includes('already exists')) {
-        logger.info(`GitHub repo ${workspaceId} already exists, linking...`);
-        return await this.linkExistingRepo(wsPath, workspaceId);
-      }
       logger.error(`Failed to create GitHub repo: ${result.stderr}`);
-      this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-failed' });
+      this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-failed', error: result.stderr });
       return undefined;
     }
 
     // Extract repo URL from output
-    const repoUrl = result.stdout.trim().split('\n').pop()?.trim();
+    const urlMatch = result.stdout.match(/https:\/\/github\.com\/[^\n\s]+/);
+    const repoUrl = urlMatch ? urlMatch[0] : result.stdout.trim().split('\n').pop()?.trim();
 
     if (repoUrl) {
       this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-created', repoUrl });
@@ -1153,6 +1185,276 @@ export class WorkspaceManager extends EventEmitter {
     this.emitEvent('workspace:deleted', workspaceId);
 
     logger.info(`Deleted workspace: ${workspaceId}`);
+  }
+
+  // ============================================================================
+  // GitHub: Pull Requests
+  // ============================================================================
+
+  /**
+   * Create a pull request on GitHub.
+   *
+   * @param wsPath - Workspace path in container
+   * @param title - PR title
+   * @param body - Optional PR body
+   * @param base - Base branch (default: main)
+   * @param draft - Create as draft (default: true)
+   */
+  async createPullRequest(
+    wsPath: string,
+    title: string,
+    body?: string,
+    base = 'main',
+    draft = true
+  ): Promise<{ url: string; number: number; draft: boolean }> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['pr', 'create', '--title', title, '--base', base];
+    if (body) args.push('--body', body);
+    if (draft) args.push('--draft');
+
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 30000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create PR: ${result.stderr || result.stdout}`);
+    }
+
+    // gh pr create outputs the URL on success
+    const url = result.stdout.trim();
+
+    // Extract PR number from URL
+    const prMatch = url.match(/\/pull\/(\d+)/);
+    const prNumber = prMatch ? parseInt(prMatch[1], 10) : 0;
+
+    return { url, number: prNumber, draft };
+  }
+
+  /**
+   * List pull requests for the current repo.
+   */
+  async listPullRequests(
+    wsPath: string,
+    state = 'open'
+  ): Promise<Array<{ number: number; title: string; state: string; url: string; author: string }>> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['pr', 'list', '--state', state, '--json', 'number,title,state,url,author', '--limit', '10'];
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to list PRs: ${result.stderr || result.stdout}`);
+    }
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * View a specific pull request.
+   */
+  async viewPullRequest(
+    wsPath: string,
+    prNumber: number
+  ): Promise<Record<string, unknown>> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['pr', 'view', String(prNumber), '--json', 'number,title,body,state,url,author,reviews,comments,mergeable,additions,deletions,changedFiles'];
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to view PR #${prNumber}: ${result.stderr || result.stdout}`);
+    }
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return { raw: result.stdout };
+    }
+  }
+
+  // ============================================================================
+  // GitHub: Issues
+  // ============================================================================
+
+  /**
+   * Create a GitHub issue.
+   */
+  async createIssue(
+    wsPath: string,
+    title: string,
+    body?: string,
+    labels?: string[]
+  ): Promise<{ url: string; number: number }> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['issue', 'create', '--title', title];
+    if (body) args.push('--body', body);
+    if (labels && labels.length > 0) {
+      args.push('--label', labels.join(','));
+    }
+
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to create issue: ${result.stderr || result.stdout}`);
+    }
+
+    const url = result.stdout.trim();
+    const issueMatch = url.match(/\/issues\/(\d+)/);
+    const issueNumber = issueMatch ? parseInt(issueMatch[1], 10) : 0;
+
+    return { url, number: issueNumber };
+  }
+
+  /**
+   * List issues for the current repo.
+   */
+  async listIssues(
+    wsPath: string,
+    state = 'open',
+    assignee?: string,
+    labels?: string[]
+  ): Promise<Array<{ number: number; title: string; state: string; labels: string[]; url: string }>> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['issue', 'list', '--state', state, '--json', 'number,title,state,labels,url', '--limit', '10'];
+    if (assignee) args.push('--assignee', assignee);
+    if (labels && labels.length > 0) {
+      args.push('--label', labels.join(','));
+    }
+
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to list issues: ${result.stderr || result.stdout}`);
+    }
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // GitHub: Branches
+  // ============================================================================
+
+  /**
+   * Create a new git branch and optionally push it to GitHub.
+   */
+  async createBranch(
+    wsPath: string,
+    name: string,
+    from?: string
+  ): Promise<{ branch: string; pushed: boolean; from: string }> {
+    // If a base branch is specified, check it out first
+    if (from) {
+      const checkoutBase = await dockerExec('git', ['-C', wsPath, 'checkout', from]);
+      if (checkoutBase.exitCode !== 0) {
+        throw new Error(`Failed to checkout base branch '${from}': ${checkoutBase.stderr}`);
+      }
+    }
+
+    // Get the current branch name for the 'from' field
+    const currentBranch = await dockerExec('git', ['-C', wsPath, 'branch', '--show-current']);
+    const fromBranch = from || currentBranch.stdout.trim() || 'unknown';
+
+    // Create and switch to new branch
+    const createResult = await dockerExec('git', ['-C', wsPath, 'checkout', '-b', name]);
+    if (createResult.exitCode !== 0) {
+      throw new Error(`Failed to create branch '${name}': ${createResult.stderr}`);
+    }
+
+    // Try to push the branch to origin
+    let pushed = false;
+    if (await this.isGitHubAvailable()) {
+      const pushResult = await dockerExec('git', ['-C', wsPath, 'push', '-u', 'origin', name], { timeoutMs: 15000 });
+      pushed = pushResult.exitCode === 0;
+    }
+
+    return { branch: name, pushed, from: fromBranch };
+  }
+
+  // ============================================================================
+  // GitHub: Actions / CI
+  // ============================================================================
+
+  /**
+   * Get the status of recent GitHub Actions workflow runs.
+   */
+  async getActionStatus(
+    wsPath: string
+  ): Promise<Array<{ name: string; status: string; conclusion: string; url: string; createdAt: string }>> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['run', 'list', '--json', 'name,status,conclusion,url,createdAt', '--limit', '5'];
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      // No runs or no Actions configured is not necessarily an error
+      if (result.stderr.includes('no runs') || result.stderr.includes('not found')) {
+        return [];
+      }
+      throw new Error(`Failed to get action status: ${result.stderr || result.stdout}`);
+    }
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return [];
+    }
+  }
+
+  // ============================================================================
+  // GitHub: Search
+  // ============================================================================
+
+  /**
+   * Search GitHub repositories.
+   * This does not require a workspace context.
+   */
+  async searchRepos(
+    query: string,
+    limit = 5
+  ): Promise<Array<{ name: string; url: string; description: string; stars: number }>> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['search', 'repos', query, '--json', 'name,url,description,stargazersCount', '--limit', String(limit)];
+    const result = await dockerExec('gh', args, { timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to search repos: ${result.stderr || result.stdout}`);
+    }
+
+    try {
+      const parsed = JSON.parse(result.stdout);
+      return parsed.map((r: Record<string, unknown>) => ({
+        name: r.name || r.fullName,
+        url: r.url,
+        description: r.description || '',
+        stars: r.stargazersCount || 0,
+      }));
+    } catch {
+      return [];
+    }
   }
 }
 

@@ -19,7 +19,7 @@ The Bridge communicates with the Kennel by running `docker exec` commands into i
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Safety Gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) — if matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with **all 13 tools** available
+4. **Everything else** goes to the LLM with **all 21 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
@@ -88,7 +88,7 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 13 tools
+│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 21 tools
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
@@ -131,7 +131,7 @@ src/
 │   └── types.ts          # Task, TaskStatus, TaskConstraints interfaces
 ├── tools/
 │   ├── index.ts          # Barrel exports for tools module
-│   ├── registry.ts       # Tool registry (13 tools) with custom tool hot-reload
+│   ├── registry.ts       # Tool registry (21 tools) with custom tool hot-reload
 │   ├── types.ts          # ToolContext, ToolResult, DangerLevel interfaces
 │   ├── loader.ts         # Custom tool loader (data/tools/*.json → shell handlers)
 │   ├── workspace.ts      # Workspace tools (list, select, status, create, delete, sync, publish)

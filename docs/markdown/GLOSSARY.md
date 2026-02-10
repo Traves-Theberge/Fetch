@@ -7,7 +7,7 @@
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
 | **The Pack** | Collective name for the three AI harness agents (Claude, Gemini, Copilot). |
-| **LLM-First Architecture** | v4.0 design where every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools. No intent classification or conversation/action split. |
+| **LLM-First Architecture** | v4.0 design where every message (except 5 safety escapes) takes the same single path through the LLM with all 21 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
 
@@ -78,7 +78,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Orchestrator Tool** | One of 13 tools the LLM can call during the ReAct loop: 7 workspace tools (`workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`), 4 task tools (`task_create`, `task_status`, `task_cancel`, `task_respond`), and 2 interaction tools (`ask_user`, `report_progress`). |
+| **Orchestrator Tool** | One of 21 tools the LLM can call during the ReAct loop: 7 workspace tools (`workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`), 4 task tools (`task_create`, `task_status`, `task_cancel`, `task_respond`), and 2 interaction tools (`ask_user`, `report_progress`). |
 | **workspace_sync** | v4.0 tool that commits local changes and pushes to GitHub. Auto-generates commit messages from diffs. |
 | **Custom Tool** | A user-defined tool in `data/tools/` (JSON). Wraps a shell command with parameters. |
 

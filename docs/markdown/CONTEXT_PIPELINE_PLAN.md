@@ -14,7 +14,7 @@ The pipeline provides three layers of memory:
 
 | Layer | What It Does | Status |
 |-------|-------------|--------|
-| **Sliding Window** | Last 20 messages in full OpenAI multi-turn format (user, assistant, tool calls, tool results) with 13 tools available | ✅ Shipped |
+| **Sliding Window** | Last 20 messages in full OpenAI multi-turn format (user, assistant, tool calls, tool results) with 21 tools available | ✅ Shipped |
 | **Compaction** | When messages exceed 40, older ones are LLM-summarized into a single digest and the array shrinks | ✅ Shipped |
 | **BM25 Recall** | Full-text search across all messages (including compacted ones) for precision retrieval | 🔜 Planned |
 | **Vector Search** | Semantic similarity search for when keyword matching isn't enough | 🔜 Planned |
@@ -301,7 +301,7 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 
 ### ✅ Shipped (v4.0.0) — LLM-First Architecture
 
-- **Single path** — Every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools. No more conversation/action handler split or intent classification
+- **Single path** — Every message (except 5 safety escapes) takes the same single path through the LLM with all 21 tools. No more conversation/action handler split or intent classification
 - **Removed instinct layer** — 12 deterministic handlers deleted; replaced by 5 safety escapes (`/stop`, `/undo`, `/clear`, `/help`, `/status`)
 - **Removed intent classifier** — ~200 regex patterns deleted; the LLM inherently knows intent
 - **Removed mode detector** — Regex-based classification eliminated

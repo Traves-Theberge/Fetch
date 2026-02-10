@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.6] - 2026-02-10
+
+### 🐙 GitHub Tools Expansion (8 New Tools)
+
+Fetch's tool suite has been expanded from 13 to **21 tools** with 8 new GitHub-native tools. All tools execute `gh` CLI commands inside the `fetch-kennel` container via `dockerExec`.
+
+- **PR Management:**
+  - `github_pr_create` — Create pull requests (defaults to draft mode for safety)
+  - `github_pr_list` — List PRs filtered by state (open/closed/all)
+  - `github_pr_view` — View PR details including reviews, comments, and merge status
+
+- **Issue Tracking:**
+  - `github_issue_create` — Create issues with optional labels
+  - `github_issue_list` — List issues with state, assignee, and label filters
+
+- **Branching:**
+  - `github_branch_create` — Create and push new branches, optionally from a specified base
+
+- **CI/CD Monitoring:**
+  - `github_action_status` — View latest GitHub Actions workflow runs and their statuses
+
+- **Repository Search:**
+  - `github_search_repos` — Search GitHub repositories by keyword (no workspace required)
+
+#### Files Changed
+
+| File | Change |
+|---|---|
+| `src/validation/tools.ts` | +8 Zod schemas, type exports, registry entries |
+| `src/tools/github.ts` | **NEW** — 8 handler functions + tool descriptions |
+| `src/workspace/manager.ts` | +8 backend methods using `dockerExec` + `gh` CLI |
+| `src/tools/registry.ts` | Import + register 8 GitHub tools as builtins |
+
+#### Safety
+
+- Write operations (`pr_create`, `issue_create`, `branch_create`) are gated as `DangerLevel.MODERATE`
+- Read operations (`pr_list`, `pr_view`, `issue_list`, `action_status`, `search_repos`) are `DangerLevel.SAFE`
+- PR creation defaults to **draft mode** to prevent accidental merges
+
+## [4.0.5] - 2026-02-09
+
+### 🔄 Hotreload & TUI UX
+
+- **Automated Service Restart**:
+  - **Feature**: The TUI Manager now automatically restarts the `fetch-bridge` container after saving configuration changes.
+  - **Benefit**: Ensures newly configured environment variables (like agent models) are applied immediately without manual Docker commands.
+- **Global Link Fix**: Streamlined the installation process for linking the local `fetch-manager` to the global `fetch` command.
+
 ## [4.0.4] - 2026-02-09
 
 ### 🐛 Bug Fixes

@@ -194,14 +194,12 @@ export async function handleMessage(
     session.lastActivityAt = new Date().toISOString();
     await sManager.updateSession(session);
 
-    // Check for slash commands (these bypass the agent)
-    if (message.startsWith('/')) {
-      const { parseCommand } = await import('../commands/parser.js');
-      const result = await parseCommand(message, session, sManager);
-      if (result.handled) {
-        // Format slash command responses for WhatsApp too
-        return (result.responses || []).map(r => formatForWhatsApp(r));
-      }
+    // Check for commands (slash commands AND natural language triggers like "what can you do")
+    const { parseCommand } = await import('../commands/parser.js');
+    const result = await parseCommand(message, session, sManager);
+    if (result.handled) {
+      // Format command responses for WhatsApp too
+      return (result.responses || []).map(r => formatForWhatsApp(r));
     }
 
     // Process with agent
@@ -243,7 +241,27 @@ function buildResponses(response: AgentResponse): string[] {
 
   // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {
-    responses.push(`🐕 ${formatForWhatsApp(response.text)}`);
+    // Strip leading 🐕 from LLM response to avoid duplication (we add our own prefix)
+    let cleanText = response.text.replace(/^🐕\s*/, '').trim();
+    // Replace em dashes and en dashes with hyphens (LLM doesn't always follow the rule)
+    cleanText = cleanText.replace(/[—–]/g, '-');
+
+    // Safeguard: detect repetition loops (same phrase repeated 3+ times)
+    const repetitionMatch = cleanText.match(/(.{20,}?)\1{2,}/);
+    if (repetitionMatch) {
+      // Take only up to the first occurrence of the repeated phrase
+      const firstOccurrence = cleanText.indexOf(repetitionMatch[1]);
+      const endOfFirst = firstOccurrence + repetitionMatch[1].length;
+      cleanText = cleanText.substring(0, endOfFirst).trim();
+    }
+
+    // Safeguard: max length for WhatsApp (truncate runaway responses)
+    const MAX_RESPONSE_LENGTH = 1500;
+    if (cleanText.length > MAX_RESPONSE_LENGTH) {
+      cleanText = cleanText.substring(0, MAX_RESPONSE_LENGTH).trim() + '...';
+    }
+
+    responses.push(`🐕 ${formatForWhatsApp(cleanText)}`);
   }
 
   // Task started notification — now handled via proactive event in task:started

@@ -36,7 +36,7 @@ This is the master documentation index for Fetch v4.0.3.
 1. **WhatsApp** delivers the message to the Bridge via whatsapp-web.js
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Safety gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`). If matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with all 13 tools available — there is no intent classification or conversation/action split
+4. **Everything else** goes to the LLM with all 21 tools available — there is no intent classification or conversation/action split
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 7. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness

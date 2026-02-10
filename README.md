@@ -1,6 +1,6 @@
 # 🐕 Fetch - Your Faithful Code Companion
 
-**v4.0.4** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
+**v4.0.5** · [Documentation](docs/markdown/DOCUMENTATION.md) · [Setup Guide](docs/markdown/SETUP_GUIDE.md) · [Changelog](CHANGELOG.md)
 
 > ⚠️ **BETA PROJECT** — Experimental software. Review security implications before deployment.
 
@@ -38,10 +38,11 @@ Fetch is a **lightweight orchestrator** that delegates coding tasks to specializ
 - **🖼️ Vision Support** — Send screenshots of errors or UI mockups. Fetch analyzes them to fix bugs or build components.
 - **🧠 Skill Framework** — Extend Fetch with custom skills (YAML-defined prompts and tools).
 - **🎭 Hot-Reloaded Identity** — Give Fetch a new persona by editing `COLLAR.md` without restarting.
+- **🔄 Automated Service Hotreload** — The TUI Manager automatically restarts Fetch services after configuration saves to apply new settings instantly.
 
 ### 🏗️ LLM-First Architecture
 
-Every message (except 5 safety escapes) takes the same single path through the LLM with all 13 tools:
+Every message (except 5 safety escapes) takes the same single path through the LLM with all 21 tools:
 
 | Layer | Trigger | Response | Latency |
 | :--- | :--- | :--- | :--- |
@@ -130,11 +131,12 @@ docker logs -f fetch-bridge  # Scan the QR code
 | `/help` | Show available commands |
 | `/status` | System + task status |
 
-Everything else is handled via natural language — the LLM uses **13 specialized tools** to manage your environment:
+Everything else is handled via natural language — the LLM uses **21 specialized tools** to manage your environment:
 
 - **📁 Workspace (7)** — `list`, `select`, `status`, `create`, `delete`, `sync`, `publish` (to GitHub)
 - **🛠️ Tasks (4)** — `create` (scaffold/refactor), `status`, `cancel`, `respond` (input for AI CLIs)
 - **💬 Interaction (2)** — `ask_user` (for clarification), `report_progress`
+- **🐙 GitHub (8)** — `pr_create`, `pr_list`, `pr_view`, `issue_create`, `issue_list`, `branch_create`, `action_status`, `search_repos`
 
 Full reference → [COMMANDS.md](docs/markdown/COMMANDS.md)
 
@@ -224,7 +226,7 @@ Fetch/
 │       ├── session/            # Session persistence (SQLite)
 │       ├── skills/             # Skill framework
 │       ├── task/               # Task lifecycle + SQLite
-│       ├── tools/              # 13 orchestrator tools
+│       ├── tools/              # 21 orchestrator tools
 │       ├── transcription/      # Voice → text (whisper.cpp)
 │       ├── validation/         # Zod schemas, message validation
 │       ├── vision/             # Image analysis

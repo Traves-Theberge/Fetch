@@ -127,7 +127,7 @@ type model struct {
 	statusClient     *status.Client
 	versionInfo      components.VersionInfo
 	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
-	configMode       int
+	configMode int
 	// GitHub auth state
 	ghAccounts      []ghAccount // All GitHub accounts from gh auth status
 	ghAccountCursor int         // Cursor for account selection
@@ -465,7 +465,10 @@ func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		if m.configEditor != nil {
-			m.configEditor.Update(msg)
+			restartNeeded := m.configEditor.Update(msg)
+			if restartNeeded {
+				return m, restartBridgeCmd()
+			}
 			// Check if editor wants the model picker
 			if m.configEditor.ModelPickerRequested() {
 				m.configEditor.ClearModelPickerRequest()
@@ -616,6 +619,17 @@ func stopFetchCmd() tea.Cmd {
 			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to stop: %v", err)}
 		}
 		return actionResultMsg{success: true, message: "🛑 Fetch services stopped."}
+	}
+}
+
+// restartBridgeCmd restarts the bridge container to apply config changes
+func restartBridgeCmd() tea.Cmd {
+	return func() tea.Msg {
+		err := docker.RestartBridge()
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Restart failed: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "🔄 Config applied! Fetch restarted."}
 	}
 }
 

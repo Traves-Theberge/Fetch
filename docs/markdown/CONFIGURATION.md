@@ -45,6 +45,16 @@ Fetch defaults to using **GitHub Copilot** as the primary harness. You can enabl
 | `ENABLE_CLAUDE` | boolean | `false` | Enable the Claude Code harness |
 | `ENABLE_GEMINI` | boolean | `false` | Enable the Gemini CLI harness |
 
+### Harness Model Configuration
+
+By default, AI harnesses use their respective defaults. You can override them using these optional variables:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `COPILOT_MODEL` | string | Override model for GitHub Copilot CLI (e.g. `gpt-4`) |
+| `CLAUDE_MODEL` | string | Override model for Claude Code CLI (e.g. `claude-3-5-sonnet-20241022`) |
+| `GEMINI_MODEL` | string | Override model for Gemini CLI (e.g. `gemini-1.5-pro`) |
+
 > [!IMPORTANT]
 > **Ambiguous Selection:** If more than one agent is enabled and you don't explicitly specify an agent (e.g., "use claude to..."), Fetch will prompt you to choose an agent before starting the task. If only one agent is enabled, it is selected automatically.
 

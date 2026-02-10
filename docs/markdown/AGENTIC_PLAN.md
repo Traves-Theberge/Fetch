@@ -34,7 +34,7 @@ These bypass the LLM entirely because they must work even when the LLM is unreac
 ```
 Message → Security Gate → Safety Gate (5 commands)
                               ↓ (not matched)
-                         LLM with ALL 13 tools
+                         LLM with ALL 21 tools
                               ↓
                          ReAct loop (reason → act → observe)
                               ↓

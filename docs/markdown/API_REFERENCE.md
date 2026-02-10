@@ -54,7 +54,7 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 13 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 21 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 ### Workspace Tools
 

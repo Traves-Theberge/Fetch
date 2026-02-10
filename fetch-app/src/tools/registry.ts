@@ -39,6 +39,18 @@ import {
   interactionTools,
 } from './interaction.js';
 
+import {
+  handleGitHubPRCreate,
+  handleGitHubPRList,
+  handleGitHubPRView,
+  handleGitHubIssueCreate,
+  handleGitHubIssueList,
+  handleGitHubBranchCreate,
+  handleGitHubActionStatus,
+  handleGitHubSearchRepos,
+  githubTools,
+} from './github.js';
+
 import { loadToolDefinition, buildToolSchema, CustomToolDefinition } from './loader.js';
 import { exec } from 'child_process';
 import util from 'util';
@@ -303,14 +315,25 @@ export class ToolRegistry {
       // INTERACTION
       ask_user: { h: handleAskUser, s: ToolInputSchemas.ask_user, d: DangerLevel.SAFE },
       report_progress: { h: handleReportProgress, s: ToolInputSchemas.report_progress, d: DangerLevel.SAFE },
+
+      // GITHUB
+      github_pr_create: { h: handleGitHubPRCreate, s: ToolInputSchemas.github_pr_create, d: DangerLevel.MODERATE },
+      github_pr_list: { h: handleGitHubPRList, s: ToolInputSchemas.github_pr_list, d: DangerLevel.SAFE },
+      github_pr_view: { h: handleGitHubPRView, s: ToolInputSchemas.github_pr_view, d: DangerLevel.SAFE },
+      github_issue_create: { h: handleGitHubIssueCreate, s: ToolInputSchemas.github_issue_create, d: DangerLevel.MODERATE },
+      github_issue_list: { h: handleGitHubIssueList, s: ToolInputSchemas.github_issue_list, d: DangerLevel.SAFE },
+      github_branch_create: { h: handleGitHubBranchCreate, s: ToolInputSchemas.github_branch_create, d: DangerLevel.MODERATE },
+      github_action_status: { h: handleGitHubActionStatus, s: ToolInputSchemas.github_action_status, d: DangerLevel.SAFE },
+      github_search_repos: { h: handleGitHubSearchRepos, s: ToolInputSchemas.github_search_repos, d: DangerLevel.SAFE },
     };
 
     for (const [name, meta] of Object.entries(builtins)) {
       const wTools = workspaceTools as Record<string, { description: string }>;
       const tTools = taskTools as Record<string, { description: string }>;
       const iTools = interactionTools as Record<string, { description: string }>;
+      const gTools = githubTools as Record<string, { description: string }>;
 
-      const description = (wTools[name] || tTools[name] || iTools[name])?.description || 'No description';
+      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name])?.description || 'No description';
       logger.info(`Registering builtin tool: ${name}`, { hasHandler: !!meta.h });
 
       this.register({

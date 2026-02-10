@@ -55,6 +55,7 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 Shows the QR code rendered directly in the terminal using Unicode block characters. Includes a countdown timer — WhatsApp QR codes expire after ~20 seconds, so the TUI auto-refreshes.
 
 **States:**
+
 - **Waiting for QR** — Fetching from Bridge API
 - **QR Displayed** — Scan with WhatsApp
 - **Connected** — Authentication successful
@@ -67,11 +68,12 @@ Temporarily suspends the TUI and runs `gh auth login` in the terminal. The GitHu
 
 ### Configuration Editor
 
-Edits the `.env` file with a scrollable form interface organized into **10 subsystem groups**:
+Edits the `.env` file with a scrollable form interface organized into **11 subsystem groups**:
 
 | Group | Parameters | Examples |
 |-------|-----------|----------|
 | **Core Settings** | 8 | Owner Phone, API Key, Agent Model, Log Level |
+| **Harness Models** | 3 | Copilot Model, Claude Model, Gemini Model |
 | **Context Window** | 4 | History Window, Compaction Threshold |
 | **Agent LLM** | 6 | Chat/Tool Max Tokens, Temperature |
 | **Circuit Breaker** | 5 | CB Threshold, Backoff, Retries |
@@ -84,12 +86,16 @@ Edits the `.env` file with a scrollable form interface organized into **10 subsy
 | **BM25 Memory** | 3 | Recall Limit, Snippet Tokens, Decay |
 
 **Features:**
+
 - Default values shown in dim text when a field is empty
 - Help text displayed below the focused field
 - Scroll indicators when the list overflows
 - **Agent Model** field opens the model selector overlay on `Enter`
 
 **Controls:** `↑`/`↓` to navigate, `Enter` to edit (or open model picker for Agent Model), `s` to save, `Esc` to go back.
+
+> [!TIP]
+> **Automated Restart:** When you press `s` to save your configuration, the Manager will now automatically restart the `fetch-bridge` service to ensure your changes (like model selection) take effect immediately.
 
 ### Model Selector (Agent Model Overlay)
 
