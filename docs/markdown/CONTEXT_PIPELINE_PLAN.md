@@ -305,7 +305,7 @@ handler/index.ts ─── task:completed event ──→ addAssistantMessage() 
 - **Removed instinct layer** — 12 deterministic handlers deleted; replaced by 5 safety escapes (`/stop`, `/undo`, `/clear`, `/help`, `/status`)
 - **Removed intent classifier** — ~200 regex patterns deleted; the LLM inherently knows intent
 - **Removed mode detector** — Regex-based classification eliminated
-- **13 tools** — Added `workspace_sync` and `workspace_publish` (bringing total from 11 to 13)
+- **21 tools** — GitHub Tools Expansion (bringing total from 13 to 21)
 - **Docker exec container field** — Harness adapters set `container: 'fetch-kennel'`; spawner wraps with `docker exec`
 - **GitHub auto-sync** — `workspace_create` automatically creates a GitHub repo and pushes initial commit when `GH_TOKEN` is configured
 - **Kennel entrypoint** — Custom `entrypoint.sh` configures `gh` CLI auth and git identity from `GH_TOKEN`

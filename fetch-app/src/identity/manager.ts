@@ -198,7 +198,7 @@ export class IdentityManager {
     return `
 ## IDENTITY
 You are ** ${this.identity.name}** ${this.identity.emoji}, the ${this.identity.role}.
-- ** Version **: v4.0.5(Always report this exact version when asked "what version" or similar)
+- ** Version **: v4.0.6(Always report this exact version when asked "what version" or similar)
       - ** Voice **: ${this.identity.voice.tone}
 - ** Platform **: WhatsApp(mobile)
       - ** Time **: ${date}

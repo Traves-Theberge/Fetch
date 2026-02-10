@@ -47,6 +47,19 @@ The LLM has access to 21 orchestrator tools and decides which to call based on y
 | "Delete the test-api project" | Calls `workspace_delete` — removes project (with confirmation) |
 | "Sync my changes to GitHub" | Calls `workspace_sync` — commits and pushes to remote |
 
+### GitHub Operations
+
+| Message | What Fetch Does |
+|---------|----------------|
+| "Create a draft PR" | Calls `github_pr_create` — opens a new Pull Request |
+| "List open PRs" | Calls `github_pr_list` — shows repository PRs |
+| "View PR #42" | Calls `github_pr_view` — shows details, diff, and comments |
+| "Create an issue: fix login bug" | Calls `github_issue_create` — opens a new issue |
+| "Show my issues" | Calls `github_issue_list` — lists active issues |
+| "Create branch feat/auth" | Calls `github_branch_create` — creates branch locally/remotely |
+| "Search for 'whatsapp bot' on GitHub" | Calls `github_search_repos` — finds relevant repositories |
+| "Check workflow status" | Calls `github_action_status` — shows status of recent CI runs |
+
 ### Task Delegation
 
 | Message | What Fetch Does |
@@ -93,6 +106,14 @@ The LLM has access to these 21 tools:
 | `task_respond` | Task | Send follow-up input to running task |
 | `ask_user` | Interaction | Ask user for clarification (autonomy-gated) |
 | `report_progress` | Interaction | Send structured progress update |
+| `github_pr_create` | GitHub | Create a new Pull Request (Draft by default) |
+| `github_pr_list` | GitHub | List pull requests on the current repository |
+| `github_pr_view` | GitHub | View details, reviews, and comments on a PR |
+| `github_issue_create` | GitHub | Create a new issue with labels and assignees |
+| `github_issue_list` | GitHub | List issues on the current repository |
+| `github_branch_create` | GitHub | Create a branch and push it to origin |
+| `github_action_status` | GitHub | Show status of recent GitHub Action runs |
+| `github_search_repos` | GitHub | Search for repositories on GitHub |
 
 ## Response Formats
 

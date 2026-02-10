@@ -22,6 +22,7 @@ import {
   handleWorkspaceCreate,
   handleWorkspaceDelete,
   handleWorkspaceSync,
+  handleWorkspacePublish,
   workspaceTools,
 } from './workspace.js';
 
@@ -305,6 +306,7 @@ export class ToolRegistry {
       workspace_create: { h: handleWorkspaceCreate, s: ToolInputSchemas.workspace_create, d: DangerLevel.MODERATE },
       workspace_delete: { h: handleWorkspaceDelete, s: ToolInputSchemas.workspace_delete, d: DangerLevel.DANGEROUS },
       workspace_sync: { h: handleWorkspaceSync, s: ToolInputSchemas.workspace_sync, d: DangerLevel.MODERATE },
+      workspace_publish: { h: handleWorkspacePublish, s: ToolInputSchemas.workspace_publish, d: DangerLevel.MODERATE },
 
       // TASK
       task_create: { h: handleTaskCreate, s: ToolInputSchemas.task_create, d: DangerLevel.MODERATE },
