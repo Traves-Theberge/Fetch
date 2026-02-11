@@ -39,7 +39,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Harness** | An adapter that wraps an AI CLI (Claude Code, Gemini, Copilot) for use by the orchestrator. |
+| **Harness** | An adapter that wraps an AI CLI (Claude Code, Gemini, Copilot, OpenCode) for use by the orchestrator. |
 | **AbstractHarnessAdapter** | Base class providing shared logic: `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`. |
 | **Container Field** | The `container` property on `HarnessConfig` (e.g. `'fetch-kennel'`). When set, the spawner wraps commands with `docker exec`. |
 | **Registry** | `HarnessRegistry` — Maps harness names to adapter instances. Single source of truth. |

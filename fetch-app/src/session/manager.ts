@@ -36,11 +36,13 @@
  * ```
  */
 
-import { 
-  Session, 
-  Message, 
+import {
+  Session,
+  Message,
   createMessage,
-  ToolCall
+  ToolCall,
+  type MemoryCategory,
+  type MemoryEntry,
 } from './types.js';
 import { SessionStore, getSessionStore } from './store.js';
 import { pipeline } from '../config/pipeline.js';
@@ -216,7 +218,23 @@ export class SessionManager {
       return `${role}: ${content}`;
     }).join('\n');
 
-    // LLM-generate compact summary
+    // Preserve previous summary as a memory entry before overwriting
+    const previousSummary = session.metadata?.compactionSummary;
+    if (previousSummary) {
+      try {
+        this.store.addMemory(
+          session.id,
+          'compaction_summary',
+          previousSummary,
+          'compaction summary history context',
+          2
+        );
+      } catch (e) {
+        logger.warn('Failed to save previous compaction summary as memory', e);
+      }
+    }
+
+    // LLM-generate compact summary (includes previous summary for continuity)
     const summary = await this.generateCompactionSummary(transcript, session);
 
     // Replace old messages with summary in metadata
@@ -250,6 +268,10 @@ export class SessionManager {
       });
 
       const workspace = session.currentProject?.name ?? 'unknown';
+      const prevSummary = session.metadata?.compactionSummary;
+      const chainContext = prevSummary
+        ? `\n\nPrevious conversation summary (incorporate and build upon this):\n${prevSummary}`
+        : '';
 
       const response = await openai.chat.completions.create({
         model: pipeline.compactionModel,
@@ -264,9 +286,10 @@ Condense the following conversation transcript into a concise summary. Include:
 - Files discussed or modified
 - Tools used and their results
 - Any unresolved questions or pending work
+- User preferences or facts learned
 
 Be specific — mention file names, function names, and concrete details.
-Keep it under ${pipeline.compactionMaxTokens} tokens.`
+Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
           },
           {
             role: 'user',
@@ -304,9 +327,33 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.`
    */
   isRepoMapStale(session: Session): boolean {
     if (!session.repoMapUpdatedAt) return true;
-    
+
     const updatedAt = new Date(session.repoMapUpdatedAt).getTime();
     return Date.now() - updatedAt > pipeline.repoMapTtl;
+  }
+
+  // ============================================================================
+  // Memory Management
+  // ============================================================================
+
+  /**
+   * Add a memory entry for a session
+   */
+  addMemory(
+    sessionId: string,
+    category: MemoryCategory,
+    content: string,
+    keywords: string,
+    importance: number = 1
+  ): MemoryEntry {
+    return this.store.addMemory(sessionId, category, content, keywords, importance);
+  }
+
+  /**
+   * Recall memories matching a query for a session
+   */
+  recallMemories(sessionId: string, query: string, limit?: number): MemoryEntry[] {
+    return this.store.recallMemories(sessionId, query, limit ?? pipeline.recallLimit);
   }
 
 }

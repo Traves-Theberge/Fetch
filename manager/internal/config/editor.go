@@ -32,6 +32,7 @@ type ConfigField struct {
 	Help        string
 	Masked      bool
 	IsSeparator bool // Renders as section header, not editable
+	IsToggle    bool // Renders as [✓] / [ ] toggle for boolean fields
 }
 
 // Editor handles the configuration editing UI
@@ -85,12 +86,14 @@ func NewEditor() *Editor {
 			{IsSeparator: true, Label: "─── Core Settings ───"},
 			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
 			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
-			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "Enable GitHub Copilot harness", Default: "false"},
+			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "Enable GitHub Copilot harness", Default: "false", IsToggle: true},
 			{Key: "GH_TOKEN", Label: "GitHub Token", Help: "Token for Copilot (gh auth login)", Masked: true},
-			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "Enable Claude Code harness", Default: "false"},
+			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "Enable Claude Code harness", Default: "false", IsToggle: true},
 			{Key: "ANTHROPIC_API_KEY", Label: "Anthropic Key", Help: "Key for Claude harness", Masked: true},
-			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "Enable Gemini harness", Default: "false"},
+			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "Enable Gemini harness", Default: "false", IsToggle: true},
 			{Key: "GEMINI_API_KEY", Label: "Gemini Key", Help: "Key for Gemini harness", Masked: true},
+			{Key: "ENABLE_OPENCODE", Label: "Enable OpenCode", Help: "Enable OpenCode harness", Default: "false", IsToggle: true},
+			{Key: "OPENCODE_API_KEY", Label: "OpenCode Key", Help: "API key for OpenCode (or uses OpenRouter)", Masked: true},
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
@@ -99,6 +102,7 @@ func NewEditor() *Editor {
 			{Key: "COPILOT_MODEL", Label: "Copilot Model", Help: "e.g., gpt-4, gpt-3.5-turbo", Default: ""},
 			{Key: "CLAUDE_MODEL", Label: "Claude Model", Help: "e.g., claude-3-opus-20240229", Default: ""},
 			{Key: "GEMINI_MODEL", Label: "Gemini Model", Help: "e.g., gemini-1.5-pro-latest", Default: ""},
+			{Key: "OPENCODE_MODEL", Label: "OpenCode Model", Help: "e.g., openrouter/anthropic/claude-sonnet-4-5", Default: ""},
 			// ─── Context Window ──────────────────────────────────────
 			{IsSeparator: true, Label: "─── Context Window ───"},
 			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},
@@ -157,9 +161,9 @@ func NewEditor() *Editor {
 			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster", Default: "0.1"},
 			// ─── Web / Browser ────────────────────────────────────────
 			{IsSeparator: true, Label: "─── Web / Browser ───"},
-			{Key: "ENABLE_WEB_FETCH", Label: "Enable Web Fetch", Help: "Enable web page fetching tool", Default: "true"},
-			{Key: "ENABLE_WEB_SEARCH", Label: "Enable Web Search", Help: "Enable SearXNG web search tool", Default: "true"},
-			{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false"},
+			{Key: "ENABLE_WEB_FETCH", Label: "Enable Web Fetch", Help: "Enable web page fetching tool", Default: "true", IsToggle: true},
+			{Key: "ENABLE_WEB_SEARCH", Label: "Enable Web Search", Help: "Enable SearXNG web search tool", Default: "true", IsToggle: true},
+			{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false", IsToggle: true},
 			{Key: "FETCH_SEARXNG_URL", Label: "SearXNG URL", Help: "SearXNG instance URL for search", Default: "http://searxng:8080"},
 			{Key: "FETCH_WEB_FETCH_MAX_LENGTH", Label: "Fetch Max Length", Help: "Max chars extracted from web pages", Default: "50000"},
 			{Key: "FETCH_BROWSER_TIMEOUT", Label: "Browser Timeout (ms)", Help: "Browser command timeout", Default: "30000"},
@@ -426,8 +430,17 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 		// Open section picker
 		e.sectionPicker = true
 		e.sectionCursor = e.CurrentSection()
-	case "enter", "e":
+	case "enter", "e", " ":
 		if !e.fields[e.cursor].IsSeparator {
+			// Toggle fields flip between true/false
+			if e.fields[e.cursor].IsToggle {
+				if e.fields[e.cursor].Value == "true" {
+					e.fields[e.cursor].Value = "false"
+				} else {
+					e.fields[e.cursor].Value = "true"
+				}
+				return false
+			}
 			// AGENT_MODEL opens the model picker overlay
 			if e.fields[e.cursor].Key == "AGENT_MODEL" {
 				e.modelPickerRequested = true
@@ -500,6 +513,22 @@ func (e *Editor) View() string {
 		}
 
 		label := labelStyle.Render(field.Label + ":")
+
+		// Toggle fields render as checkboxes
+		if field.IsToggle {
+			checked := field.Value == "true" || (field.Value == "" && field.Default == "true")
+			box := theme.ToggleOff.Render("[ ]")
+			if checked {
+				box = theme.ToggleOn.Render("[✓]")
+			}
+			if i == e.cursor {
+				s += focusedStyle.Render("▶ ") + label + " " + box + "\n"
+				s += "     " + helpTextStyle.Render(field.Help+" (Space/Enter to toggle)") + "\n"
+			} else {
+				s += "   " + label + " " + box + "\n"
+			}
+			continue
+		}
 
 		value := field.Value
 		if field.Masked && value != "" && !e.editing {

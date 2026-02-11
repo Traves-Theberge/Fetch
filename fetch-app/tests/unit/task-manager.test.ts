@@ -48,8 +48,9 @@ vi.mock('../../src/config/env.js', () => ({
     ENABLE_COPILOT: true,
     ENABLE_CLAUDE: false,
     ENABLE_GEMINI: false,
+    ENABLE_OPENCODE: false,
   },
-  VERSION: '4.3.1',
+  VERSION: '4.4.0',
 }));
 
 const { TaskManager } = await import('../../src/task/manager.js');

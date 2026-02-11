@@ -378,8 +378,8 @@ async function handleWithTools(
   const matchedSkills = await skillManager.matchSkills(message);
   const activatedContext = skillManager.buildActivatedSkillsContext(matchedSkills);
 
-  // Build session context (workspace, task, git state, summaries)
-  const sessionContext = await buildContextSection(session);
+  // Build session context (workspace, task, git state, summaries, recalled memories)
+  const sessionContext = await buildContextSection(session, message);
 
   const history = buildMessageHistory(session);
 
@@ -552,10 +552,15 @@ async function handleWithTools(
       });
 
       // Persist tool result to session (AFTER successful execution to avoid orphaned entries)
+      // Compress large tool results to prevent session bloat
+      const maxPersist = pipeline.toolResultMaxPersist;
+      const persistResult = result.output && result.output.length > maxPersist
+        ? result.output.slice(0, maxPersist / 2) + `\n... [truncated, full output was ${result.output.length} chars]`
+        : result.output;
       await sManager.addToolMessage(
         session,
-        { name: toolName, args: finalArgs, result: result.output, duration: Date.now() - toolStart },
-        JSON.stringify(result),
+        { name: toolName, args: finalArgs, result: persistResult, duration: Date.now() - toolStart },
+        JSON.stringify({ ...result, output: persistResult }),
         toolCall.id
       );
 

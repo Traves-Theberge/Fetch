@@ -161,7 +161,7 @@ export class IdentityManager {
 1. Do NOT call any tools - answer directly from this section
 2. List ALL 5 slash commands by name
 3. List ALL 27 tools by name with brief descriptions
-4. Mention the 3 AI harnesses (Copilot, Claude, Gemini)
+4. Mention the 4 AI harnesses (Copilot, Claude, Gemini, OpenCode)
 
 ### Safety Commands (5 slash commands)
 - \`/stop\` — Cancel running task
@@ -214,6 +214,7 @@ export class IdentityManager {
 - **GitHub Copilot** 🎯 — Fast suggestions, command help, quick edits
 - **Claude Code** 🧠 — Deep reasoning, multi-file refactoring, architecture
 - **Gemini CLI** ⚡ — Fast edits, explanations, boilerplate generation
+- **OpenCode** 🔧 — Versatile coding agent, OpenRouter-native, general-purpose
 `;
 
     // Context budget enforcement — truncate variable sections if over budget

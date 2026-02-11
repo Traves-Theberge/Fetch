@@ -44,9 +44,12 @@
 import Database from 'better-sqlite3';
 import { dirname } from 'path';
 import { mkdir } from 'fs/promises';
-import { 
-  Session, 
-  createSession 
+import {
+  Session,
+  createSession,
+  type MemoryEntry,
+  type MemoryCategory,
+  generateId,
 } from './types.js';
 import { logger } from '../utils/logger.js';
 import { SESSIONS_DB } from '../config/paths.js';
@@ -105,6 +108,9 @@ export class SessionStore {
   private stmtDelete: Database.Statement | null = null;
   private stmtCount: Database.Statement | null = null;
   private stmtCleanup: Database.Statement | null = null;
+  private stmtMemoryInsert: Database.Statement | null = null;
+  private stmtMemorySearch: Database.Statement | null = null;
+  private stmtMemoryUpdateRecall: Database.Statement | null = null;
 
   constructor(dbPath: string = DEFAULT_DB_PATH) {
     this.dbPath = dbPath;
@@ -145,31 +151,26 @@ export class SessionStore {
           updated_at TEXT NOT NULL
         );
 
-        -- Conversation summaries (legacy table, kept for migration safety)
-        CREATE TABLE IF NOT EXISTS conversation_summaries (
+        -- Migration: drop legacy tables no longer used
+        DROP TABLE IF EXISTS conversation_summaries;
+        DROP TABLE IF EXISTS conversation_threads;
+
+        -- Structured memory for cross-session recall
+        CREATE TABLE IF NOT EXISTS memory (
           id TEXT PRIMARY KEY,
           session_id TEXT NOT NULL,
-          thread_id TEXT,
-          range_start_id TEXT NOT NULL,
-          range_end_id TEXT NOT NULL,
+          category TEXT NOT NULL,
           content TEXT NOT NULL,
+          keywords TEXT NOT NULL,
+          importance INTEGER DEFAULT 1,
           created_at TEXT NOT NULL,
+          last_recalled_at TEXT,
+          recall_count INTEGER DEFAULT 0,
           FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );
-        CREATE INDEX IF NOT EXISTS idx_summaries_session ON conversation_summaries(session_id);
-        CREATE INDEX IF NOT EXISTS idx_summaries_thread ON conversation_summaries(thread_id);
-
-        -- Conversation Threads: Persistence for long-running conversations
-        CREATE TABLE IF NOT EXISTS conversation_threads (
-          id TEXT PRIMARY KEY,
-          session_id TEXT NOT NULL,
-          title TEXT NOT NULL DEFAULT '',
-          status TEXT NOT NULL DEFAULT 'active',
-          context_snapshot TEXT DEFAULT '{}',
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_threads_session ON conversation_threads(session_id);
+        CREATE INDEX IF NOT EXISTS idx_memory_session ON memory(session_id);
+        CREATE INDEX IF NOT EXISTS idx_memory_category ON memory(category);
+        CREATE INDEX IF NOT EXISTS idx_memory_keywords ON memory(keywords);
       `);
 
       // Prepare statements
@@ -185,11 +186,29 @@ export class SessionStore {
       this.stmtDelete = this.db.prepare('DELETE FROM sessions WHERE id = ?');
       this.stmtCount = this.db.prepare('SELECT COUNT(*) as count FROM sessions');
       this.stmtCleanup = this.db.prepare('DELETE FROM sessions WHERE last_activity_at < ?');
-      
+
+      // Memory statements
+      this.stmtMemoryInsert = this.db.prepare(`
+        INSERT INTO memory (id, session_id, category, content, keywords, importance, created_at)
+        VALUES (@id, @session_id, @category, @content, @keywords, @importance, @created_at)
+      `);
+      this.stmtMemorySearch = this.db.prepare(`
+        SELECT * FROM memory WHERE session_id = ? ORDER BY importance DESC, created_at DESC LIMIT ?
+      `);
+      this.stmtMemoryUpdateRecall = this.db.prepare(`
+        UPDATE memory SET last_recalled_at = @last_recalled_at, recall_count = recall_count + 1 WHERE id = @id
+      `);
+
       this.initialized = true;
-      
+
       const count = (this.stmtCount.get() as { count: number }).count;
       logger.info('Session store initialized', { sessionCount: count });
+
+      // Auto-cleanup expired sessions on startup
+      const cleaned = await this.cleanup();
+      if (cleaned > 0) {
+        logger.info('Startup cleanup removed expired sessions', { count: cleaned });
+      }
     } catch (error) {
       logger.error('Failed to initialize session store', { error });
       throw error;
@@ -370,6 +389,132 @@ export class SessionStore {
     this.ensureInitialized();
     const result = this.stmtCount!.get() as { count: number };
     return result.count;
+  }
+
+  // ===========================================================================
+  // Memory CRUD
+  // ===========================================================================
+
+  /**
+   * Add a memory entry
+   */
+  addMemory(
+    sessionId: string,
+    category: MemoryCategory,
+    content: string,
+    keywords: string,
+    importance: number = 1
+  ): MemoryEntry {
+    this.ensureInitialized();
+
+    const entry: MemoryEntry = {
+      id: `mem_${generateId(10)}`,
+      sessionId,
+      category,
+      content,
+      keywords,
+      importance: Math.max(1, Math.min(5, importance)),
+      createdAt: new Date().toISOString(),
+      lastRecalledAt: null,
+      recallCount: 0,
+    };
+
+    this.stmtMemoryInsert!.run({
+      id: entry.id,
+      session_id: entry.sessionId,
+      category: entry.category,
+      content: entry.content,
+      keywords: entry.keywords,
+      importance: entry.importance,
+      created_at: entry.createdAt,
+    });
+
+    return entry;
+  }
+
+  /**
+   * Recall memories for a session using keyword matching.
+   * Returns top matches ordered by importance and recency.
+   */
+  recallMemories(sessionId: string, query: string, limit: number = 5): MemoryEntry[] {
+    this.ensureInitialized();
+
+    // Fetch candidate memories for this session
+    const rows = this.stmtMemorySearch!.all(sessionId, limit * 3) as Array<{
+      id: string;
+      session_id: string;
+      category: string;
+      content: string;
+      keywords: string;
+      importance: number;
+      created_at: string;
+      last_recalled_at: string | null;
+      recall_count: number;
+    }>;
+
+    if (rows.length === 0) return [];
+
+    // BM25-style keyword scoring
+    const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
+    if (queryTerms.length === 0) {
+      // No meaningful query terms - return top by importance
+      return rows.slice(0, limit).map(r => this.rowToMemory(r));
+    }
+
+    const scored = rows.map(row => {
+      const keywords = row.keywords.toLowerCase();
+      const content = row.content.toLowerCase();
+      let score = 0;
+
+      for (const term of queryTerms) {
+        if (keywords.includes(term)) score += 3;
+        if (content.includes(term)) score += 1;
+      }
+
+      // Boost by importance
+      score *= (1 + row.importance * 0.2);
+
+      return { row, score };
+    });
+
+    // Sort by score descending, take top N
+    scored.sort((a, b) => b.score - a.score);
+    const results = scored
+      .filter(s => s.score > 0)
+      .slice(0, limit)
+      .map(s => this.rowToMemory(s.row));
+
+    // Update recall timestamps
+    const now = new Date().toISOString();
+    for (const entry of results) {
+      this.stmtMemoryUpdateRecall!.run({ id: entry.id, last_recalled_at: now });
+    }
+
+    return results;
+  }
+
+  private rowToMemory(row: {
+    id: string;
+    session_id: string;
+    category: string;
+    content: string;
+    keywords: string;
+    importance: number;
+    created_at: string;
+    last_recalled_at: string | null;
+    recall_count: number;
+  }): MemoryEntry {
+    return {
+      id: row.id,
+      sessionId: row.session_id,
+      category: row.category as MemoryCategory,
+      content: row.content,
+      keywords: row.keywords,
+      importance: row.importance,
+      createdAt: row.created_at,
+      lastRecalledAt: row.last_recalled_at,
+      recallCount: row.recall_count,
+    };
   }
 
   /**

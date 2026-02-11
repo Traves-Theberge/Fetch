@@ -80,7 +80,7 @@ Now write the goal:`;
  * @param session - Current session
  * @returns Formatted context block
  */
-export async function buildContextSection(session: Session): Promise<string> {
+export async function buildContextSection(session: Session, userMessage?: string): Promise<string> {
   const parts: string[] = [];
 
   // Thread metadata
@@ -131,6 +131,23 @@ export async function buildContextSection(session: Session): Promise<string> {
   // Repository Map
   if (session.repoMap) {
     parts.push('\n' + session.repoMap);
+  }
+
+  // Recalled memories from structured memory store
+  if (userMessage) {
+    try {
+      const { getSessionManager } = await import('../session/manager.js');
+      const sManager = await getSessionManager();
+      const memories = sManager.recallMemories(session.id, userMessage);
+      if (memories.length > 0) {
+        parts.push('\n## Recalled Context');
+        for (const mem of memories) {
+          parts.push(`- [${mem.category}] ${mem.content}`);
+        }
+      }
+    } catch {
+      // Memory recall is best-effort, don't block on failure
+    }
   }
 
   // Conversation context

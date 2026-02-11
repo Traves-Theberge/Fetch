@@ -14,12 +14,12 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.3.0
+  F E T C H    v4.4.0
 ```
 
 **Send coding tasks via WhatsApp. AI agents execute them in Docker.**
 
-Fetch is a headless development orchestrator. You message it on WhatsApp, and it dispatches AI agents — Claude Code, Gemini CLI, GitHub Copilot — into sandboxed Docker containers to work on your codebase.
+Fetch is a headless development orchestrator. You message it on WhatsApp, and it dispatches AI agents — Claude Code, Gemini CLI, GitHub Copilot, OpenCode — into sandboxed Docker containers to work on your codebase.
 
 ---
 
@@ -46,6 +46,7 @@ flowchart LR
         Claude["Claude Code"]
         Gemini["Gemini CLI"]
         Copilot["Copilot CLI"]
+        OpenCode["OpenCode"]
         Playwright["Playwright + Chromium"]
         Workspace["/workspace (mounted)"]
     end
@@ -74,7 +75,7 @@ flowchart LR
 | Container | Tech | Role |
 |-----------|------|------|
 | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 27 orchestrator tools, session/task persistence |
-| **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, Playwright + Chromium |
+| **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Playwright + Chromium |
 | **SearXNG** | Meta search engine | Self-hosted search aggregator (Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm) |
 | **Manager** | Go / Bubble Tea | TUI for managing services, configuring env vars, viewing logs |
 
@@ -84,8 +85,9 @@ flowchart LR
 - **LLM-First** — Every message goes directly to the LLM with all 27 tools. No pre-classification, no regex routing
 - **5 Safety Escapes** — Only `/stop`, `/undo`, `/clear`, `/help`, `/status` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
-- **Three Harnesses** — Claude Code, Gemini CLI, Copilot CLI with process lifecycle management
-- **Pipeline Tuning** — 35 parameters via `FETCH_*` env vars, no code changes needed
+- **Four Harnesses** — Claude Code, Gemini CLI, Copilot CLI, OpenCode with process lifecycle management
+- **Structured Memory** — Cross-session recall with BM25-style keyword matching, chained compaction summaries
+- **Pipeline Tuning** — 39 parameters via `FETCH_*` env vars, no code changes needed
 
 **Tools & Capabilities**
 - **27 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
@@ -147,7 +149,7 @@ cd fetch-app
 npm run dev          # run with ts-node
 npm run build        # compile to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (199 passing)
+npm run test:run     # all tests (307 passing)
 npm run test:unit    # unit tests only
 
 # Manager (Go TUI)

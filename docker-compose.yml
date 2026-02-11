@@ -78,6 +78,8 @@ services:
       # GH_TOKEN overrides keyring-based auth inside container
       # gh CLI and git both respect this env var
       - GH_TOKEN=${GH_TOKEN}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     volumes:
       # Shared workspace for code operations
       - ./workspace:/workspace
@@ -86,6 +88,7 @@ services:
       - ~/.config/gh:/root/.config/gh:ro
       - ~/.config/claude-code:/root/.config/claude-code:ro
       - ~/.gemini:/root/.gemini
+      - ~/.config/opencode:/root/.config/opencode:ro
     working_dir: /workspace
     # Keep container running for exec commands
     command: ["tail", "-f", "/dev/null"]

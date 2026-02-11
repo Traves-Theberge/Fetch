@@ -106,6 +106,26 @@ export interface Message {
 }
 
 // ============================================================================
+// Memory
+// ============================================================================
+
+/** Category of a memory entry */
+export type MemoryCategory = 'fact' | 'preference' | 'decision' | 'file_operation' | 'compaction_summary';
+
+/** A structured memory entry for cross-session recall */
+export interface MemoryEntry {
+  id: string;
+  sessionId: string;
+  category: MemoryCategory;
+  content: string;
+  keywords: string;
+  importance: number;
+  createdAt: string;
+  lastRecalledAt: string | null;
+  recallCount: number;
+}
+
+// ============================================================================
 // Task Reference (TaskManager is sole authority, session holds ID only)
 // ============================================================================
 
@@ -125,8 +145,6 @@ export interface Session {
   metadata: Record<string, any>;
   
   // Conversation
-  /** Current active thread ID */
-  currentThreadId?: string;
   /** Full message history */
   messages: Message[];
   

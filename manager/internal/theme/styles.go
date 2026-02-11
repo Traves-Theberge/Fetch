@@ -99,6 +99,15 @@ var EditorDefault = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("#555555")).
 	Italic(true)
 
+// ToggleOn is for enabled boolean toggles [✓]
+var ToggleOn = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#00E676")).
+	Bold(true)
+
+// ToggleOff is for disabled boolean toggles [ ]
+var ToggleOff = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#666666"))
+
 // ===== SELECTOR STYLES =====
 
 // SelectorNormal is for unselected items in pickers

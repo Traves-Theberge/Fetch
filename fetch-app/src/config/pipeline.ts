@@ -121,6 +121,16 @@ export const pipeline = {
   /** Git command execution timeout (ms) */
   gitCommandTimeout: int('FETCH_GIT_TIMEOUT', 5_000),
 
+  // ─── Memory / Recall ─────────────────────────────────────────
+  /** Max recalled memory entries injected into context */
+  recallLimit: int('FETCH_RECALL_LIMIT', 5),
+  /** Max tokens per recalled snippet */
+  recallSnippetTokens: int('FETCH_RECALL_SNIPPET_TOKENS', 300),
+  /** Recency decay factor (higher = faster decay) */
+  recallDecay: float('FETCH_RECALL_DECAY', 0.1),
+  /** Max chars for tool results persisted in session history */
+  toolResultMaxPersist: int('FETCH_TOOL_RESULT_MAX_PERSIST', 2000),
+
   // ─── Web / Browser ─────────────────────────────────────────
   /** SearXNG instance URL for web search */
   searxngUrl: str('FETCH_SEARXNG_URL', 'http://searxng:8080'),

@@ -29,11 +29,12 @@ flowchart TD
 
 The Context Pipeline solves a core problem in conversational AI: **multi-turn memory**. Without it, every message is a blank slate.
 
-The pipeline applies three layers of memory:
+The pipeline applies four layers of memory:
 
 1. **Sliding Window**: Last 20 messages (configurable) in full OpenAI format.
-2. **Compaction**: Older messages are summarzied into a single system prompt section.
-3. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
+2. **Compaction**: Older messages are summarized into a chained system prompt section. Previous summaries are preserved as structured memory entries.
+3. **Structured Memory**: Key facts, preferences, and decisions stored in a `memory` table with BM25-style keyword recall. Recalled entries are injected into the system prompt.
+4. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
 
 ## Project Intelligence
 
@@ -65,9 +66,12 @@ The context pipeline handles message persistence and compaction automatically:
 
 When the conversation exceeds `FETCH_COMPACTION_THRESHOLD` (default 40), the engine:
 
-1. Takes all messages *outside* the sliding window.
-2. Feeds them to a cheaper model (e.g. Gemini Flash).
-3. Generates a bulleted summary.
-4. Injects this summary into the `system` message.
+1. Saves the previous compaction summary as a structured memory entry (category: `compaction_summary`).
+2. Takes all messages *outside* the sliding window.
+3. Feeds them to a cheaper model (e.g. GPT-4o-mini) along with the previous summary for continuity.
+4. Generates a bulleted summary with chained context.
+5. Injects this summary into the `system` message.
+
+Additionally, tool results exceeding `FETCH_TOOL_RESULT_MAX_PERSIST` (default 2000 chars) are compressed before persisting to session history, preventing large outputs (e.g. GitHub PR content, web fetches) from bloating the context.
 
 This allows conversations to go on for hundreds of turns without overflowing the context window or racking up huge token costs.

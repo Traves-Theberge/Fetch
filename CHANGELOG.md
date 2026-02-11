@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-02-11
+
+### OpenCode Harness, Memory System Overhaul, TUI Cleanup
+
+Three major work streams: a 4th AI harness adapter, a structured memory system with cross-session recall, and TUI polish with boolean toggle fields.
+
+#### Work Stream A: OpenCode Harness
+
+- **New harness adapter** — Added OpenCode as the 4th harness alongside Claude, Gemini, and Copilot. OpenCode is a Go-based open-source coding agent that supports OpenRouter natively
+- **Adapter implementation** — `opencode.ts` follows the Claude adapter pattern: `opencode run --quiet` for non-interactive execution, model override via `--model`, env passthrough for API keys
+- **Kennel installation** — OpenCode CLI installed via `npm i -g opencode-ai@latest` in the kennel Dockerfile
+- **CLI config** — Added `data/cli-configs/OPENCODE.md` with kennel instructions matching the existing Claude/Gemini configs
+- **Docker integration** — Added `OPENCODE_API_KEY` and `OPENROUTER_API_KEY` env passthrough to kennel, config volume mount
+- **Registry** — OpenCode registered in harness registry, `AgentType` union extended, identity manager capabilities updated
+
+#### Work Stream B: Memory System Overhaul
+
+- **Structured memory table** — New `memory` table in SQLite with category (fact/preference/decision/file_operation/compaction_summary), keyword-based search, importance scoring, and recall tracking
+- **Memory CRUD** — `addMemory()` and `recallMemories()` methods on SessionStore and SessionManager with BM25-style keyword matching
+- **Chained compaction** — Previous compaction summaries are saved as memory entries before overwriting, and the new summary prompt includes the previous summary for continuity
+- **Tool result compression** — Tool outputs exceeding `FETCH_TOOL_RESULT_MAX_PERSIST` (default: 2000 chars) are truncated before persisting to session history, preventing context bloat from large GitHub PR content or web fetches
+- **Recalled context injection** — `buildContextSection()` now queries the memory store using keywords from the current user message and injects up to `FETCH_RECALL_LIMIT` recalled memories into the system prompt
+- **Auto-cleanup** — `SessionStore.init()` now runs `cleanup()` on startup to purge expired sessions
+- **Legacy table migration** — Dropped unused `conversation_summaries` and `conversation_threads` tables, removed `currentThreadId` from Session interface
+- **Pipeline params** — Added `recallLimit`, `recallSnippetTokens`, `recallDecay`, `toolResultMaxPersist`
+
+#### Work Stream C: TUI Cleanup
+
+- **Boolean toggle fields** — Added `IsToggle` field type to the Go TUI config editor. Boolean fields now render as `[✓]`/`[ ]` checkboxes and toggle on Enter/Space instead of opening a text editor
+- **Toggle styles** — Added `ToggleOn` (green bold) and `ToggleOff` (gray) styles to the theme
+- **Applied to 7 fields** — `ENABLE_COPILOT`, `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_OPENCODE`, `ENABLE_WEB_FETCH`, `ENABLE_WEB_SEARCH`, `ENABLE_BROWSER`
+- **OpenCode in TUI** — Added `ENABLE_OPENCODE`, `OPENCODE_API_KEY`, and `OPENCODE_MODEL` fields to the config editor
+
+#### Files Changed (20)
+
+| Area | Files |
+|------|-------|
+| Harness | `harness/opencode.ts` (new), `harness/registry.ts`, `task/types.ts` |
+| Config | `config/env.ts`, `config/pipeline.ts` |
+| Session | `session/store.ts`, `session/types.ts`, `session/manager.ts` |
+| Agent | `agent/core.ts`, `agent/prompts.ts` |
+| Identity | `identity/manager.ts` |
+| CLI Config | `data/cli-configs/OPENCODE.md` (new) |
+| Docker | `kennel/Dockerfile`, `docker-compose.yml` |
+| TUI | `manager/internal/config/editor.go`, `manager/internal/theme/styles.go` |
+| Docs | `data/identity/COLLAR.md`, `README.md`, `CHANGELOG.md` |
+| Tests | `tests/unit/command-parser.test.ts`, `tests/unit/task-manager.test.ts` |
+
+---
+
 ## [4.3.1] - 2026-02-11
 
 ### 🐕 Conversational & Tool Response Quality Improvements

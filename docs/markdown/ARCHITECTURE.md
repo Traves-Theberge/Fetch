@@ -32,7 +32,7 @@ flowchart TB
 Fetch runs as three Docker containers managed by a Go TUI:
 
 - **Bridge** (Node.js) — Connects to WhatsApp, runs the agent core, manages sessions and tasks
-- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot) and Playwright+Chromium execute against the workspace
+- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot, OpenCode) and Playwright+Chromium execute against the workspace
 - **SearXNG** — Self-hosted meta search engine providing the `web_search` backend (aggregates Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, npm)
 - **Manager** (Go, runs on host) — TUI for starting/stopping Docker, editing config, viewing logs
 

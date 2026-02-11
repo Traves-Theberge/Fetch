@@ -37,8 +37,9 @@ export type TaskId = `tsk_${string}`;
  * | claude | `claude --print` | Complex multi-file changes |
  * | gemini | `gemini` | Quick edits, explanations |
  * | copilot | `gh copilot suggest` | GitHub-integrated workflows |
+ * | opencode | `opencode run` | Versatile coding via OpenRouter |
  */
-export type AgentType = 'claude' | 'gemini' | 'copilot';
+export type AgentType = 'claude' | 'gemini' | 'copilot' | 'opencode';
 
 /**
  * Agent selection strategy

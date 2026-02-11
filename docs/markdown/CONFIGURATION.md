@@ -44,6 +44,7 @@ Fetch defaults to using **GitHub Copilot** as the primary harness. You can enabl
 | `ENABLE_COPILOT` | boolean | `true` | Enable the GitHub Copilot CLI harness |
 | `ENABLE_CLAUDE` | boolean | `false` | Enable the Claude Code harness |
 | `ENABLE_GEMINI` | boolean | `false` | Enable the Gemini CLI harness |
+| `ENABLE_OPENCODE` | boolean | `false` | Enable the OpenCode harness |
 
 ### Web & Browser Feature Flags
 
@@ -62,13 +63,14 @@ By default, AI harnesses use their respective defaults. You can override them us
 | `COPILOT_MODEL` | string | Override model for GitHub Copilot CLI (e.g. `gpt-4`) |
 | `CLAUDE_MODEL` | string | Override model for Claude Code CLI (e.g. `claude-3-5-sonnet-20241022`) |
 | `GEMINI_MODEL` | string | Override model for Gemini CLI (e.g. `gemini-1.5-pro`) |
+| `OPENCODE_MODEL` | string | Override model for OpenCode (e.g. `openrouter/anthropic/claude-sonnet-4-5`) |
 
 > [!IMPORTANT]
 > **Ambiguous Selection:** If more than one agent is enabled and you don't explicitly specify an agent (e.g., "use claude to..."), Fetch will prompt you to choose an agent before starting the task. If only one agent is enabled, it is selected automatically.
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 35 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with 39 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -84,6 +86,10 @@ The context pipeline is configured via `config/pipeline.ts` with 35 tunable para
 | `FETCH_WEB_FETCH_MAX_LENGTH` | int | `50000` | Max content length for web_fetch (chars) |
 | `FETCH_BROWSER_TIMEOUT` | int | `30000` | Browser automation timeout (ms) |
 | `FETCH_CONTEXT_BUDGET` | int | `6000` | Token budget for system prompt (estimated via chars/4) |
+| `FETCH_RECALL_LIMIT` | int | `5` | Max recalled memory entries injected into context |
+| `FETCH_RECALL_SNIPPET_TOKENS` | int | `300` | Max tokens per recalled snippet |
+| `FETCH_RECALL_DECAY` | float | `0.1` | Recency decay factor (higher = faster decay) |
+| `FETCH_TOOL_RESULT_MAX_PERSIST` | int | `2000` | Max chars for tool results persisted in session history |
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 
