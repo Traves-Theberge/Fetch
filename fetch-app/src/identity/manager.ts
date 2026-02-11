@@ -17,6 +17,7 @@ import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
+import { pipeline } from '../config/pipeline.js';
 
 // Default "Orchestrator" Identity
 const DEFAULT_IDENTITY: AgentIdentity = {
@@ -138,8 +139,8 @@ export class IdentityManager {
 
     const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as expert procedural guidance.\n- If no skill applies, proceed with your general knowledge.` : '';
 
-    const activatedSection = activatedSkillsContext || '';
-    const sessionSection = sessionContext || '';
+    let activatedSection = activatedSkillsContext || '';
+    let sessionSection = sessionContext || '';
     const packSection = this.buildPackContext();
 
     // Capabilities section for "what can you do" queries
@@ -204,6 +205,28 @@ export class IdentityManager {
 - **Claude Code** 🧠 — Deep reasoning, multi-file refactoring, architecture
 - **Gemini CLI** ⚡ — Fast edits, explanations, boilerplate generation
 `;
+
+    // Context budget enforcement — truncate variable sections if over budget
+    const budgetTokens = pipeline.contextBudget;
+    const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+
+    const coreEstimate = estimateTokens(capabilitiesSection + packSection);
+    const variableEstimate = estimateTokens(sessionSection + activatedSection);
+    const totalEstimate = coreEstimate + variableEstimate + 1500; // ~1500 for static identity/directive text
+
+    if (totalEstimate > budgetTokens) {
+      logger.warn(`System prompt exceeds context budget: ~${totalEstimate} tokens vs ${budgetTokens} limit. Truncating.`);
+
+      // 1. Truncate session context first (contains repo map, the largest variable section)
+      if (estimateTokens(sessionSection) > 800) {
+        sessionSection = sessionSection.slice(0, 3200) + '\n... (session context truncated)';
+      }
+
+      // 2. Then truncate activated skills (keep summary, drop long instructions)
+      if (estimateTokens(activatedSection) > 600) {
+        activatedSection = activatedSection.slice(0, 2400) + '\n... (skill instructions truncated)';
+      }
+    }
 
     return `
 ## IDENTITY
@@ -280,6 +303,10 @@ ${activatedSection}
         xml += `    <avoid>${member.avoid.join(', ')}</avoid>\n`;
       }
       xml += `    <fallback_priority>${member.fallback_priority}</fallback_priority>\n`;
+      if (member.body) {
+        const truncatedBody = member.body.length > 200 ? member.body.slice(0, 200) + '...' : member.body;
+        xml += `    <strengths>${truncatedBody}</strengths>\n`;
+      }
       xml += `    <location>${member.sourcePath}</location>\n`;
       xml += `  </agent>\n`;
     }

@@ -30,7 +30,7 @@ export class HarnessPool extends EventEmitter {
   private constructor(config: Partial<PoolConfig> = {}) {
     super();
     this.config = {
-      maxConcurrent: config.maxConcurrent ?? 2, // Default to 2 parallel agents
+      maxConcurrent: config.maxConcurrent ?? 1, // Matches TaskManager's single-task-at-a-time model
       defaultTimeoutMs: config.defaultTimeoutMs ?? DEFAULT_HARNESS_TIMEOUT_MS
     };
     

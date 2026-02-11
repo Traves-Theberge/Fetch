@@ -110,7 +110,7 @@ System prompt is assembled dynamically from layered markdown files:
 ### Configuration
 
 - **Required env vars**: `OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`
-- **Pipeline tuning**: 34 parameters overridable via `FETCH_*` env vars (see `docker-compose.yml` comments or `fetch-app/src/config/pipeline.ts`)
+- **Pipeline tuning**: 35 parameters overridable via `FETCH_*` env vars (see `docker-compose.yml` comments or `fetch-app/src/config/pipeline.ts`)
 - Default LLM: `openai/gpt-4o-mini` via OpenRouter
 - Harness toggles: `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT`
 - Web/browser toggles: `ENABLE_WEB_FETCH` (default: true), `ENABLE_WEB_SEARCH` (default: true), `ENABLE_BROWSER` (default: false)

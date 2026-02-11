@@ -204,7 +204,8 @@ export class SkillManager {
     if (matchedSkills.length === 0) return '';
 
     const blocks = matchedSkills.map(skill => {
-      return `<activated_skill name="${skill.name}">
+      const harnessAttr = skill.harnessHint ? ` harness_hint="${skill.harnessHint}"` : '';
+      return `<activated_skill name="${skill.name}"${harnessAttr}>
   <instructions>
 ${skill.instructions}
   </instructions>

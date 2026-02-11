@@ -23,6 +23,7 @@ interface SkillFrontmatter {
   triggers?: string[];
   requirements?: SkillRequirements;
   enabled?: boolean;
+  harnessHint?: string;
 }
 
 /**
@@ -68,6 +69,7 @@ export async function loadSkill(dirPath: string, isBuiltin: boolean = false): Pr
       sourcePath: dirPath,
       isBuiltin,
       enabled: frontmatter.enabled !== false, // Default to true
+      harnessHint: frontmatter.harnessHint,
     };
 
     return skill;

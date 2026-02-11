@@ -139,6 +139,8 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
         CI: 'true',
         TERM: 'dumb',
         ...(env.GEMINI_API_KEY ? { GEMINI_API_KEY: env.GEMINI_API_KEY } : {}),
+        // Inject CLI config file for harness-specific instructions
+        GEMINI_SYSTEM_MD: '/app/data/cli-configs/GEMINI.md',
       },
       cwd: workspacePath,
       timeoutMs,

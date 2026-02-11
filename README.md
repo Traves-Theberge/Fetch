@@ -41,7 +41,7 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 - **Voice + Vision** — Send voice notes (transcribed via whisper.cpp) or screenshots for analysis
 - **Web Fetch & Search** — Fetch web pages as markdown (Readability + Turndown) and search the web via self-hosted SearXNG meta search engine — 100% free, no API keys
 - **Browser Automation** — Headless Chromium via Playwright in the Kennel container with accessibility tree snapshots for token-efficient page interaction
-- **Pipeline Tuning** — 34 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
+- **Pipeline Tuning** — 35 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
 - **Automated Service Hotreload** — The TUI Manager automatically restarts Fetch services after configuration saves to apply new settings instantly
 - **Crash Recovery** — State persisted to SQLite; Fetch resumes tasks after restart
 

@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-02-11
+
+### 🔧 Harness, Identity, Skills & Tool System Hardening
+
+10 targeted fixes across the harness adapters, identity/prompt builder, skills manager, tool registry, spawner, pool, and workspace repo-map. No new modules — all changes strengthen existing systems.
+
+- **CLI Config Injection (CRITICAL)** — `data/cli-configs/` templates are now wired into each harness adapter:
+  - Claude: `--append-system-prompt /app/data/cli-configs/CLAUDE.md`
+  - Gemini: `GEMINI_SYSTEM_MD=/app/data/cli-configs/GEMINI.md` env var
+  - Copilot: `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/app/data/cli-configs` env var
+
+- **Context Budget Enforcement (CRITICAL)** — System prompt now tracks estimated token usage:
+  - New `FETCH_CONTEXT_BUDGET` pipeline param (default: 6000 tokens)
+  - Heuristic estimator: `Math.ceil(text.length / 4)`
+  - When over budget: truncates session context first, then activated skills
+  - Logged warning on truncation
+
+- **Error Classification (HIGH)** — Harness failures now carry a typed `errorCategory`:
+  - New `ErrorCategory` type: `timeout | network | permission | syntax | process | unknown`
+  - `classifyError()` in executor.ts checks exit codes, stderr patterns, and process status
+  - Category is logged alongside the error for observability
+
+- **Pool/Task Concurrency Alignment (HIGH)** — `HarnessPool.maxConcurrent` changed from 2 to 1:
+  - Matches `TaskManager`'s intentional single-task-at-a-time model
+  - Pool queueing still works for serializing concurrent requests
+
+- **Skill-to-Harness Routing Hints (HIGH)** — Skills now suggest which harness to use:
+  - New optional `harnessHint` field on `Skill` interface and SKILL.md frontmatter
+  - Rendered as `harness_hint` XML attribute on `<activated_skill>` blocks
+  - Built-in hints: git → `copilot`, docker/typescript/react/testing/debugging → `claude`
+
+- **Tool Input Validation (MEDIUM)** — Zod `safeParse` now runs before every tool execution:
+  - Invalid args return structured error messages to the LLM for self-correction
+  - Valid args are cleaned/defaulted via `validation.data` before reaching the handler
+  - Replaces the previous skip-validation comment
+
+- **Pack Body in System Prompt (MEDIUM)** — Agent profile markdown bodies are now included:
+  - `buildPackContext()` adds `<strengths>` section from each pack member's body
+  - Truncated to 200 chars to stay within token budget
+  - Previously loaded by `IdentityLoader` but silently discarded
+
+- **Repo Map Trimming (MEDIUM)** — `formatRepoMap()` now respects a character budget:
+  - New `maxOutputChars` option in `RepoMapOptions` (default: 3000)
+  - Stops adding entries when approaching the limit
+  - Appends `... (truncated, N files omitted)` with remaining count
+
+- **Spawner Question Detection Fix (MEDIUM)** — Removed naive `text.includes('?')` check:
+  - Previously any stdout containing `?` set status to `waiting_input`
+  - Triggered on URLs, ternary operators, code comments
+  - Proper detection already handled by adapter `detectQuestion()` methods
+
+#### Files Changed
+
+| File | Change |
+|------|--------|
+| `fetch-app/src/harness/claude.ts` | Added `--append-system-prompt` arg for CLI config |
+| `fetch-app/src/harness/gemini.ts` | Added `GEMINI_SYSTEM_MD` env var for CLI config |
+| `fetch-app/src/harness/copilot.ts` | Added `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
+| `fetch-app/src/harness/spawner.ts` | Removed naive `?` question detection |
+| `fetch-app/src/harness/executor.ts` | Added `classifyError()` function, `ErrorCategory` import |
+| `fetch-app/src/harness/types.ts` | Added `ErrorCategory` type, `errorCategory` to `HarnessResult` |
+| `fetch-app/src/harness/pool.ts` | Changed `maxConcurrent` default from 2 to 1 |
+| `fetch-app/src/identity/manager.ts` | Pack body inclusion, context budget enforcement |
+| `fetch-app/src/tools/registry.ts` | Zod `safeParse` validation before tool execution |
+| `fetch-app/src/workspace/repo-map.ts` | `maxOutputChars` parameter, truncation logic |
+| `fetch-app/src/skills/types.ts` | Added `harnessHint` to `Skill` interface |
+| `fetch-app/src/skills/loader.ts` | Parse `harnessHint` from SKILL.md frontmatter |
+| `fetch-app/src/skills/manager.ts` | Render `harness_hint` attribute in activated skill XML |
+| `fetch-app/src/config/pipeline.ts` | Added `contextBudget` param (env: `FETCH_CONTEXT_BUDGET`) |
+| `fetch-app/src/skills/builtin/*/SKILL.md` | Added `harnessHint` to 6 built-in skills |
+
 ## [4.1.1] - 2026-02-11
 
 ### 🎛️ TUI Layout Overhaul & Dead Code Cleanup

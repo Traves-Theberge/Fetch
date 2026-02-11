@@ -121,12 +121,6 @@ export class HarnessSpawner extends EventEmitter {
       const text = data.toString();
       instance.stdout.push(text);
       this.emit('output', { id, type: 'stdout', data: text });
-      
-      // Basic question detection (naive)
-      if (text.includes('?')) {
-        instance.status = 'waiting_input';
-        this.emit('status', { id, status: 'waiting_input' });
-      }
     });
 
     child.stderr?.on('data', (data: Buffer) => {

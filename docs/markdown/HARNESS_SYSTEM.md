@@ -28,11 +28,32 @@ Each tool has an adapter that defines:
 
 ## Available Harnesses
 
-| Harness | CLI | Best For |
-|---------|-----|----------|
-| **Claude Code** | `claude` | Deep refactoring, multi-file edits, architectural analysis. |
-| **Gemini CLI** | `gemini` | Quick fixes, explanations, boilerplate generation. |
-| **Copilot CLI** | `gh copilot` | Shell commands, git workflows, explanations. |
+| Harness | CLI | Best For | CLI Config Injection |
+|---------|-----|----------|---------------------|
+| **Claude Code** | `claude` | Deep refactoring, multi-file edits, architectural analysis. | `--append-system-prompt /app/data/cli-configs/CLAUDE.md` |
+| **Gemini CLI** | `gemini` | Quick fixes, explanations, boilerplate generation. | `GEMINI_SYSTEM_MD` env var |
+| **Copilot CLI** | `gh copilot` | Shell commands, git workflows, explanations. | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
+
+Each adapter's `buildConfig()` injects the CLI config file from `data/cli-configs/` so harnesses receive Fetch-specific behavioral instructions (e.g., no commits, structured output summaries).
+
+## Error Classification
+
+When a harness process fails, the executor classifies the error into one of six categories:
+
+| Category | Detection |
+|----------|-----------|
+| `timeout` | Process killed or exit code 124/137 |
+| `network` | stderr contains ECONNREFUSED, ENOTFOUND, etc. |
+| `permission` | stderr contains "permission denied" or EACCES |
+| `syntax` | stderr contains SyntaxError, TypeError, etc. |
+| `process` | Non-zero exit code (generic) |
+| `unknown` | Default fallback |
+
+The `errorCategory` field on `HarnessResult` enables downstream systems to decide on retry strategy.
+
+## Concurrency
+
+The `HarnessPool` defaults to `maxConcurrent: 1`, aligned with `TaskManager`'s single-task-at-a-time model. Requests that arrive while a task is running are queued and processed in order.
 
 ## Docker Isolation
 

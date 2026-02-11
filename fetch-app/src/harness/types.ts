@@ -334,6 +334,11 @@ export interface HarnessEvent {
 // ============================================================================
 
 /**
+ * Error category for classifying harness failures
+ */
+export type ErrorCategory = 'timeout' | 'network' | 'permission' | 'syntax' | 'process' | 'unknown';
+
+/**
  * Result of a harness execution
  *
  * Returned when the harness completes or fails.
@@ -350,6 +355,9 @@ export interface HarnessResult {
 
   /** Error message if failed */
   error?: string;
+
+  /** Classified error category for downstream handling */
+  errorCategory?: ErrorCategory;
 
   /** Execution duration in milliseconds */
   durationMs: number;

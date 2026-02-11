@@ -25,11 +25,21 @@
     <aside class="sidebar">
       <div class="sidebar-header">
         <a href="#" class="logo" onclick="loadDoc('README.md'); return false;">
-          <span class="logo-icon">🐕</span>
-          <div>
-            <div class="logo-text">Fetch</div>
-            <div class="logo-subtitle">Your Faithful Code Companion</div>
-          </div>
+          <pre class="logo-ascii">⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀
+⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀
+⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿
+⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁
+⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀
+⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀
+⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀</pre>
+          <div class="logo-title">Fetch</div>
         </a>
       </div>
 
@@ -45,6 +55,12 @@
             <li class="nav-item">
               <a href="#" class="nav-link active" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
                 <span class="nav-link-icon">📖</span> Overview
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md"
+                onclick="loadDoc('DOCUMENTATION.md'); return false;">
+                <span class="nav-link-icon">📚</span> Full Documentation
               </a>
             </li>
             <li class="nav-item">
@@ -88,8 +104,15 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
-                <span class="nav-link-icon">📝</span> Changelog
+              <a href="#" class="nav-link" data-doc="IDENTITY_SYSTEM.md"
+                onclick="loadDoc('IDENTITY_SYSTEM.md'); return false;">
+                <span class="nav-link-icon">🐕</span> Identity & Agents
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="SKILLS_GUIDE.md"
+                onclick="loadDoc('SKILLS_GUIDE.md'); return false;">
+                <span class="nav-link-icon">🎯</span> Skills Guide
               </a>
             </li>
           </ul>
@@ -122,10 +145,15 @@
                 <span class="nav-link-icon">📖</span> Glossary
               </a>
             </li>
+          </ul>
+        </div>
+
+        <!-- Changelog -->
+        <div class="nav-section">
+          <ul class="nav-list">
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md"
-                onclick="loadDoc('DOCUMENTATION.md'); return false;">
-                <span class="nav-link-icon">📚</span> Full Documentation
+              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
+                <span class="nav-link-icon">📝</span> Changelog
               </a>
             </li>
           </ul>
@@ -137,6 +165,7 @@
           <span id="themeLabel">🌙 Dark Mode</span>
           <span id="themeIcon">☀️</span>
         </button>
+        <div class="sidebar-version">Fetch v4.1.1</div>
       </div>
     </aside>
 
@@ -200,7 +229,7 @@
         // Initialize Mermaid
         mermaid.initialize({
           startOnLoad: false,
-          theme: 'dark',
+          theme: isDark ? 'dark' : 'default',
           securityLevel: 'loose',
         });
 
@@ -218,6 +247,7 @@
         }
 
         // Post-processing
+        convertAdmonitions();
         addHeadingAnchors();
         addCopyButtons();
         applySyntaxHighlighting();
@@ -249,6 +279,43 @@
           <p><a href="#" onclick="loadDoc('README.md'); return false;">Return to Overview</a></p>
         `;
       }
+    }
+
+    // Convert GitHub-style admonitions ([!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION])
+    function convertAdmonitions() {
+      const content = document.getElementById('content');
+      const icons = {
+        NOTE: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        TIP: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></svg>',
+        IMPORTANT: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        WARNING: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+        CAUTION: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+      };
+
+      content.querySelectorAll('blockquote').forEach(bq => {
+        const firstP = bq.querySelector('p');
+        if (!firstP) return;
+        const match = firstP.innerHTML.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*<br>?\s*/);
+        if (!match) return;
+
+        const type = match[1];
+        const label = type.charAt(0) + type.slice(1).toLowerCase();
+
+        // Remove the admonition tag from the content
+        firstP.innerHTML = firstP.innerHTML.replace(match[0], '');
+
+        // Build the callout
+        const callout = document.createElement('div');
+        callout.className = 'admonition admonition-' + type.toLowerCase();
+        callout.innerHTML = '<div class="admonition-title">' + icons[type] + ' ' + label + '</div>';
+
+        // Move blockquote children into the callout
+        while (bq.firstChild) {
+          callout.appendChild(bq.firstChild);
+        }
+
+        bq.parentNode.replaceChild(callout, bq);
+      });
     }
 
     // Add anchor links to h2 and h3 headings
@@ -412,6 +479,9 @@
 
       // Persist preference
       localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
+
+      // Re-render mermaid diagrams with correct theme
+      loadDoc(currentDoc);
     }
 
     // Toggle mobile sidebar

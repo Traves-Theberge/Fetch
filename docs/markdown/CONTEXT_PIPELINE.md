@@ -33,7 +33,7 @@ The pipeline applies three layers of memory:
 
 1. **Sliding Window**: Last 20 messages (configurable) in full OpenAI format.
 2. **Compaction**: Older messages are summarzied into a single system prompt section.
-3. **Repo Map**: Current file structure and git status.
+3. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
 
 ## Project Intelligence
 

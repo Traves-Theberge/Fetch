@@ -69,8 +69,6 @@ export class IdentityLoader {
 
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
-      // Skip non-agent files like ROUTING.md
-      if (entry.name === 'ROUTING.md') continue;
 
       const filePath = path.join(this.agentsDir, entry.name);
       try {

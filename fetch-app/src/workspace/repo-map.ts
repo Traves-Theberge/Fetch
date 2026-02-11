@@ -26,6 +26,8 @@ export interface RepoMapOptions {
   maxFiles?: number;
   exclude?: string[];
   maxDepth?: number;
+  /** Max output characters to keep the repo map within a predictable token budget */
+  maxOutputChars?: number;
 }
 
 /**
@@ -103,7 +105,7 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
     }
 
     // 3. Format as a tree-like string
-    return formatRepoMap(entries);
+    return formatRepoMap(entries, options.maxOutputChars ?? 3000);
   } catch (error) {
     logger.error('Failed to generate repo-map', error);
     return 'Failed to generate repository map.';
@@ -111,13 +113,13 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
 }
 
 /**
- * Format repo map entries into a readable string
+ * Format repo map entries into a readable string, respecting a character budget
  */
-function formatRepoMap(entries: RepoMapEntry[]): string {
+function formatRepoMap(entries: RepoMapEntry[], maxOutputChars: number = 3000): string {
   if (entries.length === 0) return 'No symbols found.';
 
   let output = '## Repository Map (Key Symbols)\n\n';
-  
+
   // Group by directory
   const dirs = new Map<string, RepoMapEntry[]>();
   for (const entry of entries) {
@@ -129,19 +131,39 @@ function formatRepoMap(entries: RepoMapEntry[]): string {
 
   // Sort directories
   const sortedDirs = Array.from(dirs.keys()).sort();
+  let totalEntries = 0;
+  const totalFiles = entries.length;
 
   for (const dir of sortedDirs) {
-    output += `${dir}/\n`;
+    const dirHeader = `${dir}/\n`;
+
+    // Check if adding this directory header would exceed the budget
+    if (output.length + dirHeader.length >= maxOutputChars) {
+      const remaining = totalFiles - totalEntries;
+      output += `... (truncated, ${remaining} files omitted)\n`;
+      return output.trim();
+    }
+
+    output += dirHeader;
     const dirEntries = dirs.get(dir)!;
-    
+
     for (const entry of dirEntries) {
       const fileName = entry.path.split('/').pop();
       const symbolSummary = entry.symbols
         .map(s => s.name)
         .slice(0, 8) // Limit symbols per file
         .join(', ');
-        
-      output += `  ${fileName} - exports: ${symbolSummary}${entry.symbols.length > 8 ? '...' : ''}\n`;
+
+      const line = `  ${fileName} - exports: ${symbolSummary}${entry.symbols.length > 8 ? '...' : ''}\n`;
+
+      if (output.length + line.length >= maxOutputChars) {
+        const remaining = totalFiles - totalEntries;
+        output += `... (truncated, ${remaining} files omitted)\n`;
+        return output.trim();
+      }
+
+      output += line;
+      totalEntries++;
     }
     output += '\n';
   }

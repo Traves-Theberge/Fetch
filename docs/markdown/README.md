@@ -38,7 +38,7 @@ Fetch is a headless development orchestrator. Send natural language coding tasks
 - **Skills Framework** — Teach Fetch new capabilities by adding Markdown files to `data/skills/`
 - **Task Notifications** — Task completion/failure alerts pushed to WhatsApp automatically
 - **Voice + Vision** — Send voice notes (transcribed via whisper.cpp) or screenshots for analysis
-- **Pipeline Tuning** — 34 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
+- **Pipeline Tuning** — 35 parameters tunable via `FETCH_*` env vars or TUI, no code changes needed
 - **Automated Service Hotreload** — The TUI Manager automatically restarts Fetch services after configuration saves to apply new settings instantly
 - **Crash Recovery** — State persisted to SQLite; Fetch resumes tasks after restart
 

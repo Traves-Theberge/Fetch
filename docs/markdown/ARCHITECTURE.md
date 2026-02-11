@@ -135,7 +135,7 @@ flowchart TD
     classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
     classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
     classDef orchestrator fill:#58a6ff,stroke:#58a6ff,color:#fff
-    classDef config fill:#161b22,stroke:#30363d,color:#e6edf3
+    classDef config fill:#6e7681,stroke:#57606a,color:#fff
 
     class Bridge bridge
     class Sandbox,Claude,Gemini,Copilot kennel
@@ -201,7 +201,7 @@ src/
 ├── index.ts              # Boot + shutdown orchestration
 ├── config/
 │   ├── env.ts            # Zod-validated env with Proxy (lazy reads)
-│   ├── pipeline.ts       # Context pipeline tuning (34 params, FETCH_* env overrides)
+│   ├── pipeline.ts       # Context pipeline tuning (35 params, FETCH_* env overrides)
 │   └── paths.ts          # Centralized path constants
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
@@ -233,9 +233,9 @@ src/
 │   ├── registry.ts       # Adapter registry (single source)
 │   ├── executor.ts       # Task execution via pool
 │   ├── spawner.ts        # Process spawn with docker exec wrapping
-│   ├── pool.ts           # Concurrency management (max 2 parallel agents)
+│   ├── pool.ts           # Concurrency management (max 1, aligned with TaskManager)
 │   ├── output-parser.ts  # Harness output parsing
-│   └── types.ts          # HarnessConfig (includes container field)
+│   └── types.ts          # HarnessConfig, ErrorCategory, HarnessResult
 ├── identity/
 │   ├── manager.ts        # System prompt builder, hot-reload watcher
 │   ├── loader.ts         # Parse COLLAR.md, ALPHA.md, agents/*.md
@@ -302,7 +302,7 @@ The context pipeline ensures the LLM has full conversational memory across turns
 7. **Dynamic Prompt Rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current state
 8. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
 
-All parameters are tunable via `config/pipeline.ts` (34 settings, overridable via `FETCH_*` env vars).
+All parameters are tunable via `config/pipeline.ts` (35 settings, overridable via `FETCH_*` env vars).
 
 ## Docker Architecture
 
@@ -339,7 +339,7 @@ graph TB
     classDef manager fill:#f0883e,stroke:#f0883e,color:#fff
     classDef docker fill:none,stroke:#58a6ff,stroke-width:2px
     classDef host fill:none,stroke:#8b949e,stroke-width:2px,stroke-dasharray: 5 5
-    classDef volume fill:#161b22,stroke:#30363d,color:#e6edf3
+    classDef volume fill:#6e7681,stroke:#57606a,color:#fff
 
     class Bridge bridge
     class Kennel,SearXNG kennel

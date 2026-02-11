@@ -140,6 +140,9 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
       container: 'fetch-kennel',
     };
 
+    // Inject CLI config file for harness-specific instructions
+    config.args.push('--append-system-prompt', '/app/data/cli-configs/CLAUDE.md');
+
     // Inject model selection if configured
     if (env.CLAUDE_MODEL) {
       config.args.push('--model', env.CLAUDE_MODEL);

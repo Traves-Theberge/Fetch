@@ -112,6 +112,8 @@ export const pipeline = {
   truncationLimit: int('FETCH_TRUNCATION_LIMIT', 100),
   /** Repo map staleness check (ms) */
   repoMapTtl: int('FETCH_REPO_MAP_TTL', 300_000),
+  /** Token budget for system prompt (estimated via chars/4 heuristic) */
+  contextBudget: int('FETCH_CONTEXT_BUDGET', 6000),
 
   // ─── Workspace ────────────────────────────────────────────
   /** Workspace info cache TTL (ms) */

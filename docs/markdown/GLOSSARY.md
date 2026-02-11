@@ -45,7 +45,8 @@
 | **Registry** | `HarnessRegistry` — Maps harness names to adapter instances. Single source of truth. |
 | **Executor** | `HarnessExecutor` — Manages task execution lifecycle through the pool/spawner. |
 | **Spawner** | `HarnessSpawner` — Creates and manages child processes. Wraps with `docker exec -w <cwd> <container> <command>` when the adapter specifies a container. |
-| **Pool** | Process pool for managing concurrent harness instances (max 2 parallel agents). |
+| **Pool** | Process pool for managing concurrent harness instances (max 1, aligned with TaskManager). |
+| **ErrorCategory** | Classification of harness failures: `timeout`, `network`, `permission`, `syntax`, `process`, `unknown`. |
 
 ## Data & Persistence
 

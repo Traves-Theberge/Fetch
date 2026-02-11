@@ -292,10 +292,21 @@ export class ToolRegistry {
 
     const startTime = Date.now();
     try {
-      // Validate args
-      // Note: We skip strict validation here to allow flexible inputs for now, 
-      // but ideally we should parse with tool.schema.parse(args)
-      const result = await tool.handler(args, context);
+      // Validate args with Zod safeParse — lets the LLM self-correct bad arguments
+      const validation = tool.schema.safeParse(args);
+      if (!validation.success) {
+        const issues = validation.error.issues
+          .map((i) => `${i.path.join('.')}: ${i.message}`)
+          .join('; ');
+        logger.warn(`Tool validation failed: ${name}`, { issues });
+        return {
+          success: false,
+          output: `Validation error for tool '${name}': ${issues}. Please fix the arguments and try again.`,
+          duration: Date.now() - startTime
+        };
+      }
+
+      const result = await tool.handler(validation.data, context);
       // Ensure duration is present if tool doesn't provide it
       if (result.duration === undefined) {
         result.duration = Date.now() - startTime;

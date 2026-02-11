@@ -45,6 +45,7 @@ import type {
   HarnessOutputEvent,
   HarnessEvent,
   HarnessEventType,
+  ErrorCategory,
 } from './types.js';
 
 // ============================================================================
@@ -206,11 +207,17 @@ export class HarnessExecutor extends EventEmitter {
         });
       }
 
+      const errorCategory = success ? undefined : classifyError(finalInstance, errorMsg);
+      if (errorCategory) {
+        logger.warn(`Harness ${harnessId} error classified as: ${errorCategory}`);
+      }
+
       return {
         success,
         output,
         exitCode: success ? 0 : 1,
         error: success ? undefined : errorMsg,
+        errorCategory,
         durationMs: Date.now() - finalInstance.startTime,
       };
     } catch (error) {
@@ -385,4 +392,46 @@ export const harnessExecutor = new HarnessExecutor();
  */
 export function getHarnessExecutor(): HarnessExecutor {
   return harnessExecutor;
+}
+
+// ============================================================================
+// Error Classification
+// ============================================================================
+
+/**
+ * Classify a harness error into a category for downstream handling
+ */
+function classifyError(
+  instance: { status: string; stderr: string[] },
+  errorMsg: string
+): ErrorCategory {
+  const stderr = instance.stderr.join('').toLowerCase();
+  const combined = (errorMsg + ' ' + stderr).toLowerCase();
+
+  // Timeout: process was killed after exceeding time limit
+  if (instance.status === 'killed' || /exit code (124|137)/.test(combined)) {
+    return 'timeout';
+  }
+
+  // Network: connection failures
+  if (/econnrefused|enotfound|enetunreach|etimedout|network/.test(combined)) {
+    return 'network';
+  }
+
+  // Permission: access denied
+  if (/permission denied|eacces|eperm|forbidden/.test(combined)) {
+    return 'permission';
+  }
+
+  // Syntax: code-level errors
+  if (/syntaxerror|typeerror|referenceerror|cannot find module|unexpected token/.test(combined)) {
+    return 'syntax';
+  }
+
+  // Process: generic non-zero exit
+  if (instance.status === 'failed') {
+    return 'process';
+  }
+
+  return 'unknown';
 }

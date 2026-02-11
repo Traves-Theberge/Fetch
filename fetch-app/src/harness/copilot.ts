@@ -124,6 +124,8 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
         CI: 'true',
         TERM: 'dumb',
         ...(env.GH_TOKEN ? { GH_TOKEN: env.GH_TOKEN } : {}),
+        // Inject CLI config directory for harness-specific instructions
+        COPILOT_CUSTOM_INSTRUCTIONS_DIRS: '/app/data/cli-configs',
       },
       cwd: workspacePath,
       timeoutMs,

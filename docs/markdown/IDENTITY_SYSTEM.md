@@ -1,73 +1,186 @@
-# Identity & Context System
+# Identity & Agent System
 
-Fetch's personality and situational awareness are not hardcoded. They are dynamically assembled from a set of Markdown files and real-time state.
+Fetch's personality, user context, and harness routing are dynamically assembled from Markdown files on disk. Edit the files, save — changes apply immediately via hot-reload.
 
-## 🏗️ The Identity Stack
+## The Identity Stack
 
-The system follows a layered approach to build the **System Prompt** for every LLM turn.
+Every LLM turn, Fetch builds a **system prompt** (budget-capped at ~6000 tokens, configurable via `FETCH_CONTEXT_BUDGET`) from these layers:
 
-### 1. Data Sources (`data/identity/`)
+```mermaid
+graph LR
+    subgraph Files ["Data Files (Hot-Reloaded)"]
+        COLLAR["COLLAR.md<br/>Fetch's Soul"]
+        ALPHA["ALPHA.md<br/>User Profile"]
+        AGENTS["data/agents/*.md<br/>Pack Profiles"]
+    end
 
-These files are the single source of truth for Fetch's soul and the user's role.
+    subgraph Runtime ["Runtime State"]
+        WS["Workspace Status"]
+        TASK["Active Task"]
+        GIT["Git Branch & Changes"]
+        SKILLS["Matched Skills"]
+    end
 
-- **[COLLAR.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/COLLAR.md)**: Defines who Fetch is.
-  - **Core Identity**: Name, Role, Emoji, Voice/Tone.
-  - **Directives**: Primary rules (unbreakable), Operational guidelines, and Behavioral traits (personality quirks like hating lobsters).
-  - **Communication Style**: Tone spectrum and formatting rules.
-- **[ALPHA.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/ALPHA.md)**: Defines who the User is.
-  - User name, preferences, and authorization level.
-- **[AGENTS.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/AGENTS.md)**: **DEPRECATED**.
-- **[The Pack](file:///home/traves/Development/1. Personal/Fetch/data/agents/)**: Individual agent profiles are now located in `data/agents/*.md`.
-  - Each file (e.g., `claude.md`, `gemini.md`) contains the agent's specific prompt and configuration.
+    COLLAR --> LOADER["IdentityLoader"]
+    ALPHA --> LOADER
+    AGENTS --> LOADER
 
-### 2. Identity Loader (`identity/loader.ts`)
+    LOADER --> MGR["IdentityManager"]
 
-The **Loader** is responsible for parsing these Markdown files. It uses regex and heading markers to transform text sections into a structured `AgentIdentity` TypeScript object.
+    WS --> PROMPTS["agent/prompts.ts"]
+    TASK --> PROMPTS
+    GIT --> PROMPTS
+    SKILLS --> PROMPTS
 
-### 3. Identity Manager (`identity/manager.ts`)
+    PROMPTS --> MGR
+    MGR --> PROMPT["System Prompt"]
+    PROMPT --> LLM["OpenRouter LLM"]
+```
 
-The **Manager** is a singleton that orchestrates the final prompt assembly.
+### System Prompt Structure
 
-- **Hot-Reloading**: Uses `chokidar` to watch the files in `data/identity/`. If you edit `COLLAR.md` and save it, Fetch's personality updates instantly without a restart.
-- **Assembly**: Calls `buildSystemPrompt()` which combines:
-  1. Base Identity (from `COLLAR.md`)
-  2. Autonomy Rules (High-priority behavior logic)
-  3. Capabilities (Structured list of safety commands and tools)
-  4. Dynamic Context (Real-time state)
-  5. Pack Context (XML-wrapped agent profiles)
+The final prompt assembles these sections in order:
 
-### 4. Dynamic Prompts (`agent/prompts.ts`)
+| Section | Source | Content |
+|---------|--------|---------|
+| **Identity** | `COLLAR.md` | Name, emoji, version, voice tone, timestamp |
+| **Directives** | `COLLAR.md` | Primary rules (5), operational guidelines (6), behavioral traits (6) |
+| **Autonomy Rules** | Hardcoded | 9 high-priority behavioral assertions |
+| **Capabilities** | Hardcoded | 5 slash commands, 27 tools, 3 harnesses |
+| **Session Context** | `prompts.ts` | Active workspace path, git state, task goal, repo map |
+| **Pack** | `data/agents/*.md` | XML-wrapped agent profiles with triggers, routing hints, and strengths (from markdown body) |
+| **Skills** | `SkillManager` | Available skills summary + activated skill instructions |
+| **Response Format** | Hardcoded | WhatsApp constraints (max lines, emoji usage) |
 
-While the Identity Manager handles the "Who", `prompts.ts` handles the "Where" and "What".
-
-- **`buildContextSection`**: Injects the active workspace path, git status, active task goal, and the repository map into the prompt.
-- **`buildTaskFramePrompt`**: A specialized prompt used only during `task_create`. It tells a "Task Framing" LLM how to turn a user's instruction into a bounded goal for a coding agent.
+The prompt **rebuilds automatically** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context.
 
 ---
 
-## 🔄 Data Flow
+## Data Files
 
-```mermaid
-graph TD
-    A[COLLAR.md] --> L[IdentityLoader]
-    B[ALPHA.md] --> L
-    C[data/agents/*.md] --> L
-    
-    L --> M[IdentityManager]
-    
-    State[Real-time State] --> P[agent/prompts.ts]
-    P --> Context[Context Section]
-    
-    Context --> M
-    M --> Final[Complete System Prompt]
-    
-    Final --> LLM[OpenRouter LLM]
+### `data/identity/COLLAR.md` — Fetch's Soul
+
+Defines who Fetch is. Parsed by `IdentityLoader` using regex on `## ` headings.
+
+| Section | Fields | Example |
+|---------|--------|---------|
+| **Core Identity** | Name, Role, Emoji, Voice | `Name: Fetch`, `Voice: Confident, concise, warm` |
+| **Primary Directives** | 5 unbreakable rules | "Protect the codebase", "Never hallucinate" |
+| **Operational Guidelines** | 6 work rules | "Fetch context before acting", "One task at a time" |
+| **Behavioral Traits** | 6 personality quirks | "Eager but disciplined", "Hates lobsters" |
+| **Communication Style** | Tone spectrum table | 8 situations with specific tone/example |
+| **Instincts** | Auto-response triggers | `/stop` → cancel, destructive op → warn |
+
+**To customize:** Edit any section and save. Hot-reload picks up changes in seconds.
+
+### `data/identity/ALPHA.md` — User Profile
+
+Defines who the user is and how Fetch relates to them.
+
+| Section | Purpose |
+|---------|---------|
+| **User Profile** | Name, role, authority level |
+| **Relationship Model** | Subordinate dynamic (loyalty, initiative, deference) |
+| **Working Preferences** | Communication style, code style, git conventions |
+| **Approval Preferences** | What needs confirmation vs what Fetch can do autonomously |
+| **Project Context** | Primary stack, deploy target, editor, AI tools |
+
+> [!NOTE]
+> The loader currently extracts only the owner **name** as structured data. All other content is included as raw markdown in the system prompt — the LLM reads it directly.
+
+### `data/agents/*.md` — The Pack
+
+Each agent has its own profile with **YAML frontmatter** (parsed by `gray-matter`) and a **markdown body**.
+
+```yaml
+---
+name: Claude
+alias: The Sage
+emoji: "🦉"
+harness: claude
+cli: claude
+role: Architect / Complex Problem Solver
+fallback_priority: 1
+triggers:
+  - refactor
+  - restructure
+  - architect
+  - multi-file
+  - write tests
+avoid:
+  - quick fix
+  - typo
+  - rename
+---
+
+# Claude — The Sage 🦉
+
+## Strengths
+- Massive context window (200K tokens)
+- Deep reasoning chains
+...
 ```
 
-## 🧠 Why this matters
+| Agent | Alias | Priority | Triggers | Avoid |
+|-------|-------|----------|----------|-------|
+| **Claude** | The Sage 🦉 | 1 (default) | refactor, restructure, architect, multi-file, write tests, security audit | quick fix, typo, rename |
+| **Gemini** | The Scout ⚡ | 2 | explain, what does, how does, quick fix, typo, boilerplate, documentation | deep refactors, security-critical |
+| **Copilot** | The Retriever 🎯 | 3 | git, gh, github, PR, pull request, command for, how to, shell command | multi-file, architectural |
 
-By separating **Identity** from **Context**:
+**How routing works:** The `task_create` tool includes the task goal. The LLM reads the pack profiles (triggers, avoid, fallback_priority, strengths) from the system prompt and selects the best harness. Activated skills also provide `harness_hint` attributes to nudge routing. Manual override: `@fetch use claude: <task>`.
 
-1. **Fetch is consistent**: His voice and rules remain stable across different projects.
-2. **Fetch is aware**: He always knows exactly which file you're talking about because `prompts.ts` feeds him the latest workspace state.
-3. **Fetch is customizable**: You can change his personality or your own profile simply by editing Markdown files, making the agent feel truly personal.
+> [!NOTE]
+> The **markdown body** of each agent file (strengths, weaknesses, personality) is now included in the system prompt as a `<strengths>` section, truncated to 200 characters to stay within the context budget.
+
+---
+
+## CLI Config Templates
+
+Each harness CLI has its own native instruction format. Templates are stored in `data/cli-configs/` and are **automatically injected** by the harness adapters during `buildConfig()`:
+
+| CLI | Config File | Injection Mechanism |
+|-----|------------|-----------|
+| **Claude Code** | `CLAUDE.md` | `--append-system-prompt /app/data/cli-configs/CLAUDE.md` arg |
+| **Gemini CLI** | `GEMINI.md` | `GEMINI_SYSTEM_MD=/app/data/cli-configs/GEMINI.md` env var |
+| **Copilot CLI** | `copilot-instructions.md` | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/app/data/cli-configs` env var |
+
+These templates tell each CLI that it's operating inside the Fetch Kennel, should not commit, and should output structured change summaries. The config file path points to the container-internal mount (`/app/data/cli-configs/`) since execution happens via `docker exec` in the Kennel.
+
+## Context Budget
+
+The system prompt is assembled with a token budget to prevent context overflow:
+
+- **Budget**: `FETCH_CONTEXT_BUDGET` (default: 6000 tokens, configurable via pipeline)
+- **Estimation**: `Math.ceil(text.length / 4)` heuristic (industry-standard approximation)
+- **Truncation order** (when over budget):
+  1. Session context (contains repo map, the largest variable section)
+  2. Activated skill instructions (keeps summary, drops long bodies)
+- A warning is logged when truncation occurs
+
+---
+
+## Hot-Reload
+
+The `IdentityManager` watches files via `chokidar`:
+
+- **Watched directories:** `data/identity/` and `data/agents/`
+- **Events:** File add, change, unlink
+- **Propagation:** `reloadIdentity()` merges new values into in-memory state
+- **Effect:** Next LLM call uses the updated prompt automatically
+- **No restart needed** — edit, save, send a message
+
+---
+
+## Customization Guide
+
+### Change Fetch's personality
+Edit `data/identity/COLLAR.md` → modify the **Behavioral Traits** section.
+
+### Change the user profile
+Edit `data/identity/ALPHA.md` → update **Working Preferences** or **Approval Preferences**.
+
+### Add a new harness agent
+Create `data/agents/newagent.md` with YAML frontmatter (`name`, `harness`, `cli`, `triggers`, `avoid`, `fallback_priority`). The loader picks it up automatically.
+
+### Adjust routing behavior
+Edit `triggers` and `avoid` arrays in each agent's frontmatter. Lower `fallback_priority` = tried first.

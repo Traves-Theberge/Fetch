@@ -31,6 +31,8 @@ export interface Skill {
   isBuiltin: boolean;
   /** Is this skill currently enabled? */
   enabled: boolean;
+  /** Suggested harness for this skill (e.g., 'claude', 'gemini', 'copilot') */
+  harnessHint?: string;
 }
 /**
  * Requirements for a skill to run

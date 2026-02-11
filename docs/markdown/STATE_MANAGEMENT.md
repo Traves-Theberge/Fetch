@@ -49,33 +49,28 @@ CREATE TABLE messages (
 );
 ```
 
-### State Flow
+### Message Flow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> RESTING
-    RESTING --> ALERT: Wake Word / Message
-    ALERT --> WORKING: Task Start
-    WORKING --> ALERT: Complete / Stop
-    
-    WORKING --> WAITING: tool ask_user
-    WAITING --> WORKING: User Input
-    
-    ALERT --> GUARDING: Dangerous Action
-    GUARDING --> WORKING: Approved
-    GUARDING --> ALERT: Denied
-
-    ALERT --> RESTING: Timeout
-    GUARDING --> ALERT: Timeout
+    [*] --> Idle
+    Idle --> Processing: Message Received
+    Processing --> ToolLoop: LLM calls tools
+    ToolLoop --> Processing: Tool result
+    Processing --> TaskRunning: task_create
+    TaskRunning --> Processing: Task complete/failed
+    Processing --> Idle: Response sent
+    Processing --> WaitingForInput: ask_user
+    WaitingForInput --> Processing: User replies
 ```
 
-The system moves between 5 core states managed by `TaskManager`:
+The system follows a request-response cycle managed by the agent core:
 
-1. **RESTING**: Idle, waiting for wake word (`@fetch`) or message.
-2. **ALERT**: Security checks passed, determining intent.
-3. **GUARDING**: Dangerous action (e.g., `git push --force`) detected; waiting for user approval.
-4. **WORKING**: LLM or Harness is executing; showing spinner.
-5. **WAITING**: Tool requested user input (`ask_user`); blocked until reply.
+1. **Idle**: Waiting for a WhatsApp message.
+2. **Processing**: Security gate passed, LLM reasoning with tools available.
+3. **ToolLoop**: LLM is calling tools (up to 5 rounds per message).
+4. **TaskRunning**: A harness task is executing in the Kennel container.
+5. **WaitingForInput**: The `ask_user` tool has paused execution pending user reply.
 
 ## Workspace State
 

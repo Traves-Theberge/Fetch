@@ -68,7 +68,7 @@ By default, AI harnesses use their respective defaults. You can override them us
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 34 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with 35 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -83,6 +83,7 @@ The context pipeline is configured via `config/pipeline.ts` with 34 tunable para
 | `FETCH_SEARXNG_URL` | string | `http://searxng:8080` | SearXNG instance URL for web_search |
 | `FETCH_WEB_FETCH_MAX_LENGTH` | int | `50000` | Max content length for web_fetch (chars) |
 | `FETCH_BROWSER_TIMEOUT` | int | `30000` | Browser automation timeout (ms) |
+| `FETCH_CONTEXT_BUDGET` | int | `6000` | Token budget for system prompt (estimated via chars/4) |
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 
@@ -209,6 +210,7 @@ Skills are Markdown files in `data/skills/` that teach Fetch domain-specific cap
 ---
 name: React Development
 description: Best practices for React component development
+harnessHint: claude
 triggers:
   - react
   - component
