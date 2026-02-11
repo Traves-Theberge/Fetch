@@ -71,7 +71,7 @@ This is the master documentation index for Fetch.
 | **Gemini CLI** | `gemini` | `fetch-kennel` | Quick fixes, explanations, boilerplate generation |
 | **Copilot CLI** | `gh copilot` | `fetch-kennel` | Suggestions, command help, GitHub workflows |
 
-All adapters extend `AbstractHarnessAdapter` and set `container: 'fetch-kennel'`. The spawner wraps CLI commands with `docker exec -w <cwd> fetch-kennel <command>`. The orchestrator selects which harness to use based on task complexity and agent routing rules defined in `data/agents/*.md`.
+All adapters extend `AbstractHarnessAdapter` and set `container: 'fetch-kennel'`. The spawner wraps CLI commands with `docker exec -w <cwd> fetch-kennel <command>`. The orchestrator selects which harness to use based on task complexity, enabled adapters, and skill hints.
 
 ## Orchestrator Tools
 

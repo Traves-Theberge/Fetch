@@ -25,17 +25,40 @@ Fetch is a headless development orchestrator. You message it on WhatsApp, and it
 
 ## How It Works
 
-```
-  WhatsApp                Bridge (Node.js)              Kennel (Ubuntu)
- ──────────            ──────────────────            ──────────────────
- You send a    ──>    Security Gate                  Claude Code
- message              Safety Gate (5 escapes)        Gemini CLI
-                      LLM + 27 Tools         ──>    Copilot CLI
-                      Session / Task / State         Playwright + Chromium
-                                                     /workspace (mounted)
-                            │
-                            v
-                      SearXNG (search)
+```mermaid
+flowchart LR
+    subgraph WhatsApp
+        User["You send a message"]
+    end
+
+    subgraph Bridge["Bridge (Node.js)"]
+        direction TB
+        Security["Security Gate\nWhitelist + Rate Limit"]
+        Safety["Safety Gate\n/stop /undo /clear /help /status"]
+        LLM["LLM + 27 Tools"]
+        State["Session / Task / State\nSQLite"]
+        Security --> Safety --> LLM
+        LLM --- State
+    end
+
+    subgraph Kennel["Kennel (Ubuntu)"]
+        direction TB
+        Claude["Claude Code"]
+        Gemini["Gemini CLI"]
+        Copilot["Copilot CLI"]
+        Playwright["Playwright + Chromium"]
+        Workspace["/workspace (mounted)"]
+    end
+
+    subgraph Search["SearXNG"]
+        SearX["Meta Search Engine\nGoogle, DuckDuckGo, Bing\nWikipedia, GitHub, npm"]
+    end
+
+    User -->|"WhatsApp message"| Security
+    LLM -->|"docker exec"| Kennel
+    LLM -->|"web_search"| SearX
+    Kennel -->|"results"| LLM
+    LLM -->|"response"| User
 ```
 
 1. You send a message on WhatsApp
@@ -109,7 +132,7 @@ See [Setup Guide](docs/markdown/SETUP_GUIDE.md) for full instructions.
 | [Configuration](docs/markdown/CONFIGURATION.md) | Environment variables and config files |
 | [Architecture](docs/markdown/ARCHITECTURE.md) | System design, data flow, concurrency patterns |
 | [Harness System](docs/markdown/HARNESS_SYSTEM.md) | CLI adapter lifecycle and process management |
-| [Identity System](docs/markdown/IDENTITY_SYSTEM.md) | Dynamic persona and pack member profiles |
+| [Identity System](docs/markdown/IDENTITY_SYSTEM.md) | Dynamic persona, directives, and CLI config templates |
 | [Skills Guide](docs/markdown/SKILLS_GUIDE.md) | Building and loading skill plugins |
 | [Context Pipeline](docs/markdown/CONTEXT_PIPELINE.md) | Message windowing, compaction, prompt assembly |
 | [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite persistence, singleton patterns, shutdown |

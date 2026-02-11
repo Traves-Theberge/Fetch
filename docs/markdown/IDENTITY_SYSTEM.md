@@ -1,6 +1,6 @@
-# Identity & Agent System
+# Identity System
 
-Fetch's personality, user context, and harness routing are dynamically assembled from Markdown files on disk. Edit the files, save — changes apply immediately via hot-reload.
+Fetch's personality, directives, and user context are dynamically assembled from two Markdown files on disk. Edit a file, save — changes apply immediately via hot-reload.
 
 ## The Identity Stack
 
@@ -8,22 +8,20 @@ Every LLM turn, Fetch builds a **system prompt** (budget-capped at ~6000 tokens,
 
 ```mermaid
 graph LR
-    subgraph Files ["Data Files (Hot-Reloaded)"]
-        COLLAR["COLLAR.md<br/>Fetch's Soul"]
-        ALPHA["ALPHA.md<br/>User Profile"]
-        AGENTS["data/agents/*.md<br/>Pack Profiles"]
+    subgraph Files ["Data Files"]
+        COLLAR["COLLAR.md"]
+        ALPHA["ALPHA.md"]
     end
 
     subgraph Runtime ["Runtime State"]
         WS["Workspace Status"]
         TASK["Active Task"]
-        GIT["Git Branch & Changes"]
+        GIT["Git Branch"]
         SKILLS["Matched Skills"]
     end
 
     COLLAR --> LOADER["IdentityLoader"]
     ALPHA --> LOADER
-    AGENTS --> LOADER
 
     LOADER --> MGR["IdentityManager"]
 
@@ -48,7 +46,6 @@ The final prompt assembles these sections in order:
 | **Autonomy Rules** | Hardcoded | 9 high-priority behavioral assertions |
 | **Capabilities** | Hardcoded | 5 slash commands, 27 tools, 3 harnesses |
 | **Session Context** | `prompts.ts` | Active workspace path, git state, task goal, repo map |
-| **Pack** | `data/agents/*.md` | XML-wrapped agent profiles with triggers, routing hints, and strengths (from markdown body) |
 | **Skills** | `SkillManager` | Available skills summary + activated skill instructions |
 | **Response Format** | Hardcoded | WhatsApp constraints (max lines, emoji usage) |
 
@@ -86,51 +83,7 @@ Defines who the user is and how Fetch relates to them.
 | **Project Context** | Primary stack, deploy target, editor, AI tools |
 
 > [!NOTE]
-> The loader currently extracts only the owner **name** as structured data. All other content is included as raw markdown in the system prompt — the LLM reads it directly.
-
-### `data/agents/*.md` — The Pack
-
-Each agent has its own profile with **YAML frontmatter** (parsed by `gray-matter`) and a **markdown body**.
-
-```yaml
----
-name: Claude
-alias: The Sage
-emoji: "🦉"
-harness: claude
-cli: claude
-role: Architect / Complex Problem Solver
-fallback_priority: 1
-triggers:
-  - refactor
-  - restructure
-  - architect
-  - multi-file
-  - write tests
-avoid:
-  - quick fix
-  - typo
-  - rename
----
-
-# Claude — The Sage 🦉
-
-## Strengths
-- Massive context window (200K tokens)
-- Deep reasoning chains
-...
-```
-
-| Agent | Alias | Priority | Triggers | Avoid |
-|-------|-------|----------|----------|-------|
-| **Claude** | The Sage 🦉 | 1 (default) | refactor, restructure, architect, multi-file, write tests, security audit | quick fix, typo, rename |
-| **Gemini** | The Scout ⚡ | 2 | explain, what does, how does, quick fix, typo, boilerplate, documentation | deep refactors, security-critical |
-| **Copilot** | The Retriever 🎯 | 3 | git, gh, github, PR, pull request, command for, how to, shell command | multi-file, architectural |
-
-**How routing works:** The `task_create` tool includes the task goal. The LLM reads the pack profiles (triggers, avoid, fallback_priority, strengths) from the system prompt and selects the best harness. Activated skills also provide `harness_hint` attributes to nudge routing. Manual override: `@fetch use claude: <task>`.
-
-> [!NOTE]
-> The **markdown body** of each agent file (strengths, weaknesses, personality) is now included in the system prompt as a `<strengths>` section, truncated to 200 characters to stay within the context budget.
+> The loader extracts the owner **name** as structured data. All other content is included as raw markdown in the system prompt — the LLM reads it directly.
 
 ---
 
@@ -145,6 +98,21 @@ Each harness CLI has its own native instruction format. Templates are stored in 
 | **Copilot CLI** | `copilot-instructions.md` | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/app/data/cli-configs` env var |
 
 These templates tell each CLI that it's operating inside the Fetch Kennel, should not commit, and should output structured change summaries. The config file path points to the container-internal mount (`/app/data/cli-configs/`) since execution happens via `docker exec` in the Kennel.
+
+---
+
+## Harness Selection
+
+When a user requests a coding task, the LLM selects which harness to use based on:
+
+1. **Enabled adapters** — Only harnesses toggled on via `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT` are available
+2. **Task context** — The LLM reads the task description and uses its own judgment
+3. **Skill hints** — Activated skills provide `harness_hint` attributes to nudge routing
+4. **Ambiguity rule** — If multiple harnesses are enabled and the request is ambiguous, Fetch asks the user before delegating
+
+Manual override is always available: `@fetch use claude: <task>`.
+
+---
 
 ## Context Budget
 
@@ -163,7 +131,7 @@ The system prompt is assembled with a token budget to prevent context overflow:
 
 ### Async File I/O
 
-The `IdentityLoader` uses **async `load()` method** (changed from synchronous in v4.3.0):
+The `IdentityLoader` uses an **async `load()` method** (changed from synchronous in v4.3.0):
 
 ```typescript
 async load(): Promise<AgentIdentity> {
@@ -178,16 +146,19 @@ This prevents blocking the event loop during startup when reading identity files
 - Structured logger (`logger.info`, `logger.error`) replacing `console.warn`/`console.error`
 - Error handlers on all file operations
 
+---
+
 ## Hot-Reload
 
 The `IdentityManager` watches files via `chokidar`:
 
-- **Watched directories:** `data/identity/` and `data/agents/`
+- **Watched directory:** `data/identity/`
 - **Events:** File add, change, unlink
 - **Propagation:** `reloadIdentity()` merges new values into in-memory state
 - **Effect:** Next LLM call uses the updated prompt automatically
 - **No restart needed** — edit, save, send a message
 - **Error handling:** Watcher errors are logged but non-fatal; hot-reload continues on subsequent file changes
+- **Shutdown:** `shutdown()` method closes all watcher file descriptors
 
 ---
 
@@ -199,8 +170,5 @@ Edit `data/identity/COLLAR.md` → modify the **Behavioral Traits** section.
 ### Change the user profile
 Edit `data/identity/ALPHA.md` → update **Working Preferences** or **Approval Preferences**.
 
-### Add a new harness agent
-Create `data/agents/newagent.md` with YAML frontmatter (`name`, `harness`, `cli`, `triggers`, `avoid`, `fallback_priority`). The loader picks it up automatically.
-
-### Adjust routing behavior
-Edit `triggers` and `avoid` arrays in each agent's frontmatter. Lower `fallback_priority` = tried first.
+### Customize CLI agent instructions
+Edit files in `data/cli-configs/` to change what each harness CLI sees as its system instructions inside the Kennel container.

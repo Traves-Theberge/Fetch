@@ -96,16 +96,15 @@ handler/index.ts          ← entry point for WhatsApp messages
 ### State & Persistence
 
 - **SQLite** — two databases: `data/sessions.db` (conversations) and `data/tasks.db` (task state machine)
-- **Hot-reload via chokidar** — `data/identity/`, `data/agents/`, `data/skills/`, `data/tools/` are file-watched; changes apply without restart
+- **Hot-reload via chokidar** — `data/identity/`, `data/skills/`, `data/tools/` are file-watched; changes apply without restart
 - **WhatsApp session** — persisted in `data/.wwebjs_auth/`
 
 ### Identity System
 
 System prompt is assembled dynamically from layered markdown files:
-- `data/identity/COLLAR.md` — system directives
-- `data/identity/ALPHA.md` — user-specific context
-- `data/agents/{claude,gemini,copilot}.md` — pack member profiles (YAML frontmatter)
-- `data/agents/ROUTING.md` — delegation routing rules
+- `data/identity/COLLAR.md` — system directives (personality, voice, rules)
+- `data/identity/ALPHA.md` — user-specific context (name, preferences)
+- `data/cli-configs/` — per-CLI instruction templates injected into harness adapters
 
 ### Configuration
 

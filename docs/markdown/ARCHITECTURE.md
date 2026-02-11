@@ -193,7 +193,7 @@ These shutdown methods prevent memory leaks and ensure graceful cleanup when the
 | `better-sqlite3` | SQLite with WAL mode for sessions & tasks | `session/store.ts`, `task/store.ts` |
 | `zod` | Schema validation (env, tool inputs, IDs) | `config/env.ts`, `validation/`, `tools/loader.ts` |
 | `dockerode` | Docker API for container management | `utils/docker.ts` |
-| `gray-matter` | YAML frontmatter parsing for skills & agents | `skills/loader.ts`, `identity/loader.ts` |
+| `gray-matter` | YAML frontmatter parsing for skills | `skills/loader.ts`, `identity/loader.ts` |
 | `chokidar` | File watcher for identity/skills hot-reload with error handlers | `identity/manager.ts`, `skills/manager.ts` |
 | `nanoid` | Collision-resistant ID generation | `utils/id.ts` |
 | `strip-ansi` | Strip ANSI codes from harness CLI output | `harness/output-parser.ts` |

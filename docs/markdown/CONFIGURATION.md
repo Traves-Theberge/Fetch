@@ -171,32 +171,17 @@ Core behavioral rules for the agent. This is injected as the foundation of the s
 
 Information about the owner (you). Communication preferences, timezone, technical level. The agent uses this to personalize responses.
 
-### data/agents/*.md — Pack Profiles
+### data/cli-configs/ — CLI Instruction Templates
 
-Individual agent profiles with YAML frontmatter:
+Per-harness instruction files injected into each CLI agent when spawned:
 
-```markdown
----
-name: Claude
-alias: The Sage
-emoji: "🦉"
-harness: claude
-cli: claude
-role: Architect / Complex Problem Solver
-fallback_priority: 1
-triggers:
-  - refactor
-  - architect
-  - multi-file
-avoid:
-  - quick fix
-  - one-liner
----
+| File | CLI | Injection |
+|------|-----|-----------|
+| `CLAUDE.md` | Claude Code | `--append-system-prompt` arg |
+| `GEMINI.md` | Gemini CLI | `GEMINI_SYSTEM_MD` env var |
+| `copilot-instructions.md` | Copilot CLI | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
 
-Claude is the deep thinker of the pack...
-```
-
-Each file defines a `PackMember` with routing triggers and capabilities. The Identity Manager watches this directory and hot-reloads on changes.
+These tell each CLI it's running inside the Fetch Kennel and should output structured change summaries.
 
 ---
 
@@ -275,7 +260,7 @@ All paths are centralized in `src/config/paths.ts`:
 | `DB_PATH` | `./data/sessions.db` | Sessions SQLite database |
 | `TASKS_DB_PATH` | `./data/tasks.db` | Tasks SQLite database |
 | `IDENTITY_DIR` | `./data/identity` | Identity files |
-| `AGENTS_DIR` | `./data/agents` | Pack agent profiles |
+| `AGENTS_DIR` | `./data/agents` | Legacy pack profiles directory (unused) |
 | `SKILLS_DIR` | `./data/skills` | Skill definitions |
 | `TOOLS_DIR` | `./data/tools` | Custom tool definitions |
 | `WHISPER_BIN` | `/usr/local/bin/whisper` | Whisper binary path |
