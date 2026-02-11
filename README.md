@@ -216,6 +216,7 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 39 tunable parameter
 | [Context Pipeline](docs/markdown/CONTEXT_PIPELINE.md) | Memory, compaction, prompt assembly |
 | [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite persistence and shutdown |
 | [API Reference](docs/markdown/API_REFERENCE.md) | Tool interfaces and endpoints |
+| [Testing Guide](docs/markdown/TESTING_GUIDE.md) | v4.5.0 verification checklist |
 | [Changelog](CHANGELOG.md) | Version history |
 
 </td>
