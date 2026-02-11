@@ -167,9 +167,13 @@ describe('WorkspaceManager', () => {
     });
 
     it('should create a GitHub repo for a workspace', async () => {
-      // isGitHubAvailable check
+      // isGitHubAvailable: env check (test -n "$GH_TOKEN")
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+      // isGitHubAvailable: gh api user connectivity check
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
       });
 
       // gh repo create
@@ -192,9 +196,13 @@ describe('WorkspaceManager', () => {
     });
 
     it('should handle repo already exists by linking', async () => {
-      // isGitHubAvailable check
+      // isGitHubAvailable: env check (test -n "$GH_TOKEN")
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0, stdout: '', stderr: '', timedOut: false,
+      });
+      // isGitHubAvailable: gh api user connectivity check
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
       });
 
       // gh repo create → already exists
@@ -205,7 +213,7 @@ describe('WorkspaceManager', () => {
         timedOut: false,
       });
 
-      // gh api user (for linkExistingRepo)
+      // linkExistingRepo: gh api user (for username)
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
       });
@@ -230,7 +238,7 @@ describe('WorkspaceManager', () => {
     });
 
     it('should return undefined when GitHub is not available', async () => {
-      // isGitHubAvailable → false
+      // isGitHubAvailable: env check fails (no GH_TOKEN)
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 1, stdout: '', stderr: '', timedOut: false,
       });
@@ -260,6 +268,7 @@ describe('WorkspaceManager', () => {
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git commit
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'abc1234', stderr: '', timedOut: false }) // git log -1 --format=%h
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'https://github.com/TestUser/test-project', stderr: '', timedOut: false }) // git remote get-url origin
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1', stderr: '', timedOut: false }) // git rev-list --count origin/main..main
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }); // git push
 
       const result = await manager.syncWorkspace('test-project');

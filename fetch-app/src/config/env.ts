@@ -60,6 +60,11 @@ const EnvSchema = z.object({
   ENABLE_CLAUDE: z.string().transform(val => val === 'true').optional().default(false),
   ENABLE_GEMINI: z.string().transform(val => val === 'true').optional().default(false),
 
+  // Web / Browser Feature Flags
+  ENABLE_WEB_FETCH: z.string().transform(val => val === 'true').optional().default(true),
+  ENABLE_WEB_SEARCH: z.string().transform(val => val === 'true').optional().default(true),
+  ENABLE_BROWSER: z.string().transform(val => val === 'true').optional().default(false),
+
   // Agent Models (Optional overrides)
   COPILOT_MODEL: z.string().optional(),
   CLAUDE_MODEL: z.string().optional(),

@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/fetch/manager/internal/paths"
+	"github.com/fetch/manager/internal/theme"
 )
 
 // WhitelistData represents the JSON structure of the whitelist file
@@ -35,25 +36,19 @@ type WhitelistManager struct {
 
 var (
 	whitelistLabelStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#888888")).
+				Foreground(theme.TextSecondary).
 				Width(3)
 
 	whitelistNumberStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#00BFFF"))
+				Foreground(theme.Info)
 
-	whitelistFocusedStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#00ff00")).
-				Bold(true)
+	whitelistFocusedStyle = theme.EditorFocused
 
-	whitelistHelpStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#626262")).
-				Italic(true)
+	whitelistHelpStyle = theme.EditorHelp
 
-	whitelistSuccessStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#00ff00"))
+	whitelistSuccessStyle = theme.StatusSuccess
 
-	whitelistErrorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#ff0000"))
+	whitelistErrorStyle = theme.StatusError
 )
 
 // NewWhitelistManager creates a new whitelist manager

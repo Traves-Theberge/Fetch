@@ -5,6 +5,165 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-02-11
+
+### 🎛️ TUI Layout Overhaul & Dead Code Cleanup
+
+Major TUI improvements for the Fetch Manager, including a shared screen layout system, dynamic menu badges, section navigation in the config editor, responsive layout, and style consolidation. Followed by a comprehensive dead code audit removing ~800 lines across 12 files.
+
+- **ScreenLayout Scaffold** (`layout/screen.go`):
+  - New shared `ScreenLayout` struct standardizing the Title > Breadcrumb > Content > HelpBar pattern
+  - Breadcrumb navigation trail with styled separators
+  - Refactored all 7 `view*()` methods in `main.go` to use the scaffold, eliminating ~120 lines of duplicated boilerplate
+
+- **Menu Component with Dynamic Badges**:
+  - Replaced raw `choices []string` + `cursor int` with proper `components.Menu` using `MenuItem` structs
+  - Added `Badge` field to `MenuItem` for dynamic status (e.g., `[Running]`, `[2 acct]`)
+  - `buildMenuBadges()` method queries live Docker/GitHub state for badge content
+
+- **Config Editor Section Navigation**:
+  - Tab key opens section picker overlay listing all 13 config sections
+  - Number keys 1-9 jump directly to sections
+  - Section indicator at top: `Section N/13: Name`
+  - `sectionInfo` struct caches separator positions for instant jumps
+
+- **Responsive Layout**:
+  - Compact mode (<60 cols) hides ASCII dog art, uses `CompactHeader`
+  - `viewMenu()` adapts layout based on terminal width
+
+- **Style Consolidation**:
+  - Added 11 new style variables to `theme/styles.go` (EditorLabel, EditorInput, EditorFocused, EditorHelp, EditorSeparator, EditorDefault, SelectorNormal, SelectorDim, SelectorContext, SelectorModality, SelectorToolsBadge)
+  - Replaced hardcoded inline `lipgloss.Color()` literals in `editor.go` (6 vars), `whitelist.go` (6 vars), `selector.go` (10 vars)
+
+- **Dead Code Removal (~800 lines across 12 files)**:
+  - Removed unreachable `screenModels` state, `updateModels()`, `viewModels()` from `main.go`
+  - Removed 11 unused functions from `layout/frame.go` (kept only `SectionHeader`)
+  - Removed 13 unused functions from `layout/responsive.go` (kept only `IsCompact`)
+  - Removed 18 unused style vars + 4 unused style funcs from `theme/styles.go`
+  - Removed 7 unused border styles from `theme/borders.go` (kept only `PanelBorder`)
+  - Removed unused `Menu.View()` framed version, `SimpleProgress()`, `DownloadProgress()`, `SplashCompact()`, `SplashFull()`, `VersionCompact()`
+  - Removed unused `IsHealthy()`, `Logout()`, `LogoutResponse` from status client
+  - Removed unused `GetRecentLogsFormatted()`, `StreamLogs()` from logs
+  - Deleted entire unused `update/update.go` package
+
+- **`fetch` Command Installed to PATH**:
+  - Built `fetch-manager` v4.1.1 via `build.sh` with ldflags (version, commit, build date)
+  - Symlinked `manager/fetch-manager` to `~/.local/bin/fetch`
+  - Running `fetch` from any terminal now launches the TUI
+
+- **Documentation Site Overhaul**:
+  - 3-column layout: sidebar | content | right-side Table of Contents
+  - TOC with IntersectionObserver scroll spy, auto-highlights current section
+  - Copy buttons on all code blocks with language labels
+  - Syntax highlighting via Highlight.js (One Dark / One Light themes)
+  - Professional typography with Inter + JetBrains Mono fonts
+  - Back-to-top button, heading anchor links, improved tables
+  - Responsive breakpoints: mobile (<768px), mid (769-1399px), wide (>1400px)
+
+## [4.1.0] - 2026-02-11
+
+### 🌐 Web Fetch, Web Search & Browser Automation
+
+Fetch gains 6 new tools for web content retrieval, search, and browser automation — all 100% free with no API keys required. Inspired by OpenClaw's approach, adapted for Fetch's dual-container architecture.
+
+- **Web Tools (2 new):**
+  - `web_fetch` — Fetches a URL and extracts readable content as markdown using jsdom + Mozilla Readability + Turndown. Blocks private/internal URLs (localhost, 10.x, 192.168.x, etc.). Supports CSS selector extraction. 50k char limit, 30s timeout.
+  - `web_search` — Searches the web via self-hosted SearXNG meta search engine. Returns structured results with title, URL, snippet, and engine source. Supports categories (general, images, news, science, it).
+
+- **Browser Tools (4 new):**
+  - `browser_open` — Navigate to a URL and return an accessibility tree snapshot with numbered element refs
+  - `browser_snapshot` — Get current page accessibility tree snapshot without navigating
+  - `browser_action` — Perform actions (click, type, scroll, back, forward) using numbered element refs
+  - `browser_screenshot` — Capture a screenshot of the current browser page
+
+- **SearXNG Integration:**
+  - Added `searxng` as a third Docker container (`searxng/searxng:latest`)
+  - Aggregates Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, npm
+  - Configuration in `config/searxng/settings.yml`
+  - Accessible at `http://localhost:8888` (host) or `http://searxng:8080` (Docker network)
+
+- **Playwright in Kennel:**
+  - Added Playwright + Chromium to the Kennel Dockerfile
+  - Browser agent script at `kennel/browser-agent.mjs`
+  - Accessibility tree snapshots reduce token usage by 60-93% vs raw HTML
+  - Persistent browser state via `/tmp/fetch-browser-state.json`
+
+### 🔧 Configuration
+
+- **6 new TUI config fields** in the "Web / Browser" section:
+  - `ENABLE_WEB_FETCH` (default: true), `ENABLE_WEB_SEARCH` (default: true), `ENABLE_BROWSER` (default: false)
+  - `FETCH_SEARXNG_URL`, `FETCH_WEB_FETCH_MAX_LENGTH`, `FETCH_BROWSER_TIMEOUT`
+- **3 new pipeline parameters:** `searxngUrl`, `webFetchMaxLength`, `browserTimeout`
+- **3 new dependencies:** `jsdom`, `@mozilla/readability`, `turndown` (+ type defs)
+
+### 🧪 Tests
+
+- New `tests/unit/web-tools.test.ts` with 17 tests covering:
+  - Input validation, URL format validation, private URL blocking (localhost, 127.x, 10.x, 192.168.x)
+  - Live page fetching, CSS selector extraction, non-existent selector handling
+  - HTTP error handling, metadata verification
+  - Search input validation, empty query rejection, SearXNG connection handling, count/category params
+- Full suite: 179/190 tests passing (same 11 pre-existing failures)
+
+### 📊 Stats
+
+- **Tool count:** 21 → **27** (6 new tools)
+- **Docker services:** 2 → **3** (added SearXNG)
+- **Feature flags:** 3 → **6** (added web/browser toggles)
+- **Pipeline params:** 31 → **34** (added web/browser config)
+- **Dependencies:** 10 → **13** (added jsdom, readability, turndown)
+
+#### Files Changed
+
+| File | Change |
+|---|---|
+| `src/tools/web.ts` | **NEW** — web_fetch and web_search handlers |
+| `src/tools/browser.ts` | **NEW** — 4 browser tool handlers |
+| `kennel/browser-agent.mjs` | **NEW** — Playwright browser script for Kennel |
+| `config/searxng/settings.yml` | **NEW** — SearXNG engine configuration |
+| `src/validation/tools.ts` | +6 Zod schemas, type exports, registry entries |
+| `src/tools/registry.ts` | Import + register 6 web/browser tools as builtins |
+| `src/tools/index.ts` | Export new web and browser modules |
+| `src/config/env.ts` | +3 feature flags (ENABLE_WEB_FETCH, ENABLE_WEB_SEARCH, ENABLE_BROWSER) |
+| `src/config/pipeline.ts` | +3 pipeline params (searxngUrl, webFetchMaxLength, browserTimeout) |
+| `docker-compose.yml` | Added searxng service |
+| `kennel/Dockerfile` | Added Playwright + Chromium + browser-agent.mjs |
+| `manager/internal/config/editor.go` | +6 TUI config fields in "Web / Browser" section |
+
+#### Safety
+
+- `web_fetch` and `web_search` are gated as `DangerLevel.SAFE`
+- `browser_open` and `browser_action` are gated as `DangerLevel.MODERATE` (navigate/interact)
+- `browser_snapshot` and `browser_screenshot` are gated as `DangerLevel.SAFE` (read-only)
+- Private URL blocking prevents SSRF attacks (localhost, 127.x, 10.x, 172.16-31.x, 192.168.x, ::1, fe80:)
+- Browser tools default to disabled (`ENABLE_BROWSER=false`) since Playwright adds ~250MB to Kennel image
+
+## [4.0.7] - 2026-02-11
+
+### 📖 Documentation & UX Overhaul
+
+- **Agentic Workflow Rebrand**:
+  - Renamed `AGENTIC_PLAN.md` to `AGENTIC_WORKFLOW.md`.
+  - Rewrote content to align with the core ReAct loop, the 5 Autonomy Rules, and "The Pack" architecture.
+- **Documentation Site Redesign**:
+  - Overhauled the sidebar navigation in `index.html` for a cleaner "Code Companion" aesthetic.
+  - Implemented theme-aware Mermaid rendering with a dedicated `mermaid-wrapper` for consistent dark mode visibility.
+  - Added real-time error reporting to the document loader to aid in debugging broken markdown files.
+
+### 🏗️ Architectural Standardization
+
+- **Diagram Refactoring**:
+  - Standardized "System Overview" in `ARCHITECTURE.md` using `flowchart TB` for better readability.
+  - Added visibility into Harness host-mounts (`~/.config/gh`, `~/.gemini`, etc.) and Adapter logic.
+  - Corrected Mermaid syntax errors in `STATE_MANAGEMENT.md` (ER diagrams) and `ARCHITECTURE.md`.
+- **Capability Scanner RFC**:
+  - Published [`RFC_CAPABILITY_SCANNER.md`](file:///home/traves/.gemini/antigravity/brain/2cbdcc8b-17f8-4427-80b0-a0229793ba9e/RFC_CAPABILITY_SCANNER.md) proposing a shift from static project detection to a weighted Capability scoring system.
+
+### 🧹 Fixes & Alignment
+
+- **Accuracy Fix**: Updated outdated references stating Gemini Pro 1.5 as the default model; normalized documentation to point to `openai/gpt-4o-mini` per `src/config/env.ts`.
+- **Mermaid Reliability**: Fixed unhandled promise rejections in the diagram rendering engine.
+
 ## [4.0.6] - 2026-02-10
 
 ### 🐙 GitHub Tools Expansion (8 New Tools)
@@ -1108,6 +1267,14 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 4.1.1 | 2026-02-11 | TUI Layout Overhaul & Dead Code Cleanup |
+| 4.1.0 | 2026-02-11 | Web Fetch, Web Search & Browser Automation |
+| 4.0.7 | 2026-02-11 | Documentation & UX Overhaul |
+| 4.0.6 | 2026-02-10 | GitHub Tools Expansion (8 New Tools) |
+| 4.0.5 | 2026-02-09 | Hotreload & TUI UX |
+| 4.0.4 | 2026-02-09 | Bug Fixes & TUI Configuration |
+| 4.0.3 | 2026-02-09 | New `workspace_publish` Tool |
+| 4.0.2 | 2026-02-09 | Session Recursion & Bug Fixes |
 | 4.0.1 | 2026-02-08 | Dead Code Purge & Dependency Audit |
 | 4.0.0 | 2026-02-07 | The Conversation IS the Interface |
 | 3.5.0 | 2026-02-07 | Make It Feel Alive |
@@ -1134,6 +1301,14 @@ FETCH_V2_ROLLOUT_PERCENT=100
 | 0.2.0 | 2026-02-02 | TUI Redesign |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
+[4.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.1.0...v4.1.1
+[4.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.7...v4.1.0
+[4.0.7]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.6...v4.0.7
+[4.0.6]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.5...v4.0.6
+[4.0.5]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.4...v4.0.5
+[4.0.4]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.3...v4.0.4
+[4.0.3]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.2...v4.0.3
+[4.0.2]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.1...v4.0.2
 [4.0.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.5.0...v4.0.0
 [3.5.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.4.0...v3.5.0

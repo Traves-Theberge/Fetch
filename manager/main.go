@@ -37,7 +37,6 @@ const (
 	screenLogs                    // Log viewer
 	screenStatus                  // System status
 	screenSetup                   // WhatsApp setup wizard
-	screenModels                  // AI model selector
 	screenVersion                 // Version information
 	screenWhitelist               // Trusted numbers manager
 	screenGitHub                  // GitHub authentication screen
@@ -108,8 +107,7 @@ const qrRefreshInterval = 20 * time.Second
 // model is the main Bubble Tea model for the TUI
 type model struct {
 	screen           screen
-	choices          []string
-	cursor           int
+	mainMenu         *components.Menu
 	quitting         bool
 	bridgeRunning    bool
 	kennelRunning    bool
@@ -148,6 +146,19 @@ func initialModel() model {
 
 	qrCountdown := int(qrRefreshInterval.Seconds())
 
+	menu := components.NewMenu("", []components.MenuItem{
+		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
+		{Icon: "\U0001f511", Label: "GitHub Auth"},
+		{Icon: "\U0001f680", Label: "Start Fetch"},
+		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
+		{Icon: "\u2699\ufe0f ", Label: "Configure"},
+		{Icon: "\U0001f510", Label: "Trusted Numbers"},
+		{Icon: "\U0001f4dc", Label: "View Logs"},
+		{Icon: "\U0001f4da", Label: "Documentation"},
+		{Icon: "\u2139\ufe0f ", Label: "Version"},
+		{Icon: "\u274c", Label: "Exit"},
+	}, 40)
+
 	return model{
 		screen:         screenSplash,
 		statusClient:   status.NewClient(),
@@ -156,20 +167,48 @@ func initialModel() model {
 		qrProgress:     prog,
 		qrCountdown:    qrCountdown,
 		qrMaxCountdown: qrCountdown,
-		choices: []string{
-			"📱 Setup WhatsApp",
-			"� GitHub Auth",
-			"🚀 Start Fetch",
-			"🛑 Stop Fetch",
-			"⚙️  Configure",
-			"🔐 Trusted Numbers",
-			"📜 View Logs",
-			"📚 Documentation",
-			"ℹ️  Version",
-			"❌ Exit",
-		},
+		mainMenu:       menu,
 	}
 }
+
+// buildMenuBadges updates menu item badges based on current state
+func (m model) buildMenuBadges() {
+	if m.mainMenu == nil {
+		return
+	}
+	items := m.mainMenu.Items
+
+	// Start/Stop Fetch badges based on running state
+	if m.statusLoaded {
+		if m.bridgeRunning && m.kennelRunning {
+			items[2].Badge = "[Running]"  // Start Fetch
+			items[3].Badge = ""            // Stop Fetch
+		} else if m.bridgeRunning || m.kennelRunning {
+			items[2].Badge = "[Partial]"
+			items[3].Badge = ""
+		} else {
+			items[2].Badge = "[Stopped]"
+			items[3].Badge = ""
+		}
+	}
+
+	// GitHub Auth badge
+	if len(m.ghAccounts) > 0 {
+		active := 0
+		for _, a := range m.ghAccounts {
+			if a.active {
+				active++
+			}
+		}
+		items[1].Badge = fmt.Sprintf("[%d acct]", len(m.ghAccounts))
+		_ = active
+	} else {
+		items[1].Badge = ""
+	}
+
+	m.mainMenu.Items = items
+}
+
 
 func (m model) Init() tea.Cmd {
 	// Show splash for 2 seconds, then check status
@@ -370,8 +409,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateStatus(msg)
 		case screenSetup:
 			return m.updateSetup(msg)
-		case screenModels:
-			return m.updateModels(msg)
 		case screenVersion:
 			return m.updateVersion(msg)
 		case screenGitHub:
@@ -389,18 +426,14 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "up", "k":
-		if m.cursor > 0 {
-			m.cursor--
-		}
+		m.mainMenu.Up()
 
 	case "down", "j":
-		if m.cursor < len(m.choices)-1 {
-			m.cursor++
-		}
+		m.mainMenu.Down()
 
 	case "enter", " ":
 
-		switch m.cursor {
+		switch m.mainMenu.Selected() {
 		case 0: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
@@ -457,7 +490,7 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.configMode {
 	case 1: // Editor mode
-		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() {
+		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() && !m.configEditor.IsSectionPickerOpen() {
 			switch msg.String() {
 			case "esc":
 				m.screen = screenMenu
@@ -511,12 +544,6 @@ func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.whitelistManager.Update(msg)
 	}
 
-	return m, nil
-}
-
-func (m model) updateModels(_ tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Model selection is now handled within the config screen
-	m.screen = screenMenu
 	return m, nil
 }
 
@@ -732,8 +759,6 @@ func (m model) View() string {
 		return m.viewStatus()
 	case screenSetup:
 		return m.viewSetup()
-	case screenModels:
-		return m.viewModels()
 	case screenVersion:
 		return m.viewVersion()
 	case screenGitHub:
@@ -767,10 +792,7 @@ func (m model) viewMenu() string {
 	// Available height for main content (above status bar)
 	contentHeight := height - statusBarHeight
 
-	// Get ASCII dog art (left side)
-	dogArt := components.Header(width, contentHeight, m.getStatusString())
-
-	// Build menu panel (right side)
+	// Build menu panel
 	menuPanel := m.renderMenuPanel()
 
 	// Action message (show above menu if present)
@@ -779,35 +801,57 @@ func (m model) viewMenu() string {
 		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
 	}
 
-	// Right side: FETCH title + menu
-	fetchTitle := lipgloss.NewStyle().
-		Foreground(theme.Primary).
-		Bold(true).
-		Render(`███████╗███████╗████████╗ ██████╗██╗  ██╗
-██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
-█████╗  █████╗     ██║   ██║     ███████║
-██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
-██║     ███████╗   ██║   ╚██████╗██║  ██║
-╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝`)
+	var mainContent string
 
-	tagline := lipgloss.NewStyle().
-		Foreground(theme.TextSecondary).
-		Italic(true).
-		Render("Your Faithful Code Companion")
+	if layout.IsCompact(width) {
+		// Compact mode: no dog art, no big FETCH title, just menu
+		compactTitle := components.CompactHeader("F E T C H", width)
+		tagline := lipgloss.NewStyle().
+			Foreground(theme.TextSecondary).
+			Italic(true).
+			Align(lipgloss.Center).
+			Width(width).
+			Render("Your Faithful Code Companion")
 
-	rightContent := lipgloss.JoinVertical(lipgloss.Left,
-		fetchTitle,
-		tagline,
-		"",
-		actionMsg+menuPanel,
-	)
+		mainContent = lipgloss.JoinVertical(lipgloss.Left,
+			compactTitle,
+			tagline,
+			"",
+			actionMsg+menuPanel,
+		)
+	} else {
+		// Standard/Wide: dog art + FETCH title side-by-side
+		dogArt := components.Header(width, contentHeight, m.getStatusString())
 
-	// Join horizontally: dog on left, menu on right
-	mainContent := lipgloss.JoinHorizontal(lipgloss.Top,
-		dogArt,
-		"    ", // gap between dog and menu
-		rightContent,
-	)
+		fetchTitle := lipgloss.NewStyle().
+			Foreground(theme.Primary).
+			Bold(true).
+			Render("███████╗███████╗████████╗ ██████╗██╗  ██╗\n" +
+				"██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║\n" +
+				"█████╗  █████╗     ██║   ██║     ███████║\n" +
+				"██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║\n" +
+				"██║     ███████╗   ██║   ╚██████╗██║  ██║\n" +
+				"╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝")
+
+		tagline := lipgloss.NewStyle().
+			Foreground(theme.TextSecondary).
+			Italic(true).
+			Render("Your Faithful Code Companion")
+
+		rightContent := lipgloss.JoinVertical(lipgloss.Left,
+			fetchTitle,
+			tagline,
+			"",
+			actionMsg+menuPanel,
+		)
+
+		mainContent = lipgloss.JoinHorizontal(lipgloss.Top,
+			dogArt,
+			"    ",
+			rightContent,
+		)
+	}
+
 	mainContentHeight := lipgloss.Height(mainContent)
 
 	// Calculate spacer to push content to bottom
@@ -835,9 +879,10 @@ func (m model) getStatusString() string {
 }
 
 func (m model) renderMenuPanel() string {
-	var b strings.Builder
+	// Update badges with live state
+	m.buildMenuBadges()
 
-	// Menu title with visible styling (aligned with status bar padding)
+	// Menu title
 	menuTitle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(theme.Secondary).
@@ -845,31 +890,7 @@ func (m model) renderMenuPanel() string {
 		Padding(0, 1).
 		Render("✨ Main Menu ✨")
 
-	b.WriteString("  " + menuTitle + "\n")
-
-	// Menu items (aligned with status bar's 2-space padding)
-	for i, choice := range m.choices {
-		if m.cursor == i {
-			// Selected item
-			cursor := lipgloss.NewStyle().
-				Foreground(theme.Primary).
-				Bold(true).
-				Render("▸ ")
-			item := lipgloss.NewStyle().
-				Foreground(theme.Primary).
-				Bold(true).
-				Render(choice)
-			b.WriteString(" " + cursor + item + "\n")
-		} else {
-			// Normal item
-			item := lipgloss.NewStyle().
-				Foreground(theme.TextPrimary).
-				Render(choice)
-			b.WriteString("   " + item + "\n")
-		}
-	}
-
-	return b.String()
+	return "  " + menuTitle + "\n" + m.mainMenu.ViewCompact()
 }
 
 func (m model) viewSplash() string {
@@ -894,26 +915,14 @@ func (m model) viewVersion() string {
 		height = 24
 	}
 
-	// Version content
-	versionContent := components.Version(m.versionInfo, width)
-	versionHeight := lipgloss.Height(versionContent)
-
-	// Help bar
-	helpBar := components.HelpBar([]string{"Esc Back"}, width)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - versionHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		versionContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      "ℹ️  Version",
+		Content:    components.Version(m.versionInfo, width, height-6),
+		HelpKeys:   []string{"Esc Back"},
+		Breadcrumb: []string{"Main Menu", "Version"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) viewConfig() string {
@@ -926,48 +935,40 @@ func (m model) viewConfig() string {
 		height = 24
 	}
 
-	var titleStr string
-	var content strings.Builder
+	var title string
+	var content string
 	var helpKeys []string
+	var breadcrumb []string
 
 	switch m.configMode {
 	case 2: // Model picker overlay
-		titleStr = layout.SectionHeader("🤖 Select Model", width-4)
+		title = "🤖 Select Model"
 		if m.modelSelector != nil {
-			content.WriteString(m.modelSelector.View())
+			content = m.modelSelector.View()
 		} else {
-			content.WriteString(theme.StatusInfo.Render("   Loading models...") + "\n")
+			content = theme.StatusInfo.Render("   Loading models...") + "\n"
 		}
 		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"}
+		breadcrumb = []string{"Main Menu", "Configure", "Model Picker"}
 
 	default: // Editor mode
-		titleStr = layout.SectionHeader("⚙️  Configuration", width-4)
+		title = "⚙️  Configuration"
 		if m.configEditor != nil {
 			m.configEditor.SetSize(height - 8)
-			content.WriteString(m.configEditor.View())
+			content = m.configEditor.View()
 		}
-		helpKeys = []string{"↑/↓ Navigate", "Enter Edit", "s Save", "Esc Back"}
+		helpKeys = []string{"↑/↓ Navigate", "Enter Edit", "Tab Sections", "s Save", "Esc Back"}
+		breadcrumb = []string{"Main Menu", "Configure"}
 	}
 
-	helpBar := components.HelpBar(helpKeys, width)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	configContent := titleStr + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(configContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		configContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      title,
+		Content:    content,
+		HelpKeys:   helpKeys,
+		Breadcrumb: breadcrumb,
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) viewWhitelist() string {
@@ -980,79 +981,19 @@ func (m model) viewWhitelist() string {
 		height = 24
 	}
 
-	// Title
-	title := layout.SectionHeader("🔐 Trusted Numbers", width-4)
-
-	var content strings.Builder
+	var content string
 	if m.whitelistManager != nil {
-		content.WriteString(m.whitelistManager.View())
+		content = m.whitelistManager.View()
 	}
 
-	// Help bar
-	helpBar := components.HelpBar(
-		[]string{"↑/↓ Navigate", "a Add", "d Delete", "r Refresh", "Esc Back"},
-		width,
-	)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	whitelistContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(whitelistContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		whitelistContent,
-		helpBar,
-	)
-}
-
-func (m model) viewModels() string {
-	width := m.width
-	if width == 0 {
-		width = 80
-	}
-	height := m.height
-	if height == 0 {
-		height = 24
-	}
-
-	// Title
-	title := layout.SectionHeader("🤖 Select Model", width-4)
-
-	var content strings.Builder
-	if m.modelSelector != nil {
-		content.WriteString(m.modelSelector.View())
-	} else {
-		content.WriteString(theme.StatusInfo.Render("   Loading model selector...") + "\n")
-	}
-
-	// Help bar
-	helpKeys := []string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"}
-	helpBar := components.HelpBar(helpKeys, width)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	modelContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(modelContent)
-
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		modelContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      "🔐 Trusted Numbers",
+		Content:    content,
+		HelpKeys:   []string{"↑/↓ Navigate", "a Add", "d Delete", "r Refresh", "Esc Back"},
+		Breadcrumb: []string{"Main Menu", "Trusted Numbers"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) viewGitHub() string {
@@ -1064,9 +1005,6 @@ func (m model) viewGitHub() string {
 	if height == 0 {
 		height = 24
 	}
-
-	// Title
-	title := layout.SectionHeader("🔑 GitHub Authentication", width-4)
 
 	var content strings.Builder
 
@@ -1118,27 +1056,14 @@ func (m model) viewGitHub() string {
 		}
 	}
 
-	// Help bar
-	helpKeys := []string{"↑/↓ Navigate", "s Switch", "a Add", "d Remove", "r Refresh", "Esc Back"}
-	helpBar := components.HelpBar(helpKeys, width)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	ghContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(ghContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		ghContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      "🔑 GitHub Authentication",
+		Content:    content.String(),
+		HelpKeys:   []string{"↑/↓ Navigate", "s Switch", "a Add", "d Remove", "r Refresh", "Esc Back"},
+		Breadcrumb: []string{"Main Menu", "GitHub Auth"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) viewLogs() string {
@@ -1190,9 +1115,6 @@ func (m model) viewStatus() string {
 		height = 24
 	}
 
-	// Title
-	title := layout.SectionHeader("ℹ️  System Status", width-4)
-
 	var content strings.Builder
 
 	// Bridge status
@@ -1215,29 +1137,14 @@ func (m model) viewStatus() string {
 	}
 	content.WriteString(fmt.Sprintf("   Kennel (AI Agents): %s\n", kennelStyle.Render(kennelIcon+" "+kennelLabel)))
 
-	// Help bar
-	helpBar := components.HelpBar(
-		[]string{"r Refresh", "Esc Back"},
-		width,
-	)
-	helpHeight := lipgloss.Height(helpBar)
-
-	// Content area
-	statusContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(statusContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		statusContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      "ℹ️  System Status",
+		Content:    content.String(),
+		HelpKeys:   []string{"r Refresh", "Esc Back"},
+		Breadcrumb: []string{"Main Menu", "Status"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) viewSetup() string {
@@ -1249,9 +1156,6 @@ func (m model) viewSetup() string {
 	if height == 0 {
 		height = 24
 	}
-
-	// Title
-	title := layout.SectionHeader("📱 WhatsApp Setup", width-4)
 
 	var content strings.Builder
 
@@ -1269,11 +1173,8 @@ func (m model) viewSetup() string {
 			content.WriteString(theme.StatusInfo.Render("📱 Scan this QR code with WhatsApp:") + "\n\n")
 
 			if m.bridgeStatus.QRCode != nil {
-				// Render QR code in terminal (compact)
 				qrText := renderQRCodeCompact(*m.bridgeStatus.QRCode)
 				content.WriteString(qrText + "\n")
-
-				// Show countdown progress bar
 				content.WriteString(fmt.Sprintf("\n⏱️  Auto-refresh in %ds ", m.qrCountdown))
 				content.WriteString(m.qrProgress.View() + "\n\n")
 				content.WriteString(theme.Subtitle.Render("'o' open in browser | Esc go back") + "\n")
@@ -1308,30 +1209,19 @@ func (m model) viewSetup() string {
 		}
 	}
 
-	// Help bar
 	helpKeys := []string{"Esc Back"}
 	if m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
 		helpKeys = []string{"o Open QR", "Esc Back"}
 	}
-	helpBar := components.HelpBar(helpKeys, width)
-	helpHeight := lipgloss.Height(helpBar)
 
-	// Content area
-	setupContent := title + "\n\n" + content.String()
-	contentHeight := lipgloss.Height(setupContent)
-
-	// Spacer at top to push content to bottom
-	spacerHeight := height - contentHeight - helpHeight
-	if spacerHeight < 0 {
-		spacerHeight = 0
-	}
-	topSpacer := strings.Repeat("\n", spacerHeight)
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		topSpacer,
-		setupContent,
-		helpBar,
-	)
+	return layout.ScreenLayout{
+		Title:      "📱 WhatsApp Setup",
+		Content:    content.String(),
+		HelpKeys:   helpKeys,
+		Breadcrumb: []string{"Main Menu", "WhatsApp Setup"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 // renderQRCodeCompact renders a smaller QR code using Low error correction

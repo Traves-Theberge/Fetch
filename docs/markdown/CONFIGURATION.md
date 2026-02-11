@@ -45,6 +45,14 @@ Fetch defaults to using **GitHub Copilot** as the primary harness. You can enabl
 | `ENABLE_CLAUDE` | boolean | `false` | Enable the Claude Code harness |
 | `ENABLE_GEMINI` | boolean | `false` | Enable the Gemini CLI harness |
 
+### Web & Browser Feature Flags
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_WEB_FETCH` | boolean | `true` | Enable the `web_fetch` tool (URL content extraction) |
+| `ENABLE_WEB_SEARCH` | boolean | `true` | Enable the `web_search` tool (requires SearXNG container) |
+| `ENABLE_BROWSER` | boolean | `false` | Enable browser automation tools (requires Playwright in Kennel) |
+
 ### Harness Model Configuration
 
 By default, AI harnesses use their respective defaults. You can override them using these optional variables:
@@ -60,7 +68,7 @@ By default, AI harnesses use their respective defaults. You can override them us
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 31 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with 34 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -72,6 +80,9 @@ The context pipeline is configured via `config/pipeline.ts` with 31 tunable para
 | `FETCH_TOOL_MAX_TOKENS` | int | `2048` | Token budget for LLM responses |
 | `FETCH_TOOL_TEMPERATURE` | float | `0.3` | Temperature for LLM responses |
 | `FETCH_FRAME_MAX_TOKENS` | int | `200` | Token budget for task framing prompt |
+| `FETCH_SEARXNG_URL` | string | `http://searxng:8080` | SearXNG instance URL for web_search |
+| `FETCH_WEB_FETCH_MAX_LENGTH` | int | `50000` | Max content length for web_fetch (chars) |
+| `FETCH_BROWSER_TIMEOUT` | int | `30000` | Browser automation timeout (ms) |
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 
@@ -90,7 +101,7 @@ const model = env.AGENT_MODEL; // 'openai/gpt-4.1-nano'
 
 ## Docker Compose
 
-The `docker-compose.yml` defines two services:
+The `docker-compose.yml` defines three services:
 
 ### fetch-bridge
 
@@ -127,6 +138,23 @@ command: tail -f /dev/null            # Keep alive for docker exec
 ```
 
 > **Kennel Entrypoint:** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that checks for `GH_TOKEN`, configures `gh` CLI authentication, and sets the git identity to match the GitHub account. This enables `workspace_sync` and `workspace_create` to push to GitHub automatically.
+
+### searxng
+
+```yaml
+image: searxng/searxng:latest
+ports:
+  - "8888:8080"            # Web search API
+volumes:
+  - ./config/searxng:/etc/searxng  # SearXNG configuration
+deploy:
+  resources:
+    limits:
+      memory: 512M
+      cpus: "1"
+```
+
+> **SearXNG** is a self-hosted meta search engine that aggregates results from Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, and npm. It provides the backend for the `web_search` tool. Configuration is in `config/searxng/settings.yml`.
 
 ---
 

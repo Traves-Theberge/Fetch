@@ -3,32 +3,37 @@
 ## System Overview
 
 ```mermaid
-block-beta
-    columns 3
-    
-    bridge<["Fetch Bridge (Node.js)"]>(down)
-    space
-    kennel<["Fetch Kennel (Ubuntu)"]>(down)
+flowchart TB
+    WhatsApp((WhatsApp)) --> Bridge[Fetch Bridge<br/>Node.js]
+    Bridge --> Kennel[Fetch Kennel<br/>Ubuntu Sandbox]
+    Bridge <--> Workspace[("/workspace")]
+    Kennel <--> Workspace
 
-    whatsapp(("WhatsApp"))
-    space
-    workspace[("/workspace")]
+    subgraph Docker [Docker Compose Network]
+        direction TB
+        Bridge
+        Kennel
+        Workspace
+    end
 
-    whatsapp --> bridge
-    bridge --> kennel
-    bridge --> workspace
-    kennel --> workspace
+    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
+    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
+    classDef workspace fill:#f0883e,stroke:#f0883e,color:#fff
+    classDef docker stroke:#58a6ff,stroke-width:2px
+    classDef whatsapp stroke:#238636,stroke-width:2px
 
-    classDef node fill:#ececff,stroke:#9370db,stroke-width:2px;
-    class bridge,kennel node;
-    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:2px;
-    class whatsapp,workspace ext;
+    class Bridge bridge
+    class Kennel kennel
+    class Workspace workspace
+    class Docker docker
+    class WhatsApp whatsapp
 ```
 
-Fetch runs as two Docker containers managed by a Go TUI:
+Fetch runs as three Docker containers managed by a Go TUI:
 
 - **Bridge** (Node.js) — Connects to WhatsApp, runs the agent core, manages sessions and tasks
-- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot) execute against the workspace
+- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot) and Playwright+Chromium execute against the workspace
+- **SearXNG** — Self-hosted meta search engine providing the `web_search` backend (aggregates Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, npm)
 - **Manager** (Go, runs on host) — TUI for starting/stopping Docker, editing config, viewing logs
 
 The Bridge communicates with the Kennel by running `docker exec` commands into it. The workspace directory is mounted into both containers. The Bridge container has the Docker CLI installed and the Docker socket mounted so it can control the Kennel directly.
@@ -126,12 +131,22 @@ flowchart TD
 
     %% Local tool result loop (implicit but good to show)
     LocalTools --> Result[Tool Result] --> Bridge
+
+    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
+    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
+    classDef orchestrator fill:#58a6ff,stroke:#58a6ff,color:#fff
+    classDef config fill:#161b22,stroke:#30363d,color:#e6edf3
+
+    class Bridge bridge
+    class Sandbox,Claude,Gemini,Copilot kennel
+    class OrchLLM,PackDecider orchestrator
+    class HostConfig,ConfClaude,ConfGemini,ConfCopilot config
 ```
 
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Safety Gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) — if matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with **all 21 tools** available
+4. **Everything else** goes to the LLM with **all 27 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
@@ -162,7 +177,7 @@ Global `unhandledRejection` and `uncaughtException` handlers trigger this same s
 ## Dependencies (Runtime)
 
 | Package | Purpose | Used By |
-|---------|---------|---------|
+| --- | --- | --- |
 | `openai` | OpenAI-compatible SDK — pointed at **OpenRouter** (`baseURL: openrouter.ai/api/v1`) | `agent/core.ts` (ReAct loop), `vision/index.ts` (image analysis), `session/manager.ts` (compaction) |
 | `whatsapp-web.js` | WhatsApp Web client via Puppeteer | `bridge/client.ts` |
 | `better-sqlite3` | SQLite with WAL mode for sessions & tasks | `session/store.ts`, `task/store.ts` |
@@ -173,17 +188,20 @@ Global `unhandledRejection` and `uncaughtException` handlers trigger this same s
 | `nanoid` | Collision-resistant ID generation | `utils/id.ts` |
 | `strip-ansi` | Strip ANSI codes from harness CLI output | `harness/output-parser.ts` |
 | `dotenv` | Load `.env` file | `config/env.ts` |
+| `jsdom` | DOM implementation for Node.js | `tools/web.ts` (HTML parsing for web_fetch) |
+| `@mozilla/readability` | Content extraction (Mozilla Readability) | `tools/web.ts` (main content extraction) |
+| `turndown` | HTML to Markdown converter | `tools/web.ts` (markdown output) |
 
 > **Note:** The `openai` npm package is **not** used to call OpenAI directly. It serves as an OpenAI-compatible client for **OpenRouter**, which routes to any model (GPT-4o, Claude, Gemini, etc.). Claude Code, Gemini CLI, and GitHub Copilot CLI are invoked as **CLI processes** in the Kennel container via `docker exec` — they do not use SDK packages in the Bridge.
 
 ## Module Map
 
-```
+```text
 src/
 ├── index.ts              # Boot + shutdown orchestration
 ├── config/
 │   ├── env.ts            # Zod-validated env with Proxy (lazy reads)
-│   ├── pipeline.ts       # Context pipeline tuning (31 params, FETCH_* env overrides)
+│   ├── pipeline.ts       # Context pipeline tuning (34 params, FETCH_* env overrides)
 │   └── paths.ts          # Centralized path constants
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
@@ -198,7 +216,7 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 21 tools
+│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 27 tools
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
@@ -241,15 +259,17 @@ src/
 │   └── types.ts          # Task, TaskStatus, TaskConstraints interfaces
 ├── tools/
 │   ├── index.ts          # Barrel exports for tools module
-│   ├── registry.ts       # Tool registry (21 tools) with custom tool hot-reload
+│   ├── registry.ts       # Tool registry (27 tools) with custom tool hot-reload
 │   ├── types.ts          # ToolContext, ToolResult, DangerLevel interfaces
 │   ├── loader.ts         # Custom tool loader (data/tools/*.json → shell handlers)
 │   ├── workspace.ts      # Workspace tools (list, select, status, create, delete, sync, publish)
 │   ├── task.ts           # Task tools (create, status, cancel, respond)
-│   └── interaction.ts    # Interaction tools (ask_user with autonomy guard, report_progress)
+│   ├── interaction.ts    # Interaction tools (ask_user with autonomy guard, report_progress)
+│   ├── web.ts            # Web tools (web_fetch via Readability+Turndown, web_search via SearXNG)
+│   └── browser.ts        # Browser tools (open, snapshot, action, screenshot via Playwright in Kennel)
 ├── validation/
 │   ├── common.ts         # Reusable Zod schemas (IDs, paths, timestamps, strings)
-│   └── tools.ts          # Zod schemas for all 13 tool inputs
+│   └── tools.ts          # Zod schemas for all 19 tool inputs
 ├── transcription/
 │   └── index.ts          # whisper.cpp voice transcription
 ├── vision/
@@ -282,44 +302,62 @@ The context pipeline ensures the LLM has full conversational memory across turns
 7. **Dynamic Prompt Rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current state
 8. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
 
-All parameters are tunable via `config/pipeline.ts` (31 settings, overridable via `FETCH_*` env vars).
+All parameters are tunable via `config/pipeline.ts` (34 settings, overridable via `FETCH_*` env vars).
 
 ## Docker Architecture
 
 ```mermaid
 graph TB
-    subgraph Host[Host Machine]
-        Manager[Fetch Manager TUI]
-        Socket[docker.sock]
+    subgraph Host["Host Machine"]
+        Manager["Fetch Manager TUI"]
+        Socket["docker.sock"]
         
-        subgraph Docker[Docker Network]
+        subgraph Docker["Docker Network"]
             direction LR
             
-            Bridge[fetch-bridge]
-            Kennel[fetch-kennel]
-            
+            Bridge["fetch-bridge"]
+            Kennel["fetch-kennel"]
+            SearXNG["searxng"]
+
             Bridge -- "docker exec" --> Kennel
+            Bridge -- "HTTP /search" --> SearXNG
             Bridge -.-> Socket
             
-            Vol1[./workspace] -.-> Bridge
+            Vol1["./workspace"] -.-> Bridge
             Vol1 -.-> Kennel
             
-            Vol2[./data] -.-> Bridge
+            Vol2["./data"] -.-> Bridge
             
-            Vol3[~/.config] -.-> Kennel
+            Vol3["~/.config"] -.-> Kennel
         end
     end
     
     Manager --> Socket
-    style Bridge fill:#e1f5fe,stroke:#01579b
-    style Kennel fill:#fff3e0,stroke:#ef6c00
+    
+    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
+    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
+    classDef manager fill:#f0883e,stroke:#f0883e,color:#fff
+    classDef docker fill:none,stroke:#58a6ff,stroke-width:2px
+    classDef host fill:none,stroke:#8b949e,stroke-width:2px,stroke-dasharray: 5 5
+    classDef volume fill:#161b22,stroke:#30363d,color:#e6edf3
+
+    class Bridge bridge
+    class Kennel,SearXNG kennel
+    class Manager manager
+    class Docker docker
+    class Host host
+    class Vol1,Vol2,Vol3,Socket volume
 ```
+
+### SearXNG Container
+
+The SearXNG container provides a JSON API at `http://searxng:8080/search` on the Docker network. The Bridge queries it from `tools/web.ts` when `web_search` is called. Configuration lives in `config/searxng/settings.yml` and enables multiple search engines (Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, npm).
 
 ### Container Communication
 
 The Bridge container has the Docker socket mounted read-only **and the Docker CLI installed**. It controls the Kennel using `docker exec`:
 
-```
+```bash
 docker exec -w /workspace/my-project -e GOAL="..." fetch-kennel claude --print --dangerously-skip-permissions -p "..."
 ```
 
@@ -332,7 +370,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 ### Volume Mounts
 
 | Volume | Bridge | Kennel | Mode |
-|--------|--------|--------|------|
+| --- | --- | --- | --- |
 | `./workspace` | ✅ | ✅ | read-write |
 | `./data` | ✅ | — | read-write |
 | `docker.sock` | ✅ | — | read-only |
@@ -345,7 +383,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 ### sessions.db
 
 | Table | Purpose | Key Fields |
-|-------|---------|------------|
+| --- | --- | --- |
 | `sessions` | Session blobs | `id`, `user_id`, `data` (JSON), `created_at`, `updated_at` |
 | `summaries` | Conversation summaries | `id`, `session_id`, `summary`, `created_at` |
 | `conversation_threads` | Thread management | `thread_id`, `session_id`, `title`, `created_at` |
@@ -354,7 +392,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 ### tasks.db
 
 | Table | Purpose | Key Fields |
-|-------|---------|------------|
+| --- | --- | --- |
 | `tasks` | Task records | `id`, `session_id`, `goal`, `status`, `harness`, `result`, `iterations` |
 
 Both databases use WAL (Write-Ahead Logging) mode for concurrent read/write access without locking.
@@ -362,7 +400,7 @@ Both databases use WAL (Write-Ahead Logging) mode for concurrent read/write acce
 ## Error Recovery
 
 | Failure | Recovery |
-|---------|----------|
+| --- | --- |
 | Bridge crash | Mode and task state persisted to SQLite; tasks resume on restart |
 | WhatsApp disconnect | Exponential backoff reconnection (5s base, 5min cap, 10 max retries) |
 | Harness timeout | Task marked as failed, user notified |

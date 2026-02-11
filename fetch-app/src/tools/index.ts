@@ -38,6 +38,12 @@ export { workspaceTools, handleWorkspaceList, handleWorkspaceSelect, handleWorks
 export { taskTools, handleTaskCreate, handleTaskStatus, handleTaskCancel, handleTaskRespond } from './task.js';
 export { interactionTools, handleAskUser, handleReportProgress } from './interaction.js';
 
+// Web tools
+export { webTools, handleWebFetch, handleWebSearch } from './web.js';
+
+// Browser tools
+export { browserTools, handleBrowserOpen, handleBrowserSnapshot, handleBrowserAction, handleBrowserScreenshot } from './browser.js';
+
 // Custom tool loader
 export { loadToolDefinition, buildToolSchema } from './loader.js';
 export type { CustomToolDefinition } from './loader.js';

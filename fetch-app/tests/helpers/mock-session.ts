@@ -22,6 +22,7 @@ export function createMockSession(options: MockSessionOptions = {}): Session {
   return {
     id: `ses_${Date.now()}`,
     userId,
+    metadata: {},
     messages: options.messages ?? [],
     currentProject: options.currentProject ?? null,
     availableProjects: [],

@@ -13,6 +13,7 @@ type MenuItem struct {
 	Icon     string
 	Label    string
 	Key      string // Optional hotkey
+	Badge    string // Dynamic status badge (e.g. "[Running]", "[2 accounts]")
 	Disabled bool
 }
 
@@ -69,78 +70,13 @@ func (m *Menu) SelectedItem() MenuItem {
 	return MenuItem{}
 }
 
-// View renders the menu
-func (m *Menu) View() string {
-	var b strings.Builder
-
-	// Title
-	if m.Title != "" {
-		titleStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(theme.Primary).
-			MarginBottom(1)
-		b.WriteString(titleStyle.Render(m.Title))
-		b.WriteString("\n\n")
-	}
-
-	// Items
-	for i, item := range m.Items {
-		var line string
-
-		if item.Disabled {
-			// Disabled item
-			disabledStyle := lipgloss.NewStyle().
-				Foreground(theme.TextMuted).
-				PaddingLeft(4)
-			line = disabledStyle.Render(item.Icon + " " + item.Label)
-		} else if i == m.Cursor {
-			// Selected item
-			selectedStyle := lipgloss.NewStyle().
-				Foreground(theme.Primary).
-				Bold(true)
-
-			cursorStyle := lipgloss.NewStyle().
-				Foreground(theme.Primary).
-				Bold(true)
-
-			cursor := cursorStyle.Render("▸ ")
-			line = cursor + selectedStyle.Render(item.Icon+" "+item.Label)
-		} else {
-			// Normal item
-			normalStyle := lipgloss.NewStyle().
-				Foreground(theme.TextPrimary).
-				PaddingLeft(2)
-			line = normalStyle.Render("  " + item.Icon + " " + item.Label)
-		}
-
-		// Add hotkey if showing
-		if m.ShowKeys && item.Key != "" {
-			keyStyle := lipgloss.NewStyle().
-				Foreground(theme.TextMuted).
-				PaddingLeft(2)
-			keyWidth := m.Width - lipgloss.Width(line) - 4
-			if keyWidth > 0 {
-				line += keyStyle.Render(strings.Repeat(" ", keyWidth) + "[" + item.Key + "]")
-			}
-		}
-
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	// Frame the menu
-	frameStyle := lipgloss.NewStyle().
-		Border(theme.PanelBorder).
-		BorderForeground(theme.Border).
-		Padding(1, 2).
-		Width(m.Width)
-
-	return frameStyle.Render(b.String())
-}
-
 // ViewCompact renders a compact menu without frame
 func (m *Menu) ViewCompact() string {
 	var b strings.Builder
+
+	badgeStyle := lipgloss.NewStyle().
+		Foreground(theme.TextMuted).
+		Italic(true)
 
 	for i, item := range m.Items {
 		var line string
@@ -160,6 +96,11 @@ func (m *Menu) ViewCompact() string {
 				Foreground(theme.TextPrimary).
 				PaddingLeft(2)
 			line = normalStyle.Render("  " + item.Icon + " " + item.Label)
+		}
+
+		// Add badge if set
+		if item.Badge != "" {
+			line += " " + badgeStyle.Render(item.Badge)
 		}
 
 		b.WriteString(line)

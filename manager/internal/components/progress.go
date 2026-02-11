@@ -106,38 +106,3 @@ func (p *ProgressBar) View() string {
 	return bar
 }
 
-// SimpleProgress renders a simple inline progress bar
-func SimpleProgress(percent float64, width int) string {
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 1 {
-		percent = 1
-	}
-
-	filled := int(float64(width) * percent)
-	empty := width - filled
-
-	filledStyle := lipgloss.NewStyle().Foreground(theme.Primary)
-	emptyStyle := lipgloss.NewStyle().Foreground(theme.TextMuted)
-
-	return filledStyle.Render(strings.Repeat("▓", filled)) +
-		emptyStyle.Render(strings.Repeat("░", empty))
-}
-
-// DownloadProgress renders a download-style progress bar with speed/ETA
-func DownloadProgress(percent float64, downloaded, total string, speed string, width int) string {
-	pb := NewProgressBar(width - 20)
-	pb.SetPercent(percent)
-	pb.SetShowPercent(false)
-
-	infoStyle := lipgloss.NewStyle().Foreground(theme.TextSecondary)
-	speedStyle := lipgloss.NewStyle().Foreground(theme.Info)
-
-	return fmt.Sprintf("%s %s/%s %s",
-		pb.View(),
-		infoStyle.Render(downloaded),
-		infoStyle.Render(total),
-		speedStyle.Render(speed),
-	)
-}

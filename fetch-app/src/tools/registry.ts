@@ -52,6 +52,20 @@ import {
   githubTools,
 } from './github.js';
 
+import {
+  handleWebFetch,
+  handleWebSearch,
+  webTools,
+} from './web.js';
+
+import {
+  handleBrowserOpen,
+  handleBrowserSnapshot,
+  handleBrowserAction,
+  handleBrowserScreenshot,
+  browserTools,
+} from './browser.js';
+
 import { loadToolDefinition, buildToolSchema, CustomToolDefinition } from './loader.js';
 import { exec } from 'child_process';
 import util from 'util';
@@ -327,6 +341,16 @@ export class ToolRegistry {
       github_branch_create: { h: handleGitHubBranchCreate, s: ToolInputSchemas.github_branch_create, d: DangerLevel.MODERATE },
       github_action_status: { h: handleGitHubActionStatus, s: ToolInputSchemas.github_action_status, d: DangerLevel.SAFE },
       github_search_repos: { h: handleGitHubSearchRepos, s: ToolInputSchemas.github_search_repos, d: DangerLevel.SAFE },
+
+      // WEB
+      web_fetch: { h: handleWebFetch, s: ToolInputSchemas.web_fetch, d: DangerLevel.SAFE },
+      web_search: { h: handleWebSearch, s: ToolInputSchemas.web_search, d: DangerLevel.SAFE },
+
+      // BROWSER
+      browser_open: { h: handleBrowserOpen, s: ToolInputSchemas.browser_open, d: DangerLevel.MODERATE },
+      browser_snapshot: { h: handleBrowserSnapshot, s: ToolInputSchemas.browser_snapshot, d: DangerLevel.SAFE },
+      browser_action: { h: handleBrowserAction, s: ToolInputSchemas.browser_action, d: DangerLevel.MODERATE },
+      browser_screenshot: { h: handleBrowserScreenshot, s: ToolInputSchemas.browser_screenshot, d: DangerLevel.SAFE },
     };
 
     for (const [name, meta] of Object.entries(builtins)) {
@@ -334,8 +358,10 @@ export class ToolRegistry {
       const tTools = taskTools as Record<string, { description: string }>;
       const iTools = interactionTools as Record<string, { description: string }>;
       const gTools = githubTools as Record<string, { description: string }>;
+      const webT = webTools as Record<string, { description: string }>;
+      const brT = browserTools as Record<string, { description: string }>;
 
-      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name])?.description || 'No description';
+      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name] || webT[name] || brT[name])?.description || 'No description';
       logger.info(`Registering builtin tool: ${name}`, { hasHandler: !!meta.h });
 
       this.register({

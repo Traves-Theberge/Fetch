@@ -46,7 +46,7 @@ describe('E2E: Task Flow', () => {
         '/workspace/my-project'
       );
 
-      expect(result.status).toBe('completed');
+      expect(result.success).toBe(true);
       expect(result.exitCode).toBe(0);
       expect(mockExecutor.callCount).toBe(1);
       expect(mockExecutor.lastCall?.goal).toBe('Add dark mode toggle');
@@ -66,8 +66,8 @@ describe('E2E: Task Flow', () => {
         '/workspace/project'
       );
 
-      expect(result.status).toBe('completed');
-      expect(result.filesModified).toHaveLength(3);
+      expect(result.success).toBe(true);
+      expect((result as any).filesModified).toHaveLength(3);
     });
   });
 
@@ -85,7 +85,7 @@ describe('E2E: Task Flow', () => {
         '/workspace/project'
       );
 
-      expect(result.status).toBe('failed');
+      expect(result.success).toBe(false);
       expect(result.exitCode).toBe(1);
     });
 
@@ -130,7 +130,7 @@ describe('E2E: Task Flow', () => {
       );
       const duration = Date.now() - start;
 
-      expect(result.status).toBe('completed');
+      expect(result.success).toBe(true);
       expect(duration).toBeGreaterThanOrEqual(90); // allow ~10ms timer jitter
     });
   });

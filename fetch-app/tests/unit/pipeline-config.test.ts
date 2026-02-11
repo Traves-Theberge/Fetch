@@ -56,6 +56,17 @@ describe('Pipeline Configuration', () => {
       expect(pipeline.repoMapTtl).toBe(300_000);
       expect(pipeline.workspaceCacheTtl).toBe(30_000);
       expect(pipeline.gitCommandTimeout).toBe(5_000);
+
+      // Web / Browser
+      expect(pipeline.searxngUrl).toBe('http://searxng:8080');
+      expect(pipeline.webFetchMaxLength).toBe(50_000);
+      expect(pipeline.browserTimeout).toBe(30_000);
+
+      // Circuit breaker reset
+      expect(pipeline.circuitBreakerResetMs).toBe(300_000);
+
+      // Compaction model (depends on env, but default should be a string)
+      expect(typeof pipeline.compactionModel).toBe('string');
     });
 
     it('should export PipelineConfig type', async () => {

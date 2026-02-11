@@ -119,6 +119,14 @@ export const pipeline = {
   /** Git command execution timeout (ms) */
   gitCommandTimeout: int('FETCH_GIT_TIMEOUT', 5_000),
 
+  // ─── Web / Browser ─────────────────────────────────────────
+  /** SearXNG instance URL for web search */
+  searxngUrl: str('FETCH_SEARXNG_URL', 'http://searxng:8080'),
+  /** Web fetch max content length (chars) */
+  webFetchMaxLength: int('FETCH_WEB_FETCH_MAX_LENGTH', 50_000),
+  /** Browser command timeout (ms) */
+  browserTimeout: int('FETCH_BROWSER_TIMEOUT', 30_000),
+
 } as const;
 
 // =============================================================================

@@ -430,7 +430,7 @@ describe('Adapter Output Parsing Integration', () => {
   describe('CopilotAdapter', () => {
     const adapter = new CopilotAdapter();
 
-    it('should parse suggestion output', () => {
+    it('should treat all output as stdout passthrough', () => {
       const lines = COPILOT_OUTPUTS.success.split('\n');
       const events: Array<{ type: string | null; line: string }> = [];
 
@@ -439,13 +439,13 @@ describe('Adapter Output Parsing Integration', () => {
         events.push({ type: eventType, line });
       }
 
-      // Should detect completion
-      const completeEvents = events.filter((e) => e.type === 'complete');
-      expect(completeEvents.length).toBe(1);
+      // New Copilot adapter passes everything as stdout
+      const stdoutEvents = events.filter((e) => e.type === 'stdout');
+      expect(stdoutEvents.length).toBe(events.length);
     });
 
-    it('should detect suggestions as progress', () => {
-      expect(adapter.parseOutputLine('Suggestion: Use async/await')).toBe('progress');
+    it('should treat suggestions as stdout', () => {
+      expect(adapter.parseOutputLine('Suggestion: Use async/await')).toBe('stdout');
     });
 
     it('should extract summary from suggestion', () => {

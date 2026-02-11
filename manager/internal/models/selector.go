@@ -7,44 +7,21 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/fetch/manager/internal/theme"
 )
 
 var (
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("#FF6B35"))
-
-	selectedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Bold(true)
-
-	normalStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#cccccc"))
-
-	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#666666"))
-
-	categoryStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00bfff")).
-			Bold(true).
-			MarginTop(1)
-
-	priceStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888"))
-
-	currentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFD700")).
-			Bold(true)
-
-	ctxStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#9B59B6"))
-
-	modalityStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#E67E22"))
-
-	toolsBadgeStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#2ECC71")).
-			Bold(true)
+	titleStyle    = theme.Title
+	selectedStyle = theme.EditorFocused
+	normalStyle   = theme.SelectorNormal
+	dimStyle      = theme.SelectorDim
+	categoryStyle = theme.Category
+	priceStyle    = theme.Price
+	currentStyle  = theme.Current
+	ctxStyle      = theme.SelectorContext
+	modalityStyle = theme.SelectorModality
+	toolsBadgeStyle = theme.SelectorToolsBadge
 )
 
 // SelectionState represents the current state of the model selection UI.

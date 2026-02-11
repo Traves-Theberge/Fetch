@@ -16,24 +16,9 @@ var Subtitle = lipgloss.NewStyle().
 	Foreground(TextSecondary).
 	Italic(true)
 
-// Label is for form field labels
-var Label = lipgloss.NewStyle().
-	Foreground(TextSecondary).
-	Width(20)
-
 // Value is for field values
 var Value = lipgloss.NewStyle().
 	Foreground(TextPrimary)
-
-// Muted is for hints and help text
-var Muted = lipgloss.NewStyle().
-	Foreground(TextMuted).
-	Italic(true)
-
-// Help is for keyboard shortcut hints
-var Help = lipgloss.NewStyle().
-	Foreground(TextMuted).
-	MarginTop(1)
 
 // ===== STATUS STYLES =====
 
@@ -47,105 +32,9 @@ var StatusError = lipgloss.NewStyle().
 	Foreground(Error).
 	Bold(true)
 
-// StatusWarning for warning messages
-var StatusWarning = lipgloss.NewStyle().
-	Foreground(Warning).
-	Bold(true)
-
 // StatusInfo for info messages
 var StatusInfo = lipgloss.NewStyle().
 	Foreground(Info)
-
-// StatusRunning for running state indicator
-var StatusRunning = lipgloss.NewStyle().
-	Foreground(Success).
-	SetString("● Running")
-
-// StatusStopped for stopped state indicator
-var StatusStopped = lipgloss.NewStyle().
-	Foreground(Error).
-	SetString("● Stopped")
-
-// StatusPartial for partial state indicator
-var StatusPartial = lipgloss.NewStyle().
-	Foreground(Warning).
-	SetString("● Partial")
-
-// ===== MENU STYLES =====
-
-// MenuItem is for unselected menu items
-var MenuItem = lipgloss.NewStyle().
-	Foreground(TextPrimary).
-	PaddingLeft(2)
-
-// MenuItemSelected is for the currently selected menu item
-var MenuItemSelected = lipgloss.NewStyle().
-	Foreground(Primary).
-	Bold(true).
-	PaddingLeft(0).
-	SetString("▸ ")
-
-// MenuItemDim is for disabled menu items
-var MenuItemDim = lipgloss.NewStyle().
-	Foreground(TextMuted).
-	PaddingLeft(2)
-
-// ===== PANEL STYLES =====
-
-// Panel creates a framed panel with rounded borders
-func Panel(width int) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(PanelBorder).
-		BorderForeground(Border).
-		Padding(1, 2).
-		Width(width)
-}
-
-// PanelFocused creates a focused panel with highlighted border
-func PanelFocused(width int) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(PanelBorder).
-		BorderForeground(Primary).
-		Padding(1, 2).
-		Width(width)
-}
-
-// PanelWithTitle creates a panel with a title in the border
-func PanelWithTitle(title string, width int) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Border(PanelBorder).
-		BorderForeground(Border).
-		BorderTop(true).
-		BorderLeft(true).
-		BorderRight(true).
-		BorderBottom(true).
-		Padding(1, 2).
-		Width(width)
-}
-
-// ===== HEADER STYLES =====
-
-// Header creates a styled header box
-func Header(width int) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Bold(true).
-		Foreground(Primary).
-		Background(Surface).
-		Padding(0, 2).
-		Width(width).
-		Align(lipgloss.Center)
-}
-
-// ===== STATUS BAR STYLES =====
-
-// StatusBar creates the bottom status bar style
-func StatusBar(width int) lipgloss.Style {
-	return lipgloss.NewStyle().
-		Foreground(TextSecondary).
-		Background(Surface).
-		Padding(0, 2).
-		Width(width)
-}
 
 // ===== SPECIAL STYLES =====
 
@@ -179,47 +68,56 @@ var Current = lipgloss.NewStyle().
 	Foreground(Warning).
 	Bold(true)
 
-// Divider creates a horizontal line
-func Divider(width int) string {
-	return lipgloss.NewStyle().
-		Foreground(Border).
-		Width(width).
-		Render(repeatChar("─", width))
-}
+// ===== EDITOR STYLES =====
 
-// repeatChar repeats a character n times
-func repeatChar(char string, n int) string {
-	result := ""
-	for i := 0; i < n; i++ {
-		result += char
-	}
-	return result
-}
+// EditorLabel is for config field labels
+var EditorLabel = lipgloss.NewStyle().
+	Foreground(TextSecondary).
+	Width(25)
 
-// ===== SPINNER STYLES =====
-
-// Spinner style for loading indicators
-var Spinner = lipgloss.NewStyle().
+// EditorInput is for config field values being edited
+var EditorInput = lipgloss.NewStyle().
 	Foreground(Primary)
 
-// ===== TABLE STYLES =====
+// EditorFocused is for the focused field indicator
+var EditorFocused = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#00ff00")).
+	Bold(true)
 
-// TableHeader for table column headers
-var TableHeader = lipgloss.NewStyle().
-	Bold(true).
-	Foreground(TextPrimary).
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderBottom(true).
-	BorderForeground(Border).
-	Padding(0, 1)
+// EditorHelp is for inline help text
+var EditorHelp = lipgloss.NewStyle().
+	Foreground(TextMuted).
+	Italic(true)
 
-// TableCell for table data cells
-var TableCell = lipgloss.NewStyle().
-	Foreground(TextPrimary).
-	Padding(0, 1)
-
-// TableRowSelected for selected table rows
-var TableRowSelected = lipgloss.NewStyle().
+// EditorSeparator is for section header separators
+var EditorSeparator = lipgloss.NewStyle().
 	Foreground(Primary).
-	Bold(true).
-	Padding(0, 1)
+	Bold(true)
+
+// EditorDefault is for default/placeholder values
+var EditorDefault = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#555555")).
+	Italic(true)
+
+// ===== SELECTOR STYLES =====
+
+// SelectorNormal is for unselected items in pickers
+var SelectorNormal = lipgloss.NewStyle().
+	Foreground(TextPrimary)
+
+// SelectorDim is for de-emphasized items in pickers
+var SelectorDim = lipgloss.NewStyle().
+	Foreground(TextMuted)
+
+// SelectorContext is for context info (e.g., context window size)
+var SelectorContext = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#9B59B6"))
+
+// SelectorModality is for modality badges
+var SelectorModality = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("#E67E22"))
+
+// SelectorToolsBadge is for tool support indicators
+var SelectorToolsBadge = lipgloss.NewStyle().
+	Foreground(Success).
+	Bold(true)

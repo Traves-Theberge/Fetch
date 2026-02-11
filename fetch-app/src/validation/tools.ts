@@ -512,6 +512,128 @@ export const GitHubSearchReposInputSchema = z
   .describe('Search GitHub repositories');
 
 // ============================================================================
+// Web Tool Schemas
+// ============================================================================
+
+/**
+ * web_fetch - Fetch a web page and extract readable content
+ */
+export const WebFetchInputSchema = z
+  .object({
+    /** URL to fetch */
+    url: z.string()
+      .url('Must be a valid URL')
+      .describe('URL to fetch (must be a valid http/https URL)'),
+
+    /** Optional CSS selector to extract specific content */
+    selector: z.string()
+      .max(200, 'Selector too long (max 200 characters)')
+      .optional()
+      .describe('Optional CSS selector to extract specific content from the page'),
+  })
+  .strict()
+  .describe('Fetch a web page and extract its readable content as markdown');
+
+/**
+ * web_search - Search the web via SearXNG
+ */
+export const WebSearchInputSchema = z
+  .object({
+    /** Search query */
+    query: z.string()
+      .min(1, 'Search query is required')
+      .max(400, 'Search query too long (max 400 characters)')
+      .describe('Search query'),
+
+    /** Number of results to return */
+    count: z.number()
+      .int('Count must be an integer')
+      .min(1, 'Minimum 1 result')
+      .max(20, 'Maximum 20 results')
+      .optional()
+      .default(5)
+      .describe('Number of results to return (default: 5, max: 20)'),
+
+    /** Search category */
+    category: z.enum(['general', 'images', 'news', 'science', 'it'])
+      .optional()
+      .default('general')
+      .describe('Search category (default: general)'),
+  })
+  .strict()
+  .describe('Search the web using the meta search engine');
+
+// ============================================================================
+// Browser Tool Schemas
+// ============================================================================
+
+/**
+ * browser_open - Open a URL in a headless browser
+ */
+export const BrowserOpenInputSchema = z
+  .object({
+    /** URL to navigate to */
+    url: z.string()
+      .url('Must be a valid URL')
+      .describe('URL to navigate to in the browser'),
+
+    /** Wait condition before returning */
+    waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle'])
+      .optional()
+      .default('load')
+      .describe('Wait condition: load, domcontentloaded, or networkidle'),
+  })
+  .strict()
+  .describe('Open a URL in a headless browser and return an accessibility tree snapshot');
+
+/**
+ * browser_snapshot - Get current page accessibility tree
+ */
+export const BrowserSnapshotInputSchema = z
+  .object({})
+  .strict()
+  .describe('Get the accessibility tree snapshot of the current browser page');
+
+/**
+ * browser_action - Perform an action on the browser page
+ */
+export const BrowserActionInputSchema = z
+  .object({
+    /** Action to perform */
+    action: z.enum(['click', 'type', 'scroll_down', 'scroll_up', 'back', 'forward'])
+      .describe('Action to perform on the page'),
+
+    /** Element reference number from snapshot (required for click, type) */
+    ref: z.number()
+      .int('Ref must be an integer')
+      .min(0)
+      .optional()
+      .describe('Element reference number from browser_snapshot (required for click and type)'),
+
+    /** Text to type (required for type action) */
+    text: z.string()
+      .max(2000, 'Text too long (max 2000 characters)')
+      .optional()
+      .describe('Text to type into the element (required for type action)'),
+
+    /** X coordinate for click (optional, for coordinate-based clicks) */
+    x: z.number().optional().describe('X coordinate for coordinate-based click'),
+
+    /** Y coordinate for click (optional, for coordinate-based clicks) */
+    y: z.number().optional().describe('Y coordinate for coordinate-based click'),
+  })
+  .strict()
+  .describe('Perform an action on the browser page using element references from snapshot');
+
+/**
+ * browser_screenshot - Capture a screenshot
+ */
+export const BrowserScreenshotInputSchema = z
+  .object({})
+  .strict()
+  .describe('Capture a screenshot of the current browser page');
+
+// ============================================================================
 // Schema Registry
 // ============================================================================
 
@@ -547,6 +669,14 @@ export const ToolInputSchemas = {
   github_branch_create: GitHubBranchCreateInputSchema,
   github_action_status: GitHubActionStatusInputSchema,
   github_search_repos: GitHubSearchReposInputSchema,
+  // Web tools (2)
+  web_fetch: WebFetchInputSchema,
+  web_search: WebSearchInputSchema,
+  // Browser tools (4)
+  browser_open: BrowserOpenInputSchema,
+  browser_snapshot: BrowserSnapshotInputSchema,
+  browser_action: BrowserActionInputSchema,
+  browser_screenshot: BrowserScreenshotInputSchema,
 } as const;
 
 /**
@@ -578,3 +708,9 @@ export type GitHubIssueListInput = z.infer<typeof GitHubIssueListInputSchema>;
 export type GitHubBranchCreateInput = z.infer<typeof GitHubBranchCreateInputSchema>;
 export type GitHubActionStatusInput = z.infer<typeof GitHubActionStatusInputSchema>;
 export type GitHubSearchReposInput = z.infer<typeof GitHubSearchReposInputSchema>;
+export type WebFetchInput = z.infer<typeof WebFetchInputSchema>;
+export type WebSearchInput = z.infer<typeof WebSearchInputSchema>;
+export type BrowserOpenInput = z.infer<typeof BrowserOpenInputSchema>;
+export type BrowserSnapshotInput = z.infer<typeof BrowserSnapshotInputSchema>;
+export type BrowserActionInput = z.infer<typeof BrowserActionInputSchema>;
+export type BrowserScreenshotInput = z.infer<typeof BrowserScreenshotInputSchema>;

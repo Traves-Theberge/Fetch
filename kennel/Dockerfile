@@ -46,6 +46,16 @@ RUN gh extension install github/gh-copilot || true
 RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli
 
 # ============================================
+# Install Playwright + Chromium for browser automation
+# ============================================
+RUN npx playwright install --with-deps chromium
+
+# ============================================
+# Install browser agent script
+# ============================================
+COPY browser-agent.mjs /usr/local/lib/fetch-browser/browser-agent.mjs
+
+# ============================================
 # Configure git identity for init/commit operations
 # ============================================
 RUN git config --global user.email "fetch@kennel.local" \

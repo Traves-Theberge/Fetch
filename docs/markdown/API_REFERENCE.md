@@ -54,17 +54,19 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 21 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 27 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
-### Workspace Tools
+### Workspace Tools (7)
 
 #### workspace_list
 
 List all projects in the workspace directory.
 
-**Parameters:** none
+**Parameters:** none (empty object)
 
-**Returns:** `{ projects: string[] }`
+**Returns:** `{ workspaces: object[], activeWorkspace: string | null, count: number }`
+
+**Danger Level:** SAFE
 
 #### workspace_select
 
@@ -74,197 +76,94 @@ Switch the active project. Triggers a system prompt rebuild so the LLM sees the 
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | string | ✅ | Project directory name |
+| `name` | string | ✅ | Workspace name to select |
 
-**Returns:** `{ selected: string, path: string }`
+**Returns:** `{ id, name, path, projectType, description, isActive, git: { branch, dirty, ahead, behind } }`
 
-#### github_pr_get
-
-Get details for a specific GitHub Pull Request.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `number` | number | ✅ | PR number. |
-| `repo` | string | — | Target repository in 'org/repo' format. |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ pr: object }`
+**Danger Level:** SAFE
 
 #### workspace_status
 
-Get the active project's git status and file overview.
+Get detailed workspace status including git info.
 
-**Parameters:** none
+**Parameters:**
 
-**Returns:** `{ project: string, branch: string, status: string, recentFiles: string[] }`
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | — | Workspace name (uses active workspace if not specified) |
+
+**Returns:** `{ id, name, path, projectType, description, isActive, lastAccessedAt, git: { branch, dirty, ahead, behind, modifiedFiles, stagedFiles, untrackedFiles, remoteUrl, lastCommit, lastCommitMessage } }`
+
+**Danger Level:** SAFE
 
 #### workspace_create
 
-Initialize a new project in the workspace. Automatically creates a GitHub repository and pushes initial commit if `GH_TOKEN` is configured.
+Create a new workspace/project. Automatically creates a GitHub repository and pushes initial commit if `GH_TOKEN` is configured.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | string | ✅ | Project name (alphanumeric, hyphens, underscores) |
-| `template` | string | — | Template to use |
+| `name` | string | ✅ | Project name (alphanumeric, hyphens, underscores, max 64 chars) |
+| `template` | string | — | Template: `empty`, `node`, `python`, `rust`, `go`, `react`, `next` (default: `empty`) |
+| `description` | string | — | Brief description of the project (max 256 chars) |
+| `initGit` | boolean | — | Initialize a git repository (default: `true`) |
 
-**Returns:** `{ created: string, path: string }`
+**Returns:** `{ id, name, path, projectType, description, isActive, git: { branch, initialized }, message }`
 
-#### github_pr_create
-
-Create a new GitHub pull request for the current branch.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `title` | string | ✅ | PR title. |
-| `body` | string | — | PR description. |
-| `base` | string | — | Base branch (default: main). |
-| `draft` | boolean | — | Create as draft (default: true). |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ url: string, number: number }`
-
-#### github_pr_list
-
-List GitHub pull requests for the current or specified repository.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `state` | string | — | PR state ('open', 'closed', 'all'. Default: 'open') |
-| `repo` | string | — | Target repository in 'org/repo' format. |
-| `limit` | number | — | Max results to return (1-100. Default: 10). |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ prs: object[] }`
-
-#### github_pr_view
-
-View details of a specific GitHub pull request.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `number` | number | ✅ | PR number. |
-| `repo` | string | — | Target repository in 'org/repo' format. |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ pr: object }`
-
-#### github_issue_create
-
-Create a new GitHub issue.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `title` | string | ✅ | Issue title. |
-| `body` | string | — | Issue description. |
-| `labels` | string[] | — | List of labels to apply. |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ url: string, number: number }`
-
-#### github_issue_list
-
-List GitHub issues for the current repository.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `state` | string | — | Issue state ('open', 'closed', 'all'. Default: 'open') |
-| `assignee` | string | — | Filter by assignee username. |
-| `labels` | string[] | — | Filter by labels. |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ issues: object[] }`
-
-#### github_branch_create
-
-Create a new git branch and push to origin.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `name` | string | ✅ | New branch name. |
-| `from` | string | — | Base branch to branch from. |
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ branch: string }`
-
-#### github_action_status
-
-Get the status of recent GitHub Action workflow runs.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `workspace` | string | — | Target workspace. |
-
-**Returns:** `{ runs: object[] }`
-
-#### github_search_repos
-
-Search for repositories across GitHub.
-
-**Parameters:**
-
-| Name | Type | Required | Description |
-|------|----------|----------|-------------|
-| `query` | string | ✅ | Search keywords. |
-| `limit` | number | — | Max results (default: 10). |
-
-**Returns:** `{ results: object[] }`
+**Danger Level:** MODERATE
 
 #### workspace_delete
 
-Remove a project from the workspace.
+Delete a workspace permanently. Requires explicit confirmation.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | string | ✅ | Project to delete |
+| `name` | string | ✅ | Workspace to delete |
+| `confirm` | boolean | ✅ | Must be `true` to confirm deletion |
 
-**Returns:** `{ deleted: string }`
+**Returns:** `{ deleted: string, message: string }`
+
+> Cannot delete the currently active workspace. Select a different workspace first.
+
+**Danger Level:** DANGEROUS
 
 #### workspace_sync
 
-Commit local changes and push to the GitHub remote. Generates a commit message from the diff if not provided.
+Sync workspace to GitHub. Stages changes, commits, creates repo if needed, and pushes.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `message` | string | — | Commit message (auto-generated if omitted) |
+| `name` | string | — | Workspace to sync (uses active workspace if not specified) |
+| `message` | string | — | Commit message (auto-generated from changes if not provided, max 256 chars) |
 
-**Returns:** `{ synced: boolean, commit: string, remote: string }`
+**Returns:** `{ workspace, commitHash, commitMessage, filesChanged, remoteUrl, pushed, repoCreated, message }`
+
+**Danger Level:** MODERATE
 
 #### workspace_publish
 
-Create a new GitHub repository from an existing project. Useful when a project was created without a remote or the auto-creation failed.
+Create a new GitHub repository from an existing workspace and push all commits.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `name` | string | ✅ | Repository name |
-| `private` | boolean | — | Whether repo should be private (default: true) |
+| `name` | string | — | Workspace to publish (uses active workspace if not specified) |
+| `description` | string | — | Description for the new GitHub repository (max 256 chars) |
+| `isPublic` | boolean | — | Make the repository public (default: `false` / private) |
 
-**Returns:** `{ published: boolean, url: string }`
+**Returns:** `{ workspace, repoUrl, visibility, message }`
 
-### Task Tools
+> Fails if the workspace already has a remote. Use `workspace_sync` to push changes to an existing repo.
+
+**Danger Level:** MODERATE
+
+### Task Tools (4)
 
 #### task_create
 
@@ -274,10 +173,14 @@ Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilo
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `goal` | string | ✅ | What to accomplish |
-| `harness` | string | — | Preferred harness (`claude`, `gemini`, `copilot`) |
+| `goal` | string | ✅ | Clear description of what to accomplish |
+| `agent` | string | — | Agent to use: `copilot`, `gemini`, `claude`, `auto` (default: `auto`). If multiple agents are enabled and user hasn't specified, the LLM must call `ask_user` first. |
+| `workspace` | string | — | Target workspace (uses active workspace if not specified) |
+| `timeout` | number | — | Task timeout in milliseconds (default: 300000 = 5 minutes) |
 
 **Returns:** `{ taskId: string, status: string, harness: string }`
+
+**Danger Level:** MODERATE
 
 #### task_status
 
@@ -287,9 +190,11 @@ Check the status of a running task.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `taskId` | string | — | Specific task (defaults to active) |
+| `taskId` | string | — | Task ID (returns current task if not specified) |
 
 **Returns:** `{ taskId: string, status: string, output: string }`
+
+**Danger Level:** SAFE
 
 #### task_cancel
 
@@ -299,9 +204,11 @@ Cancel a running task.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `taskId` | string | — | Specific task (defaults to active) |
+| `taskId` | string | ✅ | ID of the task to cancel |
 
 **Returns:** `{ cancelled: string }`
+
+**Danger Level:** MODERATE
 
 #### task_respond
 
@@ -311,12 +218,14 @@ Send user input to a task that is waiting for a response.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `response` | string | ✅ | User's response text |
-| `taskId` | string | — | Specific task |
+| `response` | string | ✅ | Response to send to the waiting task |
+| `taskId` | string | — | Task ID (uses current waiting task if not specified) |
 
 **Returns:** `{ delivered: boolean }`
 
-### Interaction Tools
+**Danger Level:** SAFE
+
+### Interaction Tools (2)
 
 #### ask_user
 
@@ -326,11 +235,14 @@ Send a question to the user via WhatsApp and wait for a reply.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `question` | string | ✅ | Question to ask |
+| `question` | string | ✅ | Question to ask the user |
+| `options` | string[] | — | Optional list of choices for the user (max 10 options, each max 100 chars) |
 
 **Returns:** `{ answer: string }`
 
 > **Autonomy Guard:** In `cautious` or `autonomous` mode, questions matching unnecessary confirmation patterns ("Shall I...", "Would you like me to...", "Can I proceed...") are auto-approved without reaching the user. The LLM receives `"Yes, proceed."` as the answer. This is controlled by `ToolContext.autonomyLevel`.
+
+**Danger Level:** SAFE
 
 #### report_progress
 
@@ -340,9 +252,240 @@ Send a progress update to the user.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `message` | string | ✅ | Progress message |
+| `message` | string | ✅ | Progress message to display |
+| `percent` | number | — | Percentage complete (0-100) |
 
 **Returns:** `{ sent: boolean }`
+
+**Danger Level:** SAFE
+
+### GitHub Tools (8)
+
+#### github_pr_create
+
+Create a pull request on GitHub from the current branch.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `title` | string | ✅ | PR title (max 256 chars) |
+| `body` | string | — | PR description (max 4000 chars) |
+| `base` | string | — | Base branch to merge into (default: `main`) |
+| `draft` | boolean | — | Create as a draft pull request (default: `true`) |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `{ url: string, number: number }`
+
+**Danger Level:** MODERATE
+
+#### github_pr_list
+
+List pull requests for the current or specified repository.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | — | Filter by PR state: `open`, `closed`, `all` (default: `open`) |
+| `repo` | string | — | Target repository in `org/repo` format (e.g. `facebook/react`) |
+| `limit` | number | — | Maximum number of results (1-100, default: 10) |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `object[]` (array of PR objects)
+
+**Danger Level:** SAFE
+
+#### github_pr_view
+
+View details of a specific pull request including reviews and comments.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `number` | number | ✅ | Pull request number |
+| `repo` | string | — | Target repository in `org/repo` format |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `object` (PR details)
+
+**Danger Level:** SAFE
+
+#### github_issue_create
+
+Create a new GitHub issue in the current repository.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `title` | string | ✅ | Issue title (max 256 chars) |
+| `body` | string | — | Issue description (max 4000 chars) |
+| `labels` | string[] | — | Labels to apply (max 10 labels, each max 50 chars) |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `{ url: string, number: number }`
+
+**Danger Level:** MODERATE
+
+#### github_issue_list
+
+List issues for the current repository with optional filters.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `state` | string | — | Filter by issue state: `open`, `closed`, `all` (default: `open`) |
+| `assignee` | string | — | Filter by assignee username (max 39 chars) |
+| `labels` | string[] | — | Filter by labels (max 10 labels) |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `object[]` (array of issue objects)
+
+**Danger Level:** SAFE
+
+#### github_branch_create
+
+Create a new git branch and push it to GitHub.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `name` | string | ✅ | Branch name (max 100 chars, alphanumeric/hyphens/dots/slashes) |
+| `from` | string | — | Branch to create from (defaults to current branch) |
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `object` (branch details)
+
+**Danger Level:** MODERATE
+
+#### github_action_status
+
+Get the status of recent GitHub Actions workflow runs.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `workspace` | string | — | Workspace (uses active workspace if not specified) |
+
+**Returns:** `object[]` (array of workflow run objects)
+
+**Danger Level:** SAFE
+
+#### github_search_repos
+
+Search GitHub repositories by keyword.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `query` | string | ✅ | Search query (max 256 chars) |
+| `limit` | number | — | Maximum number of results (1-20, default: 5) |
+
+**Returns:** `object[]` (array of repository objects)
+
+**Danger Level:** SAFE
+
+### Web Tools (2)
+
+#### web_fetch
+
+Fetch a web page and extract its readable content as markdown. Uses jsdom + Mozilla Readability + Turndown. Blocks private/internal URLs.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `url` | string | ✅ | URL to fetch (must be a valid http/https URL) |
+| `selector` | string | — | Optional CSS selector to extract specific content from the page (max 200 chars) |
+
+**Returns:** `{ url, title, content, truncated, length }` (HTML pages) or `{ url, contentType, content }` (JSON/plain text)
+
+> **Security:** Private/internal URLs (localhost, 127.x.x.x, 10.x.x.x, 172.16-31.x.x, 192.168.x.x, 0.0.0.0, ::1, fe80:) are blocked. Content is truncated at 50,000 characters. Requests time out after 30 seconds.
+
+**Danger Level:** SAFE
+
+#### web_search
+
+Search the web using a self-hosted SearXNG meta search engine. Returns structured results with title, URL, snippet, and engine source.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `query` | string | ✅ | Search query (1-400 chars) |
+| `count` | number | — | Number of results to return (1-20, default: 5) |
+| `category` | string | — | Search category: `general`, `images`, `news`, `science`, `it` (default: `general`) |
+
+**Returns:** `{ query, count, results: [{ title, url, snippet, engine }] }`
+
+> **Requires:** SearXNG container running (`docker compose up -d`). Searches time out after 15 seconds.
+
+**Danger Level:** SAFE
+
+### Browser Tools (4)
+
+#### browser_open
+
+Open a URL in a headless browser and return an accessibility tree snapshot with numbered element refs.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `url` | string | ✅ | URL to navigate to (must be a valid URL) |
+| `waitUntil` | string | — | Wait condition: `load`, `domcontentloaded`, or `networkidle` (default: `load`) |
+
+**Returns:** Accessibility tree snapshot text (from browser-agent.mjs stdout)
+
+**Danger Level:** MODERATE
+
+#### browser_snapshot
+
+Get the current page's accessibility tree snapshot without navigating.
+
+**Parameters:** none (empty object)
+
+**Returns:** Accessibility tree snapshot text
+
+**Danger Level:** SAFE
+
+#### browser_action
+
+Perform an action on the browser page using element ref numbers from the snapshot.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `action` | string | ✅ | Action type: `click`, `type`, `scroll_down`, `scroll_up`, `back`, `forward` |
+| `ref` | number | — | Element ref number from browser_snapshot (required for `click` and `type`) |
+| `text` | string | — | Text to type into the element (required for `type` action, max 2000 chars) |
+| `x` | number | — | X coordinate for coordinate-based click |
+| `y` | number | — | Y coordinate for coordinate-based click |
+
+**Returns:** Updated accessibility tree snapshot text
+
+> Scroll actions use `scroll_down` / `scroll_up` (not a separate `direction` parameter).
+
+**Danger Level:** MODERATE
+
+#### browser_screenshot
+
+Capture a screenshot of the current browser page.
+
+**Parameters:** none (empty object)
+
+**Returns:** Base64-encoded PNG screenshot (from browser-agent.mjs stdout)
+
+**Danger Level:** SAFE
+
+> **Note:** Browser tools require `ENABLE_BROWSER=true` and Playwright+Chromium installed in the Kennel container. Browser state persists across tool calls within a session. All browser commands execute inside `fetch-kennel` via `docker exec` with a 30-second timeout.
 
 ---
 

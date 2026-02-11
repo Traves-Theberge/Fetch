@@ -14,11 +14,16 @@ describe('IdentityLoader', () => {
 
     expect(identity.name).toBe('Fetch');
     expect(identity.role).toContain('Orchestrator');
+    expect(identity.emoji).toBeDefined();
     expect(identity.voice?.tone).toBeDefined();
-    
+
     // Check directives
     expect(identity.directives?.primary).toBeDefined();
     expect(identity.directives?.primary?.length).toBeGreaterThan(0);
+    expect(identity.directives?.secondary).toBeDefined();
+    expect(identity.directives?.secondary?.length).toBeGreaterThan(0);
+    expect(identity.directives?.behavioral).toBeDefined();
+    expect(identity.directives?.behavioral?.length).toBeGreaterThan(0);
     // It loads the full line including "**Obey:** ..."
     const primaryStr = JSON.stringify(identity.directives?.primary);
     expect(primaryStr).toContain('Obey');

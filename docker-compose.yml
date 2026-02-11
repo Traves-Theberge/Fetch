@@ -76,6 +76,25 @@ services:
           memory: 2G
           cpus: '2'
 
+  # SearXNG - Self-hosted meta search engine (free, private)
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./config/searxng:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+    networks:
+      - fetch-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
+
 networks:
   fetch-network:
     driver: bridge

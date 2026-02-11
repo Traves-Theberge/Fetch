@@ -148,23 +148,23 @@ describe('Copilot Adapter', () => {
 
       expect(config.command).toBe('gh');
       expect(config.args).toContain('copilot');
-      expect(config.args).toContain('suggest');
+      expect(config.args).toContain('-p');
       expect(config.cwd).toBe('/workspace/project');
     });
   });
 
   describe('parseOutputLine', () => {
-    it('should detect suggestions', () => {
-      expect(adapter.parseOutputLine('Suggestion: Use async/await')).toBe('progress');
+    it('should treat all output as stdout', () => {
+      // New Copilot adapter treats everything as stdout (passthrough to LLM)
+      expect(adapter.parseOutputLine('Suggestion: Use async/await')).toBe('stdout');
     });
 
-    it('should detect commands', () => {
-      // Shell commands in output are not special events
-      expect(adapter.parseOutputLine('$ npm install lodash')).toBe(null);
+    it('should treat commands as stdout', () => {
+      expect(adapter.parseOutputLine('$ npm install lodash')).toBe('stdout');
     });
 
-    it('should detect completion', () => {
-      expect(adapter.parseOutputLine('Suggestion complete')).toBe('complete');
+    it('should treat completion phrases as stdout', () => {
+      expect(adapter.parseOutputLine('Suggestion complete')).toBe('stdout');
     });
   });
 });

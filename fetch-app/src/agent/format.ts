@@ -21,7 +21,7 @@ import { getTaskManager } from '../task/manager.js';
  * @returns {string} Formatted status overview
  */
 export async function formatStatus(session: Session): Promise<string> {
-  let message = `🐕 *FETCH SYSTEM REPORT* (v4.0.6)\n`;
+  let message = `🐕 *FETCH SYSTEM REPORT* (v4.1.1)\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   // Active project
   message += `📂 *PROJECT CONTEXT*\n`;
@@ -69,7 +69,7 @@ export async function formatStatus(session: Session): Promise<string> {
  * @returns {string} Formatted help message
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch v4.0.6 — AI Coding Assistant*
+  return `🐕 *Fetch v4.1.1 — AI Coding Assistant*
 
 *Slash commands:*
 /stop - Cancel running task

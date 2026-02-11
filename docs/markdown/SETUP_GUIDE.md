@@ -107,18 +107,19 @@ No manual `gh auth login` is needed inside the container.
 docker compose up -d
 ```
 
-This starts two containers:
+This starts three containers:
 
 | Container | Image | Ports | Volumes |
 |-----------|-------|-------|---------|
 | `fetch-bridge` | `fetch-app/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `/var/run/docker.sock` |
 | `fetch-kennel` | `kennel/Dockerfile` | — | `./workspace`, `~/.config/gh` (ro), `~/.config/claude-code` (ro), `~/.gemini` (ro) |
+| `searxng` | `searxng/searxng:latest` | 8888 (search API) | `./config/searxng` |
 
-The Bridge talks to the Kennel by spawning CLI processes inside it via `docker exec`. Auth credentials are mounted read-only.
+The Bridge talks to the Kennel by spawning CLI processes inside it via `docker exec`. Auth credentials are mounted read-only. SearXNG provides the web search backend on the Docker network.
 
 ## Pipeline Tuning (Optional)
 
-Fetch's context pipeline has 31 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
+Fetch's context pipeline has 34 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -130,7 +131,7 @@ Fetch's context pipeline has 31 tunable parameters with sane defaults. Override 
 | `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
-Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 31 parameters with defaults. See `config/pipeline.ts` for the full list.
+Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 34 parameters with defaults. See `config/pipeline.ts` for the full list.
 
 ## Verifying the Installation
 

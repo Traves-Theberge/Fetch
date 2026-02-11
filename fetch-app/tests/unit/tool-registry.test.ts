@@ -13,10 +13,10 @@ describe('Tool Registry', () => {
   const registry = getToolRegistry();
 
   describe('Tool Registration', () => {
-    it('should have built-in orchestrator tools', () => {
+    it('should have all 27 built-in orchestrator tools', () => {
       const tools = registry.list();
-      // 6 workspace + 4 task + 2 interaction = 12 built-in
-      expect(tools.length).toBeGreaterThanOrEqual(12);
+      // 7 workspace + 4 task + 2 interaction + 8 github + 2 web + 4 browser = 27
+      expect(tools.length).toBeGreaterThanOrEqual(27);
     });
 
     it('should have workspace tools', () => {
@@ -26,6 +26,7 @@ describe('Tool Registry', () => {
       expect(registry.get('workspace_create')).toBeDefined();
       expect(registry.get('workspace_delete')).toBeDefined();
       expect(registry.get('workspace_sync')).toBeDefined();
+      expect(registry.get('workspace_publish')).toBeDefined();
     });
 
     it('should have task tools', () => {
@@ -38,6 +39,29 @@ describe('Tool Registry', () => {
     it('should have interaction tools', () => {
       expect(registry.get('ask_user')).toBeDefined();
       expect(registry.get('report_progress')).toBeDefined();
+    });
+
+    it('should have GitHub tools', () => {
+      expect(registry.get('github_pr_create')).toBeDefined();
+      expect(registry.get('github_pr_list')).toBeDefined();
+      expect(registry.get('github_pr_view')).toBeDefined();
+      expect(registry.get('github_issue_create')).toBeDefined();
+      expect(registry.get('github_issue_list')).toBeDefined();
+      expect(registry.get('github_branch_create')).toBeDefined();
+      expect(registry.get('github_action_status')).toBeDefined();
+      expect(registry.get('github_search_repos')).toBeDefined();
+    });
+
+    it('should have web tools', () => {
+      expect(registry.get('web_fetch')).toBeDefined();
+      expect(registry.get('web_search')).toBeDefined();
+    });
+
+    it('should have browser tools', () => {
+      expect(registry.get('browser_open')).toBeDefined();
+      expect(registry.get('browser_snapshot')).toBeDefined();
+      expect(registry.get('browser_action')).toBeDefined();
+      expect(registry.get('browser_screenshot')).toBeDefined();
     });
   });
 

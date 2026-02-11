@@ -2,7 +2,6 @@
 package components
 
 import (
-	"fmt"
 	"runtime"
 	"strings"
 
@@ -12,7 +11,7 @@ import (
 
 // Build-time variables set via -ldflags.
 var (
-	version   = "v1.0.0-dev"
+	version   = "v4.1.1"
 	buildDate = "unknown"
 	gitCommit = "unknown"
 )
@@ -35,8 +34,8 @@ func DefaultVersionInfo() VersionInfo {
 	}
 }
 
-// Version renders a Linux neofetch-style version screen with dog on left and info on right.
-func Version(info VersionInfo, width int) string {
+// Version renders a Linux neofetch-style version screen with dog on left and info on right, centered in the viewport.
+func Version(info VersionInfo, width, height int) string {
 	// ASCII dog art (same as header but standalone) - 14 lines
 	dogArt := `  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀
@@ -128,16 +127,9 @@ func Version(info VersionInfo, width int) string {
 	dog := dogStyle.Render(dogArt)
 
 	// Join horizontally: dog on left, info on right
-	combined := lipgloss.JoinHorizontal(lipgloss.Top, dog, "    ", infoPanel)
+	content := lipgloss.JoinHorizontal(lipgloss.Top, dog, "    ", infoPanel)
 
-	return combined
+	// Center the entire content block in the available viewport
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
 
-// VersionCompact renders a compact single-line version string.
-func VersionCompact(info VersionInfo) string {
-	commitLen := 7
-	if len(info.GitCommit) < commitLen {
-		commitLen = len(info.GitCommit)
-	}
-	return fmt.Sprintf("Fetch %s (%s)", info.Version, info.GitCommit[:commitLen])
-}

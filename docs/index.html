@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="assets/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/tomorrow-night.min.css" id="hljs-dark">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/one-light.min.css" id="hljs-light" disabled>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </head>
 
 <body class="dark">
@@ -73,8 +76,8 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="AGENTIC_PLAN.md"
-                onclick="loadDoc('AGENTIC_PLAN.md'); return false;">
+              <a href="#" class="nav-link" data-doc="AGENTIC_WORKFLOW.md"
+                onclick="loadDoc('AGENTIC_WORKFLOW.md'); return false;">
                 <span class="nav-link-icon">🤖</span> Agentic Workflow
               </a>
             </li>
@@ -143,9 +146,30 @@
         <div class="loading">Loading documentation...</div>
       </article>
     </main>
+
+    <!-- Right-Side Table of Contents -->
+    <aside class="toc-panel" id="tocPanel">
+      <div class="toc-header">On this page</div>
+      <nav class="toc-nav" id="tocNav"></nav>
+    </aside>
   </div>
 
+  <!-- Footer -->
+  <footer class="docs-footer">
+    <span>Fetch v4.1.1 — Your Faithful Code Companion</span>
+    <a href="https://github.com/Traves-Theberge/Fetch" target="_blank" rel="noopener">GitHub</a>
+  </footer>
+
+  <!-- Back to Top Button -->
+  <button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})" aria-label="Back to top">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+  </button>
+
   <script>
+    // SVG icons
+    const ICON_CLIPBOARD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+    const ICON_CHECK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
     // Configure marked
     marked.setOptions({
       breaks: true,
@@ -156,6 +180,7 @@
     // State
     let currentDoc = 'README.md';
     let isDark = true;
+    let tocObserver = null;
 
     // Load a markdown document
     async function loadDoc(filename) {
@@ -186,9 +211,17 @@
           }
         });
 
-        await mermaid.run({
-          nodes: mermaidNodes,
-        });
+        if (mermaidNodes.length > 0) {
+          await mermaid.run({
+            nodes: mermaidNodes,
+          });
+        }
+
+        // Post-processing
+        addHeadingAnchors();
+        addCopyButtons();
+        applySyntaxHighlighting();
+        generateTOC();
 
         // Update active nav link
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -218,6 +251,145 @@
       }
     }
 
+    // Add anchor links to h2 and h3 headings
+    function addHeadingAnchors() {
+      const content = document.getElementById('content');
+      content.querySelectorAll('h2, h3').forEach(heading => {
+        if (!heading.id) {
+          heading.id = heading.textContent.trim().toLowerCase()
+            .replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+        }
+        const anchor = document.createElement('a');
+        anchor.className = 'heading-anchor';
+        anchor.href = '#' + heading.id;
+        anchor.textContent = '#';
+        anchor.setAttribute('aria-hidden', 'true');
+        heading.prepend(anchor);
+      });
+    }
+
+    // Add copy buttons and language labels to code blocks
+    function addCopyButtons() {
+      const content = document.getElementById('content');
+      content.querySelectorAll('pre').forEach(pre => {
+        // Skip mermaid wrappers
+        if (pre.classList.contains('mermaid-wrapper')) return;
+        // Skip already wrapped
+        if (pre.parentElement && pre.parentElement.classList.contains('code-block-wrapper')) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        // Language label
+        const code = pre.querySelector('code');
+        if (code) {
+          const langClass = Array.from(code.classList).find(c => c.startsWith('language-'));
+          if (langClass) {
+            const lang = langClass.replace('language-', '');
+            if (lang && lang !== 'mermaid') {
+              const label = document.createElement('span');
+              label.className = 'code-lang-label';
+              label.textContent = lang;
+              wrapper.appendChild(label);
+            }
+          }
+        }
+
+        // Copy button
+        const btn = document.createElement('button');
+        btn.className = 'copy-btn';
+        btn.innerHTML = ICON_CLIPBOARD + ' Copy';
+        btn.addEventListener('click', async () => {
+          const text = pre.querySelector('code')
+            ? pre.querySelector('code').textContent
+            : pre.textContent;
+          try {
+            await navigator.clipboard.writeText(text);
+            btn.innerHTML = ICON_CHECK + ' Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.innerHTML = ICON_CLIPBOARD + ' Copy';
+              btn.classList.remove('copied');
+            }, 2000);
+          } catch (err) {
+            console.error('Copy failed:', err);
+          }
+        });
+        wrapper.appendChild(btn);
+      });
+    }
+
+    // Apply syntax highlighting to code blocks
+    function applySyntaxHighlighting() {
+      document.querySelectorAll('pre code').forEach(block => {
+        // Skip mermaid blocks
+        if (block.classList.contains('language-mermaid')) return;
+        hljs.highlightElement(block);
+      });
+    }
+
+    // Generate Table of Contents from h2 and h3 headings
+    function generateTOC() {
+      const tocNav = document.getElementById('tocNav');
+      const content = document.getElementById('content');
+      const headings = content.querySelectorAll('h2, h3');
+
+      // Clear previous TOC and observer
+      tocNav.innerHTML = '';
+      if (tocObserver) {
+        tocObserver.disconnect();
+        tocObserver = null;
+      }
+
+      if (headings.length === 0) return;
+
+      const tocLinks = [];
+
+      headings.forEach(heading => {
+        if (!heading.id) return;
+
+        const link = document.createElement('a');
+        link.href = '#' + heading.id;
+        link.textContent = heading.textContent.replace(/^#\s*/, '');
+        link.dataset.target = heading.id;
+
+        if (heading.tagName === 'H3') {
+          link.classList.add('toc-h3');
+        }
+
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Update URL hash without scroll jump
+          history.pushState(null, null, '#' + heading.id);
+        });
+
+        tocNav.appendChild(link);
+        tocLinks.push({ link, heading });
+      });
+
+      // Scroll spy with IntersectionObserver
+      tocObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            tocLinks.forEach(({ link }) => {
+              link.classList.toggle('active', link.dataset.target === id);
+            });
+          }
+        });
+      }, {
+        rootMargin: '-10% 0px -80% 0px',
+        threshold: 0
+      });
+
+      tocLinks.forEach(({ heading }) => {
+        tocObserver.observe(heading);
+      });
+    }
+
     // Toggle theme
     function toggleTheme() {
       isDark = !isDark;
@@ -229,16 +401,17 @@
       if (isDark) {
         label.textContent = '🌙 Dark Mode';
         icon.textContent = '☀️';
+        document.getElementById('hljs-dark').disabled = false;
+        document.getElementById('hljs-light').disabled = true;
       } else {
         label.textContent = '☀️ Light Mode';
         icon.textContent = '🌙';
+        document.getElementById('hljs-dark').disabled = true;
+        document.getElementById('hljs-light').disabled = false;
       }
 
       // Persist preference
       localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
-
-      // No reload needed as theme is static
-      // loadDoc(currentDoc);
     }
 
     // Toggle mobile sidebar
@@ -259,6 +432,12 @@
       });
     }
 
+    // Back to top visibility
+    window.addEventListener('scroll', () => {
+      const btn = document.getElementById('backToTop');
+      btn.classList.toggle('visible', window.scrollY > 300);
+    }, { passive: true });
+
     // Initialize
     document.addEventListener('DOMContentLoaded', () => {
       // Load theme preference
@@ -268,6 +447,8 @@
         document.body.classList.remove('dark');
         document.getElementById('themeLabel').textContent = '☀️ Light Mode';
         document.getElementById('themeIcon').textContent = '🌙';
+        document.getElementById('hljs-dark').disabled = true;
+        document.getElementById('hljs-light').disabled = false;
       }
 
       // Check URL hash for initial doc

@@ -14,7 +14,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 21 orchestrator tools.
+Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 27 orchestrator tools.
 
 The only slash commands that exist are **5 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
@@ -34,7 +34,7 @@ Everything else — including project switching, git operations, settings, ident
 
 ## Natural Language (Everything Else)
 
-The LLM has access to 21 orchestrator tools and decides which to call based on your message. Here are examples:
+The LLM has access to 27 orchestrator tools and decides which to call based on your message. Here are examples:
 
 ### Workspace Management
 
@@ -79,6 +79,16 @@ The LLM has access to 21 orchestrator tools and decides which to call based on y
 | "Explain how the rate limiter works" | LLM reads context and explains — may call workspace tools |
 | "What's the status of everything?" | Calls `report_progress` — comprehensive system summary |
 
+### Web & Browser
+
+| Message | What Fetch Does |
+|---------|----------------|
+| "Fetch the docs at https://example.com/api" | Calls `web_fetch` — extracts readable content as markdown |
+| "Search for 'typescript zod validation'" | Calls `web_search` — searches the web via SearXNG |
+| "Open https://example.com in the browser" | Calls `browser_open` — navigates and returns accessibility tree |
+| "Click the login button" | Calls `browser_action` — performs click on referenced element |
+| "Take a screenshot of the page" | Calls `browser_screenshot` — captures current browser state |
+
 ### Identity & Skills
 
 | Message | What Fetch Does |
@@ -90,7 +100,7 @@ The LLM has access to 21 orchestrator tools and decides which to call based on y
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 21 tools:
+The LLM has access to these 27 tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|
@@ -115,6 +125,12 @@ The LLM has access to these 21 tools:
 | `github_branch_create` | GitHub | Create a branch and push it to origin |
 | `github_action_status` | GitHub | Show status of recent GitHub Action runs |
 | `github_search_repos` | GitHub | Search for repositories on GitHub |
+| `web_fetch` | Web | Fetch a URL and extract readable content as markdown |
+| `web_search` | Web | Search the web via self-hosted SearXNG meta search engine |
+| `browser_open` | Browser | Navigate to a URL and return an accessibility tree snapshot |
+| `browser_snapshot` | Browser | Get current page accessibility tree snapshot |
+| `browser_action` | Browser | Perform browser actions (click, type, scroll, back, forward) |
+| `browser_screenshot` | Browser | Take a screenshot of the current browser page |
 
 ## Response Formats
 

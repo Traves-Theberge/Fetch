@@ -11,31 +11,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/fetch/manager/internal/paths"
+	"github.com/fetch/manager/internal/theme"
 )
 
 var (
-	labelStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#888888")).
-			Width(25)
-
-	inputStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF6B35"))
-
-	focusedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#00ff00")).
-			Bold(true)
-
-	helpTextStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#626262")).
-			Italic(true)
-
-	separatorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF6B35")).
-			Bold(true)
-
-	defaultStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#555555")).
-			Italic(true)
+	labelStyle     = theme.EditorLabel
+	inputStyle     = theme.EditorInput
+	focusedStyle   = theme.EditorFocused
+	helpTextStyle  = theme.EditorHelp
+	separatorStyle = theme.EditorSeparator
+	defaultStyle   = theme.EditorDefault
 )
 
 // ConfigField represents a single configuration field
@@ -60,6 +45,16 @@ type Editor struct {
 	scrollOffset         int  // viewport scroll offset
 	viewHeight           int  // max visible rows
 	modelPickerRequested bool // signals parent to open model picker
+	// Section navigation
+	sectionPicker bool // true when section picker overlay is open
+	sectionCursor int  // cursor within the section picker
+	sections      []sectionInfo // cached section index
+}
+
+// sectionInfo caches a section's label and field index for quick jumping
+type sectionInfo struct {
+	Label string
+	Index int // index into fields[]
 }
 
 // ModelPickerRequested returns true if the user pressed Enter on the Agent Model field
@@ -160,10 +155,69 @@ func NewEditor() *Editor {
 			{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context", Default: "5"},
 			{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet", Default: "300"},
 			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster", Default: "0.1"},
+			// ─── Web / Browser ────────────────────────────────────────
+			{IsSeparator: true, Label: "─── Web / Browser ───"},
+			{Key: "ENABLE_WEB_FETCH", Label: "Enable Web Fetch", Help: "Enable web page fetching tool", Default: "true"},
+			{Key: "ENABLE_WEB_SEARCH", Label: "Enable Web Search", Help: "Enable SearXNG web search tool", Default: "true"},
+			{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false"},
+			{Key: "FETCH_SEARXNG_URL", Label: "SearXNG URL", Help: "SearXNG instance URL for search", Default: "http://searxng:8080"},
+			{Key: "FETCH_WEB_FETCH_MAX_LENGTH", Label: "Fetch Max Length", Help: "Max chars extracted from web pages", Default: "50000"},
+			{Key: "FETCH_BROWSER_TIMEOUT", Label: "Browser Timeout (ms)", Help: "Browser command timeout", Default: "30000"},
 		},
 	}
 	editor.loadFromFile()
+	editor.buildSectionIndex()
 	return editor
+}
+
+// buildSectionIndex caches separator positions for section jumping
+func (e *Editor) buildSectionIndex() {
+	e.sections = nil
+	for i, f := range e.fields {
+		if f.IsSeparator {
+			e.sections = append(e.sections, sectionInfo{
+				Label: f.Label,
+				Index: i,
+			})
+		}
+	}
+}
+
+// CurrentSection returns the 0-based section index the cursor is in
+func (e *Editor) CurrentSection() int {
+	section := 0
+	for i, s := range e.sections {
+		if e.cursor >= s.Index {
+			section = i
+		}
+	}
+	return section
+}
+
+// SectionCount returns the number of sections
+func (e *Editor) SectionCount() int {
+	return len(e.sections)
+}
+
+// IsSectionPickerOpen returns true when the section picker overlay is showing
+func (e *Editor) IsSectionPickerOpen() bool {
+	return e.sectionPicker
+}
+
+// jumpToSection moves the cursor to the first editable field in the given section
+func (e *Editor) jumpToSection(sectionIdx int) {
+	if sectionIdx < 0 || sectionIdx >= len(e.sections) {
+		return
+	}
+	target := e.sections[sectionIdx].Index
+	// Move to the first editable field after the separator
+	for i := target + 1; i < len(e.fields); i++ {
+		if !e.fields[i].IsSeparator {
+			e.cursor = i
+			e.ensureVisible()
+			return
+		}
+	}
 }
 
 // loadFromFile loads current values from .env file.
@@ -301,6 +355,36 @@ func (e *Editor) Update(msg tea.Msg) bool {
 
 // handleKey handles keyboard input
 func (e *Editor) handleKey(msg tea.KeyMsg) bool {
+	// Section picker mode
+	if e.sectionPicker {
+		switch msg.String() {
+		case "esc", "tab":
+			e.sectionPicker = false
+		case "enter":
+			e.jumpToSection(e.sectionCursor)
+			e.sectionPicker = false
+		case "up", "k":
+			if e.sectionCursor > 0 {
+				e.sectionCursor--
+			}
+		case "down", "j":
+			if e.sectionCursor < len(e.sections)-1 {
+				e.sectionCursor++
+			}
+		default:
+			// Number keys 1-9 for quick section jump
+			if len(msg.String()) == 1 && msg.String()[0] >= '1' && msg.String()[0] <= '9' {
+				idx := int(msg.String()[0] - '1')
+				if idx < len(e.sections) {
+					e.jumpToSection(idx)
+					e.sectionPicker = false
+				}
+			}
+		}
+		return false
+	}
+
+	// Editing mode
 	if e.editing {
 		switch msg.String() {
 		case "enter":
@@ -320,6 +404,7 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 		return false
 	}
 
+	// Normal navigation mode
 	switch msg.String() {
 	case "up", "k":
 		for i := e.cursor - 1; i >= 0; i-- {
@@ -337,6 +422,10 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 			}
 		}
 		e.ensureVisible()
+	case "tab":
+		// Open section picker
+		e.sectionPicker = true
+		e.sectionCursor = e.CurrentSection()
 	case "enter", "e":
 		if !e.fields[e.cursor].IsSeparator {
 			// AGENT_MODEL opens the model picker overlay
@@ -354,8 +443,15 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 		} else {
 			e.saved = true
 			e.errorMessage = ""
-			// We returned true here to signal to the parent that a restart is needed
 			return true
+		}
+	default:
+		// Number keys 1-9 for quick section jump (when not editing)
+		if len(msg.String()) == 1 && msg.String()[0] >= '1' && msg.String()[0] <= '9' {
+			idx := int(msg.String()[0] - '1')
+			if idx < len(e.sections) {
+				e.jumpToSection(idx)
+			}
 		}
 	}
 	return false
@@ -363,7 +459,21 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 
 // View renders the configuration editor
 func (e *Editor) View() string {
+	// Section picker overlay
+	if e.sectionPicker {
+		return e.viewSectionPicker()
+	}
+
 	s := ""
+
+	// Section indicator
+	currentSec := e.CurrentSection()
+	if len(e.sections) > 0 {
+		sectionLabel := e.sections[currentSec].Label
+		// Clean up the separator decoration
+		clean := strings.TrimSpace(strings.Trim(sectionLabel, "─ "))
+		s += helpTextStyle.Render(fmt.Sprintf("   Section %d/%d: %s", currentSec+1, len(e.sections), clean)) + "\n"
+	}
 
 	// Determine visible range
 	startIdx := 0
@@ -449,4 +559,35 @@ func (e *Editor) View() string {
 	}
 
 	return s
+}
+
+// viewSectionPicker renders the section picker overlay
+func (e *Editor) viewSectionPicker() string {
+	var s strings.Builder
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#FF6B35"))
+	s.WriteString(titleStyle.Render("   Jump to Section") + "\n\n")
+
+	for i, sec := range e.sections {
+		// Clean up separator decoration
+		clean := strings.TrimSpace(strings.Trim(sec.Label, "─ "))
+
+		// Number key hint
+		numHint := " "
+		if i < 9 {
+			numHint = fmt.Sprintf("%d", i+1)
+		}
+
+		if i == e.sectionCursor {
+			s.WriteString(focusedStyle.Render(fmt.Sprintf(" ▸ [%s] %s", numHint, clean)) + "\n")
+		} else {
+			s.WriteString(helpTextStyle.Render(fmt.Sprintf("   [%s] ", numHint)))
+			s.WriteString(separatorStyle.Render(clean) + "\n")
+		}
+	}
+
+	s.WriteString("\n")
+	s.WriteString(helpTextStyle.Render("   1-9: Jump │ Enter: Select │ Esc/Tab: Close") + "\n")
+
+	return s.String()
 }

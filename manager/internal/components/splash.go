@@ -57,16 +57,3 @@ func Splash(width, height int) string {
 	)
 }
 
-// SplashCompact renders just the compact splash without centering.
-func SplashCompact() string {
-	return lipgloss.NewStyle().
-		Foreground(theme.Primary).
-		Render(compactSplash)
-}
-
-// SplashFull renders the full splash without centering.
-func SplashFull() string {
-	return lipgloss.NewStyle().
-		Foreground(theme.Primary).
-		Render(splashArt)
-}

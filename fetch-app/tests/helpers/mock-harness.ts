@@ -4,13 +4,14 @@
  * Provides a mock harness executor for testing without actual CLI calls.
  */
 
-import type { HarnessResult, HarnessStatus } from '../../src/harness/types.js';
+import type { HarnessResult } from '../../src/harness/types.js';
 
 interface MockResponse {
-  status: HarnessStatus;
   output: string;
   exitCode: number;
   delay?: number;
+  /** Extra mock-only fields for test assertions */
+  status?: string;
   filesModified?: string[];
 }
 
@@ -66,18 +67,17 @@ export class MockHarnessExecutor {
       await new Promise((r) => setTimeout(r, response.delay));
     }
 
+    // Return HarnessResult-compatible object with extra mock fields
     return {
-      id: `hrn_mock${Date.now()}` as `hrn_${string}`,
-      taskId: `tsk_mock${Date.now()}` as `tsk_${string}`,
-      agent: agent as 'claude' | 'gemini' | 'copilot',
-      status: response.status,
+      success: response.exitCode === 0,
       output: response.output,
       exitCode: response.exitCode,
-      startedAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-      duration: response.delay ?? 100,
+      durationMs: response.delay ?? 100,
+      error: response.exitCode !== 0 ? response.output : undefined,
+      // Extra mock fields for test convenience (not in HarnessResult)
+      status: response.status ?? (response.exitCode === 0 ? 'completed' : 'failed'),
       filesModified: response.filesModified ?? [],
-    };
+    } as HarnessResult & { status: string; filesModified: string[] };
   }
 
   /**
