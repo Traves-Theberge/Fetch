@@ -34,6 +34,7 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `GH_TOKEN` | string | GitHub personal access token for workspace sync and repo creation. |
 | `ANTHROPIC_API_KEY` | string | API key for Claude Code harness (if used) |
 | `GEMINI_API_KEY` | string | API key for Gemini CLI harness (if used) |
+| `OPENCODE_API_KEY` | string | API key for OpenCode harness (or uses OpenRouter key) |
 
 ### Harness Selection (Feature Flags)
 
@@ -186,6 +187,7 @@ Per-harness instruction files injected into each CLI agent when spawned:
 | `CLAUDE.md` | Claude Code | `--append-system-prompt` arg |
 | `GEMINI.md` | Gemini CLI | `GEMINI_SYSTEM_MD` env var |
 | `copilot-instructions.md` | Copilot CLI | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
+| `OPENCODE.md` | OpenCode | `OPENCODE_SYSTEM_PROMPT` env var |
 
 These tell each CLI it's running inside the Fetch Kennel and should output structured change summaries.
 

@@ -6,7 +6,7 @@
 |------|-----------|
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
-| **The Pack** | Collective name for the three AI harness agents (Claude, Gemini, Copilot). |
+| **The Pack** | Collective name for the four AI harness agents (Claude, Gemini, Copilot, OpenCode). |
 | **LLM-First Architecture** | Design where every message (except 5 safety escapes) takes the same single path through the LLM with all 27 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
@@ -99,3 +99,7 @@
 | **Autonomy Rules** | 7 highest-priority directives in the system prompt that enforce agentic behavior: act first, summarize after, never ask unnecessary questions. |
 | **ToolContext** | Object passed through the tool registry to handlers. Contains `sessionId` (for session-aware tools) and `autonomyLevel` (for the ask_user guard). Defined in `tools/types.ts`. |
 | **ProjectType** | Union type: `node`, `typescript`, `python`, `rust`, `go`, `java`, `ruby`, `php`, `dotnet`, `unknown`. Detected by `WorkspaceManager.detectProjectType()` using file indicators and glob patterns. |
+| **Structured Memory** | The `memory` table in sessions.db. Stores key facts, preferences, decisions, and file operations with BM25-style keyword recall. Entries have categories, importance scores (1-5), and recall counters. |
+| **BM25 Recall** | Keyword-based memory retrieval. Incoming user messages are matched against stored memory keywords, weighted by importance and recency decay. Top results are injected into the system prompt. |
+| **Chained Compaction** | Progressive summarization strategy. Before overwriting, the previous compaction summary is saved as a memory entry (category: `compaction_summary`). New summaries include prior context for continuity. |
+| **Tool Result Compression** | Large tool outputs (> `FETCH_TOOL_RESULT_MAX_PERSIST` chars) are truncated before persisting to session history, preventing context bloat while preserving full output for the current LLM turn. |

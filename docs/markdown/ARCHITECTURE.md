@@ -102,12 +102,14 @@ flowchart TD
         PackDecider -- Complex --> Claude[Claude Code]
         PackDecider -- Quick --> Gemini[Gemini ⚡]
         PackDecider -- Shell/GH --> Copilot[Copilot 🐙]
+        PackDecider -- Versatile --> OpenCode[OpenCode]
     end
 
     %% Execution Sandbox
     Claude --> Sandbox[Fetch Kennel Sandbox]
     Gemini --> Sandbox
     Copilot --> Sandbox
+    OpenCode --> Sandbox
 
     %% Result Loop
     Sandbox --> TaskResult[Task Result]
@@ -119,12 +121,14 @@ flowchart TD
         ConfClaude[("~/.config/claude-code")]
         ConfGemini[("~/.gemini")]
         ConfCopilot[("~/.config/gh")]
+        ConfOpenCode[("~/.config/opencode")]
     end
-    
+
     %% Connections for Config
     ConfClaude -.-> Claude
     ConfGemini -.-> Gemini
     ConfCopilot -.-> Copilot
+    ConfOpenCode -.-> OpenCode
 
     %% Adapter Logic Reference
     AdapterLogic["Adapter Logic<br/>(src/harness/*.ts)"] -.-> PackDecider
@@ -138,9 +142,9 @@ flowchart TD
     classDef config fill:#6e7681,stroke:#57606a,color:#fff
 
     class Bridge bridge
-    class Sandbox,Claude,Gemini,Copilot kennel
+    class Sandbox,Claude,Gemini,Copilot,OpenCode kennel
     class OrchLLM,PackDecider orchestrator
-    class HostConfig,ConfClaude,ConfGemini,ConfCopilot config
+    class HostConfig,ConfClaude,ConfGemini,ConfCopilot,ConfOpenCode config
 ```
 
 1. WhatsApp message arrives via whatsapp-web.js
@@ -211,7 +215,7 @@ src/
 ├── index.ts              # Boot + shutdown orchestration
 ├── config/
 │   ├── env.ts            # Zod-validated env with Proxy (lazy reads)
-│   ├── pipeline.ts       # Context pipeline tuning (35 params, FETCH_* env overrides)
+│   ├── pipeline.ts       # Context pipeline tuning (39 params, FETCH_* env overrides)
 │   └── paths.ts          # Centralized path constants
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
@@ -240,6 +244,7 @@ src/
 │   ├── claude.ts         # Claude Code adapter (container: 'fetch-kennel')
 │   ├── gemini.ts         # Gemini CLI adapter (container: 'fetch-kennel')
 │   ├── copilot.ts        # Copilot CLI adapter (container: 'fetch-kennel')
+│   ├── opencode.ts       # OpenCode adapter (container: 'fetch-kennel')
 │   ├── registry.ts       # Adapter registry (single source)
 │   ├── executor.ts       # Task execution via pool
 │   ├── spawner.ts        # Process spawn with docker exec wrapping, timer-map guard pattern
@@ -312,7 +317,7 @@ The context pipeline ensures the LLM has full conversational memory across turns
 7. **Dynamic Prompt Rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current state
 8. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
 
-All parameters are tunable via `config/pipeline.ts` (35 settings, overridable via `FETCH_*` env vars).
+All parameters are tunable via `config/pipeline.ts` (39 settings, overridable via `FETCH_*` env vars).
 
 ## Docker Architecture
 
@@ -387,6 +392,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 | `~/.config/gh` | — | ✅ | read-only |
 | `~/.config/claude-code` | — | ✅ | read-only |
 | `~/.gemini` | — | ✅ | read-only |
+| `~/.config/opencode` | — | ✅ | read-only |
 
 ## Database Schema
 
@@ -395,8 +401,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 | Table | Purpose | Key Fields |
 | --- | --- | --- |
 | `sessions` | Session blobs | `id`, `user_id`, `data` (JSON), `created_at`, `updated_at` |
-| `summaries` | Conversation summaries | `id`, `session_id`, `summary`, `created_at` |
-| `conversation_threads` | Thread management | `thread_id`, `session_id`, `title`, `created_at` |
+| `memory` | Structured memory entries | `id`, `session_id`, `category`, `content`, `keywords`, `importance`, `recall_count` |
 | `meta` | Key-value metadata | `key`, `value` |
 
 ### tasks.db

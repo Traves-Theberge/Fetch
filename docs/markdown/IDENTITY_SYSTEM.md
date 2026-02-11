@@ -96,6 +96,7 @@ Each harness CLI has its own native instruction format. Templates are stored in 
 | **Claude Code** | `CLAUDE.md` | `--append-system-prompt /app/data/cli-configs/CLAUDE.md` arg |
 | **Gemini CLI** | `GEMINI.md` | `GEMINI_SYSTEM_MD=/app/data/cli-configs/GEMINI.md` env var |
 | **Copilot CLI** | `copilot-instructions.md` | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS=/app/data/cli-configs` env var |
+| **OpenCode** | `OPENCODE.md` | `OPENCODE_SYSTEM_PROMPT=/app/data/cli-configs/OPENCODE.md` env var |
 
 These templates tell each CLI that it's operating inside the Fetch Kennel, should not commit, and should output structured change summaries. The config file path points to the container-internal mount (`/app/data/cli-configs/`) since execution happens via `docker exec` in the Kennel.
 
@@ -105,7 +106,7 @@ These templates tell each CLI that it's operating inside the Fetch Kennel, shoul
 
 When a user requests a coding task, the LLM selects which harness to use based on:
 
-1. **Enabled adapters** — Only harnesses toggled on via `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT` are available
+1. **Enabled adapters** — Only harnesses toggled on via `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT`, `ENABLE_OPENCODE` are available
 2. **Task context** — The LLM reads the task description and uses its own judgment
 3. **Skill hints** — Activated skills provide `harness_hint` attributes to nudge routing
 4. **Ambiguity rule** — If multiple harnesses are enabled and the request is ambiguous, Fetch asks the user before delegating

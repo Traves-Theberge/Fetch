@@ -43,7 +43,7 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | 🔑 GitHub Auth | Runs `gh auth login` interactively (TUI suspends, CLI takes over, TUI resumes) |
 | 🚀 Start Fetch | Runs `docker compose up -d --build` to start both containers |
 | 🛑 Stop Fetch | Runs `docker compose down` to stop services |
-| ⚙️ Configure | Opens the configuration editor (all 35 parameters) |
+| ⚙️ Configure | Opens the configuration editor (all 39 parameters) |
 | 🔐 Trusted Numbers | Manage the phone number whitelist (`data/whitelist.json`) |
 | 📜 View Logs | Stream live container logs |
 | 📚 Documentation | Opens the docs site in your browser |

@@ -131,7 +131,7 @@ Fetch's context pipeline has 35 tunable parameters with sane defaults. Override 
 | `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
-Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 35 parameters with defaults. See `config/pipeline.ts` for the full list.
+Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 39 parameters with defaults. See `config/pipeline.ts` for the full list.
 
 ## Verifying the Installation
 

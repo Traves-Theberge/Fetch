@@ -46,6 +46,7 @@ flowchart LR
         Claude["Claude Code"]
         Gemini["Gemini CLI"]
         Copilot["Copilot CLI"]
+        OpenCode["OpenCode"]
         Playwright["Playwright + Chromium"]
         Workspace["/workspace (mounted)"]
     end
@@ -85,7 +86,8 @@ flowchart LR
 - **5 Safety Escapes** — Only `/stop`, `/undo`, `/clear`, `/help`, `/status` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
 - **Four Harnesses** — Claude Code, Gemini CLI, Copilot CLI, OpenCode with process lifecycle management
-- **Pipeline Tuning** — 35 parameters via `FETCH_*` env vars, no code changes needed
+- **Structured Memory** — Cross-session recall with BM25-style keyword matching, chained compaction summaries
+- **Pipeline Tuning** — 39 parameters via `FETCH_*` env vars, no code changes needed
 
 **Tools & Capabilities**
 - **27 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
@@ -147,7 +149,7 @@ cd fetch-app
 npm run dev          # run with ts-node
 npm run build        # compile to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (199 passing)
+npm run test:run     # all tests (307 passing)
 npm run test:unit    # unit tests only
 
 # Manager (Go TUI)
