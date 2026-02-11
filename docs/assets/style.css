@@ -652,3 +652,11 @@ body {
     break-inside: avoid;
   }
 }
+
+/* Mermaid container styles - Always Dark */
+.mermaid-wrapper {
+}
+
+.mermaid-wrapper code {
+}
+

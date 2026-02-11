@@ -21,52 +21,40 @@ import { getTaskManager } from '../task/manager.js';
  * @returns {string} Formatted status overview
  */
 export async function formatStatus(session: Session): Promise<string> {
-  let message = `📊 *Fetch Status*\n\n`;
-
-  // Active project — prominent
+  let message = `🐕 *FETCH SYSTEM REPORT* (v4.0.6)\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+  // Active project
+  message += `📂 *PROJECT CONTEXT*\n`;
   if (session.currentProject) {
     const type = session.currentProject.type === 'unknown' ? '' : ` (${session.currentProject.type})`;
-    message += `📂 *Project:* ${session.currentProject.name}${type}\n`;
-    message += `📍 Path: \`${session.currentProject.path}\`\n`;
+    message += `• *Name*: ${session.currentProject.name}${type}\n`;
+    message += `• *Path*: \`${session.currentProject.path}\`\n`;
     if (session.currentProject.gitBranch) {
-      message += `🌿 Branch: \`${session.currentProject.gitBranch}\``;
-      message += session.currentProject.hasUncommitted ? ' ⚠️ uncommitted changes\n' : ' ✨ clean\n';
+      const gitIcon = session.currentProject.hasUncommitted ? '⚠️' : '✨';
+      message += `• *Branch*: \`${session.currentProject.gitBranch}\` ${gitIcon}\n`;
     }
-    message += '\n';
   } else {
-    message += `📂 No project selected\n\n`;
+    message += `• _No project currently sniffed out._\n`;
   }
+  message += '\n';
 
   // Current task
   if (session.activeTaskId) {
     const taskManager = await getTaskManager();
     const task = taskManager.getTask(session.activeTaskId);
     if (task) {
-      message += `🎯 *Task:* ${task.goal.substring(0, 60)}${task.goal.length > 60 ? '...' : ''}\n`;
-      message += `Status: ${formatTaskStatus(task.status)}\n\n`;
-    } else {
-      message += `No active task\n\n`;
+      message += `🎯 *CURRENT FOCUS*\n`;
+      message += `• *Task*: ${task.goal.substring(0, 60)}${task.goal.length > 60 ? '...' : ''}\n`;
+      message += `• *State*: ${formatTaskStatus(task.status)}\n`;
+      message += '\n';
     }
-  } else {
-    message += `No active task\n\n`;
   }
 
-  // Preferences
-  message += `⚙️ *Settings:*\n`;
-  message += `• Mode: ${session.preferences.autonomyLevel}\n`;
-  message += `• Auto-commit: ${session.preferences.autoCommit ? 'ON' : 'OFF'}\n`;
-  message += `• Verbose: ${session.preferences.verboseMode ? 'ON' : 'OFF'}\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
-  // Context
+  // Context — footerish
   if (session.activeFiles.length > 0) {
-    const projectName = session.currentProject?.name || '';
-    message += `📁 *Active Files${projectName ? ` (${projectName})` : ''}:*\n`;
-    for (const file of session.activeFiles.slice(0, 5)) {
-      message += `• ${file}\n`;
-    }
-    if (session.activeFiles.length > 5) {
-      message += `... and ${session.activeFiles.length - 5} more\n`;
-    }
+    message += `\n📁 *Sniffing around*: ${session.activeFiles.length} active files\n`;
   }
 
   return message;
@@ -83,52 +71,42 @@ export async function formatStatus(session: Session): Promise<string> {
 export function formatHelp(): string {
   return `🐕 *Fetch v4.0.6 — AI Coding Assistant*
 
-Just describe what you need in plain language. I have 21 tools and I'll figure out the rest.
+*Slash commands:*
+/stop - Cancel running task
+/undo - Undo last commit (soft reset)
+/clear - Clear conversation history
+/help - Show commands
+/status - Show system and task status
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+*Tools:*
+- workspace_list: List projects
+- workspace_select: Switch project
+- workspace_status: Git status
+- workspace_create: New project
+- workspace_delete: Delete project
+- workspace_sync: Commit and push
+- workspace_publish: Create GitHub repo
+- task_create: Delegate coding task
+- task_status: Check task progress
+- task_cancel: Cancel task
+- task_respond: Respond to task
+- ask_user: Ask for clarification
+- report_progress: Send update
+- github_pr_create: Create pull request
+- github_pr_list: List pull requests
+- github_pr_view: View pull request
+- github_issue_create: Create GitHub issue
+- github_issue_list: List GitHub issues
+- github_branch_create: Create GitHub branch
+- github_action_status: Check CI/CD status
+- github_search_repos: Search GitHub repos
 
-🛑 *Safety Commands* (always work, no LLM):
-• \`/stop\` — Cancel the running task
-• \`/undo\` — Undo last git commit
-• \`/clear\` — Clear conversation history
-• \`/help\` — Show this message
-• \`/status\` — System and task status
+*AI Harnesses:*
+- Copilot 🎯: Fast suggestions, git commands
+- Claude 🧠: Deep reasoning, refactoring
+- Gemini ⚡: Quick fixes, explanations
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💬 *Everything Else — Just Ask:*
-
-*Projects*
-• "What projects do I have?"
-• "Switch to my-api"
-• "Create a new project called auth-service"
-• "Sync my changes to GitHub"
-
-*Coding Tasks*
-• "Build a REST API for users"
-• "Fix the auth bug in login.ts"
-• "Write tests for the payment module"
-• "Add dark mode to the app"
-
-*Questions*
-• "How does the rate limiter work?"
-• "What does this function do?"
-• "Explain the error in auth.ts"
-
-*Task Control*
-• "How's the task going?"
-• "Cancel the current task"
-• "Actually, add JWT support too"
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-💡 *Tips:*
-• Start messages with \`@fetch\` in groups
-• I remember our full conversation
-• Describe what you want, not how to do it
-• I'll ask only if I genuinely need info
-
-Just type what you need! 🐕`;
+Just describe what you need in plain language! 🐕`;
 }
 
 

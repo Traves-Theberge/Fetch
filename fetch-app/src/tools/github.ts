@@ -94,7 +94,7 @@ export async function handleGitHubPRList(input: unknown): Promise<ToolResult> {
         return { success: false, output: '', error: `Invalid input: ${parseResult.error.message}`, duration: Date.now() - start };
     }
 
-    const { state, workspace } = parseResult.data as GitHubPRListInput;
+    const { state, repo, limit, workspace } = parseResult.data as GitHubPRListInput;
 
     try {
         const wsPath = await resolveWorkspacePath(workspace);
@@ -102,7 +102,7 @@ export async function handleGitHubPRList(input: unknown): Promise<ToolResult> {
             return { success: false, output: '', error: 'No workspace specified and no active workspace selected.', duration: Date.now() - start };
         }
 
-        const result = await workspaceManager.listPullRequests(wsPath, state);
+        const result = await workspaceManager.listPullRequests(wsPath, state, repo, limit);
         return {
             success: true,
             output: JSON.stringify(result, null, 2),
@@ -126,7 +126,7 @@ export async function handleGitHubPRView(input: unknown): Promise<ToolResult> {
         return { success: false, output: '', error: `Invalid input: ${parseResult.error.message}`, duration: Date.now() - start };
     }
 
-    const { number: prNumber, workspace } = parseResult.data as GitHubPRViewInput;
+    const { number: prNumber, repo, workspace } = parseResult.data as GitHubPRViewInput;
 
     try {
         const wsPath = await resolveWorkspacePath(workspace);
@@ -134,7 +134,7 @@ export async function handleGitHubPRView(input: unknown): Promise<ToolResult> {
             return { success: false, output: '', error: 'No workspace specified and no active workspace selected.', duration: Date.now() - start };
         }
 
-        const result = await workspaceManager.viewPullRequest(wsPath, prNumber);
+        const result = await workspaceManager.viewPullRequest(wsPath, prNumber, repo);
         return {
             success: true,
             output: JSON.stringify(result, null, 2),

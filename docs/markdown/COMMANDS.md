@@ -14,7 +14,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-As of v4.0, Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 21 orchestrator tools.
+Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 21 orchestrator tools.
 
 The only slash commands that exist are **5 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
@@ -52,8 +52,9 @@ The LLM has access to 21 orchestrator tools and decides which to call based on y
 | Message | What Fetch Does |
 |---------|----------------|
 | "Create a draft PR" | Calls `github_pr_create` — opens a new Pull Request |
-| "List open PRs" | Calls `github_pr_list` — shows repository PRs |
-| "View PR #42" | Calls `github_pr_view` — shows details, diff, and comments |
+| "List open PRs on facebook/react" | Calls `github_pr_list` — shows repository PRs |
+| "Show 5 PRs" | Calls `github_pr_list` — shows PRs with limit |
+| "View PR #42 on other/repo" | Calls `github_pr_view` — shows details for specific repo |
 | "Create an issue: fix login bug" | Calls `github_issue_create` — opens a new issue |
 | "Show my issues" | Calls `github_issue_list` — lists active issues |
 | "Create branch feat/auth" | Calls `github_branch_create` — creates branch locally/remotely |
@@ -107,8 +108,8 @@ The LLM has access to these 21 tools:
 | `ask_user` | Interaction | Ask user for clarification (autonomy-gated) |
 | `report_progress` | Interaction | Send structured progress update |
 | `github_pr_create` | GitHub | Create a new Pull Request (Draft by default) |
-| `github_pr_list` | GitHub | List pull requests on the current repository |
-| `github_pr_view` | GitHub | View details, reviews, and comments on a PR |
+| `github_pr_list` | GitHub | List PRs by state (`repo`, `limit`, `state`). |
+| `github_pr_view` | GitHub | View PR details, reviews, comments (`repo`, `number`). |
 | `github_issue_create` | GitHub | Create a new issue with labels and assignees |
 | `github_issue_list` | GitHub | List issues on the current repository |
 | `github_branch_create` | GitHub | Create a branch and push it to origin |

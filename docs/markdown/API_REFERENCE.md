@@ -78,6 +78,20 @@ Switch the active project. Triggers a system prompt rebuild so the LLM sees the 
 
 **Returns:** `{ selected: string, path: string }`
 
+#### github_pr_get
+
+Get details for a specific GitHub Pull Request.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `number` | number | ✅ | PR number. |
+| `repo` | string | — | Target repository in 'org/repo' format. |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ pr: object }`
+
 #### workspace_status
 
 Get the active project's git status and file overview.
@@ -98,6 +112,120 @@ Initialize a new project in the workspace. Automatically creates a GitHub reposi
 | `template` | string | — | Template to use |
 
 **Returns:** `{ created: string, path: string }`
+
+#### github_pr_create
+
+Create a new GitHub pull request for the current branch.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `title` | string | ✅ | PR title. |
+| `body` | string | — | PR description. |
+| `base` | string | — | Base branch (default: main). |
+| `draft` | boolean | — | Create as draft (default: true). |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ url: string, number: number }`
+
+#### github_pr_list
+
+List GitHub pull requests for the current or specified repository.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `state` | string | — | PR state ('open', 'closed', 'all'. Default: 'open') |
+| `repo` | string | — | Target repository in 'org/repo' format. |
+| `limit` | number | — | Max results to return (1-100. Default: 10). |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ prs: object[] }`
+
+#### github_pr_view
+
+View details of a specific GitHub pull request.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `number` | number | ✅ | PR number. |
+| `repo` | string | — | Target repository in 'org/repo' format. |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ pr: object }`
+
+#### github_issue_create
+
+Create a new GitHub issue.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `title` | string | ✅ | Issue title. |
+| `body` | string | — | Issue description. |
+| `labels` | string[] | — | List of labels to apply. |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ url: string, number: number }`
+
+#### github_issue_list
+
+List GitHub issues for the current repository.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `state` | string | — | Issue state ('open', 'closed', 'all'. Default: 'open') |
+| `assignee` | string | — | Filter by assignee username. |
+| `labels` | string[] | — | Filter by labels. |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ issues: object[] }`
+
+#### github_branch_create
+
+Create a new git branch and push to origin.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `name` | string | ✅ | New branch name. |
+| `from` | string | — | Base branch to branch from. |
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ branch: string }`
+
+#### github_action_status
+
+Get the status of recent GitHub Action workflow runs.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `workspace` | string | — | Target workspace. |
+
+**Returns:** `{ runs: object[] }`
+
+#### github_search_repos
+
+Search for repositories across GitHub.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|----------|----------|-------------|
+| `query` | string | ✅ | Search keywords. |
+| `limit` | number | — | Max results (default: 10). |
+
+**Returns:** `{ results: object[] }`
 
 #### workspace_delete
 

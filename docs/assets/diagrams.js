@@ -61,10 +61,10 @@ const FetchDiagrams = {
       .style('height', 'auto')
       .style('display', 'block')
       .style('margin', '0 auto');
-    
+
     // Add arrow marker definition
     const defs = svg.append('defs');
-    
+
     const colors = this.getColors();
     defs.append('marker')
       .attr('id', 'arrowhead')
@@ -85,7 +85,7 @@ const FetchDiagrams = {
   drawNode(group, x, y, width, height, label, icon, color) {
     const colors = this.getColors();
     const nodeColor = color || colors.nodeBg;
-    
+
     // Node background
     group.append('rect')
       .attr('x', x)
@@ -125,7 +125,7 @@ const FetchDiagrams = {
   // Draw an arrow between points
   drawArrow(svg, x1, y1, x2, y2, curved = false) {
     const colors = this.getColors();
-    
+
     if (curved) {
       const midX = (x1 + x2) / 2;
       const midY = (y1 + y2) / 2 - 30;
@@ -154,7 +154,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 850, 480);
 
@@ -189,14 +189,14 @@ const FetchDiagrams = {
       .attr('fill', colors.nodeBg)
       .attr('stroke', colors.accent4)
       .attr('stroke-width', 2);
-    
+
     svg.append('text')
       .attr('x', 140)
       .attr('y', 115)
       .attr('text-anchor', 'middle')
       .attr('font-size', '24px')
       .text('🎛️');
-    
+
     svg.append('text')
       .attr('x', 140)
       .attr('y', 140)
@@ -205,7 +205,7 @@ const FetchDiagrams = {
       .attr('font-size', '14px')
       .attr('font-weight', '600')
       .text('Go Manager');
-    
+
     svg.append('text')
       .attr('x', 140)
       .attr('y', 160)
@@ -213,7 +213,7 @@ const FetchDiagrams = {
       .attr('fill', colors.textMuted)
       .attr('font-size', '11px')
       .text('(TUI)');
-    
+
     // Manager features
     const features = ['• Start/Stop', '• Configure', '• View Logs', '• Select Model'];
     features.forEach((f, i) => {
@@ -263,7 +263,7 @@ const FetchDiagrams = {
       .attr('font-size', '16px')
       .attr('font-weight', '600')
       .text('🌉 Bridge');
-    
+
     svg.append('text')
       .attr('x', 430)
       .attr('y', 170)
@@ -302,7 +302,7 @@ const FetchDiagrams = {
       .attr('font-size', '16px')
       .attr('font-weight', '600')
       .text('🏠 Kennel');
-    
+
     svg.append('text')
       .attr('x', 670)
       .attr('y', 170)
@@ -387,7 +387,7 @@ const FetchDiagrams = {
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
       .attr('font-size', '12px')
-      .text('🏗️ V3.4 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
+      .text('🏗️ V4.0 Architecture: TUI → Docker → WhatsApp + AI Harnesses');
   },
 
   // =====================================================
@@ -397,7 +397,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 800, 400);
 
@@ -497,7 +497,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 600, 500);
 
@@ -559,7 +559,7 @@ const FetchDiagrams = {
       const descRadius = radius + 80;
       const descX = centerX + descRadius * Math.cos(angleRad);
       const descY = centerY + descRadius * Math.sin(angleRad);
-      
+
       svg.append('text')
         .attr('x', descX)
         .attr('y', descY)
@@ -621,28 +621,34 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 800, 380);
 
     const categories = [
-      { 
-        name: 'Workspace', 
-        icon: '📁', 
+      {
+        name: 'Workspace',
+        icon: '📁',
         tools: ['workspace_list', 'workspace_select', 'workspace_status', 'workspace_create', 'workspace_delete'],
-        color: colors.accent1 
+        color: colors.accent1
       },
-      { 
-        name: 'Task', 
-        icon: '🚀', 
+      {
+        name: 'Task',
+        icon: '🚀',
         tools: ['task_create', 'task_status', 'task_cancel', 'task_respond'],
-        color: colors.accent2 
+        color: colors.accent2
       },
-      { 
-        name: 'Interaction', 
-        icon: '💬', 
+      {
+        name: 'Interaction',
+        icon: '💬',
         tools: ['ask_user', 'report_progress'],
-        color: colors.accent3 
+        color: colors.accent3
+      },
+      {
+        name: 'GitHub',
+        icon: '🐙',
+        tools: ['gh_repo_create', 'gh_repo_list', 'gh_pr_create', 'gh_pr_list', 'gh_issue_create', 'gh_issue_list', 'gh_issue_comment', 'gh_workflow_run'],
+        color: colors.accent4
       },
     ];
 
@@ -659,7 +665,7 @@ const FetchDiagrams = {
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('🛠️ 11 Orchestrator Tools');
+      .text('🛠️ 21 Orchestrator Tools');
 
     categories.forEach((cat, i) => {
       const x = startX + i * (boxWidth + spacing);
@@ -722,7 +728,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 500, 750);
 
@@ -813,7 +819,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 750, 380);
 
@@ -897,228 +903,167 @@ const FetchDiagrams = {
   },
 
   // =====================================================
-  // DIAGRAM: Message Flow (Intent Classification)
+  // DIAGRAM: System Flow (v4.0 Architecture)
   // =====================================================
   renderMessageFlow(containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
-    const svg = this.createSVG(container, 700, 520);
+    const svg = this.createSVG(container, 850, 700);
 
     // Title
     svg.append('text')
-      .attr('x', 350)
+      .attr('x', 425)
       .attr('y', 35)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('📨 Message Flow & Intent Classification');
+      .text('🚀 v4.0 System Architecture — LLM-First Routing');
 
-    // Input node
-    const inputY = 70;
+    // 1. User Message (Top Center)
+    const userBox = { x: 350, y: 60, w: 150, h: 50 };
     svg.append('rect')
-      .attr('x', 250)
-      .attr('y', inputY)
-      .attr('width', 200)
-      .attr('height', 50)
+      .attr('x', userBox.x).attr('y', userBox.y)
+      .attr('width', userBox.w).attr('height', userBox.h)
       .attr('rx', 25)
-      .attr('fill', colors.accent1)
-      .attr('opacity', 0.2);
-    svg.append('rect')
-      .attr('x', 250)
-      .attr('y', inputY)
-      .attr('width', 200)
-      .attr('height', 50)
-      .attr('rx', 25)
-      .attr('fill', 'none')
+      .attr('fill', colors.nodeBg)
       .attr('stroke', colors.accent1)
       .attr('stroke-width', 2);
     svg.append('text')
-      .attr('x', 350)
-      .attr('y', inputY + 30)
+      .attr('x', userBox.x + userBox.w / 2).attr('y', userBox.y + 30)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.text)
       .attr('font-size', '14px')
       .attr('font-weight', '600')
-      .text('📱 WhatsApp Message');
+      .text('User Message');
 
-    // Arrow down
-    svg.append('text')
-      .attr('x', 350)
-      .attr('y', 145)
-      .attr('text-anchor', 'middle')
-      .attr('fill', colors.arrow)
-      .attr('font-size', '20px')
-      .text('↓');
+    // Arrow Down
+    this.drawArrow(svg, 425, 110, 425, 140);
 
-    // Intent Classifier
-    const classifierY = 160;
+    // 2. Fetch Bridge & Context Assembly (Middle-Left)
+    const bridgeY = 140;
+
+    // Context Assembly Group Box
     svg.append('rect')
-      .attr('x', 225)
-      .attr('y', classifierY)
-      .attr('width', 250)
-      .attr('height', 60)
-      .attr('rx', 10)
+      .attr('x', 50).attr('y', bridgeY)
+      .attr('width', 280).attr('height', 240)
+      .attr('rx', 12)
       .attr('fill', colors.nodeBg)
       .attr('stroke', colors.accent2)
-      .attr('stroke-width', 2);
+      .attr('stroke-width', 2)
+      .attr('stroke-dasharray', '5,5');
+
     svg.append('text')
-      .attr('x', 350)
-      .attr('y', classifierY + 25)
+      .attr('x', 190).attr('y', bridgeY + 30)
       .attr('text-anchor', 'middle')
-      .attr('fill', colors.text)
+      .attr('fill', colors.accent2)
       .attr('font-size', '14px')
-      .attr('font-weight', '600')
-      .text('🧠 Intent Classifier');
+      .attr('font-weight', '700')
+      .text('🧩 Context Assembly');
+
+    const contexts = [
+      { label: 'Skills Manager', icon: '⚡' },
+      { label: 'Identity (Profiles)', icon: '🆔' },
+      { label: 'Repo Context', icon: '📂' },
+      { label: 'Session History', icon: '💾' }
+    ];
+
+    contexts.forEach((ctx, i) => {
+      const cy = bridgeY + 60 + i * 45;
+      this.drawNode(svg.append('g'), 70, cy, 240, 35, ctx.label, null, colors.nodeBg);
+      svg.append('text')
+        .attr('x', 90).attr('y', cy + 22)
+        .attr('font-size', '16px')
+        .text(ctx.icon);
+    });
+
+    // Bridge Node (Center)
+    const bridgeBox = { x: 350, y: bridgeY + 100, w: 150, h: 80 };
+    this.drawNode(svg.append('g'), bridgeBox.x, bridgeBox.y, bridgeBox.w, bridgeBox.h, 'Fetch Bridge', '🌉', colors.nodeBg);
+
+    // Arrow from Context to Bridge
+    this.drawArrow(svg, 330, bridgeY + 140, 350, bridgeY + 140);
+
+    // 3. Orchestrator LLM (Center)
+    const llmBox = { x: 350, y: bridgeY + 240, w: 150, h: 80 };
+    this.drawNode(svg.append('g'), llmBox.x, llmBox.y, llmBox.w, llmBox.h, 'Orchestrator LLM', '🤖', colors.accent1);
+
+    // Arrow Bridge -> LLM
+    this.drawArrow(svg, 425, bridgeY + 180, 425, bridgeY + 240);
+
+    // 4. Tools & Pack (Bottom / Right)
+
+    // Local Tools (Right)
+    const toolsBox = { x: 600, y: bridgeY + 240, w: 160, h: 80 };
+    this.drawNode(svg.append('g'), toolsBox.x, toolsBox.y, toolsBox.w, toolsBox.h, 'Local Tools (21)', '🛠️', colors.nodeBg);
+
+    // Arrow LLM -> Tools
+    this.drawArrow(svg, 500, bridgeY + 280, 600, bridgeY + 280);
     svg.append('text')
-      .attr('x', 350)
-      .attr('y', classifierY + 45)
+      .attr('x', 550).attr('y', bridgeY + 270)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.textMuted)
-      .attr('font-size', '11px')
-      .text('Analyzes message to determine mode');
+      .attr('font-size', '10px')
+      .text('Tool Call');
 
-    // Branching arrows
-    const branchY = 250;
-    svg.append('path')
-      .attr('d', `M 350 220 L 350 ${branchY} L 130 ${branchY + 30}`)
-      .attr('fill', 'none')
-      .attr('stroke', colors.arrow)
-      .attr('stroke-width', 2);
-    svg.append('path')
-      .attr('d', `M 350 ${branchY} L 350 ${branchY + 30}`)
-      .attr('fill', 'none')
-      .attr('stroke', colors.arrow)
-      .attr('stroke-width', 2);
-    svg.append('path')
-      .attr('d', `M 350 ${branchY} L 570 ${branchY + 30}`)
-      .attr('fill', 'none')
-      .attr('stroke', colors.arrow)
+    // The Pack (Bottom)
+    const packY = bridgeY + 360;
+
+    // Pack Group Box
+    svg.append('rect')
+      .attr('x', 150).attr('y', packY)
+      .attr('width', 550).attr('height', 160)
+      .attr('rx', 12)
+      .attr('fill', colors.nodeBg)
+      .attr('stroke', colors.accent3)
       .attr('stroke-width', 2);
 
-    // Intent boxes
-    const intents = [
-      { icon: '💬', label: 'Conversation', desc: 'Chat, greetings', x: 70, color: colors.accent1 },
-      { icon: '🔍', label: 'Inquiry', desc: 'Questions, status', x: 290, color: colors.accent2 },
-      { icon: '⚡', label: 'Action', desc: 'Code tasks, tools', x: 510, color: colors.accent3 },
+    svg.append('text')
+      .attr('x', 425).attr('y', packY + 25)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.accent3)
+      .attr('font-size', '14px')
+      .attr('font-weight', '700')
+      .text('🐺 The Pack (Harnesses)');
+
+    const packMembers = [
+      { name: 'Claude Code', icon: '🟣', desc: 'Refactor', x: 180 },
+      { name: 'Gemini ⚡', icon: '🔵', desc: 'Quick Fix', x: 360 },
+      { name: 'Copilot 🎯', icon: '⚫', desc: 'Shell/Git', x: 540 }
     ];
 
-    const intentY = 290;
-    intents.forEach(intent => {
-      svg.append('rect')
-        .attr('x', intent.x)
-        .attr('y', intentY)
-        .attr('width', 120)
-        .attr('height', 80)
-        .attr('rx', 10)
-        .attr('fill', colors.nodeBg)
-        .attr('stroke', intent.color)
-        .attr('stroke-width', 2);
+    packMembers.forEach(member => {
+      this.drawNode(svg.append('g'), member.x, packY + 40, 130, 70, member.name, member.icon, colors.nodeBg);
       svg.append('text')
-        .attr('x', intent.x + 60)
-        .attr('y', intentY + 30)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', '24px')
-        .text(intent.icon);
-      svg.append('text')
-        .attr('x', intent.x + 60)
-        .attr('y', intentY + 52)
-        .attr('text-anchor', 'middle')
-        .attr('fill', colors.text)
-        .attr('font-size', '12px')
-        .attr('font-weight', '600')
-        .text(intent.label);
-      svg.append('text')
-        .attr('x', intent.x + 60)
-        .attr('y', intentY + 68)
+        .attr('x', member.x + 65).attr('y', packY + 125)
         .attr('text-anchor', 'middle')
         .attr('fill', colors.textMuted)
-        .attr('font-size', '10px')
-        .text(intent.desc);
-    });
-
-    // Arrows to outcomes
-    const outcomeY = 400;
-    intents.forEach(intent => {
-      svg.append('text')
-        .attr('x', intent.x + 60)
-        .attr('y', intentY + 95)
-        .attr('text-anchor', 'middle')
-        .attr('fill', colors.arrow)
-        .attr('font-size', '16px')
-        .text('↓');
-    });
-
-    // Outcome boxes
-    const outcomes = [
-      { label: 'Direct LLM', x: 70 },
-      { label: 'Read-Only Tools', x: 290 },
-      { label: 'Full ReAct Loop', x: 510 },
-    ];
-
-    outcomes.forEach((outcome, i) => {
-      svg.append('rect')
-        .attr('x', outcome.x)
-        .attr('y', outcomeY)
-        .attr('width', 120)
-        .attr('height', 40)
-        .attr('rx', 8)
-        .attr('fill', intents[i].color)
-        .attr('opacity', 0.15);
-      svg.append('rect')
-        .attr('x', outcome.x)
-        .attr('y', outcomeY)
-        .attr('width', 120)
-        .attr('height', 40)
-        .attr('rx', 8)
-        .attr('fill', 'none')
-        .attr('stroke', intents[i].color)
-        .attr('stroke-width', 1);
-      svg.append('text')
-        .attr('x', outcome.x + 60)
-        .attr('y', outcomeY + 25)
-        .attr('text-anchor', 'middle')
-        .attr('fill', colors.text)
         .attr('font-size', '11px')
-        .text(outcome.label);
+        .text(member.desc);
     });
 
-    // Converge to response
-    svg.append('path')
-      .attr('d', `M 130 440 L 130 465 L 350 480 M 350 440 L 350 480 M 570 440 L 570 465 L 350 480`)
-      .attr('fill', 'none')
-      .attr('stroke', colors.arrow)
-      .attr('stroke-width', 2);
-
-    // Response node
-    svg.append('rect')
-      .attr('x', 275)
-      .attr('y', 470)
-      .attr('width', 150)
-      .attr('height', 40)
-      .attr('rx', 20)
-      .attr('fill', colors.success)
-      .attr('opacity', 0.2);
-    svg.append('rect')
-      .attr('x', 275)
-      .attr('y', 470)
-      .attr('width', 150)
-      .attr('height', 40)
-      .attr('rx', 20)
-      .attr('fill', 'none')
-      .attr('stroke', colors.success)
-      .attr('stroke-width', 2);
+    // Arrow LLM -> Pack
+    this.drawArrow(svg, 425, bridgeY + 320, 425, packY);
     svg.append('text')
-      .attr('x', 350)
-      .attr('y', 495)
+      .attr('x', 475).attr('y', bridgeY + 345)
       .attr('text-anchor', 'middle')
-      .attr('fill', colors.text)
-      .attr('font-size', '13px')
-      .attr('font-weight', '600')
-      .text('✅ WhatsApp Reply');
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '10px')
+      .text('task_create');
+
+    // 5. Kennel Sandbox (Very Bottom)
+    // Implicitly, the Pack runs inside the Kennel. We can add a subtle label or container for the Pack to indicate it's the Kennel.
+    // Let's add a "Sandboxed Execution" label below the Pack group
+    svg.append('text')
+      .attr('x', 425).attr('y', packY + 150)
+      .attr('text-anchor', 'middle')
+      .attr('fill', colors.textMuted)
+      .attr('font-size', '12px')
+      .text('🔒 Executed in isolated Kennel container via Docker');
+
   },
 
   // =====================================================
@@ -1128,7 +1073,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 750, 380);
 
@@ -1187,32 +1132,32 @@ const FetchDiagrams = {
 
     // Harness boxes
     const harnesses = [
-      { 
-        name: 'Claude Code', 
-        icon: '🟣', 
-        cli: 'claude', 
+      {
+        name: 'Claude Code',
+        icon: '🟣',
+        cli: 'claude',
         bestFor: 'Complex refactoring',
         features: ['Multi-file changes', 'Code analysis', 'Architectural tasks'],
-        x: 50, 
-        color: colors.accent2 
+        x: 50,
+        color: colors.accent2
       },
-      { 
-        name: 'Gemini CLI', 
-        icon: '🔵', 
-        cli: 'gemini', 
+      {
+        name: 'Gemini CLI',
+        icon: '🔵',
+        cli: 'gemini',
         bestFor: 'Quick edits',
         features: ['Fast responses', 'Explanations', 'Simple fixes'],
-        x: 300, 
-        color: colors.accent1 
+        x: 300,
+        color: colors.accent1
       },
-      { 
-        name: 'GitHub Copilot', 
-        icon: '⚫', 
-        cli: 'gh copilot', 
+      {
+        name: 'GitHub Copilot',
+        icon: '⚫',
+        cli: 'gh copilot',
         bestFor: 'Suggestions',
         features: ['Command help', 'Code completion', 'Git workflows'],
-        x: 550, 
-        color: colors.accent3 
+        x: 550,
+        color: colors.accent3
       },
     ];
 
@@ -1290,7 +1235,7 @@ const FetchDiagrams = {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
-    
+
     const colors = this.getColors();
     const svg = this.createSVG(container, 800, 500);
 
@@ -1303,14 +1248,14 @@ const FetchDiagrams = {
 
     // Draw labels for transitions
     const label = (x, y, text) => {
-        svg.append('text')
-           .attr('x', x)
-           .attr('y', y)
-           .attr('text-anchor', 'middle')
-           .attr('fill', colors.textMuted)
-           .attr('font-size', '11px')
-           .style('background', colors.bg)
-           .text(text);
+      svg.append('text')
+        .attr('x', x)
+        .attr('y', y)
+        .attr('text-anchor', 'middle')
+        .attr('fill', colors.textMuted)
+        .attr('font-size', '11px')
+        .style('background', colors.bg)
+        .text(text);
     };
 
     // Transitions
@@ -1329,7 +1274,7 @@ const FetchDiagrams = {
     // Waiting -> Working
     this.drawArrow(svg, 600, 300, 470, 300);
     label(535, 315, 'Input Received');
-    
+
     // Alert -> Guarding
     this.drawArrow(svg, 350, 90, 160, 250, true);
     label(220, 150, 'Dangerous Action');
@@ -1433,7 +1378,7 @@ const FetchDiagrams = {
       .attr('fill', colors.accent2)
       .attr('opacity', 0.2);
     svg.append('text')
-      .attr('x', bx + bw/2).attr('y', by + 26)
+      .attr('x', bx + bw / 2).attr('y', by + 26)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.text)
       .attr('font-size', '14px')
@@ -1475,7 +1420,7 @@ const FetchDiagrams = {
       .attr('fill', colors.accent3)
       .attr('opacity', 0.2);
     svg.append('text')
-      .attr('x', kx + kw/2).attr('y', ky + 26)
+      .attr('x', kx + kw / 2).attr('y', ky + 26)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.text)
       .attr('font-size', '14px')
@@ -1501,7 +1446,7 @@ const FetchDiagrams = {
 
     // Resource limits badge
     svg.append('text')
-      .attr('x', kx + kw/2).attr('y', ky + kh - 15)
+      .attr('x', kx + kw / 2).attr('y', ky + kh - 15)
       .attr('text-anchor', 'middle')
       .attr('fill', colors.warning)
       .attr('font-size', '10px')
@@ -1614,7 +1559,7 @@ const FetchDiagrams = {
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('🧠 Context Pipeline — Multi-Turn Memory');
+      .text('🧠 Context Pipeline (v4.0) — Multi-Turn Memory');
 
     svg.append('text')
       .attr('x', 450)

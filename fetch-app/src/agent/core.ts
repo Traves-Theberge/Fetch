@@ -160,15 +160,11 @@ function isRetriableError(error: unknown, attempt: number): boolean {
 async function handleWithRetry<T>(
   fn: (attempt: number) => Promise<T>,
   sessionId: string,
+  userMessage: string,
   onProgress?: (text: string) => Promise<void>
 ): Promise<T> {
   const maxAttempts = pipeline.maxRetries + 1; // retries + initial attempt
   const backoffs = pipeline.retryBackoff;
-  const retryMessages = [
-    "Hold on, fetching again... 🐕",
-    "Still working on it, be patient! 🐕",
-    "One last try, I'm determined! 🐕"
-  ];
 
   let lastError: unknown;
 
@@ -180,7 +176,7 @@ async function handleWithRetry<T>(
 
         // Report progress to user if callback provided
         if (onProgress) {
-          const retryMessage = retryMessages[attempt - 2] ?? "Still trying... 🐕";
+          const retryMessage = generateProgressMessage(userMessage, attempt);
           await onProgress(retryMessage);
         }
 
@@ -286,6 +282,7 @@ export async function processMessage(
     const response = await handleWithRetry(
       (attempt) => handleWithTools(message, session, attempt),
       session.id,
+      message,
       onProgress
     );
 
@@ -355,9 +352,9 @@ async function handleWithTools(
 
   const history = buildMessageHistory(session);
 
-  // If retrying from a failure, simplify context
+  // If retrying from a failure, simplify context but keep enough for tool continuity
   const finalHistory = attempt > 1
-    ? history.slice(-2) // Keep even less for tool calls to avoid token limits
+    ? history.slice(-4) // Keep last 4 messages to ensure tool_call + tool_result pairs are preserved
     : history;
 
   // Build messages
@@ -804,4 +801,50 @@ export async function frameTaskGoal(
   return (
     response.choices[0]?.message?.content ?? message
   );
+}
+
+// =============================================================================
+// PROGRESS MESSAGE GENERATION (Dog Persona)
+// =============================================================================
+
+/**
+ * Generate a context-aware, dog-themed progress message for WhatsApp.
+ * Uses keywords from the user's message to provide specific feedback.
+ *
+ * @param userMessage - The original user message
+ * @param attempt - Current attempt number (1 = initial, 2+ = retries)
+ * @returns Formatted progress update
+ */
+export function generateProgressMessage(userMessage: string, attempt: number = 1): string {
+  const lower = userMessage.toLowerCase();
+
+  // Action detection
+  let action = "fetching that for you";
+  if (lower.includes('status') || lower.includes('how')) action = "sniffing out the status";
+  else if (lower.includes('fix') || lower.includes('bug') || lower.includes('error')) action = "hunting down that bug";
+  else if (lower.includes('create') || lower.includes('new') || lower.includes('build')) action = "building something new";
+  else if (lower.includes('git') || lower.includes('commit') || lower.includes('push')) action = "burying your changes in git";
+  else if (lower.includes('test')) action = "running some tests for you";
+
+  const prefixes = [
+    "Woof!",
+    "Bark!",
+    "Awoo!",
+    "Wagging my tail...",
+    "Fetch!"
+  ];
+
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+
+  if (attempt === 1) {
+    return `${prefix} I'm ${action}, just a second! 🐕🦴`;
+  }
+
+  const retries = [
+    `${prefix} Still ${action}, almost there! 🐾`,
+    `${prefix} One more second while I'm ${action}... 🐕`,
+    `${prefix} I'm determined! Still ${action}! 🦴`
+  ];
+
+  return retries[Math.min(attempt - 2, retries.length - 1)];
 }

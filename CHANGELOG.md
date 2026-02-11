@@ -18,6 +18,12 @@ Fetch's tool suite has been expanded from 13 to **21 tools** with 8 new GitHub-n
 
 - **Issue Tracking:**
   - `github_issue_create` — Create issues with optional labels
+
+### 💅 UX & Reliability Improvements
+
+- **Expanded `/help` Command**: Now lists all 21 tools and available AI harnesses.
+- **Context Preservation Fix**: Identity memory slice increased to 4 messages on retry to prevent "No tool call found" errors.
+- **Simplified Status**: Removed detailed settings from `/status` output for cleaner reporting.
   - `github_issue_list` — List issues with state, assignee, and label filters
 
 - **Branching:**
@@ -28,6 +34,21 @@ Fetch's tool suite has been expanded from 13 to **21 tools** with 8 new GitHub-n
 
 - **Repository Search:**
   - `github_search_repos` — Search GitHub repositories by keyword (no workspace required)
+
+### 🐕 WhatsApp UX & Persona Upgrade
+
+Improved Fetch's feedback loops and personality for a better WhatsApp experience.
+
+- **Improved `/status` Command**:
+  - Overhauled with personality-driven terminology: `supervised` -> "Leashed", `autoCommit` -> "Burying bones", `verbose` -> "Barky".
+  - Added "Mood: Tail Wagging" and "Fetch v4.0.6" status headers.
+- **Context-Aware Progressive Feedback**:
+  - Implemented `generateProgressMessage` to provide specific feedback based on user intent (e.g., "sniffing out status", "hunting down bugs").
+  - Replaced generic "fetching again" messages with randomized, dog-themed prefixes ("Woof!", "Bark!", "Awoo!").
+- **Proactive Thinking Timer**:
+  - Added a 3-second timer in the handler to send initial "thinking" feedback for long-running requests, ensuring the user isn't left in silence.
+- **Version String Upgrade**:
+  - Unified versioning across `/v` and `/status` to v4.0.6.
 
 #### Files Changed
 

@@ -1,6 +1,6 @@
 # Documentation
 
-This is the master documentation index for Fetch v4.0.3.
+This is the master documentation index for Fetch.
 
 ## Getting Started
 
@@ -12,6 +12,7 @@ This is the master documentation index for Fetch v4.0.3.
 ## Reference
 
 - [Configuration](CONFIGURATION.md) — Environment variables, Docker, identity, skills
+- [Skills Guide](SKILLS_GUIDE.md) — Creating and managing hot-loadable skills
 - [API Reference](API_REFERENCE.md) — HTTP endpoints, tool interfaces, type definitions
 - [Glossary](GLOSSARY.md) — Terminology and definitions
 
@@ -19,9 +20,10 @@ This is the master documentation index for Fetch v4.0.3.
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
-- [Agentic Architecture](AGENTIC_PLAN.md) — LLM-first model, ReAct loop, harness delegation
-- [Context Pipeline](CONTEXT_PIPELINE_PLAN.md) — Multi-turn context, tool memory, compaction engine
-- [State Management](STATE_MANAGEMENT.md) — Database schema, singletons, events, boot order
+- **[Agentic Architecture](AGENTIC_PLAN.md)** - Logic flow and LLM autonomy.
+- **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot).
+- **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.
+- **[Context Pipeline](CONTEXT_PIPELINE.md)** - Memory, sliding windows, and compaction.
 
 ## Project Health
 
@@ -44,8 +46,6 @@ This is the master documentation index for Fetch v4.0.3.
 9. **Tools** execute with `ToolContext { sessionId, autonomyLevel }` — tool calls and results are persisted to the session
 10. **Compaction** triggers automatically when messages exceed the threshold — older messages are summarized and trimmed
 11. **Response** is formatted for WhatsApp and sent back. Task completions push proactive notifications
-
-> **v4.0 Change:** Steps 3-4 replaced the instinct layer (12 handlers), intent classifier (conversation/inquiry/action), and mode detector. Now every message takes the same single path through the LLM.
 
 ## Security Model
 

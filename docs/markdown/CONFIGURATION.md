@@ -126,7 +126,7 @@ entrypoint: /entrypoint.sh           # Configures gh auth + git identity from GH
 command: tail -f /dev/null            # Keep alive for docker exec
 ```
 
-> **Kennel Entrypoint (v4.0):** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that checks for `GH_TOKEN`, configures `gh` CLI authentication, and sets the git identity to match the GitHub account. This enables `workspace_sync` and `workspace_create` to push to GitHub automatically.
+> **Kennel Entrypoint:** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that checks for `GH_TOKEN`, configures `gh` CLI authentication, and sets the git identity to match the GitHub account. This enables `workspace_sync` and `workspace_create` to push to GitHub automatically.
 
 ---
 

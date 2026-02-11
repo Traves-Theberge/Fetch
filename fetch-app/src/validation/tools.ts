@@ -345,12 +345,27 @@ export const GitHubPRListInputSchema = z
       .default('open')
       .describe('Filter by PR state (default: open)'),
 
+    /** Target repository (org/repo) */
+    repo: z.string()
+      .regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/, 'Invalid repo format (expected org/repo)')
+      .optional()
+      .describe('Target repository (e.g. "facebook/react")'),
+
+    /** Result limit */
+    limit: z.number()
+      .int()
+      .positive()
+      .max(100)
+      .optional()
+      .default(10)
+      .describe('Maximum number of results to return (max 100)'),
+
     /** Workspace (uses active if not specified) */
     workspace: WorkspaceNameSchema.optional()
       .describe('Workspace (uses active workspace if not specified)'),
   })
   .strict()
-  .describe('List pull requests for the current repository');
+  .describe('List pull requests for the current or specified repository');
 
 /**
  * github_pr_view - View a specific pull request
@@ -362,6 +377,12 @@ export const GitHubPRViewInputSchema = z
       .int('PR number must be an integer')
       .positive('PR number must be positive')
       .describe('Pull request number'),
+
+    /** Target repository (org/repo) */
+    repo: z.string()
+      .regex(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/, 'Invalid repo format (expected org/repo)')
+      .optional()
+      .describe('Target repository (e.g. "facebook/react")'),
 
     /** Workspace (uses active if not specified) */
     workspace: WorkspaceNameSchema.optional()

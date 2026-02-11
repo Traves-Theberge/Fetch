@@ -2,7 +2,28 @@
 
 ## System Overview
 
-<!-- DIAGRAM:architecture -->
+```mermaid
+block-beta
+    columns 3
+    
+    bridge<["Fetch Bridge (Node.js)"]>(down)
+    space
+    kennel<["Fetch Kennel (Ubuntu)"]>(down)
+
+    whatsapp(("WhatsApp"))
+    space
+    workspace[("/workspace")]
+
+    whatsapp --> bridge
+    bridge --> kennel
+    bridge --> workspace
+    kennel --> workspace
+
+    classDef node fill:#ececff,stroke:#9370db,stroke-width:2px;
+    class bridge,kennel node;
+    classDef ext fill:#f9f9f9,stroke:#666,stroke-width:2px;
+    class whatsapp,workspace ext;
+```
 
 Fetch runs as two Docker containers managed by a Go TUI:
 
@@ -12,9 +33,100 @@ Fetch runs as two Docker containers managed by a Go TUI:
 
 The Bridge communicates with the Kennel by running `docker exec` commands into it. The workspace directory is mounted into both containers. The Bridge container has the Docker CLI installed and the Docker socket mounted so it can control the Kennel directly.
 
-## Message Flow (v4.0 — LLM-First)
+## Message Flow (LLM-First)
 
-<!-- DIAGRAM:messageflow -->
+### System Diagram
+
+```mermaid
+flowchart TD
+    %% User input
+    User([User Message]) -->|WhatsApp| Bridge[Fetch Bridge]
+
+    %% Context Assembly Area (combines Fetch internals & Context Pipeline)
+    subgraph Context_Assembly [Context Assembly & Pipeline]
+        direction TB
+
+        %% Managers inside Bridge logic
+        SkillMgr[Skill Manager]
+        IdentityMgr[Identity Manager]
+        WorkspaceMgr[Workspace Manager]
+        
+        %% Pipeline specific components
+        Window[Sliding Window]
+        Compact[Compaction Engine]
+
+        %% Data Stores
+        Skills[(Skills)]
+        Identity[(Identity/Agents)]
+        RepoContext[Repo Context]
+
+        %% Connections within Assembly
+        Bridge --> SkillMgr
+        Bridge --> IdentityMgr
+        Bridge --> WorkspaceMgr
+        Bridge --> Window
+
+        SkillMgr -- Matches Triggers --> Skills
+        IdentityMgr -- Loads md/yaml --> Identity
+        WorkspaceMgr -- Git/Files --> RepoContext
+        
+        Window -- Overflow --> Compact
+    end
+
+    %% Aggregation Point
+    SysPrompt[System Prompt]
+
+    %% Data flowing into System Prompt
+    Skills --> SysPrompt
+    Identity --> SysPrompt
+    RepoContext --> SysPrompt
+    Window --> SysPrompt
+    Compact --> SysPrompt
+
+    %% Orchestration
+    SysPrompt --> OrchLLM{Orchestrator LLM}
+
+    %% Main Paths
+    OrchLLM -- Tool Call --> LocalTools[Local Tools]
+    OrchLLM -- Chat Response --> User
+    
+    OrchLLM -- task_create --> PackDecider{The Pack}
+
+    %% Harnesses Subgraph
+    subgraph Harnesses [The Pack Harnesses]
+        PackDecider -- Complex --> Claude[Claude Code]
+        PackDecider -- Quick --> Gemini[Gemini ⚡]
+        PackDecider -- Shell/GH --> Copilot[Copilot 🐙]
+    end
+
+    %% Execution Sandbox
+    Claude --> Sandbox[Fetch Kennel Sandbox]
+    Gemini --> Sandbox
+    Copilot --> Sandbox
+
+    %% Result Loop
+    Sandbox --> TaskResult[Task Result]
+    TaskResult --> Bridge
+
+    %% Configuration & Identity (Host Mounts)
+    subgraph HostConfig ["User Identity & Config (Host Mounts)"]
+        direction TB
+        ConfClaude[("~/.config/claude-code")]
+        ConfGemini[("~/.gemini")]
+        ConfCopilot[("~/.config/gh")]
+    end
+    
+    %% Connections for Config
+    ConfClaude -.-> Claude
+    ConfGemini -.-> Gemini
+    ConfCopilot -.-> Copilot
+
+    %% Adapter Logic Reference
+    AdapterLogic["Adapter Logic<br/>(src/harness/*.ts)"] -.-> PackDecider
+
+    %% Local tool result loop (implicit but good to show)
+    LocalTools --> Result[Tool Result] --> Bridge
+```
 
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
@@ -25,8 +137,6 @@ The Bridge communicates with the Kennel by running `docker exec` commands into i
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
 8. `task_create` tool spawns a CLI process in the Kennel container via `docker exec`
 9. Response is formatted and sent back via WhatsApp
-
-> **v4.0 Change:** The instinct layer, intent classifier, and mode detector have been removed. There is no longer a conversation/action split — every message takes the same single path through the LLM with full tool access. The LLM naturally responds to "hi" without calling tools and to "fix the bug" by calling `task_create`.
 
 ## Boot Sequence
 
@@ -157,7 +267,9 @@ src/
 
 ## Context Pipeline
 
-<!-- DIAGRAM:contextpipeline -->
+### Memory Pipeline Diagram
+
+[See Context Pipeline Documentation](./CONTEXT_PIPELINE.md)
 
 The context pipeline ensures the LLM has full conversational memory across turns:
 
@@ -174,7 +286,34 @@ All parameters are tunable via `config/pipeline.ts` (31 settings, overridable vi
 
 ## Docker Architecture
 
-<!-- DIAGRAM:docker -->
+```mermaid
+graph TB
+    subgraph Host[Host Machine]
+        Manager[Fetch Manager TUI]
+        Socket[docker.sock]
+        
+        subgraph Docker[Docker Network]
+            direction LR
+            
+            Bridge[fetch-bridge]
+            Kennel[fetch-kennel]
+            
+            Bridge -- "docker exec" --> Kennel
+            Bridge -.-> Socket
+            
+            Vol1[./workspace] -.-> Bridge
+            Vol1 -.-> Kennel
+            
+            Vol2[./data] -.-> Bridge
+            
+            Vol3[~/.config] -.-> Kennel
+        end
+    end
+    
+    Manager --> Socket
+    style Bridge fill:#e1f5fe,stroke:#01579b
+    style Kennel fill:#fff3e0,stroke:#ef6c00
+```
 
 ### Container Communication
 
@@ -188,14 +327,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 
 ### Kennel Entrypoint
 
-The Kennel container uses a custom entrypoint (`kennel/entrypoint.sh`) that:
-
-1. Checks for `GH_TOKEN` environment variable
-2. Configures `gh` CLI authentication from the token
-3. Sets git identity to match the GitHub account
-4. Then runs the CMD (`tail -f /dev/null` to keep alive)
-
-This enables `workspace_sync` and `workspace_create` to push to GitHub.
+**Kennel Entrypoint:** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that enables `workspace_sync` and `workspace_create` to push to GitHub.
 
 ### Volume Mounts
 

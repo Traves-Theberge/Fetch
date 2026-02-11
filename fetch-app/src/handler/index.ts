@@ -203,7 +203,21 @@ export async function handleMessage(
     }
 
     // Process with agent
-    const response = await processMessage(message, session, onProgress);
+    // Add a "thinking" message if it takes more than 3 seconds on the first try
+    let initialSent = false;
+    const thinkingTimer = setTimeout(async () => {
+      if (!initialSent && onProgress) {
+        const { generateProgressMessage } = await import('../agent/core.js');
+        await onProgress(generateProgressMessage(message, 1));
+        initialSent = true;
+      }
+    }, 3000);
+
+    const response = await processMessage(message, session, (text) => {
+      initialSent = true; // Any progress (even from retry) suppresses the initial timer
+      return onProgress ? onProgress(text) : Promise.resolve();
+    });
+    clearTimeout(thinkingTimer);
 
     // Build response array
     const responses = buildResponses(response);

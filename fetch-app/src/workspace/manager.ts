@@ -1236,13 +1236,18 @@ export class WorkspaceManager extends EventEmitter {
    */
   async listPullRequests(
     wsPath: string,
-    state = 'open'
+    state = 'open',
+    repo?: string,
+    limit = 10
   ): Promise<Array<{ number: number; title: string; state: string; url: string; author: string }>> {
     if (!await this.isGitHubAvailable()) {
       throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
     }
 
-    const args = ['pr', 'list', '--state', state, '--json', 'number,title,state,url,author', '--limit', '10'];
+    const args = ['pr', 'list', '--state', state, '--json', 'number,title,state,url,author', '--limit', limit.toString()];
+    if (repo) {
+      args.push('--repo', repo);
+    }
     const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
 
     if (result.exitCode !== 0) {
@@ -1261,17 +1266,21 @@ export class WorkspaceManager extends EventEmitter {
    */
   async viewPullRequest(
     wsPath: string,
-    prNumber: number
-  ): Promise<Record<string, unknown>> {
+    number: number,
+    repo?: string
+  ): Promise<any> {
     if (!await this.isGitHubAvailable()) {
       throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
     }
 
-    const args = ['pr', 'view', String(prNumber), '--json', 'number,title,body,state,url,author,reviews,comments,mergeable,additions,deletions,changedFiles'];
+    const args = ['pr', 'view', number.toString(), '--json', 'number,title,body,state,url,author,createdAt,updatedAt,baseRefName,headRefName,isDraft,mergeable,commits,comments,reviews'];
+    if (repo) {
+      args.push('--repo', repo);
+    }
     const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
 
     if (result.exitCode !== 0) {
-      throw new Error(`Failed to view PR #${prNumber}: ${result.stderr || result.stdout}`);
+      throw new Error(`Failed to view PR #${number}: ${result.stderr || result.stdout}`);
     }
 
     try {

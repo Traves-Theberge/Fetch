@@ -1,17 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Fetch Documentation</title>
   <link rel="stylesheet" href="assets/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
+
 <body class="dark">
   <!-- Mobile Menu Toggle -->
   <button class="mobile-menu-toggle" onclick="toggleSidebar()" aria-label="Toggle menu">☰</button>
-  
+
   <!-- Sidebar Overlay (mobile) -->
   <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
@@ -27,109 +29,106 @@
           </div>
         </a>
       </div>
-      
+
       <div class="search-container">
-        <input 
-          type="text" 
-          class="search-input" 
-          placeholder="Search docs..." 
-          id="searchInput"
-          onkeyup="filterNav()"
-        >
+        <input type="text" class="search-input" placeholder="Search docs..." id="searchInput" onkeyup="filterNav()">
       </div>
-      
+
       <nav class="sidebar-nav">
+        <!-- Getting Started -->
         <div class="nav-section">
           <div class="nav-section-title">Getting Started</div>
           <ul class="nav-list">
             <li class="nav-item">
               <a href="#" class="nav-link active" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
-                <span class="nav-link-icon">📖</span>
-                Overview
+                <span class="nav-link-icon">📖</span> Overview
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="SETUP_GUIDE.md" onclick="loadDoc('SETUP_GUIDE.md'); return false;">
-                <span class="nav-link-icon">🚀</span>
-                Setup Guide
+                <span class="nav-link-icon">🚀</span> Setup Guide
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="COMMANDS.md" onclick="loadDoc('COMMANDS.md'); return false;">
-                <span class="nav-link-icon">📱</span>
-                Command Reference
+                <span class="nav-link-icon">📱</span> Command Reference
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="TUI_GUIDE.md" onclick="loadDoc('TUI_GUIDE.md'); return false;">
-                <span class="nav-link-icon">🎛️</span>
-                TUI Manager
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
-                <span class="nav-link-icon">📝</span>
-                Changelog
+                <span class="nav-link-icon">🎛️</span> TUI Manager
               </a>
             </li>
           </ul>
         </div>
-        
+
+        <!-- Using Fetch -->
         <div class="nav-section">
-          <div class="nav-section-title">Documentation</div>
+          <div class="nav-section-title">Using Fetch</div>
           <ul class="nav-list">
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md" onclick="loadDoc('DOCUMENTATION.md'); return false;">
-                <span class="nav-link-icon">📚</span>
-                Full Documentation
+              <a href="#" class="nav-link" data-doc="CONFIGURATION.md"
+                onclick="loadDoc('CONFIGURATION.md'); return false;">
+                <span class="nav-link-icon">⚙️</span> Configuration
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="ARCHITECTURE.md" onclick="loadDoc('ARCHITECTURE.md'); return false;">
-                <span class="nav-link-icon">🏗️</span>
-                Architecture
+              <a href="#" class="nav-link" data-doc="AGENTIC_PLAN.md"
+                onclick="loadDoc('AGENTIC_PLAN.md'); return false;">
+                <span class="nav-link-icon">🤖</span> Agentic Workflow
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="API_REFERENCE.md" onclick="loadDoc('API_REFERENCE.md'); return false;">
-                <span class="nav-link-icon">🔌</span>
-                API Reference
+              <a href="#" class="nav-link" data-doc="CONTEXT_PIPELINE.md"
+                onclick="loadDoc('CONTEXT_PIPELINE.md'); return false;">
+                <span class="nav-link-icon">🧠</span> Context Pipeline
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="AGENTIC_PLAN.md" onclick="loadDoc('AGENTIC_PLAN.md'); return false;">
-                <span class="nav-link-icon">🤖</span>
-                Agentic Architecture
+              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
+                <span class="nav-link-icon">📝</span> Changelog
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Internals (Advanced) -->
+        <div class="nav-section">
+          <div class="nav-section-title">Internals (Advanced)</div>
+          <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="ARCHITECTURE.md"
+                onclick="loadDoc('ARCHITECTURE.md'); return false;">
+                <span class="nav-link-icon">🏗️</span> Architecture
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CONFIGURATION.md" onclick="loadDoc('CONFIGURATION.md'); return false;">
-                <span class="nav-link-icon">⚙️</span>
-                Configuration
+              <a href="#" class="nav-link" data-doc="STATE_MANAGEMENT.md"
+                onclick="loadDoc('STATE_MANAGEMENT.md'); return false;">
+                <span class="nav-link-icon">🗄️</span> State Management
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="API_REFERENCE.md"
+                onclick="loadDoc('API_REFERENCE.md'); return false;">
+                <span class="nav-link-icon">🔌</span> API Reference
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="GLOSSARY.md" onclick="loadDoc('GLOSSARY.md'); return false;">
-                <span class="nav-link-icon">📖</span>
-                Glossary
+                <span class="nav-link-icon">📖</span> Glossary
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="STATE_MANAGEMENT.md" onclick="loadDoc('STATE_MANAGEMENT.md'); return false;">
-                <span class="nav-link-icon">🗄️</span>
-                State Management
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CONTEXT_PIPELINE_PLAN.md" onclick="loadDoc('CONTEXT_PIPELINE_PLAN.md'); return false;">
-                <span class="nav-link-icon">🧠</span>
-                Context Pipeline Plan
+              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md"
+                onclick="loadDoc('DOCUMENTATION.md'); return false;">
+                <span class="nav-link-icon">📚</span> Full Documentation
               </a>
             </li>
           </ul>
         </div>
       </nav>
-      
+
       <div class="sidebar-footer">
         <button class="theme-toggle" onclick="toggleTheme()">
           <span id="themeLabel">🌙 Dark Mode</span>
@@ -163,24 +162,34 @@
       currentDoc = filename;
       const content = document.getElementById('content');
       content.innerHTML = '<div class="loading">Loading documentation...</div>';
-      
+
       try {
         const response = await fetch(`markdown/${filename}`);
         if (!response.ok) throw new Error('Document not found');
-        
+
         let markdown = await response.text();
-        
-        // Convert diagram placeholders to div containers
-        markdown = markdown.replace(
-          /<!-- DIAGRAM:(\w+) -->/g,
-          (match, type) => `<div class="diagram-container" id="diagram-${type}-${Date.now()}" data-diagram="${type}"></div>`
-        );
-        
+
+        // Render Markdown
         content.innerHTML = marked.parse(markdown);
-        
-        // Initialize D3 diagrams
-        setTimeout(() => FetchDiagrams.initAll(), 50);
-        
+
+        // Initialize Mermaid
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          securityLevel: 'loose',
+        });
+
+        const mermaidNodes = document.querySelectorAll('.language-mermaid');
+        mermaidNodes.forEach(node => {
+          if (node.parentElement && node.parentElement.tagName === 'PRE') {
+            node.parentElement.classList.add('mermaid-wrapper');
+          }
+        });
+
+        await mermaid.run({
+          nodes: mermaidNodes,
+        });
+
         // Update active nav link
         document.querySelectorAll('.nav-link').forEach(link => {
           link.classList.remove('active');
@@ -188,20 +197,22 @@
             link.classList.add('active');
           }
         });
-        
+
         // Close mobile sidebar
         document.querySelector('.sidebar').classList.remove('open');
         document.querySelector('.sidebar-overlay').classList.remove('open');
-        
+
         // Scroll to top
         window.scrollTo(0, 0);
-        
+
         // Update URL hash
         window.location.hash = filename.replace('.md', '');
       } catch (error) {
+        console.error(error);
         content.innerHTML = `
-          <h1>Document Not Found</h1>
+          <h1>Error Loading Document</h1>
           <p>Sorry, the requested document could not be loaded.</p>
+          <pre style="background: rgba(255,0,0,0.1); padding: 10px; border-radius: 4px;">${error.message}</pre>
           <p><a href="#" onclick="loadDoc('README.md'); return false;">Return to Overview</a></p>
         `;
       }
@@ -211,10 +222,10 @@
     function toggleTheme() {
       isDark = !isDark;
       document.body.classList.toggle('dark', isDark);
-      
+
       const label = document.getElementById('themeLabel');
       const icon = document.getElementById('themeIcon');
-      
+
       if (isDark) {
         label.textContent = '🌙 Dark Mode';
         icon.textContent = '☀️';
@@ -222,12 +233,12 @@
         label.textContent = '☀️ Light Mode';
         icon.textContent = '🌙';
       }
-      
+
       // Persist preference
       localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
-      
-      // Refresh diagrams with new colors
-      FetchDiagrams.refresh();
+
+      // No reload needed as theme is static
+      // loadDoc(currentDoc);
     }
 
     // Toggle mobile sidebar
@@ -240,7 +251,7 @@
     function filterNav() {
       const query = document.getElementById('searchInput').value.toLowerCase();
       const links = document.querySelectorAll('.nav-link');
-      
+
       links.forEach(link => {
         const text = link.textContent.toLowerCase();
         const item = link.closest('.nav-item');
@@ -258,7 +269,7 @@
         document.getElementById('themeLabel').textContent = '☀️ Light Mode';
         document.getElementById('themeIcon').textContent = '🌙';
       }
-      
+
       // Check URL hash for initial doc
       const hash = window.location.hash.slice(1);
       if (hash) {
@@ -278,4 +289,5 @@
   </script>
   <script src="assets/diagrams.js"></script>
 </body>
+
 </html>

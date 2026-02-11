@@ -16,7 +16,9 @@ These files are the single source of truth for Fetch's soul and the user's role.
   - **Communication Style**: Tone spectrum and formatting rules.
 - **[ALPHA.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/ALPHA.md)**: Defines who the User is.
   - User name, preferences, and authorization level.
-- **[AGENTS.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/AGENTS.md)**: Technical metadata for the Pack members (Claude, Gemini, Copilot).
+- **[AGENTS.md](file:///home/traves/Development/1. Personal/Fetch/data/identity/AGENTS.md)**: **DEPRECATED**.
+- **[The Pack](file:///home/traves/Development/1. Personal/Fetch/data/agents/)**: Individual agent profiles are now located in `data/agents/*.md`.
+  - Each file (e.g., `claude.md`, `gemini.md`) contains the agent's specific prompt and configuration.
 
 ### 2. Identity Loader (`identity/loader.ts`)
 
