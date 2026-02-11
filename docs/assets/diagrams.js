@@ -1885,3 +1885,174 @@ const FetchDiagrams = {
 
 // Export for use
 window.FetchDiagrams = FetchDiagrams;
+
+
+// =============================================================================
+// Mermaid Diagram Controls — Zoom, Pan, Fullscreen
+// =============================================================================
+
+(function () {
+  'use strict';
+
+  const ZOOM_STEP = 0.25;
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 4;
+  const ZOOM_DEFAULT = 1;
+
+  const ICONS = {
+    zoomIn: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+    zoomOut: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+    reset: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>',
+    fullscreen: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
+    exitFullscreen: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></svg>',
+  };
+
+  function enhanceMermaidDiagram(wrapper) {
+    if (wrapper.dataset.mermaidEnhanced) return;
+    wrapper.dataset.mermaidEnhanced = 'true';
+
+    const svg = wrapper.querySelector('svg');
+    if (!svg) return;
+
+    // Create container
+    const container = document.createElement('div');
+    container.className = 'mermaid-container';
+
+    // Viewport
+    const viewport = document.createElement('div');
+    viewport.className = 'mermaid-viewport';
+
+    // Inner (transforms applied here)
+    const inner = document.createElement('div');
+    inner.className = 'mermaid-inner';
+    inner.appendChild(svg);
+    viewport.appendChild(inner);
+
+    // Toolbar
+    const toolbar = document.createElement('div');
+    toolbar.className = 'mermaid-toolbar';
+
+    const zoomLabel = document.createElement('span');
+    zoomLabel.className = 'mermaid-zoom-label';
+    zoomLabel.textContent = '100%';
+
+    let zoom = ZOOM_DEFAULT;
+    let panX = 0;
+    let panY = 0;
+
+    function applyTransform() {
+      inner.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + zoom + ')';
+      zoomLabel.textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function setZoom(newZoom, resetPan) {
+      zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, newZoom));
+      if (resetPan) { panX = 0; panY = 0; }
+      applyTransform();
+    }
+
+    function createBtn(icon, title, onClick) {
+      var btn = document.createElement('button');
+      btn.className = 'mermaid-btn';
+      btn.innerHTML = icon;
+      btn.title = title;
+      btn.setAttribute('aria-label', title);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        onClick();
+      });
+      return btn;
+    }
+
+    var btnZoomOut = createBtn(ICONS.zoomOut, 'Zoom out', function () { setZoom(zoom - ZOOM_STEP); });
+    var btnZoomIn = createBtn(ICONS.zoomIn, 'Zoom in', function () { setZoom(zoom + ZOOM_STEP); });
+    var btnReset = createBtn(ICONS.reset, 'Reset zoom', function () { setZoom(ZOOM_DEFAULT, true); });
+    var btnFullscreen = createBtn(ICONS.fullscreen, 'Fullscreen', function () { toggleFullscreen(container, btnFullscreen); });
+
+    toolbar.appendChild(btnZoomOut);
+    toolbar.appendChild(zoomLabel);
+    toolbar.appendChild(btnZoomIn);
+    toolbar.appendChild(btnReset);
+    toolbar.appendChild(btnFullscreen);
+
+    container.appendChild(toolbar);
+    container.appendChild(viewport);
+
+    wrapper.innerHTML = '';
+    wrapper.appendChild(container);
+
+    // Mouse wheel zoom
+    viewport.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setZoom(zoom + delta);
+    }, { passive: false });
+
+    // Mouse drag panning
+    var isDragging = false;
+    var dragStartX = 0, dragStartY = 0;
+    var panStartX = 0, panStartY = 0;
+
+    viewport.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      panStartX = panX;
+      panStartY = panY;
+      viewport.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+      if (!isDragging) return;
+      panX = panStartX + (e.clientX - dragStartX);
+      panY = panStartY + (e.clientY - dragStartY);
+      applyTransform();
+    });
+
+    document.addEventListener('mouseup', function () {
+      if (isDragging) {
+        isDragging = false;
+        viewport.style.cursor = '';
+      }
+    });
+  }
+
+  function toggleFullscreen(container, btn) {
+    var isFS = container.classList.contains('mermaid-fullscreen');
+
+    if (isFS) {
+      container.classList.remove('mermaid-fullscreen');
+      btn.innerHTML = ICONS.fullscreen;
+      btn.title = 'Fullscreen';
+      document.body.style.overflow = '';
+      var backdrop = document.querySelector('.mermaid-backdrop');
+      if (backdrop) backdrop.remove();
+    } else {
+      var backdrop = document.createElement('div');
+      backdrop.className = 'mermaid-backdrop';
+      backdrop.addEventListener('click', function () { toggleFullscreen(container, btn); });
+      document.body.appendChild(backdrop);
+      container.classList.add('mermaid-fullscreen');
+      btn.innerHTML = ICONS.exitFullscreen;
+      btn.title = 'Exit fullscreen (Esc)';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  // ESC to close fullscreen
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var fs = document.querySelector('.mermaid-fullscreen');
+      if (fs) {
+        var btn = fs.querySelector('.mermaid-toolbar .mermaid-btn:last-child');
+        toggleFullscreen(fs, btn);
+      }
+    }
+  });
+
+  window.initDiagramControls = function () {
+    document.querySelectorAll('.mermaid-wrapper').forEach(enhanceMermaidDiagram);
+  };
+})();

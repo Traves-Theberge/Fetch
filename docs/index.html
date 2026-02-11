@@ -246,6 +246,11 @@
           });
         }
 
+        // Enhance mermaid diagrams with zoom/pan/fullscreen controls
+        if (typeof window.initDiagramControls === 'function') {
+          window.initDiagramControls();
+        }
+
         // Post-processing
         convertAdmonitions();
         addHeadingAnchors();

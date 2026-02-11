@@ -1095,11 +1095,145 @@ body {
 .mermaid-wrapper {
   background: transparent;
   border: none;
+  padding: 0;
+  margin: var(--spacing-xl) 0;
 }
 
 .mermaid-wrapper code {
   background: transparent;
   border: none;
+}
+
+/* ========================================
+   Mermaid Diagram Controls
+   ======================================== */
+
+.mermaid-container {
+  position: relative;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.mermaid-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: hsl(var(--muted));
+  border-bottom: 1px solid hsl(var(--border));
+  user-select: none;
+}
+
+.mermaid-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius-md);
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mermaid-btn:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--border-hover));
+}
+
+.mermaid-btn:active {
+  transform: scale(0.95);
+}
+
+.mermaid-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.mermaid-zoom-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  min-width: 3rem;
+  text-align: center;
+  font-weight: 500;
+}
+
+.mermaid-viewport {
+  overflow: hidden;
+  cursor: grab;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+.mermaid-viewport:active {
+  cursor: grabbing;
+}
+
+.mermaid-inner {
+  transform-origin: center center;
+  transition: transform 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mermaid-inner svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Fullscreen mode */
+.mermaid-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 999;
+  backdrop-filter: blur(4px);
+}
+
+.mermaid-fullscreen {
+  position: fixed;
+  inset: var(--spacing-2xl);
+  z-index: 1000;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.mermaid-fullscreen .mermaid-viewport {
+  flex: 1;
+  min-height: 0;
+}
+
+.mermaid-fullscreen .mermaid-toolbar {
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+}
+
+@media (max-width: 768px) {
+  .mermaid-fullscreen {
+    inset: var(--spacing-sm);
+  }
+
+  .mermaid-toolbar {
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .mermaid-btn {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 /* ========================================
