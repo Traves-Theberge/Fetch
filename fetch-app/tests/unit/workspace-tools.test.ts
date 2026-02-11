@@ -81,11 +81,11 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceList({});
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.count).toBe(2);
-      expect(output.workspaces).toHaveLength(2);
-      expect(output.activeWorkspace).toBe('my-app');
+      expect(result.output).toContain('2 workspaces');
+      expect(result.output).toContain('my-app');
+      expect(result.output).toContain('active');
       expect(result.metadata?.count).toBe(2);
+      expect(result.metadata?.activeWorkspace).toBe('my-app');
     });
 
     it('should return empty list when no workspaces exist', async () => {
@@ -97,9 +97,8 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceList({});
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.count).toBe(0);
-      expect(output.workspaces).toHaveLength(0);
+      expect(result.output).toContain('0 workspaces');
+      expect(result.metadata?.count).toBe(0);
     });
 
     it('should handle manager errors gracefully', async () => {
@@ -129,11 +128,9 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceSelect({ name: 'my-project' });
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.name).toBe('my-project');
-      expect(output.isActive).toBe(true);
-      expect(output.git.branch).toBe('main');
-      expect(result.metadata?.workspace).toBe('my-project');
+      expect(result.output).toContain('Switched to my-project');
+      expect(result.output).toContain('main');
+      expect(result.metadata?.name).toBe('my-project');
       expect(mockSelectWorkspace).toHaveBeenCalledWith('my-project');
     });
 
@@ -184,12 +181,11 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceStatus({ name: 'my-app' });
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.name).toBe('my-app');
-      expect(output.git.branch).toBe('feature-x');
-      expect(output.git.dirty).toBe(true);
-      expect(output.git.modifiedFiles).toEqual(['src/index.ts']);
-      expect(result.metadata?.dirty).toBe(true);
+      expect(result.output).toContain('my-app');
+      expect(result.output).toContain('feature-x');
+      expect(result.output).toContain('1 modified');
+      expect(result.output).toContain('1 untracked');
+      expect(result.metadata?.git?.dirty).toBe(true);
     });
 
     it('should use active workspace when name is not specified', async () => {
@@ -241,12 +237,9 @@ describe('Workspace Tools', () => {
       });
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.name).toBe('new-project');
-      expect(output.message).toContain('Created workspace "new-project"');
-      expect(output.message).toContain('template "node"');
-      expect(result.metadata?.workspace).toBe('new-project');
-      expect(result.metadata?.template).toBe('node');
+      expect(result.output).toContain('Created new-project');
+      expect(result.output).toContain('node');
+      expect(result.metadata?.name).toBe('new-project');
 
       expect(mockCreateWorkspace).toHaveBeenCalledWith({
         name: 'new-project',
@@ -300,9 +293,7 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceDelete({ name: 'old-project', confirm: true });
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.deleted).toBe('old-project');
-      expect(output.message).toContain('permanently deleted');
+      expect(result.output).toContain('Deleted workspace old-project');
       expect(mockDeleteWorkspace).toHaveBeenCalledWith('old-project');
     });
 
@@ -348,10 +339,9 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspaceSync({});
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.commitHash).toBe('abc1234');
-      expect(output.pushed).toBe(true);
-      expect(output.message).toContain('Pushed changes to GitHub');
+      expect(result.output).toContain('Committed 3 files');
+      expect(result.output).toContain('abc1234');
+      expect(result.output).toContain('pushed to');
       expect(result.metadata?.pushed).toBe(true);
     });
 
@@ -432,9 +422,9 @@ describe('Workspace Tools', () => {
       const result = await handleWorkspacePublish({});
 
       expect(result.success).toBe(true);
-      const output = JSON.parse(result.output);
-      expect(output.repoUrl).toBe('https://github.com/user/my-app');
-      expect(output.visibility).toBe('private'); // default
+      expect(result.output).toContain('Published my-app');
+      expect(result.output).toContain('https://github.com/user/my-app');
+      expect(result.output).toContain('private');
       expect(result.metadata?.repoUrl).toBe('https://github.com/user/my-app');
     });
 

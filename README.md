@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.4.0
+  F E T C H    v4.5.0
 ```
 
 **Send coding tasks via WhatsApp. AI agents execute them in Docker.**
@@ -26,7 +26,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/Tests-307_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-355_passing-brightgreen)]()
 
 </div>
 
@@ -105,7 +105,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Four Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode with process lifecycle management
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context
-- **39 Tunable Parameters** &mdash; `FETCH_*` env vars control the entire pipeline, no code changes needed
+- **42 Tunable Parameters** &mdash; `FETCH_*` env vars control the entire pipeline, no code changes needed
 
 </td>
 <td width="50%" valign="top">
@@ -131,7 +131,8 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 - **Dynamic Identity** &mdash; Hot-reloaded personality from Markdown files
 - **Crash Recovery** &mdash; State persisted to SQLite, resumes after restart
-- **10 Project Types** &mdash; Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET
+- **10 Project Types** &mdash; Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET with framework, package manager, and test runner profiling
+- **Narrative Tool Outputs** &mdash; All tool results are human-readable text for better LLM reasoning, with structured metadata for state sync
 - **Docker Hardening** &mdash; Healthchecks, resource limits, log rotation, shell injection prevention
 
 </td>
@@ -234,7 +235,7 @@ npm install          # install dependencies
 npm run dev          # run with ts-node (ESM)
 npm run build        # compile TypeScript to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (307 passing)
+npm run test:run     # all tests (355 passing)
 npm run test:unit    # unit tests only
 ```
 

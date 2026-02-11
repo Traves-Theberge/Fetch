@@ -38,7 +38,7 @@ The pipeline applies four layers of memory:
 
 ## Project Intelligence
 
-Fetch automatically detects the project type when a workspace is selected to tune its responses (e.g., suggesting `npm test` vs `cargo test`).
+Fetch automatically detects the project type when a workspace is selected, then runs a **project profiler** (`workspace/profiler.ts`) to enrich the detection with framework, package manager, test runner, entry points, and build/test commands.
 
 ### Supported Auto-Detection
 
@@ -51,6 +51,26 @@ Fetch automatically detects the project type when a workspace is selected to tun
 * **Ruby** (`Gemfile`)
 * **PHP** (`composer.json`)
 * **DotNet** (`*.csproj`)
+
+### Project Profiling
+
+After type detection, the profiler builds a `ProjectProfile` with:
+
+| Field | Detection Method | Example |
+|-------|-----------------|---------|
+| `framework` | Indicator files + manifest deps | `nextjs`, `express`, `django`, `fastapi`, `laravel` |
+| `packageManager` | Lock file detection | `pnpm`, `yarn`, `poetry`, `cargo`, `bundler` |
+| `testRunner` | Dev dependency detection | `vitest`, `pytest`, `go test`, `cargo test`, `maven` |
+| `entryPoints` | Per-type candidate list (capped at 3) | `src/index.ts`, `main.py`, `src/main.rs` |
+| `buildCommand` | Manifest scripts or type defaults | `npm run build`, `cargo build`, `go build` |
+| `testCommand` | Derived from test runner | `npx vitest run`, `pytest`, `go test ./...` |
+| `description` | Manifest description field | From package.json, Cargo.toml, pyproject.toml, go.mod |
+
+The profile is injected into the system prompt as a structured workspace context block and passed to harness adapters for task delegation.
+
+### Narrative Tool Outputs
+
+All tool handlers produce human-readable narrative text as their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This replaces the previous `JSON.stringify()` approach and improves LLM reasoning quality.
 
 ## Memory Lifecycle
 

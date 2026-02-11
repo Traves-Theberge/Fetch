@@ -140,13 +140,14 @@ export class TaskIntegration extends EventEmitter {
       // Get timeout from constraints (default 10 min)
       const timeoutMs = task.constraints?.timeoutMs ?? 600000;
 
-      // Execute via harness
+      // Execute via harness (pass profile for goal enrichment)
       const result = await executor.execute(
         task.id,
         agent,
         task.goal,
         workspace.path,
-        timeoutMs
+        timeoutMs,
+        workspace.profile
       );
 
       // Process result

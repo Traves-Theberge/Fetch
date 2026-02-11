@@ -10,6 +10,7 @@
 import { dockerExec } from '../utils/docker.js';
 import { logger } from '../utils/logger.js';
 import { extractSymbols, type SymbolInfo } from './symbols.js';
+import type { ProjectType } from './types.js';
 
 /**
  * Repository map entry for a file
@@ -22,12 +23,28 @@ export interface RepoMapEntry {
 /**
  * Options for repo map generation
  */
+/** File extensions to search per project type */
+const EXTENSION_MAP: Record<ProjectType, string[]> = {
+  node:       ['*.ts', '*.tsx', '*.js', '*.jsx'],
+  typescript: ['*.ts', '*.tsx', '*.js', '*.jsx'],
+  python:     ['*.py'],
+  rust:       ['*.rs'],
+  go:         ['*.go'],
+  java:       ['*.java'],
+  ruby:       ['*.rb'],
+  php:        ['*.php'],
+  dotnet:     ['*.cs', '*.fs'],
+  unknown:    ['*.ts', '*.tsx', '*.js', '*.jsx', '*.py', '*.go', '*.rs', '*.java', '*.rb', '*.php', '*.cs'],
+};
+
 export interface RepoMapOptions {
   maxFiles?: number;
   exclude?: string[];
   maxDepth?: number;
   /** Max output characters to keep the repo map within a predictable token budget */
   maxOutputChars?: number;
+  /** Project type to determine which file extensions to search */
+  projectType?: ProjectType;
 }
 
 /**
@@ -63,17 +80,15 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
         });
     }
 
-    findArgs.push(
-      '-type', 'f',
-      '(', 
-      '-name', '*.ts', '-o', 
-      '-name', '*.tsx', '-o', 
-      '-name', '*.js', '-o', 
-      '-name', '*.jsx', '-o', 
-      '-name', '*.py', '-o', 
-      '-name', '*.go', 
-      ')'
-    );
+    // Build extension filter from project type
+    const extensions = EXTENSION_MAP[options.projectType ?? 'unknown'];
+    const nameArgs: string[] = ['-type', 'f', '('];
+    extensions.forEach((ext, i) => {
+      if (i > 0) nameArgs.push('-o');
+      nameArgs.push('-name', ext);
+    });
+    nameArgs.push(')');
+    findArgs.push(...nameArgs);
 
     // 1. Find relevant files (mostly source files, exclude noise)
     const findResult = await dockerExec('find', findArgs, { cwd: workspacePath });

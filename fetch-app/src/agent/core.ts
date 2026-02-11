@@ -567,18 +567,20 @@ async function handleWithTools(
       // SYNC SESSION STATE BASED ON TOOLS
       if (toolName === 'workspace_select' && result.success) {
         try {
-          const workspace = JSON.parse(result.output);
+          const workspace = result.metadata as Record<string, unknown> | undefined;
           if (!workspace?.name || !workspace?.path) {
             logger.warn('workspace_select returned incomplete data, skipping session sync');
           } else {
+            const profile = workspace.profile as Record<string, unknown> | undefined;
             session.currentProject = {
-              name: workspace.name,
-              path: workspace.path,
-              type: workspace.projectType,
-              mainFiles: [], // List might be empty initially
-              gitBranch: workspace.git?.branch || null,
+              name: workspace.name as string,
+              path: workspace.path as string,
+              type: ((workspace.projectType as string) || 'unknown') as import('../workspace/types.js').ProjectType,
+              mainFiles: (profile?.entryPoints as string[]) || [],
+              profile: profile as import('../workspace/types.js').ProjectProfile | undefined,
+              gitBranch: (workspace.git as Record<string, unknown>)?.branch as string || null,
               lastCommit: null,
-              hasUncommitted: workspace.git?.dirty || false,
+              hasUncommitted: (workspace.git as Record<string, unknown>)?.dirty as boolean || false,
               refreshedAt: new Date().toISOString()
             };
             session.repoMap = null; // Clear old map
@@ -601,16 +603,18 @@ async function handleWithTools(
       // Sync session after workspace_create too
       if (toolName === 'workspace_create' && result.success) {
         try {
-          const created = JSON.parse(result.output);
+          const created = result.metadata as Record<string, unknown> | undefined;
           if (!created?.name || !created?.path) {
             logger.warn('workspace_create returned incomplete data, skipping session sync');
           } else {
+            const profile = created.profile as Record<string, unknown> | undefined;
             session.currentProject = {
-              name: created.name,
-              path: created.path,
-              type: created.projectType || 'unknown',
-              mainFiles: [],
-              gitBranch: created.git?.branch || 'main',
+              name: created.name as string,
+              path: created.path as string,
+              type: ((created.projectType as string) || 'unknown') as import('../workspace/types.js').ProjectType,
+              mainFiles: (profile?.entryPoints as string[]) || [],
+              profile: profile as import('../workspace/types.js').ProjectProfile | undefined,
+              gitBranch: (created.git as Record<string, unknown>)?.branch as string || 'main',
               lastCommit: null,
               hasUncommitted: false,
               refreshedAt: new Date().toISOString()
@@ -634,11 +638,11 @@ async function handleWithTools(
       // Sync after task_create
       if (toolName === 'task_create' && result.success) {
         try {
-          const taskResult = JSON.parse(result.output);
+          const taskResult = result.metadata as Record<string, unknown> | undefined;
           if (!taskResult?.taskId) {
             logger.warn('task_create returned incomplete data, skipping session sync');
           } else {
-            session.activeTaskId = taskResult.taskId;
+            session.activeTaskId = taskResult.taskId as import('../task/types.js').TaskId;
             await sManager.updateSession(session);
           }
         } catch (e) {
@@ -884,33 +888,46 @@ export async function frameTaskGoal(
 export function generateProgressMessage(userMessage: string, attempt: number = 1): string {
   const lower = userMessage.toLowerCase();
 
-  // Action detection
-  let action = "fetching that for you";
-  if (lower.includes('status') || lower.includes('how')) action = "sniffing out the status";
-  else if (lower.includes('fix') || lower.includes('bug') || lower.includes('error')) action = "hunting down that bug";
-  else if (lower.includes('create') || lower.includes('new') || lower.includes('build')) action = "building something new";
-  else if (lower.includes('git') || lower.includes('commit') || lower.includes('push')) action = "burying your changes in git";
-  else if (lower.includes('test')) action = "running some tests for you";
-
-  const prefixes = [
-    "Woof!",
-    "Bark!",
-    "Awoo!",
-    "Wagging my tail...",
-    "Fetch!"
+  // Action detection — expanded keyword groups with multiple phrasings each
+  const actionPools: Array<{ keywords: string[]; phrases: string[] }> = [
+    { keywords: ['status', 'how', 'check'], phrases: ['sniffing out the status', 'checking on things', 'looking into that'] },
+    { keywords: ['fix', 'bug', 'error', 'broken'], phrases: ['hunting down that bug', 'tracking the issue', 'digging into the problem'] },
+    { keywords: ['create', 'new', 'build', 'add', 'scaffold'], phrases: ['building something new', 'putting that together', 'setting things up'] },
+    { keywords: ['git', 'commit', 'push', 'sync'], phrases: ['wrangling your git changes', 'syncing things up', 'handling the version control'] },
+    { keywords: ['test', 'spec', 'coverage'], phrases: ['running some tests', 'checking the test suite', 'making sure things pass'] },
+    { keywords: ['deploy', 'publish', 'release'], phrases: ['preparing the deployment', 'getting things ready to ship', 'packaging it up'] },
+    { keywords: ['refactor', 'clean', 'improve'], phrases: ['tidying up the code', 'polishing things up', 'cleaning house'] },
+    { keywords: ['search', 'find', 'look', 'where'], phrases: ['sniffing around for that', 'tracking it down', 'searching the codebase'] },
   ];
 
-  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  let action = 'fetching that for you';
+  for (const pool of actionPools) {
+    if (pool.keywords.some(kw => lower.includes(kw))) {
+      action = pool.phrases[Math.floor(Math.random() * pool.phrases.length)];
+      break;
+    }
+  }
+
+  const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
   if (attempt === 1) {
-    return `${prefix} I'm ${action}, just a second! 🐕🦴`;
+    const initial = [
+      `On it! I'm ${action} 🐕`,
+      `Working on it - ${action}! 🦴`,
+      `Let me handle that - ${action} now 🐾`,
+      `Woof! Just a sec while I'm ${action}`,
+      `Got it, ${action}! 🐕`,
+    ];
+    return pick(initial);
   }
 
   const retries = [
-    `${prefix} Still ${action}, almost there! 🐾`,
-    `${prefix} One more second while I'm ${action}... 🐕`,
-    `${prefix} I'm determined! Still ${action}! 🦴`
+    `Still ${action}, almost there! 🐾`,
+    `One more moment - ${action}...`,
+    `Hanging in there! Still ${action} 🐕`,
+    `Making progress on this - ${action}`,
+    `Nearly done, just finishing up! 🦴`,
   ];
 
-  return retries[Math.min(attempt - 2, retries.length - 1)];
+  return pick(retries);
 }

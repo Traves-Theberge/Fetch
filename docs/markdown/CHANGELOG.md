@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-02-11
+
+### Project Intelligence, Hybrid Notifications, Narrative Tool Outputs
+
+Three work streams that make Fetch smarter about the projects it works on, more natural in how it communicates, and more LLM-friendly in how tools report results.
+
+#### Work Stream A: Project Detection Enrichment
+
+- **Project profiler** — New `workspace/profiler.ts` module detects framework, package manager, test runner, entry points, and build/test commands for all 10 project types
+- **Profile-aware system prompt** — Shows framework, test/build commands, and entry points instead of just "Type: node"
+- **Harness project context** — All 4 adapters receive project context in the goal
+- **Extended symbol extraction** — Added Rust, Java, Ruby, PHP, .NET patterns
+- **Dynamic repo-map extensions** — File extensions filtered per project type
+
+#### Work Stream B: Hybrid LLM Notifications
+
+- **Notification formatter** — New `agent/notifications.ts` with LLM path (completion/failure) and template path (started/progress)
+- **Identity voice injection** — Notifications match the persona voice tone
+- **Expanded progress messages** — 8+ action groups, 10+ prefix variations
+
+#### Work Stream C: Narrative Tool Outputs
+
+- **All 21 tool handlers** converted from `JSON.stringify()` to human-readable narrative text
+- **Metadata migration** — Structured data moved to `result.metadata` for session sync
+
+#### Tests (48 new, 355 total)
+
+---
+
+## [4.4.0] - 2026-02-11
+
+### OpenCode Harness, Memory System Overhaul, TUI Cleanup
+
+- **OpenCode harness** — 4th AI harness adapter, Go-based, OpenRouter-native
+- **Structured memory** — BM25-style keyword recall, chained compaction summaries
+- **Tool result compression** — Large outputs truncated before session persistence
+- **TUI toggles** — Boolean checkbox fields for feature flags
+
+---
+
+## [4.3.1] - 2026-02-11
+
+### Conversational & Tool Response Quality Improvements
+
+- **Fixed double truncation** — WhatsApp formatter is now single source of truth for message length
+- **Error sanitization** — API keys, paths, and stack traces stripped from user-facing errors
+- **Tool result summaries** — `web_fetch` and `web_search` provide concise summaries
+- **Task completion enrichment** — File change counts and duration in notifications
+
+---
+
 ## [4.3.0] - 2026-02-11
 
 ### 🛡️ Comprehensive Codebase Hardening — 50 Issues Resolved

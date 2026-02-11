@@ -139,6 +139,55 @@ export interface Workspace {
 
   /** Primary language (from project detection) */
   language?: string;
+
+  /** Rich project profile with framework, package manager, etc. */
+  profile?: ProjectProfile;
+}
+
+// ============================================================================
+// Project Profile
+// ============================================================================
+
+/**
+ * Rich project profile for language-aware context
+ *
+ * Enriches basic ProjectType detection with framework, package manager,
+ * test runner, entry points, and build/test commands.
+ *
+ * @example
+ * ```typescript
+ * const profile: ProjectProfile = {
+ *   type: 'typescript',
+ *   language: 'TypeScript',
+ *   framework: 'nextjs',
+ *   packageManager: 'pnpm',
+ *   testRunner: 'vitest',
+ *   testCommand: 'pnpm vitest run',
+ *   buildCommand: 'pnpm build',
+ *   entryPoints: ['src/index.ts'],
+ *   description: 'A Next.js application',
+ * };
+ * ```
+ */
+export interface ProjectProfile {
+  /** Primary detected project type */
+  type: ProjectType;
+  /** Human-readable primary language */
+  language: string;
+  /** Detected framework (e.g., 'nextjs', 'express', 'fastapi', 'django', 'rails') */
+  framework?: string;
+  /** Detected package manager (e.g., 'npm', 'yarn', 'pnpm', 'pip', 'poetry', 'cargo') */
+  packageManager?: string;
+  /** Detected test runner (e.g., 'vitest', 'jest', 'pytest', 'go test', 'cargo test') */
+  testRunner?: string;
+  /** Detected entry points */
+  entryPoints: string[];
+  /** Project description from manifest file */
+  description?: string;
+  /** Build command if detected */
+  buildCommand?: string;
+  /** Test command if detected */
+  testCommand?: string;
 }
 
 // ============================================================================

@@ -29,7 +29,7 @@ import {
   type TaskRespondInput,
 } from '../validation/tools.js';
 import type { ToolResult, ToolContext } from './types.js';
-import type { Task, TaskId } from '../task/types.js';
+import type { TaskId } from '../task/types.js';
 import { logger } from '../utils/logger.js';
 
 // ============================================================================
@@ -160,11 +160,12 @@ export async function handleTaskCreate(
       logger.error(`Task ${task.id} execution error`, err);
     });
 
-    const taskData = formatTaskOutput(task);
+    const output = `Created task ${task.id}: '${task.goal.length > 60 ? task.goal.slice(0, 57) + '...' : task.goal}' -> ${task.agent} in ${task.workspace}`;
 
     return {
       success: true,
-      output: JSON.stringify(taskData, null, 2),
+      output,
+      summary: `Created task ${task.id}`,
       duration: Date.now() - start,
       metadata: {
         taskId: task.id,
@@ -264,11 +265,25 @@ export async function handleTaskStatus(
       };
     }
 
-    const taskData = formatTaskOutput(task);
+    // Build narrative output for LLM
+    const parts: string[] = [`Task ${task.id} ${task.status}`];
+    if (task.startedAt) {
+      const elapsed = Math.round((Date.now() - new Date(task.startedAt).getTime()) / 1000);
+      parts[0] += ` (${elapsed}s)`;
+    }
+    parts.push(`'${task.goal.length > 50 ? task.goal.slice(0, 47) + '...' : task.goal}'`);
+
+    const latestProgress = task.progress.length > 0 ? task.progress[task.progress.length - 1] : undefined;
+    if (latestProgress?.message) parts.push(`Last: ${latestProgress.message}`);
+    if (task.pendingQuestion) parts.push(`Waiting for input: "${task.pendingQuestion}"`);
+    if (task.result?.summary) parts.push(`Result: ${task.result.summary}`);
+
+    const output = parts.join(' - ');
 
     return {
       success: true,
-      output: JSON.stringify(taskData, null, 2),
+      output,
+      summary: `Task ${task.id}: ${task.status}`,
       duration: Date.now() - start,
       metadata: {
         taskId: task.id,
@@ -349,13 +364,13 @@ export async function handleTaskCancel(
     // Cancel the task (TaskManager clears currentTaskId internally)
     await manager.cancelTask(taskId as TaskId);
 
+    const elapsed = task.startedAt ? Math.round((Date.now() - new Date(task.startedAt).getTime()) / 1000) : undefined;
+    const output = `Cancelled task ${taskId}${elapsed ? ` (was running ${elapsed}s)` : ''}`;
+
     return {
       success: true,
-      output: JSON.stringify({
-        taskId,
-        status: 'cancelled',
-        reason: 'Cancelled by user',
-      }, null, 2),
+      output,
+      summary: output,
       duration: Date.now() - start,
       metadata: {
         taskId,
@@ -462,11 +477,8 @@ export async function handleTaskRespond(
 
     return {
       success: true,
-      output: JSON.stringify({
-        taskId: targetTaskId,
-        status: 'running',
-        responseSent: true,
-      }, null, 2),
+      output: `Sent response to task ${targetTaskId}, resuming execution`,
+      summary: `Response sent to ${targetTaskId}`,
       duration: Date.now() - start,
       metadata: {
         taskId: targetTaskId,
@@ -481,45 +493,6 @@ export async function handleTaskRespond(
       duration: Date.now() - start,
     };
   }
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Format task for output
- */
-function formatTaskOutput(task: Task): Record<string, unknown> {
-  // Get latest progress entry
-  const latestProgress = task.progress.length > 0
-    ? task.progress[task.progress.length - 1]
-    : undefined;
-
-  return {
-    id: task.id,
-    goal: task.goal,
-    status: task.status,
-    workspace: task.workspace,
-    agent: task.agent,
-    agentSelection: task.agentSelection,
-    progress: latestProgress ? {
-      message: latestProgress.message,
-      percent: latestProgress.percent,
-      files: latestProgress.files,
-    } : undefined,
-    pendingQuestion: task.pendingQuestion,
-    result: task.result ? {
-      success: task.result.success,
-      summary: task.result.summary,
-      filesModified: task.result.filesModified,
-      filesCreated: task.result.filesCreated,
-      error: task.result.error,
-    } : undefined,
-    createdAt: task.createdAt,
-    startedAt: task.startedAt,
-    completedAt: task.completedAt,
-  };
 }
 
 // ============================================================================

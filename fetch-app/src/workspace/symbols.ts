@@ -61,6 +61,48 @@ export const LANGUAGE_PATTERNS: Record<string, LanguagePattern> = {
       { regex: /^type\s+([a-zA-Z0-9_]+)\s+(?:struct|interface)/gm, type: 'type' },
     ],
   },
+  rust: {
+    extensions: ['.rs'],
+    patterns: [
+      { regex: /^pub\s+fn\s+([a-zA-Z0-9_]+)/gm, type: 'function' },
+      { regex: /^pub\s+struct\s+([a-zA-Z0-9_]+)/gm, type: 'class' },
+      { regex: /^pub\s+enum\s+([a-zA-Z0-9_]+)/gm, type: 'enum' },
+      { regex: /^pub\s+trait\s+([a-zA-Z0-9_]+)/gm, type: 'interface' },
+      { regex: /^pub\s+mod\s+([a-zA-Z0-9_]+)/gm, type: 'const' },
+    ],
+  },
+  java: {
+    extensions: ['.java'],
+    patterns: [
+      { regex: /(?:public|private|protected)\s+class\s+([a-zA-Z0-9_]+)/g, type: 'class' },
+      { regex: /(?:public|private|protected)\s+interface\s+([a-zA-Z0-9_]+)/g, type: 'interface' },
+      { regex: /(?:public|private|protected)\s+enum\s+([a-zA-Z0-9_]+)/g, type: 'enum' },
+    ],
+  },
+  ruby: {
+    extensions: ['.rb'],
+    patterns: [
+      { regex: /^class\s+([A-Z][a-zA-Z0-9_]*)/gm, type: 'class' },
+      { regex: /^module\s+([A-Z][a-zA-Z0-9_]*)/gm, type: 'type' },
+      { regex: /^\s*def\s+([a-zA-Z0-9_!?]+)/gm, type: 'function' },
+    ],
+  },
+  php: {
+    extensions: ['.php'],
+    patterns: [
+      { regex: /class\s+([a-zA-Z0-9_]+)/g, type: 'class' },
+      { regex: /interface\s+([a-zA-Z0-9_]+)/g, type: 'interface' },
+      { regex: /function\s+([a-zA-Z0-9_]+)/g, type: 'function' },
+    ],
+  },
+  dotnet: {
+    extensions: ['.cs', '.fs'],
+    patterns: [
+      { regex: /class\s+([a-zA-Z0-9_]+)/g, type: 'class' },
+      { regex: /interface\s+([a-zA-Z0-9_]+)/g, type: 'interface' },
+      { regex: /enum\s+([a-zA-Z0-9_]+)/g, type: 'enum' },
+    ],
+  },
 };
 
 /**

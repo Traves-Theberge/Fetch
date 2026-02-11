@@ -127,6 +127,13 @@ export class IdentityManager {
     this.watchers = [];
   }
 
+  /**
+   * Get the current voice tone for use in notification prompts
+   */
+  public getVoiceTone(): string {
+    return this.identity.voice.tone;
+  }
+
   public static getInstance(): IdentityManager {
     if (!IdentityManager.instance) {
       IdentityManager.instance = new IdentityManager();

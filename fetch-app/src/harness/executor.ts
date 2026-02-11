@@ -33,6 +33,7 @@
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import type { TaskId, AgentType } from '../task/types.js';
+import type { ProjectProfile } from '../workspace/types.js';
 import { getHarnessPool } from './pool.js';
 import { getAdapter as getRegistryAdapter } from './registry.js';
 import type {
@@ -91,6 +92,7 @@ export class HarnessExecutor extends EventEmitter {
    * @param goal - Task goal
    * @param workspacePath - Absolute path to workspace
    * @param timeoutMs - Execution timeout
+   * @param profile - Optional project profile for context enrichment
    * @returns Harness execution result
    */
   async execute(
@@ -98,14 +100,18 @@ export class HarnessExecutor extends EventEmitter {
     agent: AgentType,
     goal: string,
     workspacePath: string,
-    timeoutMs: number
+    timeoutMs: number,
+    profile?: ProjectProfile
   ): Promise<HarnessResult> {
     if (!workspacePath) {
       return { success: false, output: '', exitCode: 1, error: 'Workspace path is required', durationMs: 0 };
     }
 
+    // Enrich goal with project context when profile is available
+    const enrichedGoal = profile ? enrichGoalWithProfile(goal, profile) : goal;
+
     const adapter = getRegistryAdapter(agent);
-    const config = adapter.buildConfig(goal, workspacePath, timeoutMs);
+    const config = adapter.buildConfig(enrichedGoal, workspacePath, timeoutMs);
     return this.executeWithConfig(taskId, agent, config);
   }
 
@@ -412,6 +418,27 @@ export const harnessExecutor = new HarnessExecutor();
  */
 export function getHarnessExecutor(): HarnessExecutor {
   return harnessExecutor;
+}
+
+// ============================================================================
+// Goal Enrichment
+// ============================================================================
+
+/**
+ * Enrich a task goal with project profile context
+ *
+ * Appends a structured project context section so the harness
+ * agent understands the project's language, framework, and tooling.
+ */
+function enrichGoalWithProfile(goal: string, profile: ProjectProfile): string {
+  const lines: string[] = [goal, '', '--- Project Context ---'];
+  lines.push(`Language: ${profile.language}`);
+  if (profile.framework) lines.push(`Framework: ${profile.framework}`);
+  if (profile.packageManager) lines.push(`Package Manager: ${profile.packageManager}`);
+  if (profile.testCommand) lines.push(`Test Command: ${profile.testCommand}`);
+  if (profile.buildCommand) lines.push(`Build Command: ${profile.buildCommand}`);
+  if (profile.entryPoints.length > 0) lines.push(`Entry Points: ${profile.entryPoints.join(', ')}`);
+  return lines.join('\n');
 }
 
 // ============================================================================

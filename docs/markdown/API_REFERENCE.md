@@ -56,6 +56,8 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 These are the 27 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
+> **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
+
 ### Workspace Tools (7)
 
 #### workspace_list
@@ -64,7 +66,7 @@ List all projects in the workspace directory.
 
 **Parameters:** none (empty object)
 
-**Returns:** `{ workspaces: object[], activeWorkspace: string | null, count: number }`
+**Returns:** Narrative text (e.g. `"3 workspaces: my-app (active, TypeScript, main), api (Go, dev)"`) with full structured data in `metadata`.
 
 **Danger Level:** SAFE
 
@@ -78,7 +80,7 @@ Switch the active project. Triggers a system prompt rebuild so the LLM sees the 
 |------|------|----------|-------------|
 | `name` | string | ✅ | Workspace name to select |
 
-**Returns:** `{ id, name, path, projectType, description, isActive, git: { branch, dirty, ahead, behind } }`
+**Returns:** Narrative text (e.g. `"Switched to my-app (TypeScript, on main)"`) with full workspace data in `metadata`.
 
 **Danger Level:** SAFE
 
@@ -92,7 +94,7 @@ Get detailed workspace status including git info.
 |------|------|----------|-------------|
 | `name` | string | — | Workspace name (uses active workspace if not specified) |
 
-**Returns:** `{ id, name, path, projectType, description, isActive, lastAccessedAt, git: { branch, dirty, ahead, behind, modifiedFiles, stagedFiles, untrackedFiles, remoteUrl, lastCommit, lastCommitMessage } }`
+**Returns:** Narrative text (e.g. `"my-app (TypeScript) - on feature-x - 3 modified, 1 untracked - 2 ahead"`) with full status in `metadata`.
 
 **Danger Level:** SAFE
 
@@ -109,7 +111,7 @@ Create a new workspace/project. Automatically creates a GitHub repository and pu
 | `description` | string | — | Brief description of the project (max 256 chars) |
 | `initGit` | boolean | — | Initialize a git repository (default: `true`) |
 
-**Returns:** `{ id, name, path, projectType, description, isActive, git: { branch, initialized }, message }`
+**Returns:** Narrative text (e.g. `"Created my-app (TypeScript, npm, git initialized)"`) with full workspace data in `metadata`.
 
 **Danger Level:** MODERATE
 
@@ -124,7 +126,7 @@ Delete a workspace permanently. Requires explicit confirmation.
 | `name` | string | ✅ | Workspace to delete |
 | `confirm` | boolean | ✅ | Must be `true` to confirm deletion |
 
-**Returns:** `{ deleted: string, message: string }`
+**Returns:** Narrative text (e.g. `"Deleted workspace old-project"`)
 
 > Cannot delete the currently active workspace. Select a different workspace first.
 
@@ -141,7 +143,7 @@ Sync workspace to GitHub. Stages changes, commits, creates repo if needed, and p
 | `name` | string | — | Workspace to sync (uses active workspace if not specified) |
 | `message` | string | — | Commit message (auto-generated from changes if not provided, max 256 chars) |
 
-**Returns:** `{ workspace, commitHash, commitMessage, filesChanged, remoteUrl, pushed, repoCreated, message }`
+**Returns:** Narrative text (e.g. `"Committed 4 files: 'Add auth' (abc1234), pushed to origin/main"`) with sync details in `metadata`.
 
 **Danger Level:** MODERATE
 
@@ -157,7 +159,7 @@ Create a new GitHub repository from an existing workspace and push all commits.
 | `description` | string | — | Description for the new GitHub repository (max 256 chars) |
 | `isPublic` | boolean | — | Make the repository public (default: `false` / private) |
 
-**Returns:** `{ workspace, repoUrl, visibility, message }`
+**Returns:** Narrative text (e.g. `"Published my-app to github.com/user/my-app (private)"`) with repo URL in `metadata`.
 
 > Fails if the workspace already has a remote. Use `workspace_sync` to push changes to an existing repo.
 
@@ -178,7 +180,7 @@ Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilo
 | `workspace` | string | — | Target workspace (uses active workspace if not specified) |
 | `timeout` | number | — | Task timeout in milliseconds (default: 300000 = 5 minutes) |
 
-**Returns:** `{ taskId: string, status: string, harness: string }`
+**Returns:** Narrative text (e.g. `"Created task tsk_Xy7z: 'Add error handling' → claude in my-project"`) with task data in `metadata`.
 
 **Danger Level:** MODERATE
 
@@ -192,7 +194,7 @@ Check the status of a running task.
 |------|------|----------|-------------|
 | `taskId` | string | — | Task ID (returns current task if not specified) |
 
-**Returns:** `{ taskId: string, status: string, output: string }`
+**Returns:** Narrative text (e.g. `"Task tsk_Xy7z running (45s) — 'Add error handling'. Last: installing deps"`) with full task state in `metadata`.
 
 **Danger Level:** SAFE
 
@@ -206,7 +208,7 @@ Cancel a running task.
 |------|------|----------|-------------|
 | `taskId` | string | ✅ | ID of the task to cancel |
 
-**Returns:** `{ cancelled: string }`
+**Returns:** Narrative text (e.g. `"Cancelled task tsk_Xy7z (was running 32s)"`)
 
 **Danger Level:** MODERATE
 
@@ -221,7 +223,7 @@ Send user input to a task that is waiting for a response.
 | `response` | string | ✅ | Response to send to the waiting task |
 | `taskId` | string | — | Task ID (uses current waiting task if not specified) |
 
-**Returns:** `{ delivered: boolean }`
+**Returns:** Narrative text (e.g. `"Sent response to task tsk_Xy7z, resuming execution"`)
 
 **Danger Level:** SAFE
 

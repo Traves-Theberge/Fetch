@@ -34,7 +34,9 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 // Project Context
 // ============================================================================
 
-export type ProjectType = 'node' | 'python' | 'rust' | 'go' | 'java' | 'unknown';
+export type ProjectType = 'node' | 'typescript' | 'python' | 'rust' | 'go' | 'java' | 'ruby' | 'php' | 'dotnet' | 'unknown';
+
+import type { ProjectProfile } from '../workspace/types.js';
 
 export interface ProjectContext {
   /** Project directory name */
@@ -45,6 +47,8 @@ export interface ProjectContext {
   type: ProjectType;
   /** Main/entry files detected */
   mainFiles: string[];
+  /** Rich project profile with framework, package manager, etc. */
+  profile?: ProjectProfile;
   /** Current git branch */
   gitBranch: string | null;
   /** Last commit message (short) */

@@ -89,13 +89,15 @@ handler/index.ts          ← WhatsApp message entry point
   → identity/manager.ts   ← system prompt assembly from layered markdown (hot-reload)
   → skills/manager.ts     ← skill plugins (hot-reload)
   → workspace/manager.ts  ← project discovery, git state, repo-map generation
+    → workspace/profiler.ts ← framework, pkg manager, test runner, entry point detection
+    → agent/notifications.ts ← hybrid LLM/template notification formatter
 ```
 
 ### Tool System
 
 All 27 tools implement the `OrchestratorTool` interface (`tools/types.ts`):
 - Zod schema for runtime input validation (`validation/tools.ts` defines all schemas)
-- Handler returns `ToolResult` with `success`, `output`, `summary`, `error`, `duration`
+- Handler returns `ToolResult` with `success`, `output` (narrative text for LLM), `summary`, `error`, `duration`, `metadata` (structured data for state sync)
 - `DangerLevel` enum: `SAFE`, `MODERATE`, `DANGEROUS`
 - Registry exports tools in OpenAI function-calling format for the LLM
 - Custom tools hot-loaded from `data/tools/*.json` — schema auto-built, shell commands executed
@@ -129,7 +131,7 @@ Events: `task:created`, `task:started`, `task:progress`, `task:question`, `task:
 ### Configuration
 
 - **Required env vars**: `OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`
-- **Pipeline tuning**: 39 parameters via `FETCH_*` env vars (see `config/pipeline.ts`)
+- **Pipeline tuning**: 42 parameters via `FETCH_*` env vars (see `config/pipeline.ts`)
 - Default LLM: `openai/gpt-4o-mini` via OpenRouter
 - Harness toggles: `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT`, `ENABLE_OPENCODE`
 - Web/browser toggles: `ENABLE_WEB_FETCH`, `ENABLE_WEB_SEARCH`, `ENABLE_BROWSER`

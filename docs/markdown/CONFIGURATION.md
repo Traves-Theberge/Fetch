@@ -71,7 +71,7 @@ By default, AI harnesses use their respective defaults. You can override them us
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 39 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with 42 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -91,6 +91,9 @@ The context pipeline is configured via `config/pipeline.ts` with 39 tunable para
 | `FETCH_RECALL_SNIPPET_TOKENS` | int | `300` | Max tokens per recalled snippet |
 | `FETCH_RECALL_DECAY` | float | `0.1` | Recency decay factor (higher = faster decay) |
 | `FETCH_TOOL_RESULT_MAX_PERSIST` | int | `2000` | Max chars for tool results persisted in session history |
+| `FETCH_NOTIFICATION_MODEL` | string | `SUMMARY_MODEL` | Model for LLM-generated notifications (cheap + fast) |
+| `FETCH_NOTIFICATION_MAX_TOKENS` | int | `150` | Max tokens for notification LLM responses |
+| `FETCH_NOTIFICATION_TEMPERATURE` | float | `0.7` | Temperature for notification LLM responses |
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 

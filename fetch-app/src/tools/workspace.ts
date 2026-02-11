@@ -71,17 +71,28 @@ export async function handleWorkspaceList(
   try {
     const result = await workspaceManager.listWorkspaces();
 
+    // Build narrative output for LLM
+    const parts: string[] = [];
+    for (const ws of result.workspaces) {
+      const flags: string[] = [];
+      if (ws.isActive) flags.push('active');
+      if (ws.projectType && ws.projectType !== 'unknown') flags.push(ws.projectType);
+      if (ws.branch) flags.push(ws.branch);
+      if (ws.dirty) flags.push('uncommitted changes');
+      const label = flags.length ? `${ws.name} (${flags.join(', ')})` : ws.name;
+      parts.push(label);
+    }
+    const output = `${result.count} workspace${result.count !== 1 ? 's' : ''}: ${parts.join(', ')}`;
+
     return {
       success: true,
-      output: JSON.stringify({
+      output,
+      summary: `${result.count} workspaces${result.activeWorkspace ? `, ${result.activeWorkspace} active` : ''}`,
+      duration: Date.now() - start,
+      metadata: {
         workspaces: result.workspaces,
         activeWorkspace: result.activeWorkspace,
         count: result.count,
-      }, null, 2),
-      duration: Date.now() - start,
-      metadata: {
-        count: result.count,
-        activeWorkspace: result.activeWorkspace,
       },
     };
   } catch (err) {
@@ -142,6 +153,7 @@ export async function handleWorkspaceSelect(
       projectType: selected.projectType,
       description: selected.description,
       isActive: selected.isActive,
+      profile: selected.profile,
       git: selected.git ? {
         branch: selected.git.branch,
         dirty: selected.git.dirty,
@@ -150,14 +162,20 @@ export async function handleWorkspaceSelect(
       } : undefined,
     };
 
+    // Build narrative output for LLM
+    const flags: string[] = [];
+    if (selected.projectType && selected.projectType !== 'unknown') flags.push(selected.projectType);
+    if (selected.profile?.language) flags.push(selected.profile.language);
+    if (selected.git?.branch) flags.push(`on ${selected.git.branch}`);
+    if (selected.git?.dirty) flags.push('uncommitted changes');
+    const output = `Switched to ${selected.name}${flags.length ? ` (${flags.join(', ')})` : ''}`;
+
     return {
       success: true,
-      output: JSON.stringify(workspaceData, null, 2),
+      output,
+      summary: output,
       duration: Date.now() - start,
-      metadata: {
-        workspace: selected.name,
-        projectType: selected.projectType,
-      },
+      metadata: workspaceData,
     };
   } catch (err) {
     return {
@@ -256,15 +274,30 @@ export async function handleWorkspaceStatus(
       } : undefined,
     };
 
+    // Build narrative output for LLM
+    const parts: string[] = [`${status.name}`];
+    if (status.projectType && status.projectType !== 'unknown') parts[0] += ` (${status.projectType})`;
+    if (status.git?.branch) parts.push(`on ${status.git.branch}`);
+
+    const changes: string[] = [];
+    if (status.git?.modifiedFiles?.length) changes.push(`${status.git.modifiedFiles.length} modified`);
+    if (status.git?.stagedFiles?.length) changes.push(`${status.git.stagedFiles.length} staged`);
+    if (status.git?.untrackedFiles?.length) changes.push(`${status.git.untrackedFiles.length} untracked`);
+    if (changes.length) parts.push(changes.join(', '));
+
+    if (status.git?.ahead) parts.push(`${status.git.ahead} ahead of origin`);
+    if (status.git?.behind) parts.push(`${status.git.behind} behind origin`);
+
+    if (status.git?.lastCommitMessage) parts.push(`last commit: "${status.git.lastCommitMessage}"`);
+
+    const output = parts.join(' - ');
+
     return {
       success: true,
-      output: JSON.stringify(workspaceData, null, 2),
+      output,
+      summary: `${status.name}${status.git?.dirty ? ' (dirty)' : ' (clean)'}`,
       duration: Date.now() - start,
-      metadata: {
-        workspace: status.name,
-        projectType: status.projectType,
-        dirty: status.git?.dirty,
-      },
+      metadata: workspaceData,
     };
   } catch (err) {
     return {
@@ -331,6 +364,7 @@ export async function handleWorkspaceCreate(
       projectType: workspace.projectType,
       description: workspace.description,
       isActive: workspace.isActive,
+      profile: workspace.profile,
       git: workspace.git ? {
         branch: workspace.git.branch,
         initialized: true,
@@ -338,14 +372,19 @@ export async function handleWorkspaceCreate(
       message: `Created workspace "${name}" with template "${template ?? 'empty'}"`,
     };
 
+    // Build narrative output for LLM
+    const flags: string[] = [];
+    if (workspace.projectType && workspace.projectType !== 'unknown') flags.push(workspace.projectType);
+    if (template && template !== 'empty') flags.push(`${template} template`);
+    if (workspace.git) flags.push('git initialized');
+    const output = `Created ${workspace.name}${flags.length ? ` (${flags.join(', ')})` : ''} at ${workspace.path}`;
+
     return {
       success: true,
-      output: JSON.stringify(workspaceData, null, 2),
+      output,
+      summary: `Created workspace ${workspace.name}`,
       duration: Date.now() - start,
-      metadata: {
-        workspace: workspace.name,
-        template: template ?? 'empty',
-      },
+      metadata: workspaceData,
     };
   } catch (err) {
     return {
@@ -422,10 +461,8 @@ export async function handleWorkspaceDelete(
 
     return {
       success: true,
-      output: JSON.stringify({
-        deleted: name,
-        message: `Workspace "${name}" has been permanently deleted`,
-      }, null, 2),
+      output: `Deleted workspace ${name}`,
+      summary: `Deleted ${name}`,
       duration: Date.now() - start,
       metadata: {
         workspace: name,
@@ -530,16 +567,27 @@ export async function handleWorkspaceSync(
             : 'Everything is up to date with GitHub',
     };
 
+    // Build narrative output for LLM
+    const parts: string[] = [];
+    if (result.filesChanged > 0 && result.commitHash) {
+      parts.push(`Committed ${result.filesChanged} file${result.filesChanged !== 1 ? 's' : ''}: '${result.commitMessage}' (${result.commitHash.slice(0, 7)})`);
+    }
+    if (result.repoCreated) {
+      parts.push(`created GitHub repo`);
+    }
+    if (result.pushed) {
+      parts.push(`pushed to ${result.remoteUrl ?? 'origin'}`);
+    } else if (result.filesChanged === 0) {
+      parts.push('Everything is up to date');
+    }
+    const output = parts.join(', ');
+
     return {
       success: true,
-      output: JSON.stringify(syncData, null, 2),
+      output,
+      summary: output,
       duration: Date.now() - start,
-      metadata: {
-        workspace: workspaceId,
-        pushed: result.pushed,
-        repoCreated: result.repoCreated,
-        filesChanged: result.filesChanged,
-      },
+      metadata: syncData,
     };
   } catch (err) {
     return {
@@ -645,18 +693,18 @@ export async function handleWorkspacePublish(
       };
     }
 
+    const visibility = isPublic ? 'public' : 'private';
+    const output = `Published ${workspaceId} to ${repoUrl} (${visibility})`;
+
     return {
       success: true,
-      output: JSON.stringify({
-        workspace: workspaceId,
-        repoUrl,
-        visibility: isPublic ? 'public' : 'private',
-        message: `Created GitHub repo: ${repoUrl}`,
-      }, null, 2),
+      output,
+      summary: output,
       duration: Date.now() - start,
       metadata: {
         workspace: workspaceId,
         repoUrl,
+        visibility,
         isPublic: isPublic ?? false,
       },
     };

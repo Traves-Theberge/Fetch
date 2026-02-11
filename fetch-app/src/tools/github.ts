@@ -71,11 +71,13 @@ export async function handleGitHubPRCreate(input: unknown): Promise<ToolResult> 
         }
 
         const result = await workspaceManager.createPullRequest(wsPath, title, body, base, draft);
+        const output = `Created ${draft ? 'draft ' : ''}PR #${result.number}: "${title}" -> ${base} (${result.url})`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `Created PR #${result.number}`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_pr_create', prUrl: result.url },
+            metadata: result,
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -103,11 +105,18 @@ export async function handleGitHubPRList(input: unknown): Promise<ToolResult> {
         }
 
         const result = await workspaceManager.listPullRequests(wsPath, state, repo, limit);
+        const lines = result.map((pr: Record<string, unknown>) =>
+            `#${pr.number} "${pr.title}" (${pr.state}, by ${(pr.author as Record<string, unknown>)?.login ?? pr.author})`
+        );
+        const output = result.length > 0
+            ? `${result.length} ${state ?? 'open'} PR${result.length !== 1 ? 's' : ''}:\n${lines.join('\n')}`
+            : `No ${state ?? 'open'} PRs found`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `${result.length} ${state ?? 'open'} PRs`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_pr_list', count: result.length },
+            metadata: { prs: result, count: result.length },
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -135,11 +144,27 @@ export async function handleGitHubPRView(input: unknown): Promise<ToolResult> {
         }
 
         const result = await workspaceManager.viewPullRequest(wsPath, prNumber, repo);
+        // PR view returns rich data — provide a readable summary but keep full data in metadata
+        const pr = result as Record<string, unknown>;
+        const parts: string[] = [`PR #${prNumber}: "${pr.title}" (${pr.state})`];
+        if (pr.headRefName && pr.baseRefName) parts.push(`${pr.headRefName} -> ${pr.baseRefName}`);
+        if (pr.isDraft) parts.push('DRAFT');
+        const commits = pr.commits as unknown[] | undefined;
+        if (commits?.length) parts.push(`${commits.length} commit${commits.length !== 1 ? 's' : ''}`);
+        const comments = pr.comments as unknown[] | undefined;
+        if (comments?.length) parts.push(`${comments.length} comment${comments.length !== 1 ? 's' : ''}`);
+        const reviews = pr.reviews as unknown[] | undefined;
+        if (reviews?.length) parts.push(`${reviews.length} review${reviews.length !== 1 ? 's' : ''}`);
+        if (pr.body) {
+          const bodyStr = String(pr.body);
+          parts.push(`\nDescription: ${bodyStr.length > 200 ? bodyStr.slice(0, 197) + '...' : bodyStr}`);
+        }
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output: parts.join(' - '),
+            summary: `PR #${prNumber}: ${pr.state}`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_pr_view', prNumber },
+            metadata: result,
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -167,11 +192,13 @@ export async function handleGitHubIssueCreate(input: unknown): Promise<ToolResul
         }
 
         const result = await workspaceManager.createIssue(wsPath, title, body, labels);
+        const output = `Created issue #${result.number}: "${title}" (${result.url})`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `Created issue #${result.number}`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_issue_create', issueUrl: result.url },
+            metadata: result,
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -199,11 +226,20 @@ export async function handleGitHubIssueList(input: unknown): Promise<ToolResult>
         }
 
         const result = await workspaceManager.listIssues(wsPath, state, assignee, labels);
+        const lines = result.map((issue: Record<string, unknown>) => {
+            const issueLbls = issue.labels as Array<Record<string, unknown>> | undefined;
+            const labelStr = issueLbls?.length ? ` [${issueLbls.map(l => l.name).join(', ')}]` : '';
+            return `#${issue.number} "${issue.title}"${labelStr}`;
+        });
+        const output = result.length > 0
+            ? `${result.length} ${state ?? 'open'} issue${result.length !== 1 ? 's' : ''}:\n${lines.join('\n')}`
+            : `No ${state ?? 'open'} issues found`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `${result.length} ${state ?? 'open'} issues`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_issue_list', count: result.length },
+            metadata: { issues: result, count: result.length },
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -231,11 +267,13 @@ export async function handleGitHubBranchCreate(input: unknown): Promise<ToolResu
         }
 
         const result = await workspaceManager.createBranch(wsPath, name, from);
+        const output = `Created branch ${result.branch} from ${result.from}${result.pushed ? ', pushed to origin' : ''}`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `Created branch ${result.branch}`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_branch_create', branch: name },
+            metadata: result,
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -263,11 +301,19 @@ export async function handleGitHubActionStatus(input: unknown): Promise<ToolResu
         }
 
         const result = await workspaceManager.getActionStatus(wsPath);
+        const lines = result.map((run: Record<string, unknown>) => {
+            const icon = run.conclusion === 'success' ? 'pass' : run.conclusion === 'failure' ? 'fail' : String(run.status);
+            return `${run.name} (${icon})`;
+        });
+        const output = result.length > 0
+            ? `${result.length} recent workflow run${result.length !== 1 ? 's' : ''}:\n${lines.join('\n')}`
+            : 'No recent workflow runs';
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `${result.length} workflow runs`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_action_status', count: result.length },
+            metadata: { runs: result, count: result.length },
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };
@@ -290,11 +336,18 @@ export async function handleGitHubSearchRepos(input: unknown): Promise<ToolResul
 
     try {
         const result = await workspaceManager.searchRepos(query, limit);
+        const lines = result.map((repo: Record<string, unknown>) =>
+            `${repo.name} (${repo.stars}★) - ${repo.description || 'no description'}`
+        );
+        const output = result.length > 0
+            ? `${result.length} repo${result.length !== 1 ? 's' : ''} found for "${query}":\n${lines.join('\n')}`
+            : `No repos found for "${query}"`;
         return {
             success: true,
-            output: JSON.stringify(result, null, 2),
+            output,
+            summary: `${result.length} repos found`,
             duration: Date.now() - start,
-            metadata: { tool: 'github_search_repos', count: result.length },
+            metadata: { repos: result, count: result.length },
         };
     } catch (err) {
         return { success: false, output: '', error: err instanceof Error ? err.message : String(err), duration: Date.now() - start };

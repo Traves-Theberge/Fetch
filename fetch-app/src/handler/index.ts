@@ -15,6 +15,7 @@ import { processMessage, type AgentResponse } from '../agent/core.js';
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
 import { formatForWhatsApp } from '../agent/whatsapp-format.js';
+import { formatNotification } from '../agent/notifications.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -87,7 +88,8 @@ export async function initializeHandler(): Promise<void> {
 
       // Notify WhatsApp with persona
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, `🐕 🐾 *Woof!* I'm diving in to the task now:\n\n_"${goal}"_\n\nI'll keep you posted! 🔄`);
+        const notification = await formatNotification('task:started', { goal });
+        await sendWhatsApp(session.userId, `🐕 ${notification}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:started event', err);
@@ -119,35 +121,20 @@ export async function initializeHandler(): Promise<void> {
       session.activeTaskId = null;
       await sManager.updateSession(session);
 
-      // Build enriched completion message
-      let completionMsg = `🐕 ✅ *Task finished!* 🦴\n\n${summary}`;
+      // Build enriched completion message via hybrid notification system
+      const durationSec = (task.startedAt && task.completedAt)
+        ? Math.round((new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime()) / 1000)
+        : undefined;
 
-      if (task.result) {
-        const fileChanges: string[] = [];
-        if (task.result.filesCreated?.length) {
-          fileChanges.push(`📄 ${task.result.filesCreated.length} created`);
-        }
-        if (task.result.filesModified?.length) {
-          fileChanges.push(`✏️ ${task.result.filesModified.length} modified`);
-        }
-        if (task.result.filesDeleted?.length) {
-          fileChanges.push(`🗑️ ${task.result.filesDeleted.length} deleted`);
-        }
-        if (fileChanges.length > 0) {
-          completionMsg += `\n\n*Files*: ${fileChanges.join(', ')}`;
-        }
-
-        // Duration
-        if (task.startedAt && task.completedAt) {
-          const durationMs = new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime();
-          const durationSec = Math.round(durationMs / 1000);
-          completionMsg += `\n⏱️ ${durationSec}s`;
-        }
-      }
-
-      // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, completionMsg);
+        const notification = await formatNotification('task:completed', {
+          summary,
+          filesCreated: task.result?.filesCreated,
+          filesModified: task.result?.filesModified,
+          filesDeleted: task.result?.filesDeleted,
+          durationSec,
+        });
+        await sendWhatsApp(session.userId, `🐕 ✅ ${notification}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:completed event', err);
@@ -173,7 +160,8 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, `🐕 ❌ *Grrr, the task hit a snag...*\n\nError: ${error ?? 'Unknown error'}\n\nI'll stay on it if you need me! 🐾`);
+        const notification = await formatNotification('task:failed', { error: error ?? 'Unknown error' });
+        await sendWhatsApp(session.userId, `🐕 ❌ ${notification}`);
       }
     } catch (err) {
       logger.error('Failed to handle task:failed event', err);

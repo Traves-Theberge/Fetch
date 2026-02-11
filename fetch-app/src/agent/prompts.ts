@@ -89,12 +89,27 @@ export async function buildContextSection(session: Session, userMessage?: string
 
   // WORKSPACE — This is the MOST IMPORTANT context for the LLM
   if (session.currentProject) {
-    parts.push(`## 🎯 ACTIVE WORKSPACE: ${session.currentProject.name}`);
-    parts.push(`Path: \`${session.currentProject.path}\``);
-    parts.push(`Type: ${session.currentProject.type === 'unknown' ? 'project' : session.currentProject.type}`);
+    const proj = session.currentProject;
+    const profile = proj.profile;
+    const typeLabel = proj.type === 'unknown' ? 'project' : proj.type;
+
+    parts.push(`## 🎯 ACTIVE WORKSPACE: ${proj.name}`);
+    parts.push(`Path: \`${proj.path}\``);
+
+    if (profile) {
+      parts.push(`Type: ${typeLabel} (${profile.language})`);
+      if (profile.framework) parts.push(`Framework: ${profile.framework}`);
+      if (profile.packageManager) parts.push(`Package Manager: ${profile.packageManager}`);
+      if (profile.testCommand) parts.push(`Test: \`${profile.testCommand}\``);
+      if (profile.buildCommand) parts.push(`Build: \`${profile.buildCommand}\``);
+      if (profile.entryPoints.length > 0) parts.push(`Entry Points: ${profile.entryPoints.join(', ')}`);
+    } else {
+      parts.push(`Type: ${typeLabel}`);
+    }
+
     parts.push(`YOU ARE INSIDE THIS WORKSPACE. All file operations, tasks, and queries target this workspace. Do NOT ask the user to select or confirm a workspace.`);
-    if (session.currentProject.gitBranch) {
-      parts.push(`Branch: \`${session.currentProject.gitBranch}\`${session.currentProject.hasUncommitted ? ' ⚠️ (uncommitted changes)' : ' ✨ (clean)'}`);
+    if (proj.gitBranch) {
+      parts.push(`Branch: \`${proj.gitBranch}\`${proj.hasUncommitted ? ' ⚠️ (uncommitted changes)' : ' ✨ (clean)'}`);
     }
   } else {
     parts.push('## Workspace: None selected');

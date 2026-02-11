@@ -87,11 +87,8 @@ export async function handleAskUser(
   if (level !== 'supervised' && isUnnecessaryConfirmation(question)) {
     return {
       success: true,
-      output: JSON.stringify({
-        autoApproved: true,
-        answer: 'Yes, proceed.',
-        reason: 'Auto-approved: autonomous/cautious mode',
-      }),
+      output: 'Auto-approved: Yes, proceed.',
+      summary: 'Auto-approved',
       duration: Date.now() - start,
       metadata: { autoApproved: true },
     };
@@ -136,15 +133,13 @@ export async function handleAskUser(
 
     return {
       success: true,
-      output: JSON.stringify({
-        taskId: currentTaskId,
-        status: 'waiting_input',
-        question: formattedQuestion,
-        options: options ?? [],
-      }, null, 2),
+      output: `Question sent to user for task ${currentTaskId}: "${formattedQuestion}"`,
+      summary: `Asked user a question`,
       duration: Date.now() - start,
       metadata: {
         taskId: currentTaskId,
+        question: formattedQuestion,
+        options: options ?? [],
         hasOptions: !!(options && options.length > 0),
       },
     };
@@ -241,16 +236,12 @@ export async function handleReportProgress(
 
     return {
       success: true,
-      output: JSON.stringify({
-        taskId: currentTaskId,
-        progress: {
-          message,
-          percent,
-        },
-      }, null, 2),
+      output: `Progress updated for task ${currentTaskId}: ${message}${percent !== undefined ? ` (${percent}%)` : ''}`,
+      summary: `Progress: ${message}`,
       duration: Date.now() - start,
       metadata: {
         taskId: currentTaskId,
+        message,
         percent,
       },
     };

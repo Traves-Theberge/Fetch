@@ -31,6 +31,7 @@ import type {
   WorkspaceEvent,
   WorkspaceEventType,
 } from './types.js';
+import { buildProjectProfile } from './profiler.js';
 
 // ============================================================================
 // Constants
@@ -310,11 +311,11 @@ export class WorkspaceManager extends EventEmitter {
     // Detect project type
     const projectType = await this.detectProjectType(path);
 
-    // Get git status if it's a git repo
-    const git = await this.getGitStatus(path);
-
-    // Try to get description from package.json or README
-    const description = await this.getProjectDescription(path, projectType);
+    // Get git status and project profile in parallel
+    const [git, profile] = await Promise.all([
+      this.getGitStatus(path),
+      buildProjectProfile(path, projectType),
+    ]);
 
     const workspace: Workspace = {
       id: workspaceId,
@@ -323,7 +324,9 @@ export class WorkspaceManager extends EventEmitter {
       projectType,
       git: git ?? undefined,
       isActive: false,
-      description,
+      description: profile.description,
+      language: profile.language,
+      profile,
     };
 
     return workspace;
@@ -465,32 +468,6 @@ export class WorkspaceManager extends EventEmitter {
       logger.debug('Failed to get git status', { path, error: err });
       return null;
     }
-  }
-
-  /**
-   * Get project description
-   */
-  private async getProjectDescription(
-    path: string,
-    projectType: ProjectType
-  ): Promise<string | undefined> {
-    if (projectType === 'node') {
-      // Try package.json
-      const result = await dockerExec('cat', [`${path}/package.json`], {
-        timeoutMs: 2000,
-      });
-
-      if (result.exitCode === 0) {
-        try {
-          const pkg = JSON.parse(result.stdout);
-          return pkg.description;
-        } catch {
-          // Ignore parse errors
-        }
-      }
-    }
-
-    return undefined;
   }
 
   /**

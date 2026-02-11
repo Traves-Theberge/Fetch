@@ -215,7 +215,7 @@ src/
 ├── index.ts              # Boot + shutdown orchestration
 ├── config/
 │   ├── env.ts            # Zod-validated env with Proxy (lazy reads)
-│   ├── pipeline.ts       # Context pipeline tuning (39 params, FETCH_* env overrides)
+│   ├── pipeline.ts       # Context pipeline tuning (42 params, FETCH_* env overrides)
 │   └── paths.ts          # Centralized path constants
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
@@ -231,8 +231,9 @@ src/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
 │   ├── core.ts           # Single-path LLM handler, ReAct loop, all 27 tools
+│   ├── notifications.ts  # Hybrid LLM/template notification formatter
 │   ├── format.ts         # Response formatting
-│   ├── prompts.ts        # System prompt builders
+│   ├── prompts.ts        # System prompt builders (profile-aware workspace context)
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
 ├── commands/
 │   ├── index.ts          # Barrel exports
@@ -291,9 +292,10 @@ src/
 │   └── index.ts          # Image analysis via OpenRouter
 ├── workspace/
 │   ├── manager.ts        # Project discovery, GitHub sync, workspace lifecycle
-│   ├── repo-map.ts       # Repository structure mapping
-│   ├── symbols.ts        # Symbol extraction
-│   └── types.ts          # Workspace, GitStatus, WorkspaceEvent types
+│   ├── profiler.ts       # Rich project detection (framework, pkg manager, test runner, entry points)
+│   ├── repo-map.ts       # Repository structure mapping (dynamic extensions per project type)
+│   ├── symbols.ts        # Symbol extraction (10 languages: TS, Python, Go, Rust, Java, Ruby, PHP, .NET)
+│   └── types.ts          # Workspace, GitStatus, ProjectProfile, WorkspaceEvent types
 └── utils/
     ├── logger.ts         # Colored logger with LOG_LEVEL filtering
     ├── id.ts             # ID generators (tsk_, prg_ prefixes via nanoid)
@@ -317,7 +319,7 @@ The context pipeline ensures the LLM has full conversational memory across turns
 7. **Dynamic Prompt Rebuild** — System prompt at `messages[0]` is replaced after `workspace_select`, `workspace_create`, or `task_create` so the LLM always sees current state
 8. **Task Goal Framing** — `frameTaskGoal()` expands raw user text into self-contained goals before harness dispatch
 
-All parameters are tunable via `config/pipeline.ts` (39 settings, overridable via `FETCH_*` env vars).
+All parameters are tunable via `config/pipeline.ts` (42 settings, overridable via `FETCH_*` env vars).
 
 ## Docker Architecture
 

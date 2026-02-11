@@ -37,6 +37,14 @@ Each tool has an adapter that defines:
 
 Each adapter's `buildConfig()` injects the CLI config file from `data/cli-configs/` so harnesses receive Fetch-specific behavioral instructions (e.g., no commits, structured output summaries).
 
+### Project Context Injection
+
+When a `ProjectProfile` is available, all adapters append a `--- Project Context ---` section to the task goal with language, framework, test/build commands, and entry points. This gives the harness CLI awareness of the project's toolchain without requiring it to discover this information itself.
+
+## Hybrid LLM Notifications
+
+Task completion and failure events are formatted by `agent/notifications.ts` using a cheap LLM call (configurable via `FETCH_NOTIFICATION_MODEL`) with the identity voice tone injected. Started and progress events use expanded template pools (8-12 variations). LLM failures fall back to templates.
+
 ## Error Classification
 
 When a harness process fails, the executor classifies the error into one of six categories:

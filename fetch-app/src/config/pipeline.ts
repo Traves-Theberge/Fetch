@@ -49,6 +49,14 @@ export const pipeline = {
   /** Model for compaction summaries (cheap + fast) */
   compactionModel: str('FETCH_COMPACTION_MODEL', env.SUMMARY_MODEL ?? 'openai/gpt-4o-mini'),
 
+  // ─── Notification LLM ────────────────────────────────────────
+  /** Model for LLM-formatted notifications (cheap + fast) */
+  notificationModel: str('FETCH_NOTIFICATION_MODEL', env.SUMMARY_MODEL ?? 'openai/gpt-4o-mini'),
+  /** Max tokens for notification generation */
+  notificationMaxTokens: int('FETCH_NOTIFICATION_MAX_TOKENS', 150),
+  /** Temperature for notification generation (higher = more varied) */
+  notificationTemperature: float('FETCH_NOTIFICATION_TEMPERATURE', 0.7),
+
   // ─── Agent LLM ────────────────────────────────────────────
   /** Max tool call rounds per single user message */
   maxToolCalls: int('FETCH_MAX_TOOL_CALLS', 5),
