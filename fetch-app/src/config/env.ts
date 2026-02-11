@@ -94,7 +94,7 @@ const DEFAULTS: Partial<Record<string, string>> = {
 // ============================================================================
 
 /** Single source of truth for the application version string. */
-export const VERSION = '4.3.0';
+export const VERSION = '4.3.1';
 
 // ============================================================================
 // Exports

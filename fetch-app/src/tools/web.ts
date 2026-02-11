@@ -143,6 +143,11 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
 
     const title = dom.window.document.title || '';
 
+    // Build a concise summary for the LLM
+    const summaryTitle = title || new URL(url).hostname;
+    const summarySnippet = truncated.replace(/\s+/g, ' ').slice(0, 120).trim();
+    const summary = `Fetched "${summaryTitle}" (${truncated.length} chars)${wasTruncated ? ' [truncated]' : ''}: ${summarySnippet}...`;
+
     return {
       success: true,
       output: JSON.stringify({
@@ -152,6 +157,7 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
         truncated: wasTruncated,
         length: truncated.length,
       }, null, 2),
+      summary,
       duration: Date.now() - start,
       metadata: { tool: 'web_fetch', url, title, length: truncated.length, truncated: wasTruncated },
     };
@@ -211,9 +217,13 @@ export async function handleWebSearch(input: unknown): Promise<ToolResult> {
       engine: r.engine,
     }));
 
+    const topTitles = results.slice(0, 3).map(r => r.title).join(', ');
+    const summary = `Found ${results.length} results for "${query}": ${topTitles}`;
+
     return {
       success: true,
       output: JSON.stringify({ query, count: results.length, results }, null, 2),
+      summary,
       duration: Date.now() - start,
       metadata: { tool: 'web_search', query, resultCount: results.length },
     };

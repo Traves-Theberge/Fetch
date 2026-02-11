@@ -119,9 +119,35 @@ export async function initializeHandler(): Promise<void> {
       session.activeTaskId = null;
       await sManager.updateSession(session);
 
+      // Build enriched completion message
+      let completionMsg = `🐕 ✅ *Task finished!* 🦴\n\n${summary}`;
+
+      if (task.result) {
+        const fileChanges: string[] = [];
+        if (task.result.filesCreated?.length) {
+          fileChanges.push(`📄 ${task.result.filesCreated.length} created`);
+        }
+        if (task.result.filesModified?.length) {
+          fileChanges.push(`✏️ ${task.result.filesModified.length} modified`);
+        }
+        if (task.result.filesDeleted?.length) {
+          fileChanges.push(`🗑️ ${task.result.filesDeleted.length} deleted`);
+        }
+        if (fileChanges.length > 0) {
+          completionMsg += `\n\n*Files*: ${fileChanges.join(', ')}`;
+        }
+
+        // Duration
+        if (task.startedAt && task.completedAt) {
+          const durationMs = new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime();
+          const durationSec = Math.round(durationMs / 1000);
+          completionMsg += `\n⏱️ ${durationSec}s`;
+        }
+      }
+
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        await sendWhatsApp(session.userId, `🐕 ✅ *Task finished!* 🦴\n\n${summary}`);
+        await sendWhatsApp(session.userId, completionMsg);
       }
     } catch (err) {
       logger.error('Failed to handle task:completed event', err);
@@ -244,8 +270,7 @@ export async function handleMessage(
   } catch (error) {
     logger.error('Message handling failed', error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = sanitizeError(error);
     return [
       `🐕 Oops! Something went wrong: ${errorMessage}\n\nTry again or type /help.`,
     ];
@@ -269,20 +294,8 @@ function buildResponses(response: AgentResponse): string[] {
     // Replace em dashes and en dashes with hyphens (LLM doesn't always follow the rule)
     cleanText = cleanText.replace(/[—–]/g, '-');
 
-    // Safeguard: detect repetition loops (same phrase repeated 3+ times)
-    const repetitionMatch = cleanText.match(/(.{20,}?)\1{2,}/);
-    if (repetitionMatch) {
-      // Take only up to the first occurrence of the repeated phrase
-      const firstOccurrence = cleanText.indexOf(repetitionMatch[1]);
-      const endOfFirst = firstOccurrence + repetitionMatch[1].length;
-      cleanText = cleanText.substring(0, endOfFirst).trim();
-    }
-
-    // Safeguard: max length for WhatsApp (truncate runaway responses)
-    const MAX_RESPONSE_LENGTH = 1500;
-    if (cleanText.length > MAX_RESPONSE_LENGTH) {
-      cleanText = cleanText.substring(0, MAX_RESPONSE_LENGTH).trim() + '...';
-    }
+    // Safeguard: detect repetition loops
+    cleanText = deduplicateResponse(cleanText);
 
     responses.push(`🐕 ${formatForWhatsApp(cleanText)}`);
   }
@@ -291,6 +304,83 @@ function buildResponses(response: AgentResponse): string[] {
   // Remove mechanical message here to prevent double-notifying
 
   return responses;
+}
+
+// =============================================================================
+// REPETITION DETECTION
+// =============================================================================
+
+/**
+ * Detect and remove repeated content from LLM responses.
+ * Uses sentence-level deduplication — catches both exact and near-duplicate sentences.
+ */
+function deduplicateResponse(text: string): string {
+  // 1. Exact byte-level repetition (catches copy-paste loops)
+  const byteMatch = text.match(/(.{30,}?)\1{2,}/);
+  if (byteMatch) {
+    const idx = text.indexOf(byteMatch[1]);
+    return text.substring(0, idx + byteMatch[1].length).trim();
+  }
+
+  // 2. Sentence-level dedup — split on sentence boundaries, remove repeats
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  if (sentences.length < 4) return text;
+
+  const seen = new Map<string, number>();
+  const result: string[] = [];
+  let dupeCount = 0;
+
+  for (const sentence of sentences) {
+    // Normalize: lowercase, collapse whitespace, strip punctuation for comparison
+    const key = sentence.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+    if (key.length < 10) {
+      result.push(sentence);
+      continue;
+    }
+
+    const count = (seen.get(key) ?? 0) + 1;
+    seen.set(key, count);
+
+    if (count <= 1) {
+      result.push(sentence);
+    } else {
+      dupeCount++;
+      if (dupeCount >= 3) break; // Stop after 3 duplicates — clearly looping
+    }
+  }
+
+  return result.join(' ').trim();
+}
+
+// =============================================================================
+// ERROR SANITIZATION
+// =============================================================================
+
+/**
+ * Sanitize error messages before sending to WhatsApp.
+ * Strips API keys, file paths, stack traces, and other internals.
+ */
+function sanitizeError(error: unknown): string {
+  let msg = error instanceof Error ? error.message : String(error);
+
+  // Strip API keys / tokens (anything that looks like a long hex/base64 string after "key" or "token")
+  msg = msg.replace(/(?:key|token|auth|bearer|password|secret)[=:\s]+[A-Za-z0-9_\-./+]{20,}/gi, '[redacted]');
+
+  // Strip file paths (Unix and container paths)
+  msg = msg.replace(/(?:\/(?:app|home|workspace|usr|var|tmp)\/)[^\s,)]+/g, '[path]');
+
+  // Strip stack traces (lines starting with "at ")
+  msg = msg.replace(/\n\s*at\s+.+/g, '');
+
+  // Strip HTTP headers / raw request details
+  msg = msg.replace(/(?:headers|request|response):\s*\{[^}]+\}/gi, '');
+
+  // Cap length — don't dump huge error messages into WhatsApp
+  if (msg.length > 200) {
+    msg = msg.substring(0, 200).trim() + '...';
+  }
+
+  return msg.trim() || 'Unknown error';
 }
 
 // =============================================================================

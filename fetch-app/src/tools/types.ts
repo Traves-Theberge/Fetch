@@ -29,6 +29,8 @@ export interface ToolResult {
   success: boolean;
   /** Output content */
   output: string;
+  /** Short human-readable summary for WhatsApp display (max ~200 chars) */
+  summary?: string;
   /** Error message if failed */
   error?: string;
   /** Execution duration in ms */

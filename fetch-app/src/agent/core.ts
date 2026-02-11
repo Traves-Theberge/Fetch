@@ -207,6 +207,23 @@ async function handleWithRetry<T>(
 }
 
 // =============================================================================
+// ERROR SANITIZATION
+// =============================================================================
+
+/**
+ * Sanitize error messages for user-facing display.
+ * Strips API keys, paths, stack traces.
+ */
+function sanitizeErrorForUser(error: unknown): string {
+  let msg = error instanceof Error ? error.message : String(error);
+  msg = msg.replace(/(?:key|token|auth|bearer|password|secret)[=:\s]+[A-Za-z0-9_\-./+]{20,}/gi, '[redacted]');
+  msg = msg.replace(/(?:\/(?:app|home|workspace|usr|var|tmp)\/)[^\s,)]+/g, '[path]');
+  msg = msg.replace(/\n\s*at\s+.+/g, '');
+  if (msg.length > 200) msg = msg.substring(0, 200).trim() + '...';
+  return msg.trim() || 'Unknown error';
+}
+
+// =============================================================================
 // OPENAI CLIENT
 // =============================================================================
 
@@ -280,6 +297,9 @@ export async function processMessage(
       }
     }
 
+    // Store progress callback for tool-level progress messages
+    activeProgressCallback = onProgress;
+
     // Single path: LLM with ALL tools — the LLM IS the router
     const response = await handleWithRetry(
       (attempt) => handleWithTools(message, session, attempt),
@@ -287,6 +307,8 @@ export async function processMessage(
       message,
       onProgress
     );
+
+    activeProgressCallback = undefined;
 
     // Success - reset error count
     resetErrorCount(session.id);
@@ -309,8 +331,9 @@ export async function processMessage(
 
     if (!isRetriable) {
       // Non-retriable errors (400, 401, 404) - don't suggest retry
+      const safeMsg = sanitizeErrorForUser(error);
       return {
-        text: `🐕 Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        text: `🐕 Something went wrong: ${safeMsg}`,
       };
     }
 
@@ -326,6 +349,12 @@ export async function processMessage(
 // =============================================================================
 // UNIFIED MESSAGE HANDLER (All Tools)
 // =============================================================================
+
+/** Tools that may take >5 seconds and warrant a progress message */
+const SLOW_TOOLS = new Set(['web_fetch', 'web_search', 'browser_open', 'browser_action', 'browser_snapshot', 'task_create']);
+
+/** Progress callback stored for use during tool execution */
+let activeProgressCallback: ((text: string) => Promise<void>) | undefined;
 
 /**
  * Unified message handler — ALL messages, ALL tools.
@@ -490,11 +519,31 @@ async function handleWithTools(
 
       logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id, args: finalArgs });
 
+      // Send progress message for slow tools after 4 seconds
+      let toolProgressTimer: ReturnType<typeof setTimeout> | undefined;
+      if (SLOW_TOOLS.has(toolName) && activeProgressCallback) {
+        const progressCb = activeProgressCallback;
+        toolProgressTimer = setTimeout(() => {
+          const toolLabels: Record<string, string> = {
+            web_fetch: 'fetching that page',
+            web_search: 'searching the web',
+            browser_open: 'opening the browser',
+            browser_action: 'interacting with the page',
+            browser_snapshot: 'reading the page',
+            task_create: 'setting up the task',
+          };
+          const label = toolLabels[toolName] ?? toolName;
+          progressCb(`🐕 Still ${label}... 🔄`).catch(() => {});
+        }, 4000);
+      }
+
       // Execute via registry (pass session context for session-aware tools)
       const result = await registry.execute(toolName, finalArgs, {
         sessionId: session.id,
         autonomyLevel: session.preferences.autonomyLevel,
       });
+
+      if (toolProgressTimer) clearTimeout(toolProgressTimer);
 
       toolCalls.push({
         name: toolName,

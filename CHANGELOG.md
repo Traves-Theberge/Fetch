@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-02-11
+
+### 🐕 Conversational & Tool Response Quality Improvements
+
+8 targeted fixes to how Fetch formats responses, handles errors, tracks progress, and communicates with users via WhatsApp.
+
+#### Response Formatting
+- **Fixed double truncation** — Removed redundant 1500-char hard cap in handler. WhatsApp formatter (4000 chars) is now the single source of truth for message length, giving responses 2.7x more space
+- **Improved repetition detection** — Replaced fragile byte-level regex with sentence-level deduplication that catches both exact duplicates and near-repeats. Stops after 3 detected duplicates to prevent loops
+- **Fixed system prompt formatting** — Cleaned up stray spaces, broken markdown bold markers, and inconsistent indentation in the LLM system prompt template
+
+#### Error Handling
+- **Error message sanitization** — All error messages sent to WhatsApp are now sanitized: API keys, file paths, stack traces, and HTTP headers are stripped before reaching the user. Messages are capped at 200 chars
+- **Dual-layer sanitization** — Applied in both handler.ts (message-level) and core.ts (agent-level) error paths
+
+#### Tool Results
+- **Tool result summaries** — Added optional `summary` field to `ToolResult` interface. `web_fetch` and `web_search` now provide concise summaries (title + snippet) so the LLM can produce better WhatsApp-formatted answers
+- **Tool execution progress** — Slow tools (web_fetch, web_search, browser_open, task_create) now send a progress message to WhatsApp after 4 seconds. Users no longer think the bot is frozen during long operations
+
+#### Task Notifications
+- **Enriched task completions** — Task completion messages now include file change counts (created/modified/deleted) and execution duration alongside the summary
+
+#### Files Changed (8)
+
+| Area | Files |
+|------|-------|
+| Handler | `handler/index.ts` |
+| Agent | `agent/core.ts` |
+| Identity | `identity/manager.ts` |
+| Tools | `tools/types.ts`, `tools/web.ts` |
+| Config | `config/env.ts` |
+| Docs | `CHANGELOG.md`, `docs/markdown/README.md` |
+
+---
+
 ## [4.3.0] - 2026-02-11
 
 ### 🛡️ Comprehensive Codebase Hardening — 50 Issues Resolved
