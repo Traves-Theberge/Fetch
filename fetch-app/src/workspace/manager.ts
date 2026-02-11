@@ -339,7 +339,7 @@ export class WorkspaceManager extends EventEmitter {
       for (const file of files) {
         if (file.includes('*')) {
           // Glob pattern — use ls with the pattern via sh -c
-          const result = await dockerExec('sh', ['-c', `ls ${path}/${file} 2>/dev/null | head -1`]);
+          const result = await dockerExec('sh', ['-c', `ls "${path}"/${file} 2>/dev/null | head -1`]);
           if (result.exitCode === 0 && result.stdout.trim()) {
             return type as ProjectType;
           }
@@ -372,7 +372,14 @@ export class WorkspaceManager extends EventEmitter {
         ['-C', path, 'branch', '--show-current'],
         { timeoutMs: pipeline.gitCommandTimeout }
       );
-      const branch = branchResult.stdout.trim() || 'HEAD';
+      let branch = branchResult.stdout.trim();
+      if (!branch) {
+        const hashResult = await dockerExec(
+          'git', ['-C', path, 'rev-parse', '--short', 'HEAD'],
+          { timeoutMs: pipeline.gitCommandTimeout }
+        );
+        branch = hashResult.exitCode === 0 ? `detached:${hashResult.stdout.trim()}` : 'HEAD';
+      }
 
       // Get status (porcelain for parsing)
       const statusResult = await dockerExec(
@@ -386,7 +393,7 @@ export class WorkspaceManager extends EventEmitter {
       const untrackedFiles: string[] = [];
 
       for (const line of statusResult.stdout.split('\n')) {
-        if (!line.trim()) continue;
+        if (!line.trim() || line.length < 4) continue;
 
         const status = line.substring(0, 2);
         const file = line.substring(3).trim();
@@ -553,10 +560,18 @@ export class WorkspaceManager extends EventEmitter {
     if (initGit) {
       await this.initializeGit(path);
 
-      // Create GitHub repo and push (non-blocking — workspace creation succeeds even if this fails)
-      const repoUrl = await this.createGitHubRepo(path, name, description);
-      if (repoUrl) {
-        this.emitEvent('workspace:scaffolding', name, { template, status: 'github-synced', repoUrl });
+      // Create GitHub repo and push (non-fatal — workspace still usable without remote)
+      if (await this.isGitHubAvailable()) {
+        try {
+          const repoUrl = await this.createGitHubRepo(path, name, description);
+          if (repoUrl) {
+            this.emitEvent('workspace:scaffolding', name, { template, status: 'github-synced', repoUrl });
+          } else {
+            logger.warn(`GitHub repo creation returned empty for '${name}' — workspace created without remote. Use workspace_sync to retry.`);
+          }
+        } catch (err) {
+          logger.warn(`GitHub repo creation failed for '${name}' — workspace created without remote. Use workspace_sync to retry.`, { error: err });
+        }
       }
     }
 
@@ -616,12 +631,11 @@ export class WorkspaceManager extends EventEmitter {
     await dockerExec('npm', ['init', '-y'], { cwd: path });
 
     // Create a basic index.js (name already validated as safe alphanumeric)
-    await dockerExec('sh', ['-c', `cat > ${path}/index.js << 'HEREDOC'\nconsole.log("Hello from ${name}!");\nHEREDOC`]);
+    await dockerExec('sh', ['-c', `cat > "${path}/index.js" << 'HEREDOC'\nconsole.log("Hello from ${name}!");\nHEREDOC`]);
 
     // Update package.json description if provided
     if (description) {
-      const safeDesc = description.replace(/[\\/"']/g, '');
-      await dockerExec('sh', ['-c', `sed -i 's/"description": ""/"description": "${safeDesc}"/' ${path}/package.json`]);
+      await dockerExec('npm', ['pkg', 'set', `description=${description}`], { cwd: path });
     }
 
     await this.createReadme(path, name, description);
@@ -630,8 +644,8 @@ export class WorkspaceManager extends EventEmitter {
 
   private async createPythonProject(path: string, name: string, description?: string): Promise<void> {
     // Create basic python structure (name already validated as safe alphanumeric)
-    await dockerExec('sh', ['-c', `cat > ${path}/main.py << 'HEREDOC'\n# ${name}\n\nprint("Hello from ${name}!")\nHEREDOC`]);
-    await dockerExec('sh', ['-c', `echo '' > ${path}/requirements.txt`]);
+    await dockerExec('sh', ['-c', `cat > "${path}/main.py" << 'HEREDOC'\n# ${name}\n\nprint("Hello from ${name}!")\nHEREDOC`]);
+    await dockerExec('sh', ['-c', `echo '' > "${path}/requirements.txt"`]);
 
     // Create venv if python3 is available
     const venvResult = await dockerExec('python3', ['-m', 'venv', 'venv'], { cwd: path, timeoutMs: 60000 });
@@ -650,9 +664,9 @@ export class WorkspaceManager extends EventEmitter {
     if (cargoResult.exitCode !== 0) {
       logger.warn(`Cargo init failed, creating manual Rust structure: ${cargoResult.stderr}`);
       // Manual creation fallback (name already validated as safe alphanumeric)
-      await dockerExec('sh', ['-c', `cat > ${path}/Cargo.toml << 'HEREDOC'\n[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nHEREDOC`]);
+      await dockerExec('sh', ['-c', `cat > "${path}/Cargo.toml" << 'HEREDOC'\n[package]\nname = "${name}"\nversion = "0.1.0"\nedition = "2021"\n\n[dependencies]\nHEREDOC`]);
       await dockerExec('mkdir', ['-p', `${path}/src`]);
-      await dockerExec('sh', ['-c', `cat > ${path}/src/main.rs << 'HEREDOC'\nfn main() { println!("Hello from ${name}!"); }\nHEREDOC`]);
+      await dockerExec('sh', ['-c', `cat > "${path}/src/main.rs" << 'HEREDOC'\nfn main() { println!("Hello from ${name}!"); }\nHEREDOC`]);
     }
 
     await this.createReadme(path, name, description);
@@ -664,10 +678,10 @@ export class WorkspaceManager extends EventEmitter {
 
     if (goResult.exitCode !== 0) {
       logger.warn(`Go mod init failed, creating manual Go structure: ${goResult.stderr}`);
-      await dockerExec('sh', ['-c', `cat > ${path}/go.mod << 'HEREDOC'\nmodule ${name}\n\ngo 1.21\nHEREDOC`]);
+      await dockerExec('sh', ['-c', `cat > "${path}/go.mod" << 'HEREDOC'\nmodule ${name}\n\ngo 1.21\nHEREDOC`]);
     }
 
-    await dockerExec('sh', ['-c', `cat > ${path}/main.go << 'HEREDOC'\npackage main\n\nimport "fmt"\n\nfunc main() { fmt.Println("Hello from ${name}!") }\nHEREDOC`]);
+    await dockerExec('sh', ['-c', `cat > "${path}/main.go" << 'HEREDOC'\npackage main\n\nimport "fmt"\n\nfunc main() { fmt.Println("Hello from ${name}!") }\nHEREDOC`]);
     await this.createReadme(path, name);
     await this.createGitignore(path, 'go');
   }
@@ -720,26 +734,26 @@ export class WorkspaceManager extends EventEmitter {
   }
 
   private async createReadme(path: string, name: string, description?: string): Promise<void> {
-    const content = `# ${name}\\n\\n${description ?? 'A new project created with Fetch.'}`;
-    await dockerExec('sh', ['-c', `echo '${content}' > ${path}/README.md`]);
+    const desc = description ?? 'A new project created with Fetch.';
+    await dockerExec('sh', ['-c', `cat > "${path}/README.md" << 'FETCHEOF'\n# ${name}\n\n${desc}\nFETCHEOF`]);
   }
 
   private async createGitignore(path: string, type: string): Promise<void> {
     let content = '';
     switch (type) {
       case 'node':
-        content = 'node_modules/\\n.env\\n.env.local\\ndist/\\n.next/\\n*.log';
+        content = 'node_modules/\n.env\n.env.local\ndist/\n.next/\n*.log';
         break;
       case 'python':
-        content = '__pycache__/\\n*.py[cod]\\n.env\\nvenv/\\n.venv/\\n*.egg-info/';
+        content = '__pycache__/\n*.py[cod]\n.env\nvenv/\n.venv/\n*.egg-info/';
         break;
       case 'go':
-        content = '*.exe\\n*.dll\\n*.so\\n*.dylib\\n*.test\\n*.out\\nvendor/';
+        content = '*.exe\n*.dll\n*.so\n*.dylib\n*.test\n*.out\nvendor/';
         break;
       default:
-        content = '.env\\n*.log\\n.DS_Store';
+        content = '.env\n*.log\n.DS_Store';
     }
-    await dockerExec('sh', ['-c', `echo '${content}' > ${path}/.gitignore`]);
+    await dockerExec('sh', ['-c', `cat > "${path}/.gitignore" << 'FETCHEOF'\n${content}\nFETCHEOF`]);
   }
 
   private async initializeGit(path: string): Promise<void> {
@@ -872,7 +886,7 @@ export class WorkspaceManager extends EventEmitter {
     }
 
     // Push
-    const pushResult = await dockerExec('git', ['-C', workspacePath, 'push', '-u', 'origin', 'main'], {
+    const pushResult = await dockerExec('git', ['-C', workspacePath, 'push', '-u', 'origin', 'HEAD'], {
       timeoutMs: 30000,
     });
 
@@ -996,13 +1010,13 @@ export class WorkspaceManager extends EventEmitter {
     let pushed = false;
     if (remoteUrl) {
       // Check if we actually have anything to push (local commits vs remote)
-      const unpushedResult = await dockerExec('git', ['-C', wsPath, 'rev-list', '--count', 'origin/main..main']);
+      const unpushedResult = await dockerExec('git', ['-C', wsPath, 'rev-list', '--count', '@{upstream}..HEAD']);
       const hasUnpushed = unpushedResult.exitCode === 0 && parseInt(unpushedResult.stdout.trim()) > 0;
 
       if (hasUnpushed || changedFiles > 0 || commitHash) {
         logger.info(`Pushing changes to GitHub for workspace ${workspaceId}...`);
         const pushResult = await dockerExec(
-          'git', ['-C', wsPath, 'push', '-u', 'origin', 'main'],
+          'git', ['-C', wsPath, 'push'],
           { timeoutMs: 30000 }
         );
         pushed = pushResult.exitCode === 0;

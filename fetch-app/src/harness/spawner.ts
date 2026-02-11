@@ -19,6 +19,7 @@ import { logger } from '../utils/logger.js';
 export class HarnessSpawner extends EventEmitter {
   private instances: Map<HarnessId, HarnessInstance> = new Map();
   private processes: Map<HarnessId, ChildProcess> = new Map();
+  private timers: Map<HarnessId, ReturnType<typeof setTimeout>> = new Map();
 
   /**
    * Spawn a new harness process
@@ -99,7 +100,8 @@ export class HarnessSpawner extends EventEmitter {
       
       // Setup timeout
       if (config.timeoutMs > 0) {
-        setTimeout(() => this.timeout(id), config.timeoutMs);
+        const timer = setTimeout(() => this.timeout(id), config.timeoutMs);
+        this.timers.set(id, timer);
       }
 
       return instance;
@@ -117,24 +119,44 @@ export class HarnessSpawner extends EventEmitter {
     const instance = this.instances.get(id);
     if (!instance) return;
 
+    // Guard flag scoped to this execution — prevents stream handlers from
+    // emitting events after the process has closed (#5 namespace isolation)
+    let settled = false;
+
     child.stdout?.on('data', (data: Buffer) => {
+      if (settled) return;
       const text = data.toString();
       instance.stdout.push(text);
       this.emit('output', { id, type: 'stdout', data: text });
     });
 
     child.stderr?.on('data', (data: Buffer) => {
+      if (settled) return;
       const text = data.toString();
       instance.stderr.push(text);
       this.emit('output', { id, type: 'stderr', data: text });
     });
 
     child.on('close', (code) => {
+      settled = true;
+
+      // Clear timeout timer — this deletion is the synchronization point
+      // for the timeout/close race (#6): whoever runs first deletes the
+      // timer entry, and the other checks and skips.
+      const timer = this.timers.get(id);
+      if (timer) {
+        clearTimeout(timer);
+        this.timers.delete(id);
+      }
+
+      // Remove stream listeners
+      child.stdout?.removeAllListeners('data');
+      child.stderr?.removeAllListeners('data');
+
       const finalStatus = code === 0 ? 'completed' : 'failed';
       instance.status = finalStatus;
-      this.instances.set(id, { ...instance, status: finalStatus }); // trigger update if needed
       this.processes.delete(id);
-      
+
       this.emit('status', { id, status: finalStatus, code });
       logger.info(`Harness ${id} exited with code ${code}`);
     });
@@ -181,9 +203,25 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
+   * Graceful shutdown — kill all processes and clean up
+   */
+  public shutdown(): void {
+    this.killAll();
+    for (const timer of this.timers.values()) {
+      clearTimeout(timer);
+    }
+    this.timers.clear();
+    this.removeAllListeners();
+  }
+
+  /**
    * Handle timeout
    */
   private timeout(id: HarnessId): void {
+    // If the timer was already cleared by the close handler, skip — process already settled (#6)
+    if (!this.timers.has(id)) return;
+    this.timers.delete(id);
+
     const instance = this.instances.get(id);
     if (instance && (instance.status === 'running' || instance.status === 'waiting_input')) {
       logger.warn(`Harness ${id} timed out after ${instance.config.timeoutMs}ms`);

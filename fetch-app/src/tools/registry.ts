@@ -108,6 +108,7 @@ export type ToolHandler = (input: unknown, context?: ToolContext) => Promise<Too
 export class ToolRegistry {
   private static instance: ToolRegistry | undefined;
   private tools: Map<string, OrchestratorTool> = new Map();
+  private customToolFiles: Map<string, string> = new Map(); // filePath → toolName
   private customToolsDir: string;
   private watchers: ReturnType<typeof chokidar.watch>[] = [];
 
@@ -165,14 +166,17 @@ export class ToolRegistry {
     };
 
     this.register(tool);
+    this.customToolFiles.set(filePath, def.name);
     logger.info(`Custom tool loaded: ${tool.name}`);
   }
 
   private unloadCustomTool(filePath: string) {
-    // Logic to map file to tool name needed if we want to support delete
-    // Since we didn't store file->name map, we might just re-scan or ignore for V1
-    // For now, logging.
-    logger.info(`Custom tool file removed: ${filePath} (Tool unloading not fully implemented yet)`);
+    const toolName = this.customToolFiles.get(filePath);
+    if (toolName) {
+      this.tools.delete(toolName);
+      this.customToolFiles.delete(filePath);
+      logger.info(`Custom tool unloaded: ${toolName}`);
+    }
   }
 
   private createShellHandler(def: CustomToolDefinition): ToolHandler {
@@ -188,14 +192,16 @@ export class ToolRegistry {
         command = command.replace(new RegExp(`{{${key}}}`, 'g'), escaped);
       });
 
+      const MAX_SHELL_OUTPUT = 100_000;
       const start = Date.now();
       try {
         const cwd = def.cwd || process.cwd();
         const { stdout, stderr } = await execPromise(command, { cwd });
+        const truncatedOutput = (stdout || stderr || 'Command executed successfully').slice(0, MAX_SHELL_OUTPUT);
 
         return {
           success: true,
-          output: stdout || stderr || 'Command executed successfully', // sometimes only stderr has info
+          output: truncatedOutput,
           duration: Date.now() - start
         };
       } catch (error) {

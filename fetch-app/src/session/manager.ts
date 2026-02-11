@@ -68,6 +68,7 @@ import { logger } from '../utils/logger.js';
  */
 export class SessionManager {
   private store: SessionStore;
+  private compactionFailures: Map<string, number> = new Map();
 
   constructor(store?: SessionStore) {
     this.store = store || getSessionStore();
@@ -121,8 +122,16 @@ export class SessionManager {
     await this.store.update(session);
     
     // Compact if message count exceeds threshold
-    this.compactIfNeeded(session).catch(err => {
+    this.compactIfNeeded(session).then(() => {
+      this.compactionFailures.delete(session.id);
+    }).catch(err => {
+      const count = (this.compactionFailures.get(session.id) ?? 0) + 1;
+      this.compactionFailures.set(session.id, count);
+      if (count >= 3) {
+        logger.error(`Compaction failing repeatedly for session ${session.id} (${count} failures)`, err);
+      } else {
         logger.warn('Background compaction failed', err);
+      }
     });
 
     return message;
@@ -305,14 +314,21 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.`
 
 // Singleton instance
 let managerInstance: SessionManager | null = null;
+let initPromise: Promise<SessionManager> | null = null;
 
 /**
  * Get the singleton session manager instance
  */
 export async function getSessionManager(): Promise<SessionManager> {
-  if (!managerInstance) {
-    managerInstance = new SessionManager();
-    await managerInstance.init();
-  }
-  return managerInstance;
+  if (managerInstance) return managerInstance;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    const instance = new SessionManager();
+    await instance.init();
+    managerInstance = instance;
+    return instance;
+  })();
+
+  return initPromise;
 }

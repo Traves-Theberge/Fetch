@@ -96,7 +96,7 @@ export class HarnessPool extends EventEmitter {
           item.resolve(instance);
         } catch (error) {
           item.reject(error);
-          this.processQueue(); // Try next if this one failed synchronously
+          try { this.processQueue(); } catch { /* queue processing continues on next slot open */ }
         }
       }
     }
@@ -119,6 +119,19 @@ export class HarnessPool extends EventEmitter {
   public setMaxConcurrent(max: number): void {
     this.config.maxConcurrent = max;
     this.processQueue(); // We might have opened slots
+  }
+
+  /**
+   * Graceful shutdown — kill all processes, reject queued items, remove listeners
+   */
+  public shutdown(): void {
+    this.spawner.shutdown();
+    // Reject all queued items
+    for (const item of this.queue) {
+      item.reject(new Error('Pool shutting down'));
+    }
+    this.queue = [];
+    this.removeAllListeners();
   }
 
   // Delegate methods

@@ -16,7 +16,7 @@
  * | Direct message | `@fetch ...` | Natural language or /safety escape |
  * | Self-chat | `@fetch ...` | Message yourself |
  * | Thread reply | Reply to Fetch msg | No @fetch needed |
- * | Emoji reaction | 👍/👎 on Fetch msg | Approve/reject (WIP) |
+ * | Emoji reaction | 👍/👎 on Fetch msg | Approve/reject       |
  * 
  * ## Security Model
  * 
@@ -383,12 +383,16 @@ export class Bridge {
 
         if (approveEmojis.includes(emoji)) {
           logger.info('Processing approval via reaction');
-          // TODO: Handle approval - send "yes" to handler
-          // await handleMessage(senderId, 'yes');
+          const responses = await handleMessage(senderId, 'yes');
+          for (const response of responses) {
+            await this.client.sendMessage(senderId, response);
+          }
         } else if (rejectEmojis.includes(emoji) || cancelEmojis.includes(emoji)) {
           logger.info('Processing rejection/cancel via reaction');
-          // TODO: Handle rejection - send "no" to handler
-          // await handleMessage(senderId, 'no');
+          const responses = await handleMessage(senderId, 'no');
+          for (const response of responses) {
+            await this.client.sendMessage(senderId, response);
+          }
         }
         // Other emojis are ignored (just acknowledgements)
       } catch (error) {

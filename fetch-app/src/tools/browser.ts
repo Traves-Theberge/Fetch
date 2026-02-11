@@ -16,6 +16,7 @@
  * @see {@link ToolRegistry} - Tool registration
  */
 
+import { pipeline } from '../config/pipeline.js';
 import { dockerExec } from '../utils/docker.js';
 import {
   BrowserOpenInputSchema,
@@ -31,7 +32,7 @@ import type { ToolResult } from './types.js';
 // Constants
 // ============================================================================
 
-const BROWSER_TIMEOUT_MS = 30_000;
+const BROWSER_TIMEOUT_MS = pipeline.browserTimeout ?? 30_000;
 const BROWSER_SCRIPT_PATH = '/usr/local/lib/fetch-browser/browser-agent.mjs';
 
 // ============================================================================

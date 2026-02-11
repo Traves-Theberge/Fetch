@@ -183,6 +183,11 @@ export async function handleMessage(
   const startTime = Date.now();
   logger.info(`Processing message (${message.length} chars)`);
 
+  // Validate non-empty message
+  if (!message || !message.trim()) {
+    return ['🐕 I didn\'t catch that - could you send a message?'];
+  }
+
   // Type-safety assertions
   const sManager = sessionManager!;
 
@@ -205,11 +210,15 @@ export async function handleMessage(
     // Process with agent
     // Add a "thinking" message if it takes more than 3 seconds on the first try
     let initialSent = false;
-    const thinkingTimer = setTimeout(async () => {
+    const thinkingTimer = setTimeout(() => {
       if (!initialSent && onProgress) {
-        const { generateProgressMessage } = await import('../agent/core.js');
-        await onProgress(generateProgressMessage(message, 1));
-        initialSent = true;
+        import('../agent/core.js').then(({ generateProgressMessage }) => {
+          return onProgress(generateProgressMessage(message, 1));
+        }).then(() => {
+          initialSent = true;
+        }).catch(err => {
+          logger.warn('Thinking timer callback failed', err);
+        });
       }
     }, 3000);
 

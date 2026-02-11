@@ -491,6 +491,17 @@ export async function handleWorkspaceSync(
   }
 
   try {
+    // Validate workspace exists before attempting sync
+    const workspace = await workspaceManager.getWorkspace(workspaceId);
+    if (!workspace) {
+      return {
+        success: false,
+        output: '',
+        error: `Workspace not found: ${workspaceId}`,
+        duration: Date.now() - start,
+      };
+    }
+
     const result = await workspaceManager.syncWorkspace(workspaceId, message);
 
     if (!result.success) {

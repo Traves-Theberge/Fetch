@@ -65,6 +65,9 @@ export class SkillManager {
          watcher.on('add', (filePath) => this.handleFileChange(filePath));
          watcher.on('change', (filePath) => this.handleFileChange(filePath));
          watcher.on('unlink', (filePath) => this.handleFileDelete(filePath));
+         watcher.on('error', (error) => {
+             logger.error(`Skill watcher error for ${dir}`, error);
+         });
 
          this.watchers.push(watcher);
      } catch (err) {
@@ -166,6 +169,13 @@ export class SkillManager {
     } catch (error) {
       logger.error(`Error loading skills from ${baseDir}`, { error });
     }
+  }
+
+  async shutdown(): Promise<void> {
+    for (const watcher of this.watchers) {
+      await watcher.close();
+    }
+    this.watchers = [];
   }
 
   /**

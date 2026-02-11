@@ -184,6 +184,21 @@ You don't need to restart Fetch when adding or editing skills.
 
 The `SkillManager` watches `data/skills/` via `chokidar` and reloads automatically.
 
+### Lifecycle Management
+
+The `SkillManager` now implements a `shutdown()` method for clean resource cleanup:
+
+- Closes chokidar file watcher to release file system handles
+- Removes all event listeners to prevent memory leaks
+- Called automatically during Bridge shutdown sequence
+
+### Error Handling
+
+Watcher errors are logged but non-fatal. If the file watcher encounters an error:
+- Error is logged with structured logging
+- Hot-reload continues on subsequent file changes
+- System remains operational
+
 > [!NOTE]
 > Hot-reload only applies to **user skills** in `data/skills/`. Built-in skills in `src/skills/builtin/` require a code rebuild to update.
 

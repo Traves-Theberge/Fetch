@@ -58,7 +58,7 @@ type ProgressCallback = (
 export class TaskIntegration extends EventEmitter {
   private initialized = false;
   private manager: TaskManager | null = null;
-  private activeExecutions = new Map<TaskId, AbortController>();
+  private activeExecutions = new Set<TaskId>();
   private progressCallbacks = new Map<TaskId, ProgressCallback>();
   private taskSessions = new Map<TaskId, string>();
 
@@ -102,8 +102,7 @@ export class TaskIntegration extends EventEmitter {
     }
 
     const executor = getHarnessExecutor();
-    const abort = new AbortController();
-    this.activeExecutions.set(task.id, abort);
+    this.activeExecutions.add(task.id);
     this.taskSessions.set(task.id, task.sessionId);
 
     if (onProgress) {
@@ -164,10 +163,22 @@ export class TaskIntegration extends EventEmitter {
         error: errorMessage,
       };
     } finally {
-      this.activeExecutions.delete(task.id);
-      this.progressCallbacks.delete(task.id);
-      this.taskSessions.delete(task.id);
+      try { this.activeExecutions.delete(task.id); } catch (e) { logger.error('Cleanup: activeExecutions', e); }
+      try { this.progressCallbacks.delete(task.id); } catch (e) { logger.error('Cleanup: progressCallbacks', e); }
+      try { this.taskSessions.delete(task.id); } catch (e) { logger.error('Cleanup: taskSessions', e); }
     }
+  }
+
+  /**
+   * Graceful shutdown — clear all state and remove listeners
+   */
+  public shutdown(): void {
+    this.activeExecutions.clear();
+    this.progressCallbacks.clear();
+    this.taskSessions.clear();
+    this.removeAllListeners();
+    this.initialized = false;
+    this.manager = null;
   }
 
   // ==========================================================================
@@ -207,7 +218,8 @@ export class TaskIntegration extends EventEmitter {
       const sessionId = this.taskSessions.get(taskId);
 
       // Pause task and wait for response
-      this.manager!.pauseTask(taskId, data?.question as string | undefined);
+      this.manager!.pauseTask(taskId, data?.question as string | undefined)
+        .catch(err => logger.error(`Failed to pause task ${taskId} on question`, err));
 
       this.emit('task:question', {
         taskId,
@@ -265,7 +277,7 @@ export class TaskIntegration extends EventEmitter {
       const taskResult = {
         success: true,
         summary: result.output ?? 'Task completed successfully',
-        filesModified: [] as string[], // TODO: Parse from output
+        filesModified: [] as string[], // Not yet parsed from harness output — adapters have extractFileOperations() but executor doesn't expose it
         filesCreated: [] as string[],
         filesDeleted: [] as string[],
         rawOutput: result.output ?? '',

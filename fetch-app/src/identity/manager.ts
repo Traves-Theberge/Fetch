@@ -16,7 +16,7 @@ import { IdentityLoader } from './loader.js';
 import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
-import { env } from '../config/env.js';
+import { env, VERSION } from '../config/env.js';
 import { pipeline } from '../config/pipeline.js';
 
 // Default "Orchestrator" Identity
@@ -74,9 +74,13 @@ export class IdentityManager {
         persistent: true
       });
 
-      watcher.on('change', (path) => {
-        logger.info(`Identity file changed: ${path}. Reloading...`);
+      watcher.on('change', (filePath) => {
+        logger.info(`Identity file changed: ${filePath}. Reloading...`);
         this.reloadIdentity();
+      });
+
+      watcher.on('error', (error) => {
+        logger.error(`Identity watcher error for ${dir}`, error);
       });
 
       this.watchers.push(watcher);
@@ -86,8 +90,7 @@ export class IdentityManager {
   }
 
   public reloadIdentity() {
-    try {
-      const loaded = this.loader.load();
+    this.loader.load().then(loaded => {
 
       // Deep merge or simple override? Simple override for top level, specific for arrays
       if (loaded.name) this.identity.name = loaded.name;
@@ -112,9 +115,16 @@ export class IdentityManager {
       }
 
       logger.info(`Identity loaded: ${this.identity.name}`);
-    } catch (error) {
+    }).catch(error => {
       logger.error('Failed to reload identity', error);
+    });
+  }
+
+  public shutdown(): void {
+    for (const watcher of this.watchers) {
+      watcher.close();
     }
+    this.watchers = [];
   }
 
   public static getInstance(): IdentityManager {
@@ -231,7 +241,7 @@ export class IdentityManager {
     return `
 ## IDENTITY
 You are ** ${this.identity.name}** ${this.identity.emoji}, the ${this.identity.role}.
-- ** Version **: v4.1.1(Always report this exact version when asked "what version" or similar)
+- ** Version **: v${VERSION}(Always report this exact version when asked "what version" or similar)
       - ** Voice **: ${this.identity.voice.tone}
 - ** Platform **: WhatsApp(mobile)
       - ** Time **: ${date}

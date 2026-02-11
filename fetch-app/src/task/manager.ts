@@ -65,6 +65,13 @@ const DEFAULT_CONSTRAINTS = {
 };
 
 /**
+ * Check if a task status represents an active (non-terminal) state
+ */
+function isActiveStatus(status: TaskStatus): boolean {
+  return status === 'pending' || status === 'running' || status === 'waiting_input';
+}
+
+/**
  * Valid state transitions
  */
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
@@ -153,10 +160,14 @@ export class TaskManager extends EventEmitter {
    * @throws Error if a task is already running
    */
   async createTask(input: TaskCreateInput, sessionId: string): Promise<Task> {
+    if (!input.goal?.trim()) {
+      throw new Error('Task goal cannot be empty');
+    }
+
     // Check for running task
     if (this.currentTaskId) {
       const current = this.tasks.get(this.currentTaskId);
-      if (current && ['pending', 'running', 'waiting_input'].includes(current.status)) {
+      if (current && isActiveStatus(current.status)) {
         throw new Error(
           `Cannot create task: task ${this.currentTaskId} is already ${current.status}`
         );
@@ -191,11 +202,12 @@ export class TaskManager extends EventEmitter {
     this.currentTaskId = task.id;
 
     // Persist
-    logger.debug(`Saving task to disk: ${task.id}`);
-    await this.store.saveTask(task);
-    logger.debug(`Saving current task ID to disk: ${task.id}`);
-    await this.store.saveCurrentTaskId(task.id);
-    logger.info('Task persistence complete');
+    try {
+      await this.store.saveTask(task);
+      await this.store.saveCurrentTaskId(task.id);
+    } catch (err) {
+      logger.error(`Failed to persist task ${task.id}`, err);
+    }
 
     // Emit event
     this.emitTaskEvent('task:created', task.id, { task });
@@ -225,7 +237,11 @@ export class TaskManager extends EventEmitter {
     task.startedAt = new Date().toISOString();
 
     // Persist
-    await this.store.saveTask(task);
+    try {
+      await this.store.saveTask(task);
+    } catch (err) {
+      logger.error(`Failed to persist task start: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:started', taskId);
 
@@ -244,7 +260,11 @@ export class TaskManager extends EventEmitter {
     task.pendingQuestion = question;
 
     // Persist
-    await this.store.saveTask(task);
+    try {
+      await this.store.saveTask(task);
+    } catch (err) {
+      logger.error(`Failed to persist waiting_input: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:question', taskId, { question });
 
@@ -265,7 +285,11 @@ export class TaskManager extends EventEmitter {
     task.pendingQuestion = undefined;
 
     // Persist
-    await this.store.saveTask(task);
+    try {
+      await this.store.saveTask(task);
+    } catch (err) {
+      logger.error(`Failed to persist task resume: ${taskId}`, err);
+    }
 
     logger.info(`Task resumed: ${taskId}`);
   }
@@ -284,8 +308,12 @@ export class TaskManager extends EventEmitter {
     this.currentTaskId = null;
 
     // Persist
-    await this.store.saveTask(task);
-    await this.store.saveCurrentTaskId(null);
+    try {
+      await this.store.saveTask(task);
+      await this.store.saveCurrentTaskId(null);
+    } catch (err) {
+      logger.error(`Failed to persist task completion: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:completed', taskId, { result });
 
@@ -319,8 +347,12 @@ export class TaskManager extends EventEmitter {
     this.currentTaskId = null;
 
     // Persist
-    await this.store.saveTask(task);
-    await this.store.saveCurrentTaskId(null);
+    try {
+      await this.store.saveTask(task);
+      await this.store.saveCurrentTaskId(null);
+    } catch (err) {
+      logger.error(`Failed to persist task failure: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:failed', taskId, { error });
 
@@ -341,8 +373,12 @@ export class TaskManager extends EventEmitter {
     }
 
     // Persist
-    await this.store.saveTask(task);
-    await this.store.saveCurrentTaskId(this.currentTaskId);
+    try {
+      await this.store.saveTask(task);
+      await this.store.saveCurrentTaskId(this.currentTaskId);
+    } catch (err) {
+      logger.error(`Failed to persist task cancellation: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:cancelled', taskId);
 
@@ -392,7 +428,11 @@ export class TaskManager extends EventEmitter {
     task.progress.push(progress);
 
     // Persist
-    await this.store.saveTask(task);
+    try {
+      await this.store.saveTask(task);
+    } catch (err) {
+      logger.error(`Failed to persist task progress: ${taskId}`, err);
+    }
 
     this.emitTaskEvent('task:progress', taskId, { progress });
 
@@ -454,7 +494,7 @@ export class TaskManager extends EventEmitter {
   hasRunningTask(): boolean {
     if (!this.currentTaskId) return false;
     const task = this.tasks.get(this.currentTaskId);
-    return task !== undefined && ['pending', 'running', 'waiting_input'].includes(task.status);
+    return task !== undefined && isActiveStatus(task.status);
   }
 
   // ==========================================================================
@@ -562,6 +602,7 @@ export class TaskManager extends EventEmitter {
  * Global task manager instance
  */
 let taskManagerInstance: TaskManager | null = null;
+let taskInitPromise: Promise<TaskManager> | null = null;
 
 /**
  * Get or create the global task manager instance
@@ -569,9 +610,15 @@ let taskManagerInstance: TaskManager | null = null;
  * @returns Task manager instance
  */
 export async function getTaskManager(): Promise<TaskManager> {
-  if (!taskManagerInstance) {
-    taskManagerInstance = new TaskManager();
-    await taskManagerInstance.init();
-  }
-  return taskManagerInstance;
+  if (taskManagerInstance) return taskManagerInstance;
+  if (taskInitPromise) return taskInitPromise;
+
+  taskInitPromise = (async () => {
+    const instance = new TaskManager();
+    await instance.init();
+    taskManagerInstance = instance;
+    return instance;
+  })();
+
+  return taskInitPromise;
 }

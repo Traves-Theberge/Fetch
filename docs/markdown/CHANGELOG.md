@@ -5,6 +5,98 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-02-11
+
+### 🛡️ Comprehensive Codebase Hardening — 50 Issues Resolved
+
+Full codebase audit identified 55 issues across 12 clusters. 50 resolved across security, process lifecycle, concurrency, resilience, Docker, agent core, task system, tools, harness adapters, session management, and configuration. 5 test coverage items deferred.
+
+#### Security & Shell Injection (Cluster 1)
+- **Shell injection prevention** — Quoted all `${path}` variables in `sh -c` commands across 10+ locations in workspace manager
+- **Sed injection fix** — Replaced unsafe `sed`-based JSON editing with `npm pkg set`
+- **Heredoc file creation** — Replaced `echo '${content}'` (literal `\n`) with `cat << 'HEREDOC'` pattern
+- **Git safety** — Added length guard for status line parsing, improved detached HEAD detection with `git rev-parse --short HEAD` fallback
+- **Branch detection** — Replaced hardcoded `origin/main` with `@{upstream}..HEAD` for correct default branch detection
+- **GitHub rollback** — Graceful handling when GitHub repo creation fails during workspace create
+
+#### Process Lifecycle (Cluster 2)
+- **Timer cleanup** — Store timeout IDs in Map, `clearTimeout` on process completion
+- **Listener cleanup** — Remove stdout/stderr listeners in close handler
+- **Execution isolation** — Added `settled` flag per-execution to prevent cross-fire between concurrent harness instances
+- **Race condition fix** — Timer-map guard pattern prevents timeout/close race condition
+
+#### Concurrency (Cluster 3)
+- **Singleton races** — Promise-lock pattern for `getSessionManager()`, `getTaskManager()`, `getWhitelistStore()` singletons
+- **Persistence mutex** — Promise-chain serialization for whitelist `add()`/`remove()` writes
+- **Rate limiter consistency** — Extracted shared `prune()` method used by both `isAllowed()` and `getRemaining()`
+
+#### Watcher & Loader Resilience (Cluster 4)
+- **Error handlers** — Added `.on('error')` to chokidar watchers (identity + skills)
+- **Async I/O** — Converted `IdentityLoader.load()` to async with `fs.promises`
+- **Structured logging** — Replaced `console.warn`/`console.error` with `logger` in loader
+- **Shutdown methods** — Added `shutdown()` to close watcher file descriptors in identity and skills managers
+
+#### Docker Hardening (Cluster 5)
+- **Health checks** — Added `HEALTHCHECK` to fetch-bridge (curl /api/status) and fetch-kennel (test -f /tmp/kennel-ready)
+- **Resource limits** — Memory (2G) and CPU (2.0) limits on fetch-bridge container
+- **Log rotation** — `json-file` driver with 50m max-size, 3 max-files for both services
+
+#### Handler & Agent Core (Cluster 6)
+- **Async safety** — Fixed fire-and-forget async setTimeout callback with `.then()/.catch()` pattern
+- **Input validation** — Empty/whitespace message rejection before LLM processing
+- **State sync validation** — Added field validation after `JSON.parse` in tool call state sync (workspace_select, workspace_create, task_create)
+- **Event handler safety** — Added `.catch()` to unhandled async promises in task event handlers
+- **Parser improvement** — Word boundary regex for capability trigger matching
+- **Context simplification** — Clarified retry context reduction on 400 errors
+
+#### Task & Pool System (Cluster 7)
+- **Unused AbortController removed** — Changed `activeExecutions` from `Map<TaskId, AbortController>` to `Set<TaskId>`
+- **Persistence safety** — Try/catch around store save operations in TaskManager
+- **Queue resilience** — Wrapped recursive `processQueue()` in try/catch
+- **Defensive cleanup** — Try-finally per cleanup op in `executeTask` finally block
+- **Goal validation** — Reject empty task goals before creation
+- **Helper extraction** — `isActiveStatus()` helper for status comparisons
+
+#### Tool System (Cluster 8)
+- **Workspace validation** — Check workspace exists in `handleWorkspaceSync` before proceeding
+- **Configurable timeout** — Browser timeout via `FETCH_BROWSER_TIMEOUT` pipeline param
+- **Output cap** — Shell handler output capped at 100K characters
+- **Custom tool lifecycle** — Implemented `unloadCustomTool()` with file-to-name tracking
+
+#### Harness Adapters (Cluster 9)
+- **Shared constant** — Extracted `KENNEL_CONTAINER` from hardcoded `'fetch-kennel'` strings
+- **Path validation** — Workspace path existence check before spawning harness
+- **Cross-platform errors** — Added timeout string matching alongside Linux exit code 124/137
+- **Shutdown methods** — Added `shutdown()` to HarnessPool, HarnessExecutor, TaskIntegration
+- **Execution metadata** — Populated `HarnessExecution.pid` and `exitCode` fields
+
+#### Session & Security (Cluster 10)
+- **Compaction tracking** — Track consecutive compaction failures, escalate after 3
+- **Atomic clear** — Only mutate session after confirmed DB write in `/clear` command
+
+#### Config & Cleanup (Cluster 11)
+- **API key docs** — Added `ANTHROPIC_API_KEY` to `.env.example`
+- **Centralized version** — Single `VERSION` constant in `config/env.ts`, used by parser, format, and identity manager
+- **Emoji reactions** — Implemented approval/rejection handling for WhatsApp emoji reactions in bridge client
+
+#### Files Changed (30+)
+
+| Area | Files |
+|------|-------|
+| Workspace | `workspace/manager.ts`, `workspace/repo-map.ts` |
+| Harness | `harness/spawner.ts`, `harness/executor.ts`, `harness/pool.ts`, `harness/types.ts`, `harness/claude.ts`, `harness/gemini.ts`, `harness/copilot.ts` |
+| Agent | `agent/core.ts`, `handler/index.ts`, `commands/parser.ts` |
+| Identity | `identity/loader.ts`, `identity/manager.ts` |
+| Skills | `skills/manager.ts` |
+| Security | `security/whitelist.ts`, `security/rateLimiter.ts` |
+| Session | `session/manager.ts` |
+| Task | `task/manager.ts`, `task/integration.ts` |
+| Tools | `tools/registry.ts`, `tools/browser.ts`, `tools/workspace.ts` |
+| Config | `config/env.ts`, `config/pipeline.ts` |
+| Bridge | `bridge/client.ts` |
+| Docker | `docker-compose.yml` |
+| Docs | `.env.example`, `docs/index.html` |
+
 ## [4.2.0] - 2026-02-11
 
 ### 🔧 Harness, Identity, Skills & Tool System Hardening
@@ -122,26 +214,14 @@ Major TUI improvements for the Fetch Manager, including a shared screen layout s
   - Symlinked `manager/fetch-manager` to `~/.local/bin/fetch`
   - Running `fetch` from any terminal now launches the TUI
 
-#### Files Changed
-
-| File | Change |
-|---|---|
-| `manager/internal/layout/screen.go` | **NEW** — shared ScreenLayout scaffold with breadcrumbs |
-| `manager/main.go` | Refactored all views to use ScreenLayout, replaced choices array with Menu component |
-| `manager/internal/components/menu.go` | Added Badge field, removed unused View() |
-| `manager/internal/config/editor.go` | Added section navigation (Tab picker, 1-9 jump), theme style refs |
-| `manager/internal/config/whitelist.go` | Replaced inline styles with theme refs |
-| `manager/internal/models/selector.go` | Replaced inline styles with theme refs |
-| `manager/internal/theme/styles.go` | +11 new style vars, removed 18 unused vars + 4 funcs |
-| `manager/internal/theme/borders.go` | Kept PanelBorder, removed 7 unused borders |
-| `manager/internal/layout/frame.go` | Kept SectionHeader, removed 11 unused functions |
-| `manager/internal/layout/responsive.go` | Kept IsCompact, removed 13 unused functions |
-| `manager/internal/components/progress.go` | Removed SimpleProgress, DownloadProgress |
-| `manager/internal/components/splash.go` | Removed SplashCompact, SplashFull |
-| `manager/internal/components/version.go` | Removed VersionCompact |
-| `manager/internal/status/client.go` | Removed IsHealthy, Logout, LogoutResponse |
-| `manager/internal/logs/logs.go` | Removed GetRecentLogsFormatted, StreamLogs |
-| `manager/internal/update/update.go` | **DELETED** — entire unused package |
+- **Documentation Site Overhaul**:
+  - 3-column layout: sidebar | content | right-side Table of Contents
+  - TOC with IntersectionObserver scroll spy, auto-highlights current section
+  - Copy buttons on all code blocks with language labels
+  - Syntax highlighting via Highlight.js (One Dark / One Light themes)
+  - Professional typography with Inter + JetBrains Mono fonts
+  - Back-to-top button, heading anchor links, improved tables
+  - Responsive breakpoints: mobile (<768px), mid (769-1399px), wide (>1400px)
 
 ## [4.1.0] - 2026-02-11
 
@@ -1350,6 +1430,8 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 4.3.0 | 2026-02-11 | Comprehensive Codebase Hardening (50 Issues) |
+| 4.2.0 | 2026-02-11 | Harness, Identity, Skills & Tool Hardening |
 | 4.1.1 | 2026-02-11 | TUI Layout Overhaul & Dead Code Cleanup |
 | 4.1.0 | 2026-02-11 | Web Fetch, Web Search & Browser Automation |
 | 4.0.7 | 2026-02-11 | Documentation & UX Overhaul |
@@ -1384,6 +1466,8 @@ FETCH_V2_ROLLOUT_PERCENT=100
 | 0.2.0 | 2026-02-02 | TUI Redesign |
 | 0.1.0 | 2026-02-01 | Initial beta release |
 
+[4.3.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.2.0...v4.3.0
+[4.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.1.1...v4.2.0
 [4.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.7...v4.1.0
 [4.0.7]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.6...v4.0.7

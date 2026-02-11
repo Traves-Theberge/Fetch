@@ -27,6 +27,19 @@ erDiagram
 
 The `SessionManager` orchestrates all state changes. It wraps SQLite transactions to ensure that message history, tool outputs, and metadata updates are atomic.
 
+### Concurrency Control
+
+Session state management uses a **promise-lock singleton** pattern initialized at module load to prevent race conditions:
+
+```typescript
+const sessionLock = new PromiseLock();
+```
+
+All critical database operations acquire this lock before executing. This ensures:
+- Atomic message persistence during tool loops
+- Safe concurrent access from multiple WhatsApp handlers
+- Serialized compaction operations that modify message history
+
 ### Schema (Simplified)
 
 ```sql
@@ -71,6 +84,33 @@ The system follows a request-response cycle managed by the agent core:
 3. **ToolLoop**: LLM is calling tools (up to 5 rounds per message).
 4. **TaskRunning**: A harness task is executing in the Kennel container.
 5. **WaitingForInput**: The `ask_user` tool has paused execution pending user reply.
+
+## Session Operations
+
+### Atomic Session Clear
+
+The `clearSession()` method follows an atomic pattern: **mutate in-memory state only after successful DB write**. This prevents inconsistent state if the database operation fails:
+
+1. Write empty message array to database
+2. Only after success: clear in-memory `messages` array
+3. Return success confirmation
+
+### Compaction Failure Tracking
+
+Compaction failures are tracked with escalating behavior:
+
+1. **First failure**: Log warning, continue normal operation
+2. **Second failure**: Log error with stack trace
+3. **Third+ failures**: Disable compaction for this session, log critical warning
+
+This prevents infinite retry loops while preserving system stability. The failure counter resets on successful compaction.
+
+### Persistence Mutex for Whitelist
+
+The `Whitelist` class uses a dedicated mutex (`persistMutex`) to serialize file writes. This prevents race conditions when:
+- Adding a phone number during active conversation
+- Removing a number while another message arrives
+- Multiple concurrent whitelist modifications
 
 ## Workspace State
 

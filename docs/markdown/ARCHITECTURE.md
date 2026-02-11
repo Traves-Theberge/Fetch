@@ -159,20 +159,30 @@ The Bridge starts with this ordered initialization:
 
 1. `validateEnv()` — Zod schema validates all environment variables (fail-fast)
 2. Start HTTP status API on port 8765
-3. Create WhatsApp Bridge client
-4. WhatsApp authenticates (QR code or cached session)
-5. Bridge `ready` event fires — system is operational
+3. **Async identity loading** — `IdentityLoader.load()` reads identity files using `fs.promises` for non-blocking I/O
+4. Create WhatsApp Bridge client
+5. WhatsApp authenticates (QR code or cached session)
+6. Bridge `ready` event fires — system is operational
 
 ## Shutdown Sequence
 
 On SIGINT/SIGTERM or unhandled exception:
 
 1. Kill all harness processes (`spawner.killAll()`)
-2. Destroy WhatsApp bridge connection
-3. Close SQLite databases (flush WAL)
-4. `process.exit()`
+2. **Shutdown managers** — `SkillManager.shutdown()`, `IdentityManager.shutdown()` close file watchers
+3. Destroy WhatsApp bridge connection
+4. Close SQLite databases (flush WAL)
+5. `process.exit()`
 
 Global `unhandledRejection` and `uncaughtException` handlers trigger this same shutdown path.
+
+### EventEmitter Subclasses
+
+Several managers extend `EventEmitter` and implement `shutdown()` methods to clean up resources:
+- **SkillManager** — Closes chokidar file watcher, removes event listeners
+- **IdentityManager** — Closes chokidar file watcher, removes event listeners
+
+These shutdown methods prevent memory leaks and ensure graceful cleanup when the Bridge terminates.
 
 ## Dependencies (Runtime)
 
@@ -184,7 +194,7 @@ Global `unhandledRejection` and `uncaughtException` handlers trigger this same s
 | `zod` | Schema validation (env, tool inputs, IDs) | `config/env.ts`, `validation/`, `tools/loader.ts` |
 | `dockerode` | Docker API for container management | `utils/docker.ts` |
 | `gray-matter` | YAML frontmatter parsing for skills & agents | `skills/loader.ts`, `identity/loader.ts` |
-| `chokidar` | File watcher for identity hot-reload | `identity/manager.ts` |
+| `chokidar` | File watcher for identity/skills hot-reload with error handlers | `identity/manager.ts`, `skills/manager.ts` |
 | `nanoid` | Collision-resistant ID generation | `utils/id.ts` |
 | `strip-ansi` | Strip ANSI codes from harness CLI output | `harness/output-parser.ts` |
 | `dotenv` | Load `.env` file | `config/env.ts` |
@@ -210,9 +220,9 @@ src/
 ├── security/
 │   ├── index.ts          # Barrel exports
 │   ├── gate.ts           # @fetch trigger + phone authorization
-│   ├── rateLimiter.ts    # Sliding window rate limiter with periodic eviction
+│   ├── rateLimiter.ts    # Sliding window rate limiter with periodic eviction, circuit breaker thread-safety
 │   ├── validator.ts      # Input sanitization (injection, traversal)
-│   └── whitelist.ts      # Trusted phone number management
+│   └── whitelist.ts      # Trusted phone number management with persistence mutex
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
@@ -232,7 +242,7 @@ src/
 │   ├── copilot.ts        # Copilot CLI adapter (container: 'fetch-kennel')
 │   ├── registry.ts       # Adapter registry (single source)
 │   ├── executor.ts       # Task execution via pool
-│   ├── spawner.ts        # Process spawn with docker exec wrapping
+│   ├── spawner.ts        # Process spawn with docker exec wrapping, timer-map guard pattern
 │   ├── pool.ts           # Concurrency management (max 1, aligned with TaskManager)
 │   ├── output-parser.ts  # Harness output parsing
 │   └── types.ts          # HarnessConfig, ErrorCategory, HarnessResult
@@ -248,8 +258,8 @@ src/
 │   ├── types.ts          # Skill, SkillConfig, SkillRequirements
 │   └── builtin/          # 7 built-in skills (git, docker, testing, etc.)
 ├── session/
-│   ├── manager.ts        # Session CRUD, messages, compaction, repo-map cache
-│   ├── store.ts          # SQLite persistence (sessions.db, WAL mode)
+│   ├── manager.ts        # Session CRUD, messages, compaction with failure tracking, repo-map cache
+│   ├── store.ts          # SQLite persistence (sessions.db, WAL mode), promise-lock singleton
 │   └── types.ts          # Session, Message, Preferences interfaces
 ├── task/
 │   ├── index.ts           # Barrel exports
@@ -397,6 +407,47 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 
 Both databases use WAL (Write-Ahead Logging) mode for concurrent read/write access without locking.
 
+## Concurrency & Thread Safety
+
+Fetch uses several patterns to ensure thread-safe operations in its asynchronous runtime:
+
+### Promise-Lock Singleton Pattern
+
+The `SessionStore` and `TaskStore` use a **promise-lock singleton** initialized at module load:
+
+```typescript
+const sessionLock = new PromiseLock();
+```
+
+This prevents race conditions during concurrent database operations. All critical sections (writes, compactions) acquire the lock before proceeding.
+
+### Timer-Map Guard Pattern
+
+The `ProcessSpawner` uses a timer-map guard to prevent memory leaks from orphaned timeout timers:
+
+```typescript
+if (this.timeoutTimers.has(taskId)) {
+  clearTimeout(this.timeoutTimers.get(taskId));
+  this.timeoutTimers.delete(taskId);
+}
+```
+
+This pattern ensures cleanup even when processes terminate early or fail.
+
+### Persistence Mutex
+
+The `Whitelist` class uses a mutex to serialize file writes:
+
+```typescript
+private persistMutex = new PromiseLock();
+```
+
+This prevents corrupted state when multiple whitelist operations happen concurrently.
+
+### Circuit Breaker Thread-Safety
+
+The `RateLimiter` circuit breaker is documented as thread-safe for concurrent access across multiple WhatsApp message handlers.
+
 ## Error Recovery
 
 | Failure | Recovery |
@@ -406,3 +457,5 @@ Both databases use WAL (Write-Ahead Logging) mode for concurrent read/write acce
 | Harness timeout | Task marked as failed, user notified |
 | Unhandled rejection | Global handler triggers graceful shutdown |
 | LLM API failure | Retry with backoff, then fail task with error message |
+| Compaction failure | Tracked with escalating behavior (log warning → log error → disable) |
+| Watcher error | Logged but non-fatal, hot-reload continues on subsequent changes |

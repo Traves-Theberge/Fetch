@@ -9,6 +9,12 @@ services:
       dockerfile: fetch-app/Dockerfile
     container_name: fetch-bridge
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8765/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     env_file:
       - .env
     # ─── Pipeline Tuning (uncomment to override defaults) ─────
@@ -38,6 +44,16 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Shared workspace for file operations
       - ./workspace:/workspace
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
     depends_on:
       - fetch-kennel
     networks:
@@ -50,6 +66,12 @@ services:
       dockerfile: Dockerfile
     container_name: fetch-kennel
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/kennel-ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     env_file:
       - .env
     environment:
@@ -67,6 +89,11 @@ services:
     working_dir: /workspace
     # Keep container running for exec commands
     command: ["tail", "-f", "/dev/null"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     networks:
       - fetch-network
     # Security: Limit resources
@@ -89,6 +116,11 @@ services:
       - SEARXNG_BASE_URL=http://searxng:8080/
     networks:
       - fetch-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
     deploy:
       resources:
         limits:

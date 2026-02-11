@@ -159,6 +159,25 @@ The system prompt is assembled with a token budget to prevent context overflow:
 
 ---
 
+## Identity Loading
+
+### Async File I/O
+
+The `IdentityLoader` uses **async `load()` method** (changed from synchronous in v4.3.0):
+
+```typescript
+async load(): Promise<AgentIdentity> {
+  const collarContent = await fs.promises.readFile(collarPath, 'utf-8');
+  const alphaContent = await fs.promises.readFile(alphaPath, 'utf-8');
+  // ... parsing logic
+}
+```
+
+This prevents blocking the event loop during startup when reading identity files. The loader uses:
+- `fs.promises.readFile()` for non-blocking file reads
+- Structured logger (`logger.info`, `logger.error`) replacing `console.warn`/`console.error`
+- Error handlers on all file operations
+
 ## Hot-Reload
 
 The `IdentityManager` watches files via `chokidar`:
@@ -168,6 +187,7 @@ The `IdentityManager` watches files via `chokidar`:
 - **Propagation:** `reloadIdentity()` merges new values into in-memory state
 - **Effect:** Next LLM call uses the updated prompt automatically
 - **No restart needed** — edit, save, send a message
+- **Error handling:** Watcher errors are logged but non-fatal; hot-reload continues on subsequent file changes
 
 ---
 

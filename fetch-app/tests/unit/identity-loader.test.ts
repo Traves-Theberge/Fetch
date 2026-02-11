@@ -8,9 +8,9 @@ describe('IdentityLoader', () => {
   const realDataDir = path.resolve(__dirname, '../../../data/identity');
   const realAgentsDir = path.resolve(__dirname, '../../../data/agents');
 
-  it('should load COLLAR.md correctly', () => {
+  it('should load COLLAR.md correctly', async () => {
     const loader = new IdentityLoader(realDataDir, realAgentsDir);
-    const identity = loader.load();
+    const identity = await loader.load();
 
     expect(identity.name).toBe('Fetch');
     expect(identity.role).toContain('Orchestrator');
@@ -29,24 +29,24 @@ describe('IdentityLoader', () => {
     expect(primaryStr).toContain('Obey');
   });
 
-  it('should load ALPHA.md correctly', () => {
+  it('should load ALPHA.md correctly', async () => {
     const loader = new IdentityLoader(realDataDir, realAgentsDir);
-    const identity = loader.load();
+    const identity = await loader.load();
 
     expect(identity.context?.owner).toBe('Traves');
   });
 
-  it('should return empty pack when agents directory is missing', () => {
+  it('should return empty pack when agents directory is missing', async () => {
     const loader = new IdentityLoader(realDataDir, realAgentsDir);
-    const identity = loader.load();
+    const identity = await loader.load();
 
     // No agents directory = no pack members (graceful degradation)
     expect(identity.pack === undefined || identity.pack.length === 0).toBe(true);
   });
 
-  it('should handle missing directory gracefully', () => {
+  it('should handle missing directory gracefully', async () => {
     const loader = new IdentityLoader('/path/to/nowhere', '/path/to/nowhere/agents');
-    const identity = loader.load();
+    const identity = await loader.load();
     expect(identity).toEqual({});
   });
 });

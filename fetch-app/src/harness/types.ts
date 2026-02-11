@@ -162,6 +162,11 @@ export interface PoolConfig {
 import { pipeline } from '../config/pipeline.js';
 export const DEFAULT_HARNESS_TIMEOUT_MS = pipeline.harnessTimeout;
 
+/**
+ * Container name for the kennel sandbox
+ */
+export const KENNEL_CONTAINER = 'fetch-kennel';
+
 // ============================================================================
 // Harness Adapters
 // ============================================================================

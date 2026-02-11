@@ -32,9 +32,10 @@
 
 import type { AgentType } from '../task/types.js';
 import { env } from '../config/env.js';
-import type {
-  HarnessConfig,
-  HarnessOutputEventType,
+import {
+  KENNEL_CONTAINER,
+  type HarnessConfig,
+  type HarnessOutputEventType,
 } from './types.js';
 import { AbstractHarnessAdapter } from './base.js';
 
@@ -137,7 +138,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
       },
       cwd: workspacePath,
       timeoutMs,
-      container: 'fetch-kennel',
+      container: KENNEL_CONTAINER,
     };
 
     // Inject CLI config file for harness-specific instructions

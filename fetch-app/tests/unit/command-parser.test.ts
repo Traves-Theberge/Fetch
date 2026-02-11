@@ -112,7 +112,7 @@ describe('Command Parser — Safety Gate', () => {
     const result = await parseCommand('/version', session, sm);
     expect(result.handled).toBe(true);
     expect(result.responses?.[0]).toContain('Fetch');
-    expect(result.responses?.[0]).toContain('v4.1.1');
+    expect(result.responses?.[0]).toContain('v4.3.0');
   });
 
   // ─── Task Control ──────────────────────────────────────────────────

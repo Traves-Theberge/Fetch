@@ -48,15 +48,16 @@
 import Docker from 'dockerode';
 import { Writable } from 'stream';
 import { logger } from './logger.js';
+import { KENNEL_CONTAINER } from '../harness/types.js';
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 /**
- * Name of the Kennel container
+ * Name of the Kennel container — re-exported from shared constant
  */
-const KENNEL_CONTAINER_NAME = 'fetch-kennel';
+const KENNEL_CONTAINER_NAME = KENNEL_CONTAINER;
 
 /**
  * Default execution timeout (5 minutes)

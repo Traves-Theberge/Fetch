@@ -73,6 +73,8 @@ const ERROR_BACKOFF_MS = pipeline.circuitBreakerBackoff;
 // ERROR TRACKING (Circuit Breaker)
 // =============================================================================
 
+// Note: Safe under Node.js single-threaded model — no await between get/set operations.
+// If this code is ever moved to a worker thread, a mutex would be needed.
 const errorTracker = new Map<string, { count: number; lastError: number }>();
 
 /**
@@ -352,7 +354,7 @@ async function handleWithTools(
 
   const history = buildMessageHistory(session);
 
-  // If retrying from a failure, simplify context but keep enough for tool continuity
+  // On retry (including 400 bad request), simplify context to avoid repeating the same oversized payload
   const finalHistory = attempt > 1
     ? history.slice(-4) // Keep last 4 messages to ensure tool_call + tool_result pairs are preserved
     : history;
@@ -512,27 +514,31 @@ async function handleWithTools(
       if (toolName === 'workspace_select' && result.success) {
         try {
           const workspace = JSON.parse(result.output);
-          session.currentProject = {
-            name: workspace.name,
-            path: workspace.path,
-            type: workspace.projectType,
-            mainFiles: [], // List might be empty initially
-            gitBranch: workspace.git?.branch || null,
-            lastCommit: null,
-            hasUncommitted: workspace.git?.dirty || false,
-            refreshedAt: new Date().toISOString()
-          };
-          session.repoMap = null; // Clear old map
+          if (!workspace?.name || !workspace?.path) {
+            logger.warn('workspace_select returned incomplete data, skipping session sync');
+          } else {
+            session.currentProject = {
+              name: workspace.name,
+              path: workspace.path,
+              type: workspace.projectType,
+              mainFiles: [], // List might be empty initially
+              gitBranch: workspace.git?.branch || null,
+              lastCommit: null,
+              hasUncommitted: workspace.git?.dirty || false,
+              refreshedAt: new Date().toISOString()
+            };
+            session.repoMap = null; // Clear old map
 
-          await sManager.updateSession(session);
+            await sManager.updateSession(session);
 
-          // Rebuild system prompt so LLM sees the new workspace
-          const updatedContext = await buildContextSection(session);
-          messages[0] = {
-            role: 'system',
-            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
-          };
-          logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
+            // Rebuild system prompt so LLM sees the new workspace
+            const updatedContext = await buildContextSection(session);
+            messages[0] = {
+              role: 'system',
+              content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+            };
+            logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
+          }
         } catch (e) {
           logger.error('Failed to sync session after workspace_select', e);
         }
@@ -542,26 +548,30 @@ async function handleWithTools(
       if (toolName === 'workspace_create' && result.success) {
         try {
           const created = JSON.parse(result.output);
-          session.currentProject = {
-            name: created.name,
-            path: created.path,
-            type: created.projectType || 'unknown',
-            mainFiles: [],
-            gitBranch: created.git?.branch || 'main',
-            lastCommit: null,
-            hasUncommitted: false,
-            refreshedAt: new Date().toISOString()
-          };
-          session.repoMap = null;
+          if (!created?.name || !created?.path) {
+            logger.warn('workspace_create returned incomplete data, skipping session sync');
+          } else {
+            session.currentProject = {
+              name: created.name,
+              path: created.path,
+              type: created.projectType || 'unknown',
+              mainFiles: [],
+              gitBranch: created.git?.branch || 'main',
+              lastCommit: null,
+              hasUncommitted: false,
+              refreshedAt: new Date().toISOString()
+            };
+            session.repoMap = null;
 
-          await sManager.updateSession(session);
+            await sManager.updateSession(session);
 
-          const updatedContext = await buildContextSection(session);
-          messages[0] = {
-            role: 'system',
-            content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
-          };
-          logger.info('System prompt rebuilt after workspace creation', { project: created.name });
+            const updatedContext = await buildContextSection(session);
+            messages[0] = {
+              role: 'system',
+              content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+            };
+            logger.info('System prompt rebuilt after workspace creation', { project: created.name });
+          }
         } catch (e) {
           logger.error('Failed to sync session after workspace_create', e);
         }
@@ -571,7 +581,9 @@ async function handleWithTools(
       if (toolName === 'task_create' && result.success) {
         try {
           const taskResult = JSON.parse(result.output);
-          if (taskResult.taskId) {
+          if (!taskResult?.taskId) {
+            logger.warn('task_create returned incomplete data, skipping session sync');
+          } else {
             session.activeTaskId = taskResult.taskId;
             await sManager.updateSession(session);
           }

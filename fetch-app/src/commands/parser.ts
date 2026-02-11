@@ -28,6 +28,7 @@ import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
 import { formatHelp, formatStatus } from '../agent/format.js';
 import { handleStop, handleUndo, handleUndoAll } from './task.js';
+import { VERSION } from '../config/env.js';
 import type { CommandResult } from './types.js';
 
 // Re-export the shared type so existing imports don't break
@@ -66,7 +67,7 @@ export async function parseCommand(
     'show me your tools',
     'list your abilities'
   ];
-  if (capabilityTriggers.some(trigger => lower.includes(trigger))) {
+  if (capabilityTriggers.some(trigger => new RegExp(`\\b${trigger}\\b`).test(lower))) {
     return { handled: true, responses: [formatHelp()] };
   }
 
@@ -91,13 +92,20 @@ export async function parseCommand(
 
     // ─── Session Reset ─────────────────────────────────────────────────
     case 'clear':
-    case 'reset':
-      session.messages = [];
-      session.activeFiles = [];
-      session.activeTaskId = null;
-      session.repoMap = null;
-      await sessionManager.updateSession(session);
-      return { handled: true, responses: ['🧹 Conversation cleared. Preferences retained.'] };
+    case 'reset': {
+      try {
+        const cleared = { ...session, messages: [], activeFiles: [], activeTaskId: null, repoMap: null };
+        await sessionManager.updateSession(cleared as typeof session);
+        // Only mutate after confirmed DB write
+        session.messages = [];
+        session.activeFiles = [];
+        session.activeTaskId = null;
+        session.repoMap = null;
+        return { handled: true, responses: ['🧹 Conversation cleared. Preferences retained.'] };
+      } catch {
+        return { handled: true, responses: ['Failed to clear session. Please try again.'] };
+      }
+    }
 
     // ─── Information ───────────────────────────────────────────────────
     case 'help':
@@ -111,7 +119,7 @@ export async function parseCommand(
 
     case 'version':
     case 'v':
-      return { handled: true, responses: ['🐕 Fetch v4.1.1 (Good Boy Reporting!)'] };
+      return { handled: true, responses: [`🐕 Fetch v${VERSION} (Good Boy Reporting!)`] };
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

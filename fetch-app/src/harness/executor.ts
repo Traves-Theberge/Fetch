@@ -100,6 +100,10 @@ export class HarnessExecutor extends EventEmitter {
     workspacePath: string,
     timeoutMs: number
   ): Promise<HarnessResult> {
+    if (!workspacePath) {
+      return { success: false, output: '', exitCode: 1, error: 'Workspace path is required', durationMs: 0 };
+    }
+
     const adapter = getRegistryAdapter(agent);
     const config = adapter.buildConfig(goal, workspacePath, timeoutMs);
     return this.executeWithConfig(taskId, agent, config);
@@ -150,6 +154,11 @@ export class HarnessExecutor extends EventEmitter {
     };
 
     this.executions.set(harnessId, execution);
+
+    if (instance.pid) {
+      execution.pid = instance.pid;
+    }
+
     this.emitHarnessEvent('harness:started', harnessId, taskId);
 
     logger.info(`Harness started via pool: ${harnessId}`, {
@@ -187,6 +196,9 @@ export class HarnessExecutor extends EventEmitter {
       const finalInstance = await pool.waitFor(harnessId);
 
       const success = finalInstance.status === 'completed';
+      execution.exitCode = success ? 0 : 1;
+      execution.completedAt = new Date().toISOString();
+
       const output = finalInstance.stdout.join('') + finalInstance.stderr.join(''); // Note: simplistic concatenation
 
       const errorOutput = finalInstance.stderr.length > 0
@@ -272,6 +284,14 @@ export class HarnessExecutor extends EventEmitter {
 
     this.updateStatus(harnessId, 'running');
     logger.debug(`Sent input to harness: ${harnessId}`, { input });
+  }
+
+  /**
+   * Graceful shutdown — clear all state and remove listeners
+   */
+  public shutdown(): void {
+    this.executions.clear();
+    this.removeAllListeners();
   }
 
   /**
@@ -409,7 +429,8 @@ function classifyError(
   const combined = (errorMsg + ' ' + stderr).toLowerCase();
 
   // Timeout: process was killed after exceeding time limit
-  if (instance.status === 'killed' || /exit code (124|137)/.test(combined)) {
+  // Exit code 124 = GNU timeout, 137 = SIGKILL (128+9). On Windows, look for known timeout strings.
+  if (instance.status === 'killed' || /exit code (124|137)/.test(combined) || /timed?\s*out/i.test(combined)) {
     return 'timeout';
   }
 

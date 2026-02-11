@@ -65,31 +65,43 @@ export class RateLimiter {
   }
 
   /**
+   * Prune timestamps outside the current window for a key.
+   * Mutates the stored array in place and returns it.
+   *
+   * @param key - Unique identifier
+   * @returns The pruned timestamp array (may be empty)
+   */
+  private prune(key: string): number[] {
+    const cutoff = Date.now() - this.windowMs;
+    const ts = this.timestamps.get(key);
+    if (!ts) return [];
+
+    while (ts.length > 0 && ts[0] <= cutoff) {
+      ts.shift();
+    }
+    return ts;
+  }
+
+  /**
    * Check if a request should be allowed
    * @param key - Unique identifier (e.g., phone number)
    * @returns true if allowed, false if rate limited
    */
   isAllowed(key: string): boolean {
-    const now = Date.now();
-    const cutoff = now - this.windowMs;
-
     let ts = this.timestamps.get(key);
     if (!ts) {
       ts = [];
       this.timestamps.set(key, ts);
     }
 
-    // Prune timestamps outside the window
-    while (ts.length > 0 && ts[0] <= cutoff) {
-      ts.shift();
-    }
+    this.prune(key);
 
     if (ts.length >= this.maxRequests) {
       logger.warn(`Rate limit exceeded for ${key}`);
       return false;
     }
 
-    ts.push(now);
+    ts.push(Date.now());
     return true;
   }
 
@@ -97,13 +109,8 @@ export class RateLimiter {
    * Get remaining requests for a key
    */
   getRemaining(key: string): number {
-    const now = Date.now();
-    const cutoff = now - this.windowMs;
-    const ts = this.timestamps.get(key);
-    if (!ts) return this.maxRequests;
-
-    const recent = ts.filter((t) => t > cutoff).length;
-    return Math.max(0, this.maxRequests - recent);
+    const ts = this.prune(key);
+    return Math.max(0, this.maxRequests - ts.length);
   }
 
   /**

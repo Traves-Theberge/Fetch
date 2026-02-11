@@ -9,11 +9,12 @@
  * @module identity/loader
  */
 
-import fs from 'fs';
+import { promises as fsp } from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import { AgentIdentity, PackMember } from './types.js';
 import { AGENTS_DIR } from '../config/paths.js';
+import { logger } from '../utils/logger.js';
 
 export class IdentityLoader {
   private dataDir: string;
@@ -24,29 +25,35 @@ export class IdentityLoader {
     this.agentsDir = agentsDir ?? AGENTS_DIR;
   }
 
-  public load(): Partial<AgentIdentity> {
+  public async load(): Promise<Partial<AgentIdentity>> {
     const collarPath = path.join(this.dataDir, 'COLLAR.md');
     let loaded: Partial<AgentIdentity> = {};
 
-    if (fs.existsSync(collarPath)) {
-      const content = fs.readFileSync(collarPath, 'utf-8');
+    try {
+      const content = await fsp.readFile(collarPath, 'utf-8');
       loaded = this.parseSystem(content);
-    } else {
-      console.warn(`[IdentityLoader] COLLAR.md not found at ${collarPath}`);
-    }
-
-    const alphaPath = path.join(this.dataDir, 'ALPHA.md');
-    if (fs.existsSync(alphaPath)) {
-      const content = fs.readFileSync(alphaPath, 'utf-8');
-      const user = this.parseUser(content);
-      if (user.context) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        loaded.context = { ...(loaded.context || {}), ...user.context } as any;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        logger.warn(`Failed to read COLLAR.md`, err);
+      } else {
+        logger.warn(`COLLAR.md not found at ${collarPath}`);
       }
     }
 
-    // Load pack members from individual agent files in data/agents/
-    const pack = this.loadAgents();
+    const alphaPath = path.join(this.dataDir, 'ALPHA.md');
+    try {
+      const content = await fsp.readFile(alphaPath, 'utf-8');
+      const user = this.parseUser(content);
+      if (user.context) {
+        loaded.context = { ...(loaded.context || {}), ...user.context } as any;
+      }
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+        logger.warn(`Failed to read ALPHA.md`, err);
+      }
+    }
+
+    const pack = await this.loadAgents();
     if (pack.length > 0) {
       loaded.pack = pack;
     }
@@ -58,26 +65,27 @@ export class IdentityLoader {
    * Load agent profiles from data/agents/*.md using gray-matter.
    * Each file has YAML frontmatter with structured fields and a markdown body.
    */
-  private loadAgents(): PackMember[] {
+  private async loadAgents(): Promise<PackMember[]> {
     const pack: PackMember[] = [];
 
-    if (!fs.existsSync(this.agentsDir)) {
+    try {
+      await fsp.access(this.agentsDir);
+    } catch {
       return pack;
     }
 
-    const entries = fs.readdirSync(this.agentsDir, { withFileTypes: true });
+    const entries = await fsp.readdir(this.agentsDir, { withFileTypes: true });
 
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
       const filePath = path.join(this.agentsDir, entry.name);
       try {
-        const raw = fs.readFileSync(filePath, 'utf-8');
+        const raw = await fsp.readFile(filePath, 'utf-8');
         const { data, content } = matter(raw);
 
-        // Validate required fields
         if (!data.name || !data.harness) {
-          console.warn(`[IdentityLoader] Skipping ${entry.name}: missing name or harness in frontmatter`);
+          logger.warn(`Skipping ${entry.name}: missing name or harness in frontmatter`);
           continue;
         }
 
@@ -97,13 +105,11 @@ export class IdentityLoader {
 
         pack.push(member);
       } catch (err) {
-        console.error(`[IdentityLoader] Failed to parse agent file ${entry.name}:`, err);
+        logger.error(`Failed to parse agent file ${entry.name}:`, err);
       }
     }
 
-    // Sort by fallback_priority
     pack.sort((a, b) => a.fallback_priority - b.fallback_priority);
-
     return pack;
   }
 

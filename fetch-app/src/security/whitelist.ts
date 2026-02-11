@@ -80,6 +80,9 @@ export class WhitelistStore {
   /** Initialization flag */
   private initialized = false;
 
+  /** Serialize concurrent persist calls */
+  private persistLock: Promise<void> = Promise.resolve();
+
   /**
    * Initialize the whitelist store.
    * Loads from environment and file.
@@ -151,8 +154,17 @@ export class WhitelistStore {
 
   /**
    * Persist current whitelist to JSON file.
+   * Serialized via persistLock to prevent concurrent writes.
    */
   private async persist(): Promise<void> {
+    this.persistLock = this.persistLock.then(() => this.doPersist());
+    return this.persistLock;
+  }
+
+  /**
+   * Internal persistence implementation.
+   */
+  private async doPersist(): Promise<void> {
     try {
       // Ensure data directory exists
       await fs.mkdir(DATA_DIR, { recursive: true });
@@ -271,17 +283,24 @@ export class WhitelistStore {
 // =============================================================================
 
 let whitelistStore: WhitelistStore | null = null;
+let whitelistInitPromise: Promise<WhitelistStore> | null = null;
 
 /**
  * Get the singleton whitelist store instance.
  * Initializes on first call.
  */
 export async function getWhitelistStore(): Promise<WhitelistStore> {
-  if (!whitelistStore) {
-    whitelistStore = new WhitelistStore();
-    await whitelistStore.initialize();
-  }
-  return whitelistStore;
+  if (whitelistStore) return whitelistStore;
+  if (whitelistInitPromise) return whitelistInitPromise;
+
+  whitelistInitPromise = (async () => {
+    const instance = new WhitelistStore();
+    await instance.initialize();
+    whitelistStore = instance;
+    return instance;
+  })();
+
+  return whitelistInitPromise;
 }
 
 /**
