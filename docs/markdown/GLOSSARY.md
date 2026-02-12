@@ -6,7 +6,7 @@
 |------|-----------|
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
-| **The Pack** | Collective name for the four AI harness agents (Claude, Gemini, Copilot, OpenCode). |
+| **The Pack** | Collective name for the five AI harness agents (Claude, Gemini, Copilot, OpenCode, Codex). |
 | **LLM-First Architecture** | Design where every message (except 5 safety escapes) takes the same single path through the LLM with all 27 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
@@ -39,7 +39,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Harness** | An adapter that wraps an AI CLI (Claude Code, Gemini, Copilot, OpenCode) for use by the orchestrator. |
+| **Harness** | An adapter that wraps an AI CLI (Claude Code, Gemini, Copilot, OpenCode, Codex) for use by the orchestrator. |
 | **AbstractHarnessAdapter** | Base class providing shared logic: `formatGoal()`, `isQuestion()`, `extractSummary()`, `extractFileOperations()`. |
 | **Container Field** | The `container` property on `HarnessConfig` (e.g. `'fetch-kennel'`). When set, the spawner wraps commands with `docker exec`. |
 | **Registry** | `HarnessRegistry` — Maps harness names to adapter instances. Single source of truth. |

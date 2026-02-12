@@ -12,9 +12,11 @@
 
 You also need at least one AI CLI authenticated on your host:
 
-- **Claude Code**: `claude` CLI with active session
-- **Gemini CLI**: `gemini` CLI with API key in `~/.gemini/`
 - **GitHub Copilot**: `gh auth login` completed, hosts file at `~/.config/gh/`
+- **Claude Code**: `claude` CLI with active session at `~/.config/claude-code/`
+- **Gemini CLI**: `gemini` CLI with API key in `~/.gemini/` (or set `GEMINI_API_KEY`)
+- **OpenCode**: `opencode` CLI at `~/.config/opencode/` (or set `OPENCODE_API_KEY`)
+- **Codex**: `codex login` for ChatGPT OAuth at `~/.codex/auth.json` (or set `CODEX_API_KEY`/`OPENAI_API_KEY`)
 
 ## Installation
 
@@ -56,7 +58,7 @@ go build -o fetch-manager .
 ./fetch-manager
 ```
 
-The TUI will launch with a splash screen, then show the main menu. Select **🚀 Start Fetch** to build and launch the Docker containers.
+The TUI will launch with a splash screen, then show the main menu. Select **🚀 Start Fetch** to build and launch the Docker containers. Use **🔑 Harness Auth** to authenticate each AI CLI via its native OAuth/login flow.
 
 See [TUI Guide](TUI_GUIDE.md) for full Manager documentation.
 

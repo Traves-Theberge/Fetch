@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { ClaudeAdapter } from '../../src/harness/claude.js';
 import { GeminiAdapter } from '../../src/harness/gemini.js';
 import { CopilotAdapter } from '../../src/harness/copilot.js';
+import { CodexAdapter } from '../../src/harness/codex.js';
 
 describe('Claude Adapter', () => {
   const adapter = new ClaudeAdapter();
@@ -165,6 +166,114 @@ describe('Copilot Adapter', () => {
 
     it('should treat completion phrases as stdout', () => {
       expect(adapter.parseOutputLine('Suggestion complete')).toBe('stdout');
+    });
+  });
+});
+
+describe('Codex Adapter', () => {
+  const adapter = new CodexAdapter();
+
+  describe('buildConfig', () => {
+    it('should build correct config', () => {
+      const config = adapter.buildConfig(
+        'Add dark mode',
+        '/workspace/project',
+        300000
+      );
+
+      expect(config.command).toBe('codex');
+      expect(config.args).toContain('exec');
+      expect(config.args).toContain('--json');
+      expect(config.args).toContain('--ephemeral');
+      expect(config.args).toContain('--full-auto');
+      expect(config.args).toContain('Add dark mode');
+      expect(config.cwd).toBe('/workspace/project');
+      expect(config.timeoutMs).toBe(300000);
+    });
+
+    it('should set non-interactive environment', () => {
+      const config = adapter.buildConfig('test', '/workspace', 60000);
+
+      expect(config.env.CI).toBe('true');
+      expect(config.env.TERM).toBe('dumb');
+    });
+
+    it('should include --cd flag with workspace path', () => {
+      const config = adapter.buildConfig('test', '/workspace/proj', 60000);
+      const cdIndex = config.args.indexOf('--cd');
+      expect(cdIndex).toBeGreaterThan(-1);
+      expect(config.args[cdIndex + 1]).toBe('/workspace/proj');
+    });
+  });
+
+  describe('parseOutputLine', () => {
+    it('should detect turn completion', () => {
+      const line = '{"type": "turn.completed", "usage": {"input_tokens": 100}}';
+      expect(adapter.parseOutputLine(line)).toBe('complete');
+    });
+
+    it('should detect turn failure', () => {
+      const line = '{"type": "turn.failed", "error": "something went wrong"}';
+      expect(adapter.parseOutputLine(line)).toBe('error');
+    });
+
+    it('should detect item events as progress', () => {
+      const line = '{"type": "item.started", "item": {"type": "command"}}';
+      expect(adapter.parseOutputLine(line)).toBe('progress');
+
+      const line2 = '{"type": "item.completed", "item": {"type": "file_change"}}';
+      expect(adapter.parseOutputLine(line2)).toBe('progress');
+    });
+
+    it('should detect error events', () => {
+      const line = '{"type": "error", "message": "stream error"}';
+      expect(adapter.parseOutputLine(line)).toBe('error');
+    });
+
+    it('should detect file edits from stderr', () => {
+      expect(adapter.parseOutputLine('Edited src/app.ts')).toBe('progress');
+      expect(adapter.parseOutputLine('Created src/new.ts')).toBe('progress');
+    });
+
+    it('should return null for regular output', () => {
+      expect(adapter.parseOutputLine('Working on files...')).toBeNull();
+    });
+  });
+
+  describe('extractFileOperations', () => {
+    it('should extract from JSONL file_change events', () => {
+      const output = [
+        '{"type": "item.completed", "item": {"type": "file_change", "file": "src/new.ts", "action": "add"}}',
+        '{"type": "item.completed", "item": {"type": "file_change", "file": "src/app.ts", "action": "update"}}',
+        '{"type": "item.completed", "item": {"type": "file_change", "file": "src/old.ts", "action": "delete"}}',
+      ].join('\n');
+
+      const ops = adapter.extractFileOperations(output);
+
+      expect(ops.created).toEqual(['src/new.ts']);
+      expect(ops.modified).toEqual(['src/app.ts']);
+      expect(ops.deleted).toEqual(['src/old.ts']);
+    });
+
+    it('should fallback to plain text patterns', () => {
+      const output = 'Created src/new.ts\nEdited src/app.ts\nDeleted src/old.ts';
+      const ops = adapter.extractFileOperations(output);
+
+      expect(ops.created).toEqual(['src/new.ts']);
+      expect(ops.modified).toEqual(['src/app.ts']);
+      expect(ops.deleted).toEqual(['src/old.ts']);
+    });
+  });
+
+  describe('detectQuestion', () => {
+    it('should detect direct questions from output', () => {
+      const question = adapter.detectQuestion('Should I update the tests?');
+      expect(question).toBe('Should I update the tests?');
+    });
+
+    it('should return null for non-questions', () => {
+      const question = adapter.detectQuestion('Processing files');
+      expect(question).toBeNull();
     });
   });
 });

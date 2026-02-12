@@ -60,6 +60,7 @@ const EnvSchema = z.object({
   ENABLE_CLAUDE: z.string().transform(val => val === 'true').optional().default(false),
   ENABLE_GEMINI: z.string().transform(val => val === 'true').optional().default(false),
   ENABLE_OPENCODE: z.string().transform(val => val === 'true').optional().default(false),
+  ENABLE_CODEX: z.string().transform(val => val === 'true').optional().default(false),
 
   // Web / Browser Feature Flags
   ENABLE_WEB_FETCH: z.string().transform(val => val === 'true').optional().default(true),
@@ -71,11 +72,14 @@ const EnvSchema = z.object({
   CLAUDE_MODEL: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
   OPENCODE_MODEL: z.string().optional(),
+  CODEX_MODEL: z.string().optional(),
 
   // Harness Auth
   ANTHROPIC_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   OPENCODE_API_KEY: z.string().optional(),
+  CODEX_API_KEY: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
   GH_TOKEN: z.string().optional(),
 });
 
@@ -97,7 +101,7 @@ const DEFAULTS: Partial<Record<string, string>> = {
 // ============================================================================
 
 /** Single source of truth for the application version string. */
-export const VERSION = '4.5.2';
+export const VERSION = '4.6.1';
 
 // ============================================================================
 // Exports

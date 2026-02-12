@@ -183,7 +183,7 @@ export interface FileOperations {
 /**
  * Harness adapter interface
  *
- * Each coding agent (Claude, Gemini, Copilot) implements this interface.
+ * Each coding agent (Claude, Gemini, Copilot, OpenCode, Codex) implements this interface.
  */
 export interface HarnessAdapter {
   /** Agent type this adapter handles */

@@ -10,6 +10,8 @@
  * - **Claude Code** (`claude`) - Full code modification capabilities
  * - **Gemini CLI** (`gemini`) - Code generation and modification
  * - **GitHub Copilot CLI** (`copilot`) - Code suggestions and explanations
+ * - **OpenCode** (`opencode`) - Versatile coding via OpenRouter
+ * - **Codex CLI** (`codex`) - Agentic coding with OpenAI models
  *
  * ## Usage
  *
@@ -42,9 +44,13 @@ export {
   ClaudeAdapter,
   GeminiAdapter,
   CopilotAdapter,
+  OpenCodeAdapter,
+  CodexAdapter,
   claudeAdapter,
   geminiAdapter,
   copilotAdapter,
+  opencodeAdapter,
+  codexAdapter,
 } from './registry.js';
 
 // Executor

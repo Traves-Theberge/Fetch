@@ -2,7 +2,7 @@
  * @fileoverview Task domain types and interfaces
  *
  * Defines all types related to task management.
- * Tasks represent coding work delegated to harnesses (Claude, Gemini, Copilot).
+ * Tasks represent coding work delegated to harnesses (Claude, Gemini, Copilot, OpenCode, Codex).
  *
  * @module task/types
  * @see {@link TaskManager} - Task lifecycle management
@@ -38,8 +38,9 @@ export type TaskId = `tsk_${string}`;
  * | gemini | `gemini` | Quick edits, explanations |
  * | copilot | `gh copilot suggest` | GitHub-integrated workflows |
  * | opencode | `opencode run` | Versatile coding via OpenRouter |
+ * | codex | `codex exec` | Agentic coding with OpenAI models |
  */
-export type AgentType = 'claude' | 'gemini' | 'copilot' | 'opencode';
+export type AgentType = 'claude' | 'gemini' | 'copilot' | 'opencode' | 'codex';
 
 /**
  * Agent selection strategy

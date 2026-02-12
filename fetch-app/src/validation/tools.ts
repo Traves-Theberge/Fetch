@@ -30,9 +30,9 @@ import {
  * Agent selection schema (includes 'auto')
  */
 export const AgentSelectionSchema = z.enum(
-  ['copilot', 'gemini', 'claude', 'auto'],
+  ['copilot', 'gemini', 'claude', 'opencode', 'codex', 'auto'],
   {
-    error: 'Agent must be one of: copilot, gemini, claude, auto',
+    error: 'Agent must be one of: copilot, gemini, claude, opencode, codex, auto',
   }
 );
 

@@ -21,7 +21,7 @@ flowchart TB
 Fetch runs as three Docker containers managed by a Go TUI:
 
 - **Bridge** (Node.js) — Connects to WhatsApp, runs the agent core, manages sessions and tasks
-- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot, OpenCode) and Playwright+Chromium execute against the workspace
+- **Kennel** (Ubuntu) — Sandboxed container where AI CLIs (Claude Code, Gemini, Copilot, OpenCode, Codex) and Playwright+Chromium execute against the workspace
 - **SearXNG** — Self-hosted meta search engine providing the `web_search` backend (aggregates Google, DuckDuckGo, Bing, Wikipedia, GitHub, StackOverflow, npm)
 - **Manager** (Go, runs on host) — TUI for starting/stopping Docker, editing config, viewing logs
 
@@ -92,6 +92,7 @@ flowchart TD
         PackDecider -- Quick --> Gemini[Gemini ⚡]
         PackDecider -- Shell/GH --> Copilot[Copilot 🐙]
         PackDecider -- Versatile --> OpenCode[OpenCode]
+        PackDecider -- Agentic --> Codex[Codex]
     end
 
     %% Execution Sandbox
@@ -99,6 +100,7 @@ flowchart TD
     Gemini --> Sandbox
     Copilot --> Sandbox
     OpenCode --> Sandbox
+    Codex --> Sandbox
 
     %% Result Loop
     Sandbox --> TaskResult[Task Result]
@@ -111,6 +113,7 @@ flowchart TD
         ConfGemini[("~/.gemini")]
         ConfCopilot[("~/.config/gh")]
         ConfOpenCode[("~/.config/opencode")]
+        ConfCodex[("~/.codex")]
     end
 
     %% Connections for Config
@@ -118,6 +121,7 @@ flowchart TD
     ConfGemini -.-> Gemini
     ConfCopilot -.-> Copilot
     ConfOpenCode -.-> OpenCode
+    ConfCodex -.-> Codex
 
     %% Adapter Logic Reference
     AdapterLogic["Adapter Logic<br/>(src/harness/*.ts)"] -.-> PackDecider
@@ -227,6 +231,7 @@ src/
 │   ├── gemini.ts         # Gemini CLI adapter (container: 'fetch-kennel')
 │   ├── copilot.ts        # Copilot CLI adapter (container: 'fetch-kennel')
 │   ├── opencode.ts       # OpenCode adapter (container: 'fetch-kennel')
+│   ├── codex.ts          # Codex adapter (container: 'fetch-kennel')
 │   ├── registry.ts       # Adapter registry (single source)
 │   ├── executor.ts       # Task execution via pool
 │   ├── spawner.ts        # Process spawn with docker exec wrapping, timer-map guard pattern
@@ -363,6 +368,7 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 | `~/.config/claude-code` | — | ✅ | read-only |
 | `~/.gemini` | — | ✅ | read-only |
 | `~/.config/opencode` | — | ✅ | read-only |
+| `~/.codex` | — | ✅ | read-only |
 
 ## Database Schema
 

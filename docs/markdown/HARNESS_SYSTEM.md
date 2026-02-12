@@ -34,6 +34,7 @@ Each tool has an adapter that defines:
 | **Gemini CLI** | `gemini` | Quick fixes, explanations, boilerplate generation. | `GEMINI_SYSTEM_MD` env var |
 | **Copilot CLI** | `gh copilot` | Shell commands, git workflows, explanations. | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
 | **OpenCode** | `opencode` | Versatile coding, OpenRouter-native, general-purpose. | `OPENCODE_SYSTEM_PROMPT` env var |
+| **Codex** | `codex` | Agentic coding with OpenAI models, JSON Lines streaming. | `--cd` flag sets working directory |
 
 Each adapter's `buildConfig()` injects the CLI config file from `data/cli-configs/` so harnesses receive Fetch-specific behavioral instructions (e.g., no commits, structured output summaries).
 

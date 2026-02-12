@@ -1,6 +1,6 @@
 # TUI Manager Guide
 
-The Fetch Manager is a terminal user interface (TUI) built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea). It provides a graphical way to manage Fetch's Docker services without memorizing commands.
+The Fetch Manager is a terminal user interface (TUI) built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea). It provides a graphical way to manage Fetch's Docker services, authenticate AI harnesses, edit configuration, and monitor logs — without memorizing commands.
 
 ## Building
 
@@ -32,48 +32,168 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | Key | Action |
 |-----|--------|
 | `↑`/`↓` or `k`/`j` | Move cursor between options |
-| `Enter` | Activate the selected option |
+| `Enter` or `Space` | Activate the selected option |
 | `q` or `Ctrl+C` | Exit the TUI |
 
 **Menu Items:**
 
-| Option | Action |
-|--------|--------|
-| 📱 Setup WhatsApp | Opens the QR code scanner for WhatsApp authentication |
-| 🔑 GitHub Auth | Runs `gh auth login` interactively (TUI suspends, CLI takes over, TUI resumes) |
-| 🚀 Start Fetch | Runs `docker compose up -d --build` to start both containers |
-| 🛑 Stop Fetch | Runs `docker compose down` to stop services |
-| ⚙️ Configure | Opens the configuration editor (all 39 parameters) |
-| 🔐 Trusted Numbers | Manage the phone number whitelist (`data/whitelist.json`) |
-| 📜 View Logs | Stream live container logs |
-| 📚 Documentation | Opens the docs site in your browser |
-| ℹ️ Version | Shows system version info (neofetch-style) |
-| ❌ Exit | Quit the TUI |
+| Option | Badge | Action |
+|--------|-------|--------|
+| 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
+| 🔑 Harness Auth | `[X/5 auth]` | Manage authentication for all 5 AI CLI harnesses |
+| 🚀 Start Fetch | `[Running]` / `[Partial]` / `[Stopped]` | Runs `docker compose up -d --build` to start containers |
+| 🛑 Stop Fetch | — | Runs `docker compose down` to stop services |
+| ⚙️ Configure | — | Opens the configuration editor for all pipeline parameters |
+| 🔐 Trusted Numbers | — | Manage the phone number whitelist (`data/whitelist.json`) |
+| 📄 View Logs | — | Stream live container logs |
+| 📚 Documentation | — | Opens the docs site in your browser |
+| ℹ️ Version | — | Shows system version info (neofetch-style) |
+| ❌ Exit | — | Quit the TUI |
+
+Badges update in real-time based on container status and harness authentication state.
+
+---
 
 ### WhatsApp Setup
 
 Shows the QR code rendered directly in the terminal using Unicode block characters. Includes a countdown timer — WhatsApp QR codes expire after ~20 seconds, so the TUI auto-refreshes.
 
+**Why:** WhatsApp requires a one-time QR scan to link Fetch as a paired device. This screen handles that flow without needing `docker logs`.
+
 **States:**
 
-- **Waiting for QR** — Fetching from Bridge API
-- **QR Displayed** — Scan with WhatsApp
-- **Connected** — Authentication successful
+| State | What happens |
+|-------|--------------|
+| Waiting for QR | Fetching QR data from the Bridge status API |
+| QR Displayed | Scan with WhatsApp (Settings → Linked Devices → Link a Device) |
+| Connected | Authentication successful, session persisted to `./data/.wwebjs_auth/` |
+| Error | Bridge unreachable or Chromium startup issue |
 
-Press `Esc` to return to the main menu.
+**Controls:**
 
-### GitHub Auth
+| Key | Action |
+|-----|--------|
+| `o` | Open QR code in browser (alternative scan method) |
+| `Esc` | Return to main menu |
 
-Temporarily suspends the TUI and runs `gh auth login` in the terminal. The GitHub CLI handles the full OAuth device flow (opens a browser, waits for authentication, saves credentials to `~/.config/gh/hosts.json`). When complete, the TUI resumes automatically. The Kennel container mounts `~/.config/gh` read-only for Copilot access.
+The session persists across restarts. You only need to scan once unless you manually log out.
+
+---
+
+### Harness Auth
+
+The unified authentication screen for managing all 5 AI CLI harnesses. Each harness can be authenticated via its native OAuth/login flow directly from the TUI.
+
+**Why:** Each AI CLI (GitHub/Copilot, Claude Code, Gemini, OpenCode, Codex) requires host-level authentication before Fetch can use it in the Kennel container. This screen lets you authenticate all of them from one place instead of running each CLI's login command manually.
+
+**How it works:** When you press `l` to login, the TUI suspends and the selected CLI's interactive login process takes over the terminal (browser OAuth flow, device codes, etc.). When the CLI finishes, the TUI resumes and refreshes the status.
+
+**Layout:**
+
+Each harness is shown as a row with an icon, name, and status badge:
+
+```
+ ▸ 💻 GitHub (Copilot)  ● Authenticated
+      github.com/youruser
+
+   🧠 Claude Code       ○ Not Authenticated
+
+   ✨ Gemini CLI         ◌ Not Installed
+
+   🔧 OpenCode           ● Authenticated
+      ~/.local/share/opencode/auth.json
+
+   🤖 Codex              ○ Not Authenticated
+```
+
+**Status badges:**
+
+| Badge | Meaning |
+|-------|---------|
+| `● Authenticated` (green) | CLI is installed and credentials are present |
+| `○ Not Authenticated` (red) | CLI is installed but no credentials found |
+| `◌ Not Installed` (muted) | CLI binary not found on the host PATH |
+
+**Status detection methods:**
+
+| Harness | How auth is detected |
+|---------|---------------------|
+| GitHub (Copilot) | Parses output of `gh auth status` for logged-in accounts |
+| Claude Code | Checks file existence: `~/.claude/.credentials.json` |
+| Gemini CLI | Checks file existence: `~/.gemini/oauth_creds.json` |
+| OpenCode | Runs `opencode auth list`, checks for non-empty output |
+| Codex | Runs `codex login status`, checks exit code |
+
+**Login commands (what runs when you press `l`):**
+
+| Harness | Command | Auth method |
+|---------|---------|-------------|
+| GitHub (Copilot) | `gh auth login` | Browser OAuth — opens GitHub device flow |
+| Claude Code | `claude auth login` | Browser OAuth — opens Anthropic auth page |
+| Gemini CLI | `gemini` | Interactive menu — select "Sign in with Google" |
+| OpenCode | `opencode auth login` | Browser OAuth |
+| Codex | `codex login` | ChatGPT OAuth — opens OpenAI device flow |
+
+**Logout commands (what runs when you press `d`):**
+
+| Harness | Command |
+|---------|---------|
+| GitHub (Copilot) | `gh auth logout -u <username>` |
+| Claude Code | `claude auth logout` |
+| Gemini CLI | Removes `~/.gemini/oauth_creds.json` |
+| OpenCode | `opencode auth logout` |
+| Codex | `codex logout` |
+
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` or `k`/`j` | Navigate between harnesses |
+| `l` | Login the selected harness (launches interactive CLI) |
+| `d` | Logout the selected harness |
+| `r` | Refresh all harness statuses |
+| `Esc` | Return to main menu |
+
+**GitHub-specific controls** (only available when GitHub is selected):
+
+| Key | Action |
+|-----|--------|
+| `←`/`→` or `h`/`Tab` | Navigate between GitHub sub-accounts |
+| `s` | Switch active GitHub account |
+| `l` | Add a new GitHub account |
+| `d` | Remove the selected GitHub account |
+
+GitHub supports multiple authenticated accounts. When GitHub is selected, the row expands to show all accounts with an `(active)` badge on the current one. Use `s` to switch which account is active.
+
+**Docker credential mounts:** The Kennel container mounts host credential directories read-only so the AI CLIs can access your authentication:
+
+| Host path | Container path | Purpose |
+|-----------|---------------|---------|
+| `~/.config/gh/` | `/root/.config/gh/` | GitHub CLI credentials |
+| `~/.config/claude-code/` | `/root/.config/claude-code/` | Claude Code config |
+| `~/.claude/` | `/root/.claude/` | Claude OAuth tokens |
+| `~/.gemini/` | `/root/.gemini/` | Gemini credentials |
+| `~/.config/opencode/` | `/root/.config/opencode/` | OpenCode credentials |
+| `~/.codex/` | `/root/.codex/` | Codex OAuth tokens |
+
+> **Note:** You can also authenticate harnesses via API keys instead of OAuth login. Set the API key in the **Configure** screen (e.g., `CODEX_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_API_KEY`). API keys use per-call billing; OAuth login uses your subscription.
+
+---
 
 ### Configuration Editor
 
-Edits the `.env` file with a scrollable form interface organized into **11 subsystem groups**:
+Edits the `.env` file with a scrollable form interface organized into subsystem groups.
+
+**Why:** Fetch has 42+ tunable parameters that control the LLM pipeline, harness behavior, rate limiting, and more. This editor lets you modify them without manually editing `.env`.
+
+**How it works:** The editor reads the current `.env` file, shows each parameter with its current value (or a dimmed default), and writes changes back when you save. Saving automatically restarts the `fetch-bridge` container to apply changes.
+
+**Parameter groups:**
 
 | Group | Parameters | Examples |
 |-------|-----------|----------|
-| **Core Settings** | 8 | Owner Phone, API Key, Agent Model, Log Level |
-| **Harness Models** | 3 | Copilot Model, Claude Model, Gemini Model |
+| **Core Settings** | 11 | Owner Phone, API Key, Agent Model, Log Level, Enable flags for each harness, Codex/OpenAI API keys |
+| **Harness Models** | 5 | Copilot Model, Claude Model, Gemini Model, OpenCode Model, Codex Model |
 | **Context Window** | 4 | History Window, Compaction Threshold |
 | **Agent LLM** | 6 | Chat/Tool Max Tokens, Temperature |
 | **Circuit Breaker** | 5 | CB Threshold, Backoff, Retries |
@@ -85,55 +205,133 @@ Edits the `.env` file with a scrollable form interface organized into **11 subsy
 | **Workspace** | 2 | Cache TTL, Git Timeout |
 | **BM25 Memory** | 3 | Recall Limit, Snippet Tokens, Decay |
 
-**Features:**
+**Field types:**
 
+- **Text fields** — Type a value, displayed with a text cursor
+- **Toggle fields** — `ENABLE_*` flags shown as `true`/`false`, toggled with `Enter`
+- **Masked fields** — API keys shown as `••••••` for security
+
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Navigate between parameters |
+| `Enter` | Edit the focused field (or open model picker for Agent Model, or toggle for boolean fields) |
+| `s` | Save all changes to `.env` and restart fetch-bridge |
+| `Esc` | Discard changes and return to main menu |
+
+**Features:**
 - Default values shown in dim text when a field is empty
 - Help text displayed below the focused field
 - Scroll indicators when the list overflows
 - **Agent Model** field opens the model selector overlay on `Enter`
 
-**Controls:** `↑`/`↓` to navigate, `Enter` to edit (or open model picker for Agent Model), `s` to save, `Esc` to go back.
+> **Tip:** When you press `s` to save, the Manager automatically restarts the `fetch-bridge` service so your changes take effect immediately.
 
-> [!TIP]
-> **Automated Restart:** When you press `s` to save your configuration, the Manager will now automatically restart the `fetch-bridge` service to ensure your changes (like model selection) take effect immediately.
+---
 
 ### Model Selector (Agent Model Overlay)
 
-When you press `Enter` on the **Agent Model** field in the configuration editor, a model selector overlay appears. It fetches models from the OpenRouter API and displays them grouped by provider with:
+When you press `Enter` on the **Agent Model** field in the configuration editor, a model selector overlay appears.
 
+**Why:** OpenRouter provides access to hundreds of models. This overlay helps you pick the right one by showing capabilities, pricing, and context window sizes.
+
+**How it works:** It fetches the model list from the OpenRouter API and displays them grouped by provider.
+
+**Each model entry shows:**
 - **Context window** size
 - **Pricing** per million tokens
 - **Modality** badges (text, image, audio)
 - **🔧 Tools** badge for function-calling capable models
 
-By default, only tool-capable models are shown. Press `Tab` to toggle between all models and tool-capable only.
+By default, only tool-capable models are shown (Fetch requires function calling).
 
-**Controls:** `↑`/`↓` to browse, `Enter` to select and save, `Tab` to toggle filter, `Esc` to return to config editor.
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Browse models |
+| `Enter` | Select model and save to config |
+| `Tab` | Toggle between all models and tool-capable only |
+| `Esc` | Return to config editor without selecting |
+
+---
 
 ### Trusted Numbers Manager
 
 Manages `data/whitelist.json` — the list of phone numbers allowed to use `@fetch` besides the owner.
 
-**Controls:** `a` to add a number, `d` to delete selected, `↑`/`↓` to navigate, `Esc` to go back.
+**Why:** By default, only the `OWNER_PHONE_NUMBER` can interact with Fetch. This screen lets you add trusted users who can also send commands.
+
+**How it works:** Numbers are stored in `data/whitelist.json`. The Bridge watches this file via chokidar and hot-reloads changes — numbers added here take effect immediately without restarting. You can also manage trusted numbers via WhatsApp using the `/trust` command.
+
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Navigate the number list |
+| `a` | Add a new phone number |
+| `d` | Delete the selected number |
+| `r` | Refresh the list from disk |
+| `Esc` | Return to main menu |
+
+---
 
 ### Log Viewer
 
 Streams logs from the `fetch-bridge` container with parsed color-coded output.
 
-**Controls:** Scroll with `↑`/`↓`, `Esc` to return to menu.
+**Why:** Lets you monitor Fetch activity in real-time — message processing, tool calls, harness execution, errors — without running `docker logs` manually.
 
-### Version Screen
-
-Shows system information in a neofetch-style layout: Fetch version, Go version, Node.js version, Docker version, OS, and container statuses.
-
-## Keyboard Shortcuts (Global)
+**Controls:**
 
 | Key | Action |
 |-----|--------|
-| `q`, `Esc` | Go back / quit |
+| `↑`/`↓` | Scroll through log output |
+| `Esc` | Return to main menu |
+
+---
+
+### System Status
+
+Shows the current state of Docker containers.
+
+**Why:** Quick health check to verify both Bridge and Kennel are running.
+
+**Display:**
+- **Bridge (WhatsApp)** — Running/Stopped indicator
+- **Kennel (AI Agents)** — Running/Stopped indicator
+
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `r` | Refresh container statuses |
+| `Esc` | Return to main menu |
+
+---
+
+### Version Screen
+
+Shows system information in a neofetch-style layout with the Fetch mascot.
+
+**Display:** Fetch version, Go version, Node.js version, Docker version, OS, and container statuses.
+
+Press `Esc` to return to the main menu.
+
+---
+
+## Keyboard Shortcuts (Global)
+
+These keys work on every screen:
+
+| Key | Action |
+|-----|--------|
+| `Esc` | Go back to previous screen |
 | `↑`, `k` | Move up |
 | `↓`, `j` | Move down |
 | `Enter` | Select / confirm |
+| `q` | Quit (from main menu) |
 | `Ctrl+C` | Force quit |
 
 ## How It Works
@@ -144,7 +342,8 @@ The Manager is a standalone Go binary that:
 2. Calls `docker compose` commands via `os/exec`
 3. Polls the Bridge status API (`http://localhost:8765/api/status`) for health checks
 4. Renders QR codes using the `go-qrcode` library
-5. Runs `gh auth login` via `tea.ExecProcess` (temporarily yields the terminal)
-6. Uses Lipgloss for styled terminal rendering with custom themes
+5. Runs CLI login commands via `tea.ExecProcess` (temporarily yields the terminal to the CLI process)
+6. Detects harness installation via `exec.LookPath` and credential files on the host filesystem
+7. Uses Lipgloss for styled terminal rendering with custom themes
 
 It does not communicate with the Bridge beyond the HTTP status API and Docker container management.

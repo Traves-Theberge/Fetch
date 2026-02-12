@@ -94,6 +94,9 @@ func NewEditor() *Editor {
 			{Key: "GEMINI_API_KEY", Label: "Gemini Key", Help: "Key for Gemini harness", Masked: true},
 			{Key: "ENABLE_OPENCODE", Label: "Enable OpenCode", Help: "Enable OpenCode harness", Default: "false", IsToggle: true},
 			{Key: "OPENCODE_API_KEY", Label: "OpenCode Key", Help: "API key for OpenCode (or uses OpenRouter)", Masked: true},
+			{Key: "ENABLE_CODEX", Label: "Enable Codex", Help: "Enable OpenAI Codex harness", Default: "false", IsToggle: true},
+			{Key: "CODEX_API_KEY", Label: "Codex API Key", Help: "API key for Codex (alt to codex login)", Masked: true},
+			{Key: "OPENAI_API_KEY", Label: "OpenAI API Key", Help: "Shared by Codex + vision/whisper", Masked: true},
 			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
 			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
 			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
@@ -103,6 +106,7 @@ func NewEditor() *Editor {
 			{Key: "CLAUDE_MODEL", Label: "Claude Model", Help: "e.g., claude-3-opus-20240229", Default: ""},
 			{Key: "GEMINI_MODEL", Label: "Gemini Model", Help: "e.g., gemini-1.5-pro-latest", Default: ""},
 			{Key: "OPENCODE_MODEL", Label: "OpenCode Model", Help: "e.g., openrouter/anthropic/claude-sonnet-4-5", Default: ""},
+			{Key: "CODEX_MODEL", Label: "Codex Model", Help: "e.g., o4-mini, gpt-4.1", Default: ""},
 			// ─── Context Window ──────────────────────────────────────
 			{IsSeparator: true, Label: "─── Context Window ───"},
 			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},

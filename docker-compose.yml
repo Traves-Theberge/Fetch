@@ -79,6 +79,8 @@ services:
       # gh CLI and git both respect this env var
       - GH_TOKEN=${GH_TOKEN}
       - OPENCODE_API_KEY=${OPENCODE_API_KEY:-}
+      - CODEX_API_KEY=${CODEX_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
     volumes:
       # Shared workspace for code operations
@@ -87,8 +89,10 @@ services:
       # Only mount directories that exist on host
       - ~/.config/gh:/root/.config/gh:ro
       - ~/.config/claude-code:/root/.config/claude-code:ro
+      - ~/.claude:/root/.claude:ro
       - ~/.gemini:/root/.gemini
       - ~/.config/opencode:/root/.config/opencode:ro
+      - ~/.codex:/root/.codex:ro
     working_dir: /workspace
     # Keep container running for exec commands
     command: ["tail", "-f", "/dev/null"]

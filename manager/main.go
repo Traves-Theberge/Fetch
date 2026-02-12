@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -39,7 +40,7 @@ const (
 	screenSetup                   // WhatsApp setup wizard
 	screenVersion                 // Version information
 	screenWhitelist               // Trusted numbers manager
-	screenGitHub                  // GitHub authentication screen
+	screenHarnessAuth             // Harness authentication screen
 )
 
 // Bubble Tea messages for async operations
@@ -68,9 +69,28 @@ type bridgeStatusMsg struct {
 	err    error
 }
 
-// ghAuthResultMsg carries the result of gh auth login
-type ghAuthResultMsg struct {
-	err error
+// harnessID identifies a CLI harness for auth management
+type harnessID int
+
+const (
+	harnessGitHub   harnessID = iota // gh auth (Copilot uses gh CLI)
+	harnessClaude                    // claude auth
+	harnessGemini                    // gemini CLI
+	harnessOpenCode                  // opencode auth
+	harnessCodex                     // codex login
+)
+
+// harnessAuthStatus represents the auth state for a single CLI harness
+type harnessAuthStatus struct {
+	id        harnessID
+	name      string // Display name
+	icon      string // Emoji icon
+	authed    bool
+	detail    string // Extra info (username, credential path)
+	installed bool   // Whether CLI is on host PATH
+	// GitHub-specific (multi-account)
+	ghAccounts []ghAccount
+	ghCursor   int
 }
 
 // ghAccount represents a single GitHub account from gh auth status
@@ -81,15 +101,15 @@ type ghAccount struct {
 	scopes   string
 }
 
-// ghStatusMsg carries the result of checking gh auth status
-type ghStatusMsg struct {
-	accounts []ghAccount
-	err      error
+// harnessAuthResultMsg carries the result of any harness login/logout
+type harnessAuthResultMsg struct {
+	harness harnessID
+	err     error
 }
 
-// ghSwitchMsg carries the result of gh auth switch or gh auth logout
-type ghSwitchMsg struct {
-	err error
+// harnessStatusMsg carries status check results for all harnesses
+type harnessStatusMsg struct {
+	statuses []harnessAuthStatus
 }
 
 // tickMsg triggers periodic status updates
@@ -126,10 +146,10 @@ type model struct {
 	versionInfo      components.VersionInfo
 	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
 	configMode int
-	// GitHub auth state
-	ghAccounts      []ghAccount // All GitHub accounts from gh auth status
-	ghAccountCursor int         // Cursor for account selection
-	ghChecking      bool        // Whether we're currently checking status
+	// Harness auth state
+	harnessStatuses []harnessAuthStatus // Auth status for all 5 harnesses
+	harnessCursor   int                 // Which harness is selected (0-4)
+	harnessChecking bool                // Whether we're currently checking
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -148,7 +168,7 @@ func initialModel() model {
 
 	menu := components.NewMenu("", []components.MenuItem{
 		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
-		{Icon: "\U0001f511", Label: "GitHub Auth"},
+		{Icon: "\U0001f511", Label: "Harness Auth"},
 		{Icon: "\U0001f680", Label: "Start Fetch"},
 		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
 		{Icon: "\u2699\ufe0f ", Label: "Configure"},
@@ -168,6 +188,13 @@ func initialModel() model {
 		qrCountdown:    qrCountdown,
 		qrMaxCountdown: qrCountdown,
 		mainMenu:       menu,
+		harnessStatuses: []harnessAuthStatus{
+			{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb"},
+			{id: harnessClaude, name: "Claude Code", icon: "\U0001f9e0"},
+			{id: harnessGemini, name: "Gemini CLI", icon: "\u2728"},
+			{id: harnessOpenCode, name: "OpenCode", icon: "\U0001f527"},
+			{id: harnessCodex, name: "Codex", icon: "\U0001f916"},
+		},
 	}
 }
 
@@ -192,16 +219,15 @@ func (m model) buildMenuBadges() {
 		}
 	}
 
-	// GitHub Auth badge
-	if len(m.ghAccounts) > 0 {
-		active := 0
-		for _, a := range m.ghAccounts {
-			if a.active {
-				active++
-			}
+	// Harness Auth badge
+	authCount := 0
+	for _, hs := range m.harnessStatuses {
+		if hs.authed {
+			authCount++
 		}
-		items[1].Badge = fmt.Sprintf("[%d acct]", len(m.ghAccounts))
-		_ = active
+	}
+	if authCount > 0 {
+		items[1].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
 	} else {
 		items[1].Badge = ""
 	}
@@ -305,38 +331,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case ghAuthResultMsg:
+	case harnessAuthResultMsg:
 		if msg.err != nil {
-			m.actionMessage = fmt.Sprintf("GitHub auth failed: %v", msg.err)
+			m.actionMessage = fmt.Sprintf("%s auth failed: %v", harnessName(msg.harness), msg.err)
 			m.actionSuccess = false
 		} else {
-			m.actionMessage = "✅ GitHub authenticated! Restart Fetch to apply."
+			m.actionMessage = fmt.Sprintf("✅ %s authenticated! Restart Fetch to apply.", harnessName(msg.harness))
 			m.actionSuccess = true
 		}
-		// Re-check status after login attempt
-		if m.screen == screenGitHub {
-			m.ghChecking = true
-			return m, checkGhStatusCmd()
+		// Re-check status after login/logout attempt
+		if m.screen == screenHarnessAuth {
+			m.harnessChecking = true
+			return m, checkAllHarnessStatusCmd()
 		}
 		return m, nil
 
-	case ghStatusMsg:
-		m.ghChecking = false
-		m.ghAccounts = msg.accounts
+	case harnessStatusMsg:
+		m.harnessChecking = false
+		m.harnessStatuses = msg.statuses
 		// Clamp cursor
-		if m.ghAccountCursor >= len(m.ghAccounts) {
-			m.ghAccountCursor = 0
+		if m.harnessCursor >= len(m.harnessStatuses) {
+			m.harnessCursor = 0
 		}
 		return m, nil
-
-	case ghSwitchMsg:
-		if msg.err != nil {
-			m.actionMessage = fmt.Sprintf("GitHub operation failed: %v", msg.err)
-			m.actionSuccess = false
-		}
-		// Re-check status after switch/logout
-		m.ghChecking = true
-		return m, checkGhStatusCmd()
 
 	case models.ModelsLoadedMsg:
 		if m.modelSelector != nil {
@@ -411,8 +428,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateSetup(msg)
 		case screenVersion:
 			return m.updateVersion(msg)
-		case screenGitHub:
-			return m.updateGitHub(msg)
+		case screenHarnessAuth:
+			return m.updateHarnessAuth(msg)
 		}
 	}
 
@@ -438,10 +455,10 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 1: // GitHub Auth — show auth status screen
-			m.screen = screenGitHub
-			m.ghChecking = true
-			return m, checkGhStatusCmd()
+		case 1: // Harness Auth — show harness auth screen
+			m.screen = screenHarnessAuth
+			m.harnessChecking = true
+			return m, checkAllHarnessStatusCmd()
 		case 2: // Start
 			return m, startFetchCmd()
 		case 3: // Stop
@@ -580,47 +597,72 @@ func (m model) updateVersion(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) updateGitHub(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if len(m.harnessStatuses) == 0 {
+		if msg.String() == "esc" || msg.String() == "q" {
+			m.screen = screenMenu
+		}
+		return m, nil
+	}
+	selected := m.harnessStatuses[m.harnessCursor]
+
 	switch msg.String() {
 	case "esc", "q":
 		m.screen = screenMenu
 		return m, nil
 	case "up", "k":
-		if m.ghAccountCursor > 0 {
-			m.ghAccountCursor--
+		if m.harnessCursor > 0 {
+			m.harnessCursor--
 		}
 		return m, nil
 	case "down", "j":
-		if m.ghAccountCursor < len(m.ghAccounts)-1 {
-			m.ghAccountCursor++
+		if m.harnessCursor < len(m.harnessStatuses)-1 {
+			m.harnessCursor++
 		}
 		return m, nil
-	case "a":
-		// Add new account via gh auth login
-		c := exec.Command("gh", "auth", "login")
-		return m, tea.ExecProcess(c, func(err error) tea.Msg {
-			return ghAuthResultMsg{err: err}
-		})
+	case "l":
+		// Login selected harness
+		if !selected.installed {
+			m.actionMessage = fmt.Sprintf("%s CLI is not installed", selected.name)
+			m.actionSuccess = false
+			return m, nil
+		}
+		return m, loginHarnessCmd(selected.id)
+	case "d":
+		// Logout selected harness
+		if !selected.authed {
+			return m, nil
+		}
+		ghUser := ""
+		if selected.id == harnessGitHub && len(selected.ghAccounts) > 0 && selected.ghCursor < len(selected.ghAccounts) {
+			ghUser = selected.ghAccounts[selected.ghCursor].user
+		}
+		return m, logoutHarnessCmd(selected.id, ghUser)
+	case "r":
+		// Refresh all statuses
+		m.harnessChecking = true
+		return m, checkAllHarnessStatusCmd()
 	case "s":
-		// Switch active account to selected
-		if len(m.ghAccounts) > 0 && m.ghAccountCursor < len(m.ghAccounts) {
-			acct := m.ghAccounts[m.ghAccountCursor]
+		// Switch GitHub account (GitHub-specific)
+		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 && selected.ghCursor < len(selected.ghAccounts) {
+			acct := selected.ghAccounts[selected.ghCursor]
 			if !acct.active {
 				return m, switchGhAccountCmd(acct.user)
 			}
 		}
 		return m, nil
-	case "d":
-		// Remove selected account
-		if len(m.ghAccounts) > 0 && m.ghAccountCursor < len(m.ghAccounts) {
-			acct := m.ghAccounts[m.ghAccountCursor]
-			return m, logoutGhAccountCmd(acct.user)
+	case "left", "h":
+		// Navigate GitHub sub-accounts
+		if selected.id == harnessGitHub && selected.ghCursor > 0 {
+			m.harnessStatuses[m.harnessCursor].ghCursor--
 		}
 		return m, nil
-	case "r":
-		// Manual refresh
-		m.ghChecking = true
-		return m, checkGhStatusCmd()
+	case "right", "tab":
+		// Navigate GitHub sub-accounts
+		if selected.id == harnessGitHub && selected.ghCursor < len(selected.ghAccounts)-1 {
+			m.harnessStatuses[m.harnessCursor].ghCursor++
+		}
+		return m, nil
 	}
 	return m, nil
 }
@@ -674,54 +716,199 @@ func openDocs() tea.Msg {
 	return actionResultMsg{success: true, message: "📚 Documentation opened in browser"}
 }
 
-// checkGhStatusCmd checks current GitHub auth status via gh CLI
-func checkGhStatusCmd() tea.Cmd {
+// harnessName returns a display name for a harness ID
+func harnessName(id harnessID) string {
+	switch id {
+	case harnessGitHub:
+		return "GitHub"
+	case harnessClaude:
+		return "Claude"
+	case harnessGemini:
+		return "Gemini"
+	case harnessOpenCode:
+		return "OpenCode"
+	case harnessCodex:
+		return "Codex"
+	default:
+		return "Unknown"
+	}
+}
+
+// checkAllHarnessStatusCmd checks auth status for all 5 harnesses
+func checkAllHarnessStatusCmd() tea.Cmd {
 	return func() tea.Msg {
-		out, err := exec.Command("gh", "auth", "status").CombinedOutput()
-		if err != nil && len(out) == 0 {
-			// gh not installed or no accounts
-			return ghStatusMsg{accounts: nil, err: nil}
+		statuses := []harnessAuthStatus{
+			checkGitHubStatus(),
+			checkClaudeStatus(),
+			checkGeminiStatus(),
+			checkOpenCodeStatus(),
+			checkCodexStatus(),
 		}
-		// Parse all accounts from output
-		// Format:
-		//   ✓ Logged in to github.com account USERNAME (keyring)
-		//   - Active account: true/false
-		//   - Git operations protocol: https
-		//   - Token scopes: 'gist', 'read:org', 'repo', 'workflow'
-		var accounts []ghAccount
-		var current *ghAccount
-		for _, line := range strings.Split(string(out), "\n") {
-			line = strings.TrimSpace(line)
-			if strings.Contains(line, "Logged in to") && strings.Contains(line, "account") {
-				// Start a new account
-				if current != nil {
-					accounts = append(accounts, *current)
+		return harnessStatusMsg{statuses: statuses}
+	}
+}
+
+func checkGitHubStatus() harnessAuthStatus {
+	hs := harnessAuthStatus{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb"}
+	if _, err := exec.LookPath("gh"); err != nil {
+		return hs
+	}
+	hs.installed = true
+	out, err := exec.Command("gh", "auth", "status").CombinedOutput()
+	if err != nil && len(out) == 0 {
+		return hs
+	}
+	// Parse accounts from gh auth status output
+	var accounts []ghAccount
+	var current *ghAccount
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, "Logged in to") && strings.Contains(line, "account") {
+			if current != nil {
+				accounts = append(accounts, *current)
+			}
+			current = &ghAccount{}
+			parts := strings.Split(line, "account ")
+			if len(parts) >= 2 {
+				user := strings.TrimSpace(parts[1])
+				if idx := strings.Index(user, " "); idx > 0 {
+					user = user[:idx]
 				}
-				current = &ghAccount{}
-				parts := strings.Split(line, "account ")
-				if len(parts) >= 2 {
-					user := strings.TrimSpace(parts[1])
-					if idx := strings.Index(user, " "); idx > 0 {
-						user = user[:idx]
-					}
-					current.user = user
-				}
-			} else if current != nil {
-				if strings.HasPrefix(line, "- Active account:") {
-					current.active = strings.Contains(line, "true")
-				} else if strings.HasPrefix(line, "- Git operations protocol:") {
-					current.protocol = strings.TrimPrefix(line, "- Git operations protocol: ")
-					current.protocol = strings.TrimSpace(current.protocol)
-				} else if strings.HasPrefix(line, "- Token scopes:") {
-					current.scopes = strings.TrimPrefix(line, "- Token scopes: ")
-					current.scopes = strings.TrimSpace(current.scopes)
-				}
+				current.user = user
+			}
+		} else if current != nil {
+			if strings.HasPrefix(line, "- Active account:") {
+				current.active = strings.Contains(line, "true")
+			} else if strings.HasPrefix(line, "- Git operations protocol:") {
+				current.protocol = strings.TrimPrefix(line, "- Git operations protocol: ")
+				current.protocol = strings.TrimSpace(current.protocol)
+			} else if strings.HasPrefix(line, "- Token scopes:") {
+				current.scopes = strings.TrimPrefix(line, "- Token scopes: ")
+				current.scopes = strings.TrimSpace(current.scopes)
 			}
 		}
-		if current != nil {
-			accounts = append(accounts, *current)
+	}
+	if current != nil {
+		accounts = append(accounts, *current)
+	}
+	hs.ghAccounts = accounts
+	hs.authed = len(accounts) > 0
+	for _, a := range accounts {
+		if a.active {
+			hs.detail = a.user
+			break
 		}
-		return ghStatusMsg{accounts: accounts, err: nil}
+	}
+	return hs
+}
+
+func checkClaudeStatus() harnessAuthStatus {
+	hs := harnessAuthStatus{id: harnessClaude, name: "Claude Code", icon: "\U0001f9e0"}
+	if _, err := exec.LookPath("claude"); err != nil {
+		return hs
+	}
+	hs.installed = true
+	home, _ := os.UserHomeDir()
+	credPath := filepath.Join(home, ".claude", ".credentials.json")
+	if _, err := os.Stat(credPath); err == nil {
+		hs.authed = true
+		hs.detail = "~/.claude/.credentials.json"
+	}
+	return hs
+}
+
+func checkGeminiStatus() harnessAuthStatus {
+	hs := harnessAuthStatus{id: harnessGemini, name: "Gemini CLI", icon: "\u2728"}
+	if _, err := exec.LookPath("gemini"); err != nil {
+		return hs
+	}
+	hs.installed = true
+	home, _ := os.UserHomeDir()
+	credPath := filepath.Join(home, ".gemini", "oauth_creds.json")
+	if _, err := os.Stat(credPath); err == nil {
+		hs.authed = true
+		hs.detail = "~/.gemini/oauth_creds.json"
+	}
+	return hs
+}
+
+func checkOpenCodeStatus() harnessAuthStatus {
+	hs := harnessAuthStatus{id: harnessOpenCode, name: "OpenCode", icon: "\U0001f527"}
+	if _, err := exec.LookPath("opencode"); err != nil {
+		return hs
+	}
+	hs.installed = true
+	out, err := exec.Command("opencode", "auth", "list").CombinedOutput()
+	if err == nil && len(out) > 0 {
+		outStr := strings.TrimSpace(string(out))
+		if outStr != "" && !strings.Contains(strings.ToLower(outStr), "no ") {
+			hs.authed = true
+			lines := strings.Split(outStr, "\n")
+			if len(lines) > 0 {
+				hs.detail = strings.TrimSpace(lines[0])
+			}
+		}
+	}
+	return hs
+}
+
+func checkCodexStatus() harnessAuthStatus {
+	hs := harnessAuthStatus{id: harnessCodex, name: "Codex", icon: "\U0001f916"}
+	if _, err := exec.LookPath("codex"); err != nil {
+		return hs
+	}
+	hs.installed = true
+	if err := exec.Command("codex", "login", "status").Run(); err == nil {
+		hs.authed = true
+		hs.detail = "~/.codex/auth.json"
+	}
+	return hs
+}
+
+// loginHarnessCmd spawns interactive login for the selected harness
+func loginHarnessCmd(id harnessID) tea.Cmd {
+	var c *exec.Cmd
+	switch id {
+	case harnessGitHub:
+		c = exec.Command("gh", "auth", "login")
+	case harnessClaude:
+		c = exec.Command("claude", "auth", "login")
+	case harnessGemini:
+		c = exec.Command("gemini")
+	case harnessOpenCode:
+		c = exec.Command("opencode", "auth", "login")
+	case harnessCodex:
+		c = exec.Command("codex", "login")
+	default:
+		return nil
+	}
+	hid := id
+	return tea.ExecProcess(c, func(err error) tea.Msg {
+		return harnessAuthResultMsg{harness: hid, err: err}
+	})
+}
+
+// logoutHarnessCmd performs logout for the selected harness
+func logoutHarnessCmd(id harnessID, ghUser string) tea.Cmd {
+	hid := id
+	return func() tea.Msg {
+		var err error
+		switch hid {
+		case harnessGitHub:
+			if ghUser != "" {
+				err = exec.Command("gh", "auth", "logout", "-u", ghUser).Run()
+			}
+		case harnessClaude:
+			err = exec.Command("claude", "auth", "logout").Run()
+		case harnessGemini:
+			home, _ := os.UserHomeDir()
+			err = os.Remove(filepath.Join(home, ".gemini", "oauth_creds.json"))
+		case harnessOpenCode:
+			err = exec.Command("opencode", "auth", "logout").Run()
+		case harnessCodex:
+			err = exec.Command("codex", "logout").Run()
+		}
+		return harnessAuthResultMsg{harness: hid, err: err}
 	}
 }
 
@@ -729,15 +916,7 @@ func checkGhStatusCmd() tea.Cmd {
 func switchGhAccountCmd(user string) tea.Cmd {
 	return func() tea.Msg {
 		err := exec.Command("gh", "auth", "switch", "-u", user).Run()
-		return ghSwitchMsg{err: err}
-	}
-}
-
-// logoutGhAccountCmd removes a GitHub account
-func logoutGhAccountCmd(user string) tea.Cmd {
-	return func() tea.Msg {
-		err := exec.Command("gh", "auth", "logout", "-u", user).Run()
-		return ghSwitchMsg{err: err}
+		return harnessAuthResultMsg{harness: harnessGitHub, err: err}
 	}
 }
 
@@ -761,8 +940,8 @@ func (m model) View() string {
 		return m.viewSetup()
 	case screenVersion:
 		return m.viewVersion()
-	case screenGitHub:
-		return m.viewGitHub()
+	case screenHarnessAuth:
+		return m.viewHarnessAuth()
 	default:
 		return m.viewMenu()
 	}
@@ -996,7 +1175,7 @@ func (m model) viewWhitelist() string {
 	}.Render()
 }
 
-func (m model) viewGitHub() string {
+func (m model) viewHarnessAuth() string {
 	width := m.width
 	if width == 0 {
 		width = 80
@@ -1008,59 +1187,91 @@ func (m model) viewGitHub() string {
 
 	var content strings.Builder
 
-	if m.ghChecking {
-		content.WriteString(theme.StatusInfo.Render("   Checking GitHub auth status...") + "\n")
-	} else if len(m.ghAccounts) == 0 {
-		content.WriteString(theme.StatusError.Render("   ● No Accounts") + "\n\n")
-		content.WriteString(theme.Subtitle.Render("   GitHub auth is required for Fetch to access repositories") + "\n")
-		content.WriteString(theme.Subtitle.Render("   and manage pull requests via the coding agents.") + "\n\n")
-		content.WriteString(theme.StatusInfo.Render("   Press 'a' to add a GitHub account.") + "\n")
-	} else {
-		content.WriteString(fmt.Sprintf("   %s\n\n", theme.Subtitle.Render(fmt.Sprintf("%d account(s) on github.com", len(m.ghAccounts)))))
-		for i, acct := range m.ghAccounts {
-			// Cursor indicator
-			prefix := "   "
-			if i == m.ghAccountCursor {
-				prefix = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true).Render(" ▸ ")
-			}
+	if m.harnessChecking {
+		content.WriteString(theme.StatusInfo.Render("   Checking harness auth status...") + "\n\n")
+	}
 
-			// Active badge
-			var badge string
-			if acct.active {
-				badge = theme.StatusSuccess.Render("● Active")
-			} else {
-				badge = lipgloss.NewStyle().Foreground(theme.TextMuted).Render("○ Inactive")
-			}
+	// Summary line
+	authCount := 0
+	for _, hs := range m.harnessStatuses {
+		if hs.authed {
+			authCount++
+		}
+	}
+	content.WriteString(fmt.Sprintf("   %s\n\n",
+		theme.Subtitle.Render(fmt.Sprintf("%d of %d harnesses authenticated", authCount, len(m.harnessStatuses)))))
 
-			// Username styling
-			var userStyle lipgloss.Style
-			if i == m.ghAccountCursor {
-				userStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
-			} else {
-				userStyle = theme.Value
-			}
+	for i, hs := range m.harnessStatuses {
+		// Cursor prefix
+		prefix := "   "
+		if i == m.harnessCursor {
+			prefix = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true).Render(" ▸ ")
+		}
 
-			content.WriteString(fmt.Sprintf("%s%s  %s\n", prefix, userStyle.Render(acct.user), badge))
+		// Status indicator
+		var statusBadge string
+		if !hs.installed {
+			statusBadge = lipgloss.NewStyle().Foreground(theme.TextMuted).Render("◌ Not Installed")
+		} else if hs.authed {
+			statusBadge = theme.StatusSuccess.Render("● Authenticated")
+		} else {
+			statusBadge = theme.StatusError.Render("○ Not Authenticated")
+		}
 
-			// Show details for selected account
-			if i == m.ghAccountCursor {
-				detailIndent := "      "
-				if acct.protocol != "" {
-					content.WriteString(fmt.Sprintf("%sProtocol: %s\n", detailIndent, theme.Subtitle.Render(acct.protocol)))
+		// Name styling
+		var nameStyle lipgloss.Style
+		if i == m.harnessCursor {
+			nameStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+		} else {
+			nameStyle = theme.Value
+		}
+
+		// Pad name to align status badges
+		paddedName := fmt.Sprintf("%-18s", hs.name)
+		content.WriteString(fmt.Sprintf("%s%s %s  %s\n", prefix, hs.icon, nameStyle.Render(paddedName), statusBadge))
+
+		// Expanded detail for selected harness
+		if i == m.harnessCursor {
+			detailIndent := "      "
+			if !hs.installed {
+				content.WriteString(fmt.Sprintf("%s%s\n", detailIndent,
+					theme.Subtitle.Render("Install the CLI on the host to enable authentication")))
+			} else if hs.id == harnessGitHub && len(hs.ghAccounts) > 0 {
+				// Show GitHub accounts inline
+				for j, acct := range hs.ghAccounts {
+					acctPrefix := detailIndent + "  "
+					if j == hs.ghCursor {
+						acctPrefix = detailIndent + lipgloss.NewStyle().Foreground(theme.Secondary).Render("› ")
+					}
+					badge := ""
+					if acct.active {
+						badge = theme.StatusSuccess.Render(" (active)")
+					}
+					content.WriteString(fmt.Sprintf("%s%s%s\n", acctPrefix,
+						theme.Value.Render(acct.user), badge))
 				}
-				if acct.scopes != "" {
-					content.WriteString(fmt.Sprintf("%sScopes:   %s\n", detailIndent, theme.Subtitle.Render(acct.scopes)))
-				}
+			} else if hs.detail != "" {
+				content.WriteString(fmt.Sprintf("%s%s\n", detailIndent,
+					theme.Subtitle.Render(hs.detail)))
 			}
-			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+	}
+
+	// Context-sensitive help keys
+	helpKeys := []string{"↑/↓ Navigate", "l Login", "d Logout", "r Refresh", "Esc Back"}
+	if len(m.harnessStatuses) > 0 && m.harnessCursor < len(m.harnessStatuses) {
+		selected := m.harnessStatuses[m.harnessCursor]
+		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 {
+			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
 		}
 	}
 
 	return layout.ScreenLayout{
-		Title:      "🔑 GitHub Authentication",
+		Title:      "🔑 Harness Authentication",
 		Content:    content.String(),
-		HelpKeys:   []string{"↑/↓ Navigate", "s Switch", "a Add", "d Remove", "r Refresh", "Esc Back"},
-		Breadcrumb: []string{"Main Menu", "GitHub Auth"},
+		HelpKeys:   helpKeys,
+		Breadcrumb: []string{"Main Menu", "Harness Auth"},
 		Width:      width,
 		Height:     height,
 	}.Render()

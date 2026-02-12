@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.5.2
+  F E T C H    v4.6.1
 ```
 
 **Send coding tasks via WhatsApp. AI agents execute them in Docker.**
@@ -32,7 +32,7 @@
 
 ---
 
-Fetch is a headless development orchestrator. You message it on WhatsApp, and it dispatches AI agents — **Claude Code**, **Gemini CLI**, **GitHub Copilot**, **OpenCode** — into sandboxed Docker containers to work on your codebase. No IDE required. No SSH. Just chat.
+Fetch is a headless development orchestrator. You message it on WhatsApp, and it dispatches AI agents — **Claude Code**, **Gemini CLI**, **GitHub Copilot**, **OpenCode**, **Codex** — into sandboxed Docker containers to work on your codebase. No IDE required. No SSH. Just chat.
 
 <br>
 
@@ -60,6 +60,7 @@ flowchart LR
         Gemini["Gemini CLI"]
         Copilot["Copilot CLI"]
         OpenCode["OpenCode"]
+        Codex["Codex"]
         Playwright["Playwright + Chromium"]
         Workspace["/workspace (mounted)"]
     end
@@ -86,7 +87,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 | | Container | Tech | Role |
 |:-:|-----------|------|------|
 | **1** | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 27 orchestrator tools, session & task persistence |
-| **2** | **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Playwright + Chromium |
+| **2** | **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex, Playwright + Chromium |
 | **3** | **SearXNG** | Meta search engine | Self-hosted search aggregator (Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm) |
 | | **Manager** | Go / Bubble Tea | Host-side TUI for managing services, editing config, viewing logs |
 
@@ -103,7 +104,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 - **LLM-First** &mdash; Every message hits the LLM with all 27 tools. No pre-classification, no regex routing
 - **7 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/usage` `/trust` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
-- **Four Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode with process lifecycle management
+- **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context
 - **42 Tunable Parameters** &mdash; `FETCH_*` env vars control the entire pipeline, no code changes needed
 
@@ -146,6 +147,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 | **Gemini CLI** | Quick fixes, explanations, boilerplate generation |
 | **Copilot CLI** | Shell commands, git workflows |
 | **OpenCode** | Versatile coding, OpenRouter-native, general-purpose |
+| **Codex** | Agentic coding with OpenAI models, JSON Lines streaming |
 
 </td>
 </tr>

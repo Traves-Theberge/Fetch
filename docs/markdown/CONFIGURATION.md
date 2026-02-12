@@ -35,6 +35,7 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `ANTHROPIC_API_KEY` | string | API key for Claude Code harness (if used) |
 | `GEMINI_API_KEY` | string | API key for Gemini CLI harness (if used) |
 | `OPENCODE_API_KEY` | string | API key for OpenCode harness (or uses OpenRouter key) |
+| `CODEX_API_KEY` | string | API key for Codex harness (alternative to `codex login` OAuth; or uses `OPENAI_API_KEY`) |
 
 ### Harness Selection (Feature Flags)
 
@@ -46,6 +47,7 @@ Fetch defaults to using **GitHub Copilot** as the primary harness. You can enabl
 | `ENABLE_CLAUDE` | boolean | `false` | Enable the Claude Code harness |
 | `ENABLE_GEMINI` | boolean | `false` | Enable the Gemini CLI harness |
 | `ENABLE_OPENCODE` | boolean | `false` | Enable the OpenCode harness |
+| `ENABLE_CODEX` | boolean | `false` | Enable the Codex harness |
 
 ### Web & Browser Feature Flags
 
@@ -65,6 +67,7 @@ By default, AI harnesses use their respective defaults. You can override them us
 | `CLAUDE_MODEL` | string | Override model for Claude Code CLI (e.g. `claude-3-5-sonnet-20241022`) |
 | `GEMINI_MODEL` | string | Override model for Gemini CLI (e.g. `gemini-1.5-pro`) |
 | `OPENCODE_MODEL` | string | Override model for OpenCode (e.g. `openrouter/anthropic/claude-sonnet-4-5`) |
+| `CODEX_MODEL` | string | Override model for Codex (e.g. `o4-mini`) |
 
 > [!IMPORTANT]
 > **Ambiguous Selection:** If more than one agent is enabled and you don't explicitly specify an agent (e.g., "use claude to..."), Fetch will prompt you to choose an agent before starting the task. If only one agent is enabled, it is selected automatically.
@@ -137,6 +140,8 @@ volumes:
   - ~/.config/gh:/root/.config/gh:ro # GitHub Copilot auth (read-only)
   - ~/.config/claude-code:/root/.config/claude-code:ro  # Claude auth
   - ~/.gemini:/root/.gemini:ro       # Gemini auth
+  - ~/.config/opencode:/root/.config/opencode:ro  # OpenCode auth
+  - ~/.codex:/root/.codex:ro         # Codex OAuth auth (auth.json)
 environment:
   - GH_TOKEN=${GH_TOKEN}            # GitHub token for workspace sync
 deploy:
@@ -191,6 +196,7 @@ Per-harness instruction files injected into each CLI agent when spawned:
 | `GEMINI.md` | Gemini CLI | `GEMINI_SYSTEM_MD` env var |
 | `copilot-instructions.md` | Copilot CLI | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
 | `OPENCODE.md` | OpenCode | `OPENCODE_SYSTEM_PROMPT` env var |
+| `CODEX.md` | Codex | `--cd` flag sets working directory |
 
 These tell each CLI it's running inside the Fetch Kennel and should output structured change summaries.
 

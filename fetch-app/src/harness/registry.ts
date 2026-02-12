@@ -2,7 +2,7 @@
  * @fileoverview Harness Registry
  *
  * Central registry for managing harness adapters.
- * Provides access to Claude, Gemini, Copilot, and OpenCode adapters.
+ * Provides access to Claude, Gemini, Copilot, OpenCode, and Codex adapters.
  *
  * @module harness/registry
  * @see {@link HarnessAdapter} - Adapter interface
@@ -10,6 +10,7 @@
  * @see {@link GeminiAdapter} - Gemini CLI adapter
  * @see {@link CopilotAdapter} - GitHub Copilot CLI adapter
  * @see {@link OpenCodeAdapter} - OpenCode CLI adapter
+ * @see {@link CodexAdapter} - OpenAI Codex CLI adapter
  */
 
 import type { AgentType } from '../task/types.js';
@@ -18,6 +19,7 @@ import { claudeAdapter, ClaudeAdapter } from './claude.js';
 import { geminiAdapter, GeminiAdapter } from './gemini.js';
 import { copilotAdapter, CopilotAdapter } from './copilot.js';
 import { opencodeAdapter, OpenCodeAdapter } from './opencode.js';
+import { codexAdapter, CodexAdapter } from './codex.js';
 import { logger } from '../utils/logger.js';
 
 // ============================================================================
@@ -32,6 +34,7 @@ adapters.set('claude', claudeAdapter);
 adapters.set('gemini', geminiAdapter);
 adapters.set('copilot', copilotAdapter);
 adapters.set('opencode', opencodeAdapter);
+adapters.set('codex', codexAdapter);
 
 // ============================================================================
 // Registry Functions
@@ -122,8 +125,10 @@ export {
   GeminiAdapter,
   CopilotAdapter,
   OpenCodeAdapter,
+  CodexAdapter,
   claudeAdapter,
   geminiAdapter,
   copilotAdapter,
   opencodeAdapter,
+  codexAdapter,
 };

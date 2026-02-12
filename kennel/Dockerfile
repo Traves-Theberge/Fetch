@@ -1,6 +1,6 @@
 # Fetch Kennel - AI CLI Execution Sandbox
-# The Muscle: Supports GitHub Copilot, Claude Code, Gemini CLI, and OpenCode
-# Toggle CLIs via ENABLE_COPILOT, ENABLE_CLAUDE, ENABLE_GEMINI, ENABLE_OPENCODE in .env
+# The Muscle: Supports GitHub Copilot, Claude Code, Gemini CLI, OpenCode, and Codex
+# Toggle CLIs via ENABLE_COPILOT, ENABLE_CLAUDE, ENABLE_GEMINI, ENABLE_OPENCODE, ENABLE_CODEX in .env
 
 FROM node:20-slim
 
@@ -41,9 +41,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 RUN gh extension install github/gh-copilot || true
 
 # ============================================
-# Install AI CLIs (Claude, Gemini, OpenCode)
+# Install AI CLIs (Claude, Gemini, OpenCode, Codex)
 # ============================================
-RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli opencode-ai@latest
+RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli opencode-ai@latest @openai/codex
 
 # ============================================
 # Install Playwright + Chromium for browser automation
@@ -79,8 +79,10 @@ RUN mkdir -p /workspace && chmod 777 /workspace
 # Mounted from host at runtime (read-only)
 RUN mkdir -p /root/.config/gh \
     && mkdir -p /root/.config/claude-code \
+    && mkdir -p /root/.claude \
     && mkdir -p /root/.gemini \
-    && mkdir -p /root/.config/opencode
+    && mkdir -p /root/.config/opencode \
+    && mkdir -p /root/.codex
 
 # Set working directory
 WORKDIR /workspace

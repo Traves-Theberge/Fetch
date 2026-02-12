@@ -11,7 +11,7 @@ import (
 
 // Build-time variables set via -ldflags.
 var (
-	version   = "v4.3.0"
+	version   = "v4.6.1"
 	buildDate = "unknown"
 	gitCommit = "unknown"
 )
