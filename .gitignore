@@ -45,3 +45,4 @@ manager/fetch-manager-arm64
 # Temp/debug output
 tui_output.txt
 test_tool.js
+data/whitelist.json
