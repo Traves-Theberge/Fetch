@@ -243,7 +243,9 @@ export async function handleMessage(
     clearTimeout(thinkingTimer);
 
     // Build response array
-    const responses = buildResponses(response);
+    // If a task was started, suppress the LLM's conversational response —
+    // the task:started and task:completed event listeners handle all notifications.
+    const responses = response.taskStarted ? [] : buildResponses(response);
 
     const duration = Date.now() - startTime;
     logger.success(
