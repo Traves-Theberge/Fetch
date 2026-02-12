@@ -23,12 +23,14 @@
  * | /status, /st      | format.formatStatus| Show system status — no LLM needed |
  * | /version, /v      | (inline)           | Print version string               |
  * | /usage, /u        | format.formatUsage | Show OpenRouter API usage           |
+ * | /trust            | trust.handleTrust  | Owner-only whitelist management     |
  */
 
 import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
 import { formatHelp, formatStatus, formatUsage } from '../agent/format.js';
 import { handleStop, handleUndo, handleUndoAll } from './task.js';
+import { handleTrust } from './trust.js';
 import { VERSION } from '../config/env.js';
 import type { CommandResult } from './types.js';
 
@@ -125,6 +127,10 @@ export async function parseCommand(
     case 'usage':
     case 'u':
       return { handled: true, responses: [await formatUsage()] };
+
+    // ─── Whitelist Management (owner only) ──────────────────────────────
+    case 'trust':
+      return handleTrust(argString, session);
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

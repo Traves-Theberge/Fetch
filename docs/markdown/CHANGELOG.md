@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.2] - 2026-02-11
+
+### `/trust` Command — Owner-Only Whitelist Management via WhatsApp
+
+#### Added
+
+- **`/trust` command** — Owner-only safety escape for managing trusted phone numbers from WhatsApp (`add`, `remove`, `list`)
+- Non-owner users are rejected with a gating message
+
+---
+
 ## [4.5.1] - 2026-02-11
 
 ### `/usage` Command, Whitelist Hot-Reload, Duplicate Message Fix

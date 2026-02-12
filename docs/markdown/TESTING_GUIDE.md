@@ -202,9 +202,12 @@ Quick checks that existing features still work.
 
 ### 4.1 Safety Escape Commands
 
-- [ ] `/status` — returns system status with version **v4.5.1**
+- [ ] `/status` — returns system status with version **v4.5.2**
 - [ ] `/help` — returns command list (includes `/usage`)
 - [ ] `/usage` — returns OpenRouter API usage (total, daily, weekly, monthly, limit)
+- [ ] `/trust list` — shows trusted numbers (owner only)
+- [ ] `/trust add <number>` — adds a trusted number (owner only)
+- [ ] `/trust remove <number>` — removes a trusted number (owner only)
 - [ ] `/clear` — clears conversation (confirms before clearing)
 
 ### 4.2 Conversational

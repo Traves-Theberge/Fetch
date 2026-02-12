@@ -16,17 +16,6 @@ flowchart TB
         Workspace
     end
 
-    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
-    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
-    classDef workspace fill:#f0883e,stroke:#f0883e,color:#fff
-    classDef docker stroke:#58a6ff,stroke-width:2px
-    classDef whatsapp stroke:#238636,stroke-width:2px
-
-    class Bridge bridge
-    class Kennel kennel
-    class Workspace workspace
-    class Docker docker
-    class WhatsApp whatsapp
 ```
 
 Fetch runs as three Docker containers managed by a Go TUI:
@@ -136,20 +125,11 @@ flowchart TD
     %% Local tool result loop (implicit but good to show)
     LocalTools --> Result[Tool Result] --> Bridge
 
-    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
-    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
-    classDef orchestrator fill:#58a6ff,stroke:#58a6ff,color:#fff
-    classDef config fill:#6e7681,stroke:#57606a,color:#fff
-
-    class Bridge bridge
-    class Sandbox,Claude,Gemini,Copilot,OpenCode kennel
-    class OrchLLM,PackDecider orchestrator
-    class HostConfig,ConfClaude,ConfGemini,ConfCopilot,ConfOpenCode config
 ```
 
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
-3. **Safety Gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) — if matched, responds immediately without LLM
+3. **Safety Gate** checks for 7 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/usage`, `/trust`) — if matched, responds immediately without LLM
 4. **Everything else** goes to the LLM with **all 27 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
@@ -237,8 +217,9 @@ src/
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
 ├── commands/
 │   ├── index.ts          # Barrel exports
-│   ├── parser.ts         # Safety gate — 5 deterministic escape commands
+│   ├── parser.ts         # Safety gate — 7 deterministic escape commands
 │   ├── task.ts           # /stop, /undo handlers (kill task, git reset)
+│   ├── trust.ts          # /trust handler — owner-only whitelist management
 │   └── types.ts          # Command result types
 ├── harness/
 │   ├── base.ts           # AbstractHarnessAdapter (shared logic)
@@ -351,19 +332,6 @@ graph TB
     
     Manager --> Socket
     
-    classDef bridge fill:#3fb950,stroke:#3fb950,color:#fff
-    classDef kennel fill:#a371f7,stroke:#a371f7,color:#fff
-    classDef manager fill:#f0883e,stroke:#f0883e,color:#fff
-    classDef docker fill:none,stroke:#58a6ff,stroke-width:2px
-    classDef host fill:none,stroke:#8b949e,stroke-width:2px,stroke-dasharray: 5 5
-    classDef volume fill:#6e7681,stroke:#57606a,color:#fff
-
-    class Bridge bridge
-    class Kennel,SearXNG kennel
-    class Manager manager
-    class Docker docker
-    class Host host
-    class Vol1,Vol2,Vol3,Socket volume
 ```
 
 ### SearXNG Container

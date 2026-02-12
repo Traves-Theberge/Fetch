@@ -68,7 +68,7 @@ describe('Command Parser — Safety Gate', () => {
   });
 
   it('should pass former legacy commands through to LLM', async () => {
-    for (const cmd of ['/verbose', '/autocommit', '/mode', '/project', '/files', '/add foo', '/remind test', '/schedule list', '/cron list', '/trust', '/identity', '/skill', '/clone repo', '/diff', '/log']) {
+    for (const cmd of ['/verbose', '/autocommit', '/mode', '/project', '/files', '/add foo', '/remind test', '/schedule list', '/cron list', '/identity', '/skill', '/clone repo', '/diff', '/log']) {
       const result = await parseCommand(cmd, session, sm);
       expect(result.handled).toBe(false);
       expect(result.shouldProcess).toBe(true);
@@ -112,7 +112,7 @@ describe('Command Parser — Safety Gate', () => {
     const result = await parseCommand('/version', session, sm);
     expect(result.handled).toBe(true);
     expect(result.responses?.[0]).toContain('Fetch');
-    expect(result.responses?.[0]).toContain('v4.5.1');
+    expect(result.responses?.[0]).toContain('v4.5.2');
   });
 
   // ─── Task Control ──────────────────────────────────────────────────
@@ -155,6 +155,28 @@ describe('Command Parser — Safety Gate', () => {
   it('should handle /u alias', async () => {
     const result = await parseCommand('/u', session, sm);
     expect(result.handled).toBe(true);
+  });
+
+  // ─── Trust (owner only) ────────────────────────────────────────────
+
+  it('should handle /trust list for owner', async () => {
+    const ownerSession = createMockSession({ userId: `${process.env.OWNER_PHONE_NUMBER}@c.us` });
+    const result = await parseCommand('/trust list', ownerSession, sm);
+    expect(result.handled).toBe(true);
+    expect(result.responses?.[0]).toContain('Trusted Numbers');
+  });
+
+  it('should handle /trust add for owner', async () => {
+    const ownerSession = createMockSession({ userId: `${process.env.OWNER_PHONE_NUMBER}@c.us` });
+    const result = await parseCommand('/trust add 15551234567', ownerSession, sm);
+    expect(result.handled).toBe(true);
+  });
+
+  it('should reject /trust from non-owner', async () => {
+    const nonOwnerSession = createMockSession({ userId: '19999999999@c.us' });
+    const result = await parseCommand('/trust list', nonOwnerSession, sm);
+    expect(result.handled).toBe(true);
+    expect(result.responses?.[0]).toContain('Only the owner');
   });
 
   // ─── Undo ──────────────────────────────────────────────────────────

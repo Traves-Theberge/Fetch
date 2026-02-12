@@ -79,6 +79,7 @@ export function formatHelp(): string {
 /help - Show commands
 /status - Show system and task status
 /usage - Check API usage & spend
+/trust - Manage trusted numbers (owner only)
 
 *Tools:*
 - workspace_list: List projects
@@ -189,10 +190,6 @@ export async function formatUsage(): Promise<string> {
       msg += `🟢 *Remaining*: ${fmt(d.limit_remaining)}\n`;
     } else {
       msg += `💳 *Limit*: No limit set\n`;
-    }
-
-    if (d.label) {
-      msg += `🏷️ *Key*: ${d.label}\n`;
     }
 
     if (d.is_free_tier) {
