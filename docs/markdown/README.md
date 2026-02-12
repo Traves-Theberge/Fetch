@@ -83,6 +83,7 @@ flowchart LR
 ## Features
 
 **Core**
+
 - **LLM-First** — Every message goes directly to the LLM with all 27 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** — `/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
@@ -91,6 +92,7 @@ flowchart LR
 - **Pipeline Tuning** — 42 parameters via `FETCH_*` env vars, no code changes needed
 
 **Tools & Capabilities**
+
 - **27 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
 - **Web Fetch & Search** — Readability + Turndown for pages, self-hosted SearXNG for search (no API keys)
 - **Browser Automation** — Headless Chromium via Playwright with accessibility tree snapshots
@@ -98,6 +100,7 @@ flowchart LR
 - **GitHub Auto-Sync** — Commits, pushes, and auto-creates repos on workspace creation
 
 **System**
+
 - **Dynamic Identity** — Hot-reloaded personality from Markdown files in `data/identity/`
 - **Skills Framework** — Teach new capabilities by adding Markdown to `data/skills/`
 - **Crash Recovery** — State persisted to SQLite, resumes after restart
@@ -123,24 +126,24 @@ docker logs -f fetch-bridge
 
 Required env vars: `OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`
 
-See [Setup Guide](docs/markdown/SETUP_GUIDE.md) for full instructions.
+See [Setup Guide](SETUP_GUIDE.md) for full instructions.
 
 ## Documentation
 
 | Guide | Description |
 |-------|-------------|
-| [Setup Guide](docs/markdown/SETUP_GUIDE.md) | Installation and first run |
-| [TUI Guide](docs/markdown/TUI_GUIDE.md) | Manager terminal interface |
-| [Commands](docs/markdown/COMMANDS.md) | Safety escapes and usage examples |
-| [Configuration](docs/markdown/CONFIGURATION.md) | Environment variables and config files |
-| [Architecture](docs/markdown/ARCHITECTURE.md) | System design, data flow, concurrency patterns |
-| [Harness System](docs/markdown/HARNESS_SYSTEM.md) | CLI adapter lifecycle and process management |
-| [Identity System](docs/markdown/IDENTITY_SYSTEM.md) | Dynamic persona, directives, and CLI config templates |
-| [Skills Guide](docs/markdown/SKILLS_GUIDE.md) | Building and loading skill plugins |
-| [Context Pipeline](docs/markdown/CONTEXT_PIPELINE.md) | Message windowing, compaction, prompt assembly |
-| [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite persistence, singleton patterns, shutdown |
-| [API Reference](docs/markdown/API_REFERENCE.md) | Tool interfaces and HTTP endpoints |
-| [Changelog](CHANGELOG.md) | Version history and release notes |
+| [Setup Guide](SETUP_GUIDE.md) | Installation and first run |
+| [TUI Guide](TUI_GUIDE.md) | Manager terminal interface |
+| [Commands](COMMANDS.md) | Safety escapes and usage examples |
+| [Configuration](CONFIGURATION.md) | Environment variables and config files |
+| [Architecture](ARCHITECTURE.md) | System design, data flow, concurrency patterns |
+| [Harness System](HARNESS_SYSTEM.md) | CLI adapter lifecycle and process management |
+| [Identity System](IDENTITY_SYSTEM.md) | Dynamic persona, directives, and CLI config templates |
+| [Skills Guide](SKILLS_GUIDE.md) | Building and loading skill plugins |
+| [Context Pipeline](CONTEXT_PIPELINE.md) | Message windowing, compaction, prompt assembly |
+| [State Management](STATE_MANAGEMENT.md) | SQLite persistence, singleton patterns, shutdown |
+| [API Reference](API_REFERENCE.md) | Tool interfaces and HTTP endpoints |
+| [Changelog](../../CHANGELOG.md) | Version history and release notes |
 
 ## Development
 

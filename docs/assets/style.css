@@ -350,9 +350,9 @@ body {
   display: none;
   position: fixed;
   top: 0;
+  bottom: 60px;
   right: var(--spacing-2xl);
   width: var(--toc-width);
-  height: 100vh;
   padding: var(--spacing-3xl) var(--spacing-lg) var(--spacing-2xl);
   overflow-y: auto;
   z-index: 50;
@@ -858,7 +858,7 @@ body {
   visibility: hidden;
   transition: all var(--transition-normal);
   box-shadow: var(--shadow-md);
-  z-index: 50;
+  z-index: 70;
 }
 
 .back-to-top.visible {
@@ -884,9 +884,12 @@ body {
    ======================================== */
 
 .docs-footer {
+  position: relative;
+  z-index: 60;
   margin-left: var(--sidebar-width);
   padding: var(--spacing-2xl) var(--spacing-3xl);
   border-top: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
   display: flex;
   align-items: center;
   justify-content: space-between;

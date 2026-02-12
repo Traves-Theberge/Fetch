@@ -291,6 +291,120 @@ src/
     └── docker.ts         # Docker exec helpers
 ```
 
+## Systems Integration
+
+The diagram below shows how every internal system feeds into the agent core loop. There is no router or classifier - the LLM sees the complete system prompt (identity + context + skills + all 27 tools) on every message and decides what to do.
+
+```mermaid
+flowchart TB
+    %% ── Data Sources (top) ──────────────────────────────────
+    COLLAR["COLLAR.md<br/>(personality, directives)"]
+    ALPHA["ALPHA.md<br/>(owner profile)"]
+    BuiltinSkills["Built-in Skills<br/>(7 SKILL.md files)"]
+    UserSkills["User Skills<br/>(data/skills/)"]
+    BuiltinTools["Built-in Tools<br/>(27 tools, Zod schemas)"]
+    CustomTools["Custom Tools<br/>(data/tools/*.json)"]
+
+    %% ── Managers (middle layer) ─────────────────────────────
+    subgraph Managers ["Singleton Managers"]
+        direction TB
+        IdentityMgr["Identity Manager<br/>buildSystemPrompt()"]
+        SkillMgr["Skill Manager<br/>matchSkills() + buildSummary()"]
+        ToolReg["Tool Registry<br/>execute() + toOpenAIFormat()"]
+        SessionMgr["Session Manager<br/>messages, compaction, memory"]
+        WorkspaceMgr["Workspace Manager<br/>projects, git, repo map"]
+    end
+
+    %% ── Data source → Manager connections ───────────────────
+    COLLAR --> IdentityMgr
+    ALPHA --> IdentityMgr
+    BuiltinSkills --> SkillMgr
+    UserSkills --> SkillMgr
+    BuiltinTools --> ToolReg
+    CustomTools --> ToolReg
+
+    %% ── Session subsystems ──────────────────────────────────
+    subgraph SessionState ["Session State (SQLite)"]
+        direction TB
+        Messages["Message History<br/>(sliding window)"]
+        Compaction["Compaction Engine<br/>(LLM summarization)"]
+        Memory["Structured Memory<br/>(BM25 recall)"]
+    end
+
+    SessionMgr --> Messages
+    SessionMgr --> Compaction
+    SessionMgr --> Memory
+    Compaction -->|"saves previous<br/>summary as memory"| Memory
+
+    %% ── Context Assembly ────────────────────────────────────
+    subgraph ContextAssembly ["System Prompt Assembly"]
+        direction TB
+        Identity["Identity + Directives<br/>+ Autonomy Rules"]
+        Capabilities["Capabilities<br/>(8 commands, 27 tools, 5 harnesses)"]
+        SessionCtx["Session Context<br/>(workspace, task, repo map)"]
+        RecalledMem["Recalled Memories<br/>(BM25 matched)"]
+        SkillSummary["Skill Summary<br/>(all available)"]
+        ActivatedSkill["Activated Skills<br/>(matched instructions)"]
+        SystemPrompt["System Prompt<br/>(budget-capped ~6000 tokens)"]
+
+        Identity --> SystemPrompt
+        Capabilities --> SystemPrompt
+        SessionCtx --> SystemPrompt
+        RecalledMem --> SystemPrompt
+        SkillSummary --> SystemPrompt
+        ActivatedSkill --> SystemPrompt
+    end
+
+    IdentityMgr --> Identity
+    IdentityMgr --> Capabilities
+    WorkspaceMgr --> SessionCtx
+    Memory -->|"query = user message"| RecalledMem
+    SkillMgr -->|"all skills"| SkillSummary
+    SkillMgr -->|"trigger-matched"| ActivatedSkill
+    Messages --> SessionCtx
+
+    %% ── Agent Core Loop ─────────────────────────────────────
+    subgraph AgentCore ["Agent Core (ReAct Loop)"]
+        direction TB
+        LLMCall["LLM Call<br/>(OpenRouter API)"]
+        ToolExec["Tool Execution<br/>(Zod validate → handler → result)"]
+        StateSync["State Sync<br/>(rebuild prompt on<br/>workspace/task change)"]
+
+        LLMCall -->|"tool_calls"| ToolExec
+        ToolExec -->|"tool results"| LLMCall
+        ToolExec --> StateSync
+        StateSync -->|"updated context"| LLMCall
+    end
+
+    SystemPrompt --> LLMCall
+    ToolReg --> ToolExec
+    Messages -->|"last 15 messages<br/>(OpenAI format)"| LLMCall
+
+    %% ── External I/O ───────────────────────────────────────
+    User([WhatsApp Message]) -->|"SecurityGate<br/>+ Command Parser"| AgentCore
+    AgentCore -->|"formatted response"| User
+
+    ToolExec -->|"task_create"| Kennel["Fetch Kennel<br/>(Claude, Gemini,<br/>Copilot, OpenCode, Codex)"]
+    Kennel -->|"task result"| SessionMgr
+
+    %% ── Feedback loops ──────────────────────────────────────
+    ToolExec -->|"persist messages"| SessionMgr
+    Compaction -->|"summary injected<br/>into context"| SessionCtx
+```
+
+### How the systems connect
+
+| System | Role | Feeds Into |
+| --- | --- | --- |
+| **Identity** (COLLAR.md, ALPHA.md) | Persona, directives, voice tone | System prompt (static core) |
+| **Skills** (SKILL.md files) | Domain expertise, harness hints | System prompt (summary + activated instructions) |
+| **Tools** (27 built-in + custom JSON) | Actions the LLM can take | OpenAI function-calling schema + execution handlers |
+| **Sessions** (SQLite) | Conversation state, preferences, active workspace/task | Message history + session context section |
+| **Compaction** | Summarizes old messages via LLM | Session context + saves summaries as memory entries |
+| **Memory** (BM25) | Cross-session recall from keyword-scored entries | "Recalled Context" section in system prompt |
+| **Workspace** | Project discovery, git state, repo map | Session context (workspace info + file tree) |
+| **Agent Core** | ReAct loop (reason, act, observe, repeat up to 5 rounds) | Consumes all of the above, produces tool calls + responses |
+
 ## Context Pipeline
 
 ### Memory Pipeline Diagram
