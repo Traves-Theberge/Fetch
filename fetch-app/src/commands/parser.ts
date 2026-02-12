@@ -44,7 +44,7 @@ export type { CommandResult } from './types.js';
 /**
  * Safety-gate parser for slash commands.
  *
- * Only intercepts the 5 deterministic escape hatches. Everything else
+ * Only intercepts the 8 deterministic escape hatches. Everything else
  * (including unknown `/foo` commands) passes through to the LLM agent.
  *
  * @param message  - Raw user message

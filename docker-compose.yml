@@ -40,6 +40,8 @@ services:
     volumes:
       # Persistent data (WhatsApp auth, task database)
       - ./data:/app/data
+      # Documentation site (live-reload without image rebuild)
+      - ./docs:/app/docs:ro
       # Docker socket for controlling Kennel
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Shared workspace for file operations

@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.1] - 2026-02-12
+
+### Unified Harness Auth Screen + Codex Config + Docker Mount Fixes
+
+#### Added
+
+- **Unified Harness Auth screen** in the Go TUI — single screen to authenticate all 5 CLI harnesses (GitHub/Copilot, Claude Code, Gemini CLI, OpenCode, Codex) via interactive OAuth/login flows
+  - `l` to login (suspends TUI, runs CLI's native login), `d` to logout, `r` to refresh status
+  - Per-harness status detection: CLI installation check via `exec.LookPath`, credential file existence, CLI status commands
+  - Three visual states: `◌ Not Installed`, `○ Not Authenticated`, `● Authenticated`
+  - GitHub retains multi-account support with sub-account navigation (`←/→`, `s` to switch)
+  - Context-sensitive help bar adapts when GitHub is selected
+- **Codex config fields** in the TUI config editor — `ENABLE_CODEX`, `CODEX_API_KEY`, `OPENAI_API_KEY` (Core Settings) and `CODEX_MODEL` (Harness Models)
+- **Docker volume mount** for Claude OAuth credentials — `~/.claude:/root/.claude:ro` (OAuth tokens live at `~/.claude/.credentials.json`, separate from the existing `~/.config/claude-code` config mount)
+
+#### Changed
+
+- **Menu label** — "GitHub Auth" renamed to "Harness Auth" with `[X/5 auth]` badge showing authenticated count
+- **TUI Guide** — Complete rewrite with full documentation for every screen, key binding, and harness auth flow
+
+#### Fixed
+
+- **Kennel Dockerfile** — Added `mkdir -p /root/.claude` to ensure the mount target directory exists
+
+#### Files Changed (7)
+
+| Area | Files |
+|------|-------|
+| TUI | `manager/main.go` (refactored), `manager/internal/config/editor.go` |
+| Docker | `docker-compose.yml`, `kennel/Dockerfile` |
+| Docs | `CHANGELOG.md`, `README.md`, `docs/markdown/TUI_GUIDE.md` |
+
+---
+
+## [4.6.0] - 2026-02-11
+
+### Codex CLI — Fifth Harness (OpenAI Codex)
+
+#### Added
+
+- **Codex harness adapter** (`harness/codex.ts`) — Full integration of OpenAI's open-source Codex CLI as the fifth coding agent
+  - Headless execution via `codex exec --json --ephemeral --full-auto`
+  - JSON Lines output parsing for structured event streaming (turn lifecycle, item events, file changes)
+  - `extractFileOperations()` parses JSONL `file_change` events with plain-text fallback
+  - `extractSummary()` extracts `agent_message` from JSONL events
+- **Environment variables** — `ENABLE_CODEX`, `CODEX_API_KEY`, `CODEX_MODEL` added to env schema
+- **Kennel Dockerfile** — `@openai/codex` installed globally via npm
+- **CLI config** — `data/cli-configs/CODEX.md` with Fetch Kennel instructions
+- **Validation** — `AgentSelectionSchema` updated to include `'codex'` alongside `'opencode'`
+- **Docker Compose** — `CODEX_API_KEY` and `OPENAI_API_KEY` passthrough to kennel container
+- **Unit tests** — CodexAdapter test suite covering `buildConfig`, `parseOutputLine`, `extractFileOperations`, `detectQuestion`
+
+#### Files Changed (15)
+
+| Area | Files |
+|------|-------|
+| Harness | `harness/codex.ts` (new), `harness/registry.ts`, `harness/index.ts`, `harness/types.ts` |
+| Types | `task/types.ts` (AgentType union) |
+| Config | `config/env.ts`, `.env.example` |
+| Validation | `validation/tools.ts` (AgentSelectionSchema) |
+| Tools | `tools/task.ts` (description + error choices) |
+| Docker | `kennel/Dockerfile`, `docker-compose.yml` |
+| Data | `data/cli-configs/CODEX.md` (new) |
+| Tests | `tests/unit/harness-adapters.test.ts` |
+| Docs | `README.md`, `CHANGELOG.md`, `CLAUDE.md` |
+
+---
+
 ## [4.5.2] - 2026-02-11
 
 ### `/trust` Command — Owner-Only Whitelist Management via WhatsApp

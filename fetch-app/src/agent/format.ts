@@ -64,7 +64,7 @@ export async function formatStatus(session: Session): Promise<string> {
 /**
  * Format the help message for v4.0 LLM-first architecture.
  * 
- * Shows only the 5 safety escape commands (deterministic, no LLM)
+ * Shows only the 8 safety escape commands (deterministic, no LLM)
  * and guides the user toward natural language for everything else.
  * 
  * @returns {string} Formatted help message
@@ -78,6 +78,7 @@ export function formatHelp(): string {
 /clear - Clear conversation history
 /help - Show commands
 /status - Show system and task status
+/version - Show version
 /usage - Check API usage & spend
 /trust - Manage trusted numbers (owner only)
 
@@ -108,6 +109,8 @@ export function formatHelp(): string {
 - Copilot 🎯: Fast suggestions, git commands
 - Claude 🧠: Deep reasoning, refactoring
 - Gemini ⚡: Quick fixes, explanations
+- OpenCode 🔧: Multi-provider coding
+- Codex 📦: Autonomous sandboxed tasks
 
 Just describe what you need in plain language! 🐕`;
 }

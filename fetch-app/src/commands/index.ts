@@ -2,7 +2,7 @@
  * @fileoverview Commands Module — Barrel Exports
  *
  * Re-exports the safety-gate parser and shared types.
- * In v4.0, only 5 deterministic escape commands are intercepted here;
+ * In v4.0, only 8 deterministic escape commands are intercepted here;
  * everything else passes through to the LLM agent.
  *
  * @module commands

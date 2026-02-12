@@ -599,6 +599,31 @@ body {
   border: 1px solid hsl(var(--border));
 }
 
+/* Hero ASCII art — first code block on the overview page */
+.markdown-content > .code-block-wrapper:first-child pre,
+.markdown-content > pre:first-child {
+  text-align: center;
+  border: none;
+  background: transparent;
+}
+
+.markdown-content > .code-block-wrapper:first-child {
+  border: none;
+  background: transparent;
+}
+
+.markdown-content > .code-block-wrapper:first-child pre code,
+.markdown-content > pre:first-child code {
+  color: hsl(25 95% 53%) !important;
+  display: inline-block;
+  text-align: center;
+}
+
+.dark .markdown-content > .code-block-wrapper:first-child pre code,
+.dark .markdown-content > pre:first-child code {
+  color: hsl(25 95% 58%) !important;
+}
+
 /* Code blocks */
 .markdown-content pre {
   margin: var(--spacing-xl) 0;
