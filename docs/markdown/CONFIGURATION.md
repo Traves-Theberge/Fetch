@@ -279,7 +279,6 @@ All paths are centralized in `src/config/paths.ts`:
 | `SESSIONS_DB` | `./data/sessions.db` | Sessions SQLite database |
 | `TASKS_DB_PATH` | `./data/tasks.db` | Tasks SQLite database |
 | `IDENTITY_DIR` | `./data/identity` | Identity files |
-| `AGENTS_DIR` | `./data/agents` | Legacy pack profiles directory (unused) |
 | `SKILLS_DIR` | `./data/skills` | Skill definitions |
 | `TOOLS_DIR` | `./data/tools` | Custom tool definitions |
 | `WHISPER_BIN` | `/usr/local/bin/whisper-cpp` | Whisper binary path |

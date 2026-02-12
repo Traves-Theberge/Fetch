@@ -3,8 +3,7 @@
  *
  * Manages Fetch's identity lifecycle:
  * - Loads persona from COLLAR.md (system) and ALPHA.md (user)
- * - Loads pack members from data/agents/*.md (YAML frontmatter)
- * - Builds the complete system prompt (identity + skills + pack + session context)
+ * - Builds the complete system prompt (identity + skills + session context)
  * - Hot-reloads on file changes via chokidar watchers
  *
  * @module identity/manager
@@ -13,7 +12,7 @@
 import { AgentIdentity } from './types.js';
 import { getSkillManager } from '../skills/manager.js';
 import { IdentityLoader } from './loader.js';
-import { IDENTITY_DIR, AGENTS_DIR } from '../config/paths.js';
+import { IDENTITY_DIR } from '../config/paths.js';
 import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
 import { env, VERSION } from '../config/env.js';
@@ -49,7 +48,6 @@ const DEFAULT_IDENTITY: AgentIdentity = {
   context: {
     owner: env.OWNER_PHONE_NUMBER || 'Admin',
   },
-  pack: []
 };
 
 export class IdentityManager {
@@ -63,7 +61,6 @@ export class IdentityManager {
     this.loader = new IdentityLoader(IDENTITY_DIR);
     this.reloadIdentity();
     this.setupWatchers(IDENTITY_DIR);
-    this.setupWatchers(AGENTS_DIR);
   }
 
   private setupWatchers(dir: string) {
@@ -106,12 +103,6 @@ export class IdentityManager {
       }
       if (loaded.directives?.behavioral?.length) {
         this.identity.directives.behavioral = loaded.directives.behavioral;
-      }
-
-      // Pack members from data/agents/*.md
-      if (loaded.pack?.length) {
-        this.identity.pack = loaded.pack;
-        logger.info(`Pack loaded: ${loaded.pack.map(m => m.name).join(', ')}`);
       }
 
       logger.info(`Identity loaded: ${this.identity.name}`);
@@ -158,7 +149,6 @@ export class IdentityManager {
 
     let activatedSection = activatedSkillsContext || '';
     let sessionSection = sessionContext || '';
-    const packSection = this.buildPackContext();
 
     // Capabilities section for "what can you do" queries
     const capabilitiesSection = `
@@ -232,7 +222,7 @@ export class IdentityManager {
     const budgetTokens = pipeline.contextBudget;
     const estimateTokens = (text: string) => Math.ceil(text.length / 4);
 
-    const coreEstimate = estimateTokens(capabilitiesSection + packSection);
+    const coreEstimate = estimateTokens(capabilitiesSection);
     const variableEstimate = estimateTokens(sessionSection + activatedSection);
     const totalEstimate = coreEstimate + variableEstimate + 1500; // ~1500 for static identity/directive text
 
@@ -282,7 +272,6 @@ ${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')
 
 ${capabilitiesSection}
 ${sessionSection}
-${packSection}
 
 TOOL USAGE:
 - ALWAYS use tools to gather real data. NEVER answer from memory or guess about file contents, project state, or git status.
@@ -303,38 +292,6 @@ ${activatedSection}
 `.trim();
   }
 
-  /**
-   * Build pack context XML for the system prompt.
-   * Lists available harness agents with their roles, triggers, and routing info.
-   */
-  private buildPackContext(): string {
-    if (!this.identity.pack.length) return '';
-
-    let xml = '\nPACK (Available Harnesses):\n<available_agents>\n';
-    for (const member of this.identity.pack) {
-      xml += `  < agent harness = "${member.harness}" >\n`;
-      xml += `    < name > ${member.name} ${member.emoji} </name>\n`;
-      xml += `    <alias>${member.alias}</alias>\n`;
-      xml += `    <role>${member.role}</role>\n`;
-      xml += `    <cli>${member.cli}</cli>\n`;
-      if (member.triggers.length > 0) {
-        xml += `    <triggers>${member.triggers.join(', ')}</triggers>\n`;
-      }
-      if (member.avoid.length > 0) {
-        xml += `    <avoid>${member.avoid.join(', ')}</avoid>\n`;
-      }
-      xml += `    <fallback_priority>${member.fallback_priority}</fallback_priority>\n`;
-      if (member.body) {
-        const truncatedBody = member.body.length > 200 ? member.body.slice(0, 200) + '...' : member.body;
-        xml += `    <strengths>${truncatedBody}</strengths>\n`;
-      }
-      xml += `    <location>${member.sourcePath}</location>\n`;
-      xml += `  </agent>\n`;
-    }
-    xml += '</available_agents>\n';
-    xml += 'When delegating tasks via task_create, select the harness whose triggers best match the request.';
-    return xml;
-  }
 }
 
 export const getIdentityManager = () => IdentityManager.getInstance();

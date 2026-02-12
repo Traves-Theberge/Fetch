@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Fetch is a headless development orchestrator that sends AI agents (Claude Code, Gemini, Copilot, OpenCode, Codex) into Docker containers to execute coding tasks, controlled via WhatsApp. It uses a three-container architecture: **fetch-bridge** (Node.js orchestrator — "the brain"), **fetch-kennel** (Ubuntu sandbox — "the muscle"), and **searxng** (self-hosted meta search engine).
+Fetch is the Alpha of your AI workforce — a Pack Leader that chats with you on WhatsApp, then commands specialized agents (Claude Code, Gemini, Copilot, OpenCode, Codex) to execute coding tasks inside sandboxed Docker containers. It uses a three-container architecture: **fetch-bridge** (Node.js orchestrator — "the brain"), **fetch-kennel** (Ubuntu sandbox — "the muscle"), and **searxng** (self-hosted meta search engine).
 
 ## Build & Development Commands
 

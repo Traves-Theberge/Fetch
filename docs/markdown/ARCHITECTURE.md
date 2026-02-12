@@ -53,7 +53,7 @@ flowchart TD
 
         %% Data Stores
         Skills[(Skills)]
-        Identity[(Identity/Agents)]
+        Identity[(Identity)]
         RepoContext[Repo Context]
 
         %% Connections within Assembly
@@ -63,7 +63,7 @@ flowchart TD
         Bridge --> Window
 
         SkillMgr -- Matches Triggers --> Skills
-        IdentityMgr -- Loads md/yaml --> Identity
+        IdentityMgr -- Loads md --> Identity
         WorkspaceMgr -- Git/Files --> RepoContext
         
         Window -- Overflow --> Compact
@@ -184,7 +184,7 @@ These shutdown methods prevent memory leaks and ensure graceful cleanup when the
 | `better-sqlite3` | SQLite with WAL mode for sessions & tasks | `session/store.ts`, `task/store.ts` |
 | `zod` | Schema validation (env, tool inputs, IDs) | `config/env.ts`, `validation/`, `tools/loader.ts` |
 | `dockerode` | Docker API for container management | `utils/docker.ts` |
-| `gray-matter` | YAML frontmatter parsing for skills | `skills/loader.ts`, `identity/loader.ts` |
+| `gray-matter` | YAML frontmatter parsing for skills | `skills/loader.ts` |
 | `chokidar` | File watcher for identity/skills hot-reload with error handlers | `identity/manager.ts`, `skills/manager.ts` |
 | `nanoid` | Collision-resistant ID generation | `utils/id.ts` |
 | `strip-ansi` | Strip ANSI codes from harness CLI output | `harness/output-parser.ts` |
@@ -243,8 +243,8 @@ src/
 │   └── types.ts          # HarnessConfig, ErrorCategory, HarnessResult
 ├── identity/
 │   ├── manager.ts        # System prompt builder, hot-reload watcher
-│   ├── loader.ts         # Parse COLLAR.md, ALPHA.md, agents/*.md
-│   ├── types.ts          # AgentIdentity, PackMember interfaces
+│   ├── loader.ts         # Parse COLLAR.md, ALPHA.md
+│   ├── types.ts          # AgentIdentity interface
 │   └── docs/             # See [IDENTITY_SYSTEM.md](./IDENTITY_SYSTEM.md) for details
 ├── skills/
 │   ├── index.ts          # Barrel re-exports

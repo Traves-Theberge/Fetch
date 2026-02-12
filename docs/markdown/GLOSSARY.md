@@ -24,7 +24,6 @@
 |------|-----------|
 | **Collar** | `data/identity/COLLAR.md` — Core system instructions defining Fetch's personality and behavioral rules. |
 | **Alpha File** | `data/identity/ALPHA.md` — Owner information (preferences, timezone, technical level). |
-| **Pack Member** | Legacy concept from when `data/agents/*.md` files provided per-harness routing hints. The `PackMember` type still exists in `identity/types.ts` but no agent profile files ship with the project. Harness selection is now handled by the LLM based on enabled adapters and skill hints. |
 | **Identity Manager** | Singleton that builds the system prompt from identity files. Watches for changes and hot-reloads. |
 
 ## Processing

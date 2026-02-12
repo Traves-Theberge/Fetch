@@ -17,9 +17,9 @@
   F E T C H    v4.6.1
 ```
 
-**Send coding tasks via WhatsApp. AI agents execute them in Docker.**
+**Unleash Multi-agent orchestration.**
 
-Fetch is a headless development orchestrator. You message it on WhatsApp, and it dispatches AI agents — Claude Code, Gemini CLI, GitHub Copilot, OpenCode, Codex — into sandboxed Docker containers to work on your codebase.
+Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats with you on WhatsApp to understand your goals, then commands a squad of specialized agents—Claude Code, Gemini, Copilot, and more—to execute complex coding tasks inside sandboxed Docker containers.
 
 ---
 

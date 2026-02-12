@@ -3,7 +3,7 @@
  *
  * Utility prompt builders for specific use cases (task framing, context building).
  * Core identity and system prompt are managed by IdentityManager (identity/manager.ts).
- * Identity data comes from COLLAR.md, ALPHA.md, and data/agents/*.md via IdentityLoader.
+ * Identity data comes from COLLAR.md and ALPHA.md via IdentityLoader.
  *
  * @module agent/prompts
  */

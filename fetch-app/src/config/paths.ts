@@ -55,9 +55,6 @@ export const DATA_DIR = resolveDataDir();
 /** Identity configuration files (COLLAR.md, ALPHA.md) */
 export const IDENTITY_DIR = path.join(DATA_DIR, 'identity');
 
-/** Agent profile files (claude.md, gemini.md, copilot.md with YAML frontmatter) */
-export const AGENTS_DIR = path.join(DATA_DIR, 'agents');
-
 /** User-created skills (each skill is a directory with SKILL.md) */
 export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 
