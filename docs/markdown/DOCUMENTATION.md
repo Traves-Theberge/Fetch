@@ -4,7 +4,7 @@ This is the master documentation index for Fetch.
 
 ## Getting Started
 
-- [Overview](README.md) — What Fetch is and how it works
+- [Overview](../../README.md) — What Fetch is and how it works
 - [Setup Guide](SETUP_GUIDE.md) — Installation, configuration, first run
 - [TUI Guide](TUI_GUIDE.md) — Using the Manager terminal interface
 - [Commands](COMMANDS.md) — Safety escapes, natural language patterns, orchestrator tools
@@ -27,7 +27,7 @@ This is the master documentation index for Fetch.
 
 ## Project Health
 
-- [Changelog](CHANGELOG.md) — Version history
+- [Changelog](../../CHANGELOG.md) — Version history
 
 ---
 

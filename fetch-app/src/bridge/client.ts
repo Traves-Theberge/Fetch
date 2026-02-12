@@ -445,7 +445,9 @@ export class Bridge {
       //   Owner sends @fetch → Fetch replies (quotes original) →
       //   message_create fires (fromMe=true, quotes fromMe msg) →
       //   isReplyToFetch=true → processes Fetch's own reply → loop forever
-      const isReplyToFetch = message.fromMe ? false : await this.isReplyToFetchMessage(message);
+      // DISABLE THREAD REPLIES due to inability to distinguish Owner vs Bot messages (both fromMe=true)
+      // This prevents Fetch from interrupting human conversations when someone replies to the Owner.
+      const isReplyToFetch = false; // message.fromMe ? false : await this.isReplyToFetchMessage(message);
       const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
 
       // For messages from us (fromMe=true), ONLY process with explicit @fetch trigger.
@@ -471,6 +473,11 @@ export class Bridge {
   /**
    * Check if message is a reply to a Fetch bot message
    */
+  /**
+   * Check if message is a reply to a Fetch bot message
+   * @deprecated Disabled to prevent false positives with Owner messages
+   */
+  /*
   private async isReplyToFetchMessage(message: Message): Promise<boolean> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js getQuotedMessage not in type defs
@@ -487,6 +494,7 @@ export class Bridge {
       return false;
     }
   }
+  */
 
   /**
    * Handle image messages by analyzing them with vision

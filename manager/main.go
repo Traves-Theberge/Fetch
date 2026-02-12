@@ -32,15 +32,15 @@ type screen int
 
 // Screen constants for navigation
 const (
-	screenSplash    screen = iota // Initial splash screen
-	screenMenu                    // Main menu
-	screenConfig                  // Configuration editor
-	screenLogs                    // Log viewer
-	screenStatus                  // System status
-	screenSetup                   // WhatsApp setup wizard
-	screenVersion                 // Version information
-	screenWhitelist               // Trusted numbers manager
-	screenHarnessAuth             // Harness authentication screen
+	screenSplash      screen = iota // Initial splash screen
+	screenMenu                      // Main menu
+	screenConfig                    // Configuration editor
+	screenLogs                      // Log viewer
+	screenStatus                    // System status
+	screenSetup                     // WhatsApp setup wizard
+	screenVersion                   // Version information
+	screenWhitelist                 // Trusted numbers manager
+	screenHarnessAuth               // Harness authentication screen
 )
 
 // Bubble Tea messages for async operations
@@ -141,6 +141,7 @@ const qrRefreshInterval = 20 * time.Second
 type model struct {
 	screen           screen
 	mainMenu         *components.Menu
+	settingsMenu     *components.Menu // Sub-menu for Settings
 	quitting         bool
 	bridgeRunning    bool
 	kennelRunning    bool
@@ -182,17 +183,31 @@ func initialModel() model {
 
 	qrCountdown := int(qrRefreshInterval.Seconds())
 
+	// New Custom Order:
+	// 1. Start Fetch
+	// 2. Stop Fetch
+	// 3. Setup WhatsApp
+	// 4. View Logs
+	// 5. Documentation
+	// 6. Settings (Sub-menu)
+	// 7. Version
+	// 8. Exit
 	menu := components.NewMenu("", []components.MenuItem{
-		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
-		{Icon: "\U0001f436", Label: "Harnesses"},
 		{Icon: "\U0001f680", Label: "Start Fetch"},
 		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
-		{Icon: "\u2699\ufe0f ", Label: "Settings"},
-		{Icon: "\U0001f510", Label: "Trusted Numbers"},
+		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
+		{Icon: "\u2699\ufe0f ", Label: "Settings"},
 		{Icon: "\u2139\ufe0f ", Label: "Version"},
 		{Icon: "\u274c", Label: "Exit"},
+	}, 40)
+
+	settingsMenu := components.NewMenu("", []components.MenuItem{
+		{Icon: "\u2699\ufe0f ", Label: "General Configuration"},
+		{Icon: "\U0001f436", Label: "Harnesses"},
+		{Icon: "\U0001f510", Label: "Trusted Numbers"},
+		{Icon: "\u21a9\ufe0f ", Label: "Back"},
 	}, 40)
 
 	return model{
@@ -204,6 +219,7 @@ func initialModel() model {
 		qrCountdown:    qrCountdown,
 		qrMaxCountdown: qrCountdown,
 		mainMenu:       menu,
+		settingsMenu:   settingsMenu,
 		harnessStatuses: []harnessAuthStatus{
 			{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb", enableKey: "ENABLE_COPILOT", apiKeyKey: "GH_TOKEN", modelKey: "COPILOT_MODEL", apiLabel: "Token"},
 			{id: harnessClaude, name: "Claude Code", icon: "\U0001f9e0", enableKey: "ENABLE_CLAUDE", apiKeyKey: "ANTHROPIC_API_KEY", modelKey: "CLAUDE_MODEL", apiLabel: "API Key"},
@@ -222,20 +238,22 @@ func (m model) buildMenuBadges() {
 	items := m.mainMenu.Items
 
 	// Start/Stop Fetch badges based on running state
+	// Index 0: Start Fetch
+	// Index 1: Stop Fetch
 	if m.statusLoaded {
 		if m.bridgeRunning && m.kennelRunning {
-			items[2].Badge = "[Running]"  // Start Fetch
-			items[3].Badge = ""            // Stop Fetch
+			items[0].Badge = "[Running]" // Start Fetch
+			items[1].Badge = ""          // Stop Fetch
 		} else if m.bridgeRunning || m.kennelRunning {
-			items[2].Badge = "[Partial]"
-			items[3].Badge = ""
+			items[0].Badge = "[Partial]"
+			items[1].Badge = ""
 		} else {
-			items[2].Badge = "[Stopped]"
-			items[3].Badge = ""
+			items[0].Badge = "[Stopped]"
+			items[1].Badge = ""
 		}
 	}
 
-	// Harness Auth badge
+	// Harness Auth badge - Moved to Settings item (Index 5)
 	authCount := 0
 	for _, hs := range m.harnessStatuses {
 		if hs.authed {
@@ -243,14 +261,13 @@ func (m model) buildMenuBadges() {
 		}
 	}
 	if authCount > 0 {
-		items[1].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
+		items[5].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
 	} else {
-		items[1].Badge = ""
+		items[5].Badge = ""
 	}
 
 	m.mainMenu.Items = items
 }
-
 
 func (m model) Init() tea.Cmd {
 	// Show splash for 2 seconds, then check status
@@ -494,38 +511,27 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter", " ":
 
 		switch m.mainMenu.Selected() {
-		case 0: // Setup WhatsApp
+		case 0: // Start Fetch
+			return m, startFetchCmd()
+		case 1: // Stop Fetch
+			return m, stopFetchCmd()
+		case 2: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 1: // Harnesses — auth + config
-			m.screen = screenHarnessAuth
-			m.harnessChecking = true
-			m.harnessEditing = false
-			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
-		case 2: // Start
-			return m, startFetchCmd()
-		case 3: // Stop
-			return m, stopFetchCmd()
-		case 4: // Configure — go straight to editor
-			m.screen = screenConfig
-			m.configMode = 1 // Editor mode directly
-			m.configEditor = config.NewEditor()
-			m.configEditor.SetSize(m.height - 8)
-			return m, nil
-		case 5: // Trusted Numbers
-			m.screen = screenWhitelist
-			m.whitelistManager = config.NewWhitelistManager()
-			return m, nil
-		case 6: // Logs
+		case 3: // View Logs
 			m.screen = screenLogs
 			return m, fetchLogs
-		case 7: // Documentation
+		case 4: // Documentation
 			return m, openDocs
-		case 8: // Version
+		case 5: // Settings (Sub-menu)
+			m.screen = screenConfig
+			m.configMode = 0 // Sub-menu mode
+			return m, nil
+		case 6: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 9: // Exit
+		case 7: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -550,11 +556,43 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.configMode {
+	case 0: // Settings Sub-menu
+		switch msg.String() {
+		case "esc", "q":
+			m.screen = screenMenu
+			return m, nil
+		case "up", "k":
+			m.settingsMenu.Up()
+		case "down", "j":
+			m.settingsMenu.Down()
+		case "enter", " ":
+			switch m.settingsMenu.Selected() {
+			case 0: // General Configuration
+				m.configMode = 1
+				m.configEditor = config.NewEditor()
+				m.configEditor.SetSize(m.height - 8)
+				return m, nil
+			case 1: // Harnesses
+				m.screen = screenHarnessAuth
+				m.harnessChecking = true
+				m.harnessEditing = false
+				return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
+			case 2: // Trusted Numbers
+				m.screen = screenWhitelist
+				m.whitelistManager = config.NewWhitelistManager()
+				return m, nil
+			case 3: // Back
+				m.screen = screenMenu
+				return m, nil
+			}
+		}
+		return m, nil
+
 	case 1: // Editor mode
 		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() && !m.configEditor.IsSectionPickerOpen() && !m.configEditor.IsEditing() {
 			switch msg.String() {
 			case "esc":
-				m.screen = screenMenu
+				m.configMode = 0 // Back to Settings Sub-menu
 				return m, nil
 			case "right", "left":
 				m.configEditor.SwitchMode()
@@ -599,7 +637,8 @@ func (m model) updateWhitelist(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.whitelistManager.IsAdding() {
 		switch msg.String() {
 		case "esc", "q":
-			m.screen = screenMenu
+			m.screen = screenConfig
+			m.configMode = 0 // Back to Settings Sub-menu
 			return m, nil
 		}
 	}
@@ -647,7 +686,8 @@ func (m model) updateVersion(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if len(m.harnessStatuses) == 0 {
 		if msg.String() == "esc" || msg.String() == "q" {
-			m.screen = screenMenu
+			m.screen = screenConfig
+			m.configMode = 0 // Back to Settings Sub-menu
 		}
 		return m, nil
 	}
@@ -683,7 +723,8 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "esc", "q":
-		m.screen = screenMenu
+		m.screen = screenConfig
+		m.configMode = 0 // Back to Settings Sub-menu
 		return m, nil
 	case "up", "k":
 		if m.harnessCursor > 0 {
@@ -1232,6 +1273,29 @@ func (m model) viewConfig() string {
 	var breadcrumb []string
 
 	switch m.configMode {
+	case 0: // Settings Sub-menu
+		title = "\u2699\ufe0f  Settings"
+		if m.settingsMenu != nil {
+			// Update badges for sub-menu if needed (specifically Harnesses)
+			sItems := m.settingsMenu.Items
+			// Harness auth badge on "Harnesses" item (index 1)
+			settingsAuthCount := 0
+			for _, hs := range m.harnessStatuses {
+				if hs.authed {
+					settingsAuthCount++
+				}
+			}
+			if settingsAuthCount > 0 {
+				sItems[1].Badge = fmt.Sprintf("[%d/%d auth]", settingsAuthCount, len(m.harnessStatuses))
+			} else {
+				sItems[1].Badge = ""
+			}
+			m.settingsMenu.Items = sItems
+			content = "\n" + m.settingsMenu.ViewCompact()
+		}
+		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Esc Back"}
+		breadcrumb = []string{"Main Menu", "Settings"}
+
 	case 2: // Model picker overlay
 		title = "🤖 Select Model"
 		if m.modelSelector != nil {
@@ -1297,7 +1361,7 @@ func (m model) viewWhitelist() string {
 		Title:      "🔐 Trusted Numbers",
 		Content:    content,
 		HelpKeys:   []string{"↑/↓ Navigate", "a Add", "d Delete", "r Refresh", "Esc Back"},
-		Breadcrumb: []string{"Main Menu", "Trusted Numbers"},
+		Breadcrumb: []string{"Main Menu", "Settings", "Trusted Numbers"},
 		Width:      width,
 		Height:     height,
 	}.Render()
@@ -1442,7 +1506,7 @@ func (m model) viewHarnessAuth() string {
 		Title:      "\U0001f436 Harnesses",
 		Content:    content.String(),
 		HelpKeys:   helpKeys,
-		Breadcrumb: []string{"Main Menu", "Harnesses"},
+		Breadcrumb: []string{"Main Menu", "Settings", "Harnesses"},
 		Width:      width,
 		Height:     height,
 	}.Render()
