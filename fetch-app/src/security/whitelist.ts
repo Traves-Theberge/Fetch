@@ -38,6 +38,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import { DATA_DIR } from '../config/paths.js';
@@ -76,16 +77,22 @@ interface WhitelistData {
 export class WhitelistStore {
   /** In-memory set of trusted numbers */
   private trustedNumbers: Set<string> = new Set();
-  
+
   /** Initialization flag */
   private initialized = false;
 
   /** Serialize concurrent persist calls */
   private persistLock: Promise<void> = Promise.resolve();
 
+  /** File watcher for hot-reload */
+  private watcher: ReturnType<typeof chokidar.watch> | null = null;
+
+  /** Suppress reload during our own persist writes */
+  private suppressReload = false;
+
   /**
    * Initialize the whitelist store.
-   * Loads from environment and file.
+   * Loads from environment and file, then watches for external changes.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -97,6 +104,9 @@ export class WhitelistStore {
 
     // Then load from persistent file (adds to existing)
     await this.loadFromFile();
+
+    // Watch for external changes (e.g. TUI adding numbers)
+    this.setupWatcher();
 
     this.initialized = true;
     logger.info(`Loaded ${this.trustedNumbers.size} trusted number(s)`);
@@ -153,6 +163,43 @@ export class WhitelistStore {
   }
 
   /**
+   * Watch whitelist.json for external changes (e.g. TUI adding numbers).
+   * Reloads the in-memory set when the file changes on disk.
+   */
+  private setupWatcher(): void {
+    try {
+      this.watcher = chokidar.watch(WHITELIST_FILE, {
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: { stabilityThreshold: 300, pollInterval: 100 },
+      });
+
+      this.watcher.on('change', async () => {
+        if (this.suppressReload) return;
+
+        logger.info('Whitelist file changed externally, reloading...');
+
+        // Preserve env-sourced numbers, reload file-sourced numbers
+        this.trustedNumbers.clear();
+        this.loadFromEnv();
+        await this.loadFromFile();
+
+        logger.success(`Whitelist reloaded: ${this.trustedNumbers.size} trusted number(s)`);
+      });
+
+      this.watcher.on('add', async () => {
+        if (this.suppressReload) return;
+
+        logger.info('Whitelist file created, loading...');
+        await this.loadFromFile();
+        logger.success(`Whitelist loaded: ${this.trustedNumbers.size} trusted number(s)`);
+      });
+    } catch (error) {
+      logger.warn('Failed to watch whitelist file (changes will require restart)', error);
+    }
+  }
+
+  /**
    * Persist current whitelist to JSON file.
    * Serialized via persistLock to prevent concurrent writes.
    */
@@ -166,6 +213,9 @@ export class WhitelistStore {
    */
   private async doPersist(): Promise<void> {
     try {
+      // Suppress watcher reload for our own writes
+      this.suppressReload = true;
+
       // Ensure data directory exists
       await fs.mkdir(DATA_DIR, { recursive: true });
 
@@ -177,7 +227,11 @@ export class WhitelistStore {
 
       await fs.writeFile(WHITELIST_FILE, JSON.stringify(data, null, 2), 'utf-8');
       logger.debug('Whitelist persisted to file');
+
+      // Re-enable watcher after a short delay to let chokidar settle
+      setTimeout(() => { this.suppressReload = false; }, 500);
     } catch (error) {
+      this.suppressReload = false;
       logger.error('Failed to persist whitelist', error);
       throw error;
     }

@@ -23,15 +23,22 @@ Send via WhatsApp:
 @fetch list my workspaces
 ```
 
-- [ ] Response lists workspaces with project type labels (e.g. "typescript", "node") — not raw JSON
-- [ ] Active workspace is marked
+- [x] Response lists workspaces with project type labels (e.g. "typescript", "node") — not raw JSON
+- [x] Active workspace is marked
+
+> [!NOTE]
+> Observed labels: `lab-test` correctly detected as "node". `github-test` and `my-app` are unlabeled (expected as they lack manifest files like `package.json`).
 
 ```
 @fetch switch to <your-typescript-project>
 ```
 
-- [ ] Response says "Switched to ..." with project type and branch info
-- [ ] If the project has a framework (Next.js, Express, etc.), it should be mentioned
+- [x] Response says "Switched to ..." with project type and branch info
+- [x] If the project has a framework (Next.js, Express, etc.), it should be mentioned
+
+> [!NOTE]
+> Observed labels: `lab-test` correctly detected as "node". `github-test` and `my-app` are unlabeled (expected as they lack manifest files like `package.json`).
+> Switch to `lab-test` confirmed detection: "Node.js, JavaScript, branch main, clean".
 
 ### 1.2 Verify Profile in Context
 
@@ -39,11 +46,19 @@ Send via WhatsApp:
 @fetch what do you know about this project?
 ```
 
-- [ ] Response mentions the detected **language** (e.g. "TypeScript")
+- [x] Response mentions the detected **language** (e.g. "TypeScript")
 - [ ] Response mentions the **framework** if one exists (e.g. "Next.js", "Express")
-- [ ] Response mentions the **package manager** (e.g. "pnpm", "npm", "yarn")
+- [x] Response mentions the **package manager** (e.g. "pnpm", "npm", "yarn")
 - [ ] Response mentions the **test runner** if detected (e.g. "vitest", "jest")
-- [ ] Response mentions **entry points** (e.g. "src/index.ts")
+- [x] Response mentions **entry points** (e.g. "src/index.ts")
+
+> [!NOTE]
+> `lab-test` profile verified:
+>
+> - Language: Node.js (JavaScript)
+> - Entry point: index.js
+> - Package manager: npm (via "npm run build")
+> - No framework/test-runner detected (expected for this bare-bones workspace).
 
 ### 1.3 Profile Passed to Harness
 
@@ -51,8 +66,11 @@ Send via WhatsApp:
 @fetch use claude to add a hello world test
 ```
 
-- [ ] Check bridge logs (`docker logs fetch-bridge | grep "Project Context"`) — should show the `--- Project Context ---` block with language, framework, and commands
-- [ ] The harness should use the correct test command (e.g. `npx vitest run` not `npm test`) when writing or running tests
+- [x] Check bridge logs (`docker logs fetch-bridge | grep "Project Context"`) — should show the `--- Project Context ---` block with language, framework, and commands
+- [x] The harness should use the correct test command (e.g. `npx vitest run` not `npm test`) when writing or running tests
+
+> [!NOTE]
+> Verified via `lab-test`: Copilot correctly identified the Node.js context, installed `jest`, created a test directory, and ran the tests successfully (50s duration).
 
 ### 1.4 Multiple Project Types (Optional)
 
@@ -74,13 +92,13 @@ Verify that all tool responses are human-readable text, not JSON dumps.
 @fetch list workspaces
 ```
 
-- [ ] Output is a sentence like "3 workspaces: my-app (active, TypeScript, main), api (Go, dev)" — **not** a JSON block
+- [x] Output is a sentence like "3 workspaces: my-app (active, TypeScript, main), api (Go, dev)" — **not** a JSON block
 
 ```
 @fetch what's the status of this workspace?
 ```
 
-- [ ] Output describes branch, modified files, ahead/behind in natural language — **not** JSON
+- [x] Output describes branch, modified files, ahead/behind in natural language — **not** JSON
 
 ### 2.2 Task Tools
 
@@ -184,8 +202,9 @@ Quick checks that existing features still work.
 
 ### 4.1 Safety Escape Commands
 
-- [ ] `/status` — returns system status with version **v4.5.0**
-- [ ] `/help` — returns command list
+- [ ] `/status` — returns system status with version **v4.5.1**
+- [ ] `/help` — returns command list (includes `/usage`)
+- [ ] `/usage` — returns OpenRouter API usage (total, daily, weekly, monthly, limit)
 - [ ] `/clear` — clears conversation (confirms before clearing)
 
 ### 4.2 Conversational

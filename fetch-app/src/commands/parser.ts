@@ -22,11 +22,12 @@
  * | /help, /h, /?     | format.formatHelp  | Show help — no LLM needed          |
  * | /status, /st      | format.formatStatus| Show system status — no LLM needed |
  * | /version, /v      | (inline)           | Print version string               |
+ * | /usage, /u        | format.formatUsage | Show OpenRouter API usage           |
  */
 
 import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
-import { formatHelp, formatStatus } from '../agent/format.js';
+import { formatHelp, formatStatus, formatUsage } from '../agent/format.js';
 import { handleStop, handleUndo, handleUndoAll } from './task.js';
 import { VERSION } from '../config/env.js';
 import type { CommandResult } from './types.js';
@@ -120,6 +121,10 @@ export async function parseCommand(
     case 'version':
     case 'v':
       return { handled: true, responses: [`🐕 Fetch v${VERSION} (Good Boy Reporting!)`] };
+
+    case 'usage':
+    case 'u':
+      return { handled: true, responses: [await formatUsage()] };
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.5.0
+  F E T C H    v4.5.1
 ```
 
 **Send coding tasks via WhatsApp. AI agents execute them in Docker.**
@@ -26,7 +26,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/Tests-355_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-357_passing-brightgreen)]()
 
 </div>
 
@@ -101,7 +101,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 ### Core
 
 - **LLM-First** &mdash; Every message hits the LLM with all 27 tools. No pre-classification, no regex routing
-- **5 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` are deterministic and bypass the LLM
+- **6 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/usage` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Four Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode with process lifecycle management
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context

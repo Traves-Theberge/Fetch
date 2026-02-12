@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] - 2026-02-11
+
+### `/usage` Command, Whitelist Hot-Reload, Duplicate Message Fix
+
+#### Added
+
+- **`/usage` command** — New safety escape (`/usage` or `/u`) displays OpenRouter API usage stats formatted for WhatsApp
+- **Whitelist hot-reload** — Numbers added in the TUI take effect immediately without restarting the bridge
+
+#### Fixed
+
+- **Duplicate task completion messages** — Suppressed LLM response when task is delegated (event system handles notifications)
+
+---
+
 ## [4.5.0] - 2026-02-11
 
 ### Project Intelligence, Hybrid Notifications, Narrative Tool Outputs

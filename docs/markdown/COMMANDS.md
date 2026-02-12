@@ -16,7 +16,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 27 orchestrator tools.
 
-The only slash commands that exist are **5 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
+The only slash commands that exist are **6 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
 ## Safety Escape Commands
 
@@ -29,6 +29,7 @@ These are handled deterministically without an LLM call (<5ms):
 | `/clear` | `clear` | Clear conversation history |
 | `/help` | `help`, `/commands` | Show available commands |
 | `/status` | `status`, `/st` | System and task status |
+| `/usage` | `/u` | Show OpenRouter API usage and spend |
 
 Everything else — including project switching, git operations, settings, identity management, skills, scheduling, and coding tasks — is handled by sending natural language to the LLM.
 

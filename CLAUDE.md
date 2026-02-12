@@ -67,7 +67,7 @@ docker logs -f fetch-bridge   # view bridge logs (QR code here)
 Every WhatsApp message follows a single path — no pre-classification or intent routing:
 
 1. **SecurityGate** (`security/gate.ts`) → whitelist + rate-limit
-2. **Commands** (`commands/parser.ts`) → deterministic slash commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) bypass LLM
+2. **Commands** (`commands/parser.ts`) → deterministic slash commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/usage`) bypass LLM
 3. **AgentCore** (`agent/core.ts`) → LLM receives full 27-tool set, decides to chat, call tools, or delegate
 4. **Tool loop** → up to 5 rounds of tool calls per message (ReAct pattern)
 5. **Harness delegation** → `task_create` spawns a CLI process in the kennel
@@ -125,7 +125,7 @@ Events: `task:created`, `task:started`, `task:progress`, `task:question`, `task:
 ### State & Persistence
 
 - **SQLite** — `data/sessions.db` (conversations) and `data/tasks.db` (task lifecycle)
-- **Hot-reload via chokidar** — `data/identity/`, `data/skills/`, `data/tools/` watched; changes apply without restart
+- **Hot-reload via chokidar** — `data/identity/`, `data/skills/`, `data/tools/`, `data/whitelist.json` watched; changes apply without restart
 - **Identity** — assembled from `data/identity/COLLAR.md` (system directives) + `data/identity/ALPHA.md` (user context) + `data/cli-configs/` (per-CLI templates)
 
 ### Configuration

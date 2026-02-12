@@ -112,7 +112,7 @@ describe('Command Parser — Safety Gate', () => {
     const result = await parseCommand('/version', session, sm);
     expect(result.handled).toBe(true);
     expect(result.responses?.[0]).toContain('Fetch');
-    expect(result.responses?.[0]).toContain('v4.5.0');
+    expect(result.responses?.[0]).toContain('v4.5.1');
   });
 
   // ─── Task Control ──────────────────────────────────────────────────
@@ -141,6 +141,19 @@ describe('Command Parser — Safety Gate', () => {
 
   it('should handle /reset as /clear alias', async () => {
     const result = await parseCommand('/reset', session, sm);
+    expect(result.handled).toBe(true);
+  });
+
+  // ─── Usage ─────────────────────────────────────────────────────────
+
+  it('should handle /usage', async () => {
+    const result = await parseCommand('/usage', session, sm);
+    expect(result.handled).toBe(true);
+    expect(result.responses?.length).toBeGreaterThan(0);
+  });
+
+  it('should handle /u alias', async () => {
+    const result = await parseCommand('/u', session, sm);
     expect(result.handled).toBe(true);
   });
 

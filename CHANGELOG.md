@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.1] - 2026-02-11
+
+### `/usage` Command, Whitelist Hot-Reload, Duplicate Message Fix
+
+#### Added
+
+- **`/usage` command** — New safety escape command (`/usage` or `/u`) that calls the OpenRouter API and displays usage stats (total, daily, weekly, monthly spend, limit, remaining) formatted for WhatsApp
+- **Whitelist hot-reload** — `WhitelistStore` now watches `data/whitelist.json` via chokidar; numbers added in the TUI take effect immediately without restarting the bridge container
+
+#### Fixed
+
+- **Duplicate task completion messages** — Suppressed the LLM's conversational response when a task is delegated, since the event system (`task:started`, `task:completed`) already handles all notifications
+
+#### Files Changed (5)
+
+| Area | Files |
+|------|-------|
+| Commands | `commands/parser.ts` (added `/usage` case) |
+| Agent | `agent/format.ts` (added `formatUsage()`, updated help text) |
+| Security | `security/whitelist.ts` (added chokidar file watcher) |
+| Handler | `handler/index.ts` (suppress duplicate response on task delegation) |
+| Docs | `COMMANDS.md`, `TESTING_GUIDE.md` |
+
+---
+
 ## [4.5.0] - 2026-02-11
 
 ### Project Intelligence, Hybrid Notifications, Narrative Tool Outputs

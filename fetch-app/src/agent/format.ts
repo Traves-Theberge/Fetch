@@ -10,7 +10,7 @@
 
 import { Session } from '../session/types.js';
 import { getTaskManager } from '../task/manager.js';
-import { VERSION } from '../config/env.js';
+import { VERSION, env } from '../config/env.js';
 
 /**
  * Format session status display.
@@ -78,6 +78,7 @@ export function formatHelp(): string {
 /clear - Clear conversation history
 /help - Show commands
 /status - Show system and task status
+/usage - Check API usage & spend
 
 *Tools:*
 - workspace_list: List projects
@@ -129,4 +130,79 @@ function formatTaskStatus(status: string): string {
     'aborted': '🛑 Aborted'
   };
   return statusMap[status] || status;
+}
+
+/**
+ * Format OpenRouter API usage for WhatsApp display.
+ *
+ * Calls `GET https://openrouter.ai/api/v1/key` with the configured API key
+ * and formats the usage breakdown.
+ *
+ * @returns Formatted usage message
+ */
+export async function formatUsage(): Promise<string> {
+  const apiKey = env.OPENROUTER_API_KEY;
+  if (!apiKey) {
+    return '🐕 No OpenRouter API key configured.';
+  }
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/key', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    if (!res.ok) {
+      return `🐕 Failed to fetch usage (HTTP ${res.status}). Check your API key.`;
+    }
+
+    const body = await res.json() as {
+      data?: {
+        label?: string;
+        usage?: number;
+        usage_daily?: number;
+        usage_weekly?: number;
+        usage_monthly?: number;
+        limit?: number | null;
+        limit_remaining?: number | null;
+        is_free_tier?: boolean;
+      };
+    };
+
+    const d = body.data;
+    if (!d) {
+      return '🐕 Unexpected response from OpenRouter.';
+    }
+
+    const fmt = (v: number | undefined | null) =>
+      v != null ? `$${v.toFixed(2)}` : '-';
+
+    let msg = `🐕 *OPENROUTER USAGE*\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `💰 *Total*: ${fmt(d.usage)}\n`;
+    msg += `📅 *Today*: ${fmt(d.usage_daily)}\n`;
+    msg += `📆 *This Week*: ${fmt(d.usage_weekly)}\n`;
+    msg += `📊 *This Month*: ${fmt(d.usage_monthly)}\n`;
+    msg += `\n`;
+
+    if (d.limit != null) {
+      msg += `💳 *Limit*: ${fmt(d.limit)}\n`;
+      msg += `🟢 *Remaining*: ${fmt(d.limit_remaining)}\n`;
+    } else {
+      msg += `💳 *Limit*: No limit set\n`;
+    }
+
+    if (d.label) {
+      msg += `🏷️ *Key*: ${d.label}\n`;
+    }
+
+    if (d.is_free_tier) {
+      msg += `🆓 Free tier\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    return msg;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    return `🐕 Could not reach OpenRouter: ${errMsg}`;
+  }
 }
