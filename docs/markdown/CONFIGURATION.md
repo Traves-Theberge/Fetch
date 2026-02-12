@@ -36,6 +36,7 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `GEMINI_API_KEY` | string | API key for Gemini CLI harness (if used) |
 | `OPENCODE_API_KEY` | string | API key for OpenCode harness (or uses OpenRouter key) |
 | `CODEX_API_KEY` | string | API key for Codex harness (alternative to `codex login` OAuth; or uses `OPENAI_API_KEY`) |
+| `OPENAI_API_KEY` | string | Fallback API key for Codex harness if `CODEX_API_KEY` is not set |
 
 ### Harness Selection (Feature Flags)
 
@@ -108,7 +109,7 @@ Environment variables are accessed via a Proxy object that reads `process.env` o
 import { env } from '../config/env.js';
 
 // Reads process.env.AGENT_MODEL live, with Zod-validated defaults
-const model = env.AGENT_MODEL; // 'openai/gpt-4.1-nano'
+const model = env.AGENT_MODEL; // 'openai/gpt-4o-mini'
 ```
 
 ---
@@ -138,8 +139,9 @@ build: ./kennel
 volumes:
   - ./workspace:/workspace           # Shared workspace (read-write)
   - ~/.config/gh:/root/.config/gh:ro # GitHub Copilot auth (read-only)
-  - ~/.config/claude-code:/root/.config/claude-code:ro  # Claude auth
-  - ~/.gemini:/root/.gemini:ro       # Gemini auth
+  - ~/.config/claude-code:/root/.config/claude-code:ro  # Claude Code config
+  - ~/.claude:/root/.claude:ro       # Claude OAuth tokens
+  - ~/.gemini:/root/.gemini           # Gemini auth (read-write)
   - ~/.config/opencode:/root/.config/opencode:ro  # OpenCode auth
   - ~/.codex:/root/.codex:ro         # Codex OAuth auth (auth.json)
 environment:
@@ -196,7 +198,7 @@ Per-harness instruction files injected into each CLI agent when spawned:
 | `GEMINI.md` | Gemini CLI | `GEMINI_SYSTEM_MD` env var |
 | `copilot-instructions.md` | Copilot CLI | `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` env var |
 | `OPENCODE.md` | OpenCode | `OPENCODE_SYSTEM_PROMPT` env var |
-| `CODEX.md` | Codex | `--cd` flag sets working directory |
+| `CODEX.md` | Codex | Goal passed as positional argument; `--cd` sets working directory |
 
 These tell each CLI it's running inside the Fetch Kennel and should output structured change summaries.
 
@@ -274,10 +276,10 @@ All paths are centralized in `src/config/paths.ts`:
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `DATA_DIR` | `./data` | Persistent data root |
-| `DB_PATH` | `./data/sessions.db` | Sessions SQLite database |
+| `SESSIONS_DB` | `./data/sessions.db` | Sessions SQLite database |
 | `TASKS_DB_PATH` | `./data/tasks.db` | Tasks SQLite database |
 | `IDENTITY_DIR` | `./data/identity` | Identity files |
 | `AGENTS_DIR` | `./data/agents` | Legacy pack profiles directory (unused) |
 | `SKILLS_DIR` | `./data/skills` | Skill definitions |
 | `TOOLS_DIR` | `./data/tools` | Custom tool definitions |
-| `WHISPER_BIN` | `/usr/local/bin/whisper` | Whisper binary path |
+| `WHISPER_BIN` | `/usr/local/bin/whisper-cpp` | Whisper binary path |

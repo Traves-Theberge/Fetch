@@ -43,13 +43,45 @@ type Editor struct {
 	editBuffer           string
 	saved                bool
 	errorMessage         string
-	scrollOffset         int  // viewport scroll offset
-	viewHeight           int  // max visible rows
-	modelPickerRequested bool // signals parent to open model picker
+	scrollOffset         int        // viewport scroll offset
+	viewHeight           int        // max visible rows
+	modelPickerRequested bool       // signals parent to open model picker
+	mode                 EditorMode // current tab (ModeSettings or ModeAdvanced)
 	// Section navigation
-	sectionPicker bool // true when section picker overlay is open
-	sectionCursor int  // cursor within the section picker
+	sectionPicker bool         // true when section picker overlay is open
+	sectionCursor int          // cursor within the section picker
 	sections      []sectionInfo // cached section index
+}
+
+// Mode returns the current editor mode.
+func (e *Editor) Mode() EditorMode { return e.mode }
+
+// IsEditing returns true when the editor is in text input mode.
+func (e *Editor) IsEditing() bool { return e.editing }
+
+// SwitchMode toggles between Settings and Advanced tabs.
+func (e *Editor) SwitchMode() {
+	if e.mode == ModeSettings {
+		e.mode = ModeAdvanced
+		e.fields = advancedFields()
+	} else {
+		e.mode = ModeSettings
+		e.fields = settingsFields()
+	}
+	e.cursor = 0
+	e.scrollOffset = 0
+	e.editing = false
+	e.saved = false
+	e.errorMessage = ""
+	e.loadFromFile()
+	e.buildSectionIndex()
+	// Move cursor to first editable field
+	for i, f := range e.fields {
+		if !f.IsSeparator {
+			e.cursor = i
+			break
+		}
+	}
 }
 
 // sectionInfo caches a section's label and field index for quick jumping
@@ -78,37 +110,93 @@ func (e *Editor) SetFieldValue(key, value string) {
 	}
 }
 
-// NewEditor creates a new configuration editor
-func NewEditor() *Editor {
-	editor := &Editor{
-		fields: []ConfigField{
-			// ─── Core Settings ───────────────────────────────────────
-			{IsSeparator: true, Label: "─── Core Settings ───"},
-			{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
-			{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
-			{Key: "ENABLE_COPILOT", Label: "Enable Copilot", Help: "Enable GitHub Copilot harness", Default: "false", IsToggle: true},
-			{Key: "GH_TOKEN", Label: "GitHub Token", Help: "Token for Copilot (gh auth login)", Masked: true},
-			{Key: "ENABLE_CLAUDE", Label: "Enable Claude", Help: "Enable Claude Code harness", Default: "false", IsToggle: true},
-			{Key: "ANTHROPIC_API_KEY", Label: "Anthropic Key", Help: "Key for Claude harness", Masked: true},
-			{Key: "ENABLE_GEMINI", Label: "Enable Gemini", Help: "Enable Gemini harness", Default: "false", IsToggle: true},
-			{Key: "GEMINI_API_KEY", Label: "Gemini Key", Help: "Key for Gemini harness", Masked: true},
-			{Key: "ENABLE_OPENCODE", Label: "Enable OpenCode", Help: "Enable OpenCode harness", Default: "false", IsToggle: true},
-			{Key: "OPENCODE_API_KEY", Label: "OpenCode Key", Help: "API key for OpenCode (or uses OpenRouter)", Masked: true},
-			{Key: "ENABLE_CODEX", Label: "Enable Codex", Help: "Enable OpenAI Codex harness", Default: "false", IsToggle: true},
-			{Key: "CODEX_API_KEY", Label: "Codex API Key", Help: "API key for Codex (alt to codex login)", Masked: true},
-			{Key: "OPENAI_API_KEY", Label: "OpenAI API Key", Help: "Shared by Codex + vision/whisper", Masked: true},
-			{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
-			{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
-			{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
-			// ─── Harness Configuration ───────────────────────────────
-			{IsSeparator: true, Label: "─── Harness Models ───"},
-			{Key: "COPILOT_MODEL", Label: "Copilot Model", Help: "e.g., gpt-4, gpt-3.5-turbo", Default: ""},
-			{Key: "CLAUDE_MODEL", Label: "Claude Model", Help: "e.g., claude-3-opus-20240229", Default: ""},
-			{Key: "GEMINI_MODEL", Label: "Gemini Model", Help: "e.g., gemini-1.5-pro-latest", Default: ""},
-			{Key: "OPENCODE_MODEL", Label: "OpenCode Model", Help: "e.g., openrouter/anthropic/claude-sonnet-4-5", Default: ""},
-			{Key: "CODEX_MODEL", Label: "Codex Model", Help: "e.g., o4-mini, gpt-4.1", Default: ""},
-			// ─── Context Window ──────────────────────────────────────
-			{IsSeparator: true, Label: "─── Context Window ───"},
+// EditorMode determines which field set the editor displays.
+type EditorMode int
+
+const (
+	ModeSettings EditorMode = iota // General essentials
+	ModeAdvanced                   // Pipeline tuning parameters
+)
+
+// ReadEnvValues reads specific keys from the .env file.
+func ReadEnvValues(keys []string) map[string]string {
+	result := make(map[string]string)
+	file, err := os.Open(paths.EnvFile)
+	if err != nil {
+		return result
+	}
+	defer file.Close()
+
+	wanted := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		wanted[k] = true
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 && wanted[parts[0]] {
+			result[parts[0]] = parts[1]
+		}
+	}
+	return result
+}
+
+// WriteEnvValue writes a single key=value to the .env file, preserving existing content.
+func WriteEnvValue(key, value string) error {
+	existingContent, readErr := os.ReadFile(paths.EnvFile)
+
+	var outputLines []string
+	found := false
+
+	if readErr == nil && len(existingContent) > 0 {
+		lines := strings.Split(string(existingContent), "\n")
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+				outputLines = append(outputLines, line)
+				continue
+			}
+			parts := strings.SplitN(trimmed, "=", 2)
+			if len(parts) == 2 && strings.TrimSpace(parts[0]) == key {
+				outputLines = append(outputLines, key+"="+value)
+				found = true
+			} else {
+				outputLines = append(outputLines, line)
+			}
+		}
+	}
+
+	if !found && value != "" {
+		outputLines = append(outputLines, key+"="+value)
+	}
+
+	output := strings.Join(outputLines, "\n")
+	output = strings.TrimRight(output, "\n") + "\n"
+	return os.WriteFile(paths.EnvFile, []byte(output), 0644)
+}
+
+// settingsFields returns the general essentials field set.
+func settingsFields() []ConfigField {
+	return []ConfigField{
+		{IsSeparator: true, Label: "─── General ───"},
+		{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
+		{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
+		{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
+		{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
+		{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
+	}
+}
+
+// advancedFields returns the pipeline tuning field set.
+func advancedFields() []ConfigField {
+	return []ConfigField{
+		// ─── Context Window ──────────────────────────────────────
+		{IsSeparator: true, Label: "─── Context Window ───"},
 			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},
 			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this", Default: "40"},
 			{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary", Default: "500"},
@@ -116,9 +204,7 @@ func NewEditor() *Editor {
 			// ─── Agent LLM ───────────────────────────────────────────
 			{IsSeparator: true, Label: "─── Agent LLM ───"},
 			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message", Default: "5"},
-			{Key: "FETCH_CHAT_MAX_TOKENS", Label: "Chat Max Tokens", Help: "Token budget for chat responses", Default: "300"},
-			{Key: "FETCH_CHAT_TEMPERATURE", Label: "Chat Temperature", Help: "LLM creativity 0.0-1.0", Default: "0.7"},
-			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses", Default: "500"},
+			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses", Default: "2048"},
 			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0", Default: "0.3"},
 			{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing", Default: "200"},
 			// ─── Circuit Breaker ─────────────────────────────────────
@@ -170,8 +256,15 @@ func NewEditor() *Editor {
 			{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false", IsToggle: true},
 			{Key: "FETCH_SEARXNG_URL", Label: "SearXNG URL", Help: "SearXNG instance URL for search", Default: "http://searxng:8080"},
 			{Key: "FETCH_WEB_FETCH_MAX_LENGTH", Label: "Fetch Max Length", Help: "Max chars extracted from web pages", Default: "50000"},
-			{Key: "FETCH_BROWSER_TIMEOUT", Label: "Browser Timeout (ms)", Help: "Browser command timeout", Default: "30000"},
-		},
+		{Key: "FETCH_BROWSER_TIMEOUT", Label: "Browser Timeout (ms)", Help: "Browser command timeout", Default: "30000"},
+	}
+}
+
+// NewEditor creates a new configuration editor starting in Settings mode.
+func NewEditor() *Editor {
+	editor := &Editor{
+		mode:   ModeSettings,
+		fields: settingsFields(),
 	}
 	editor.loadFromFile()
 	editor.buildSectionIndex()

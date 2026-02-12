@@ -47,7 +47,7 @@ flowchart LR
     subgraph Bridge["Bridge (Node.js)"]
         direction TB
         Security["Security Gate\nWhitelist + Rate Limit"]
-        Safety["Safety Gate\n/stop /undo /clear /help /status"]
+        Safety["Safety Gate\n8 Escape Commands"]
         LLM["LLM + 27 Tools"]
         State["Session / Task / State\nSQLite"]
         Security --> Safety --> LLM
@@ -102,7 +102,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 ### Core
 
 - **LLM-First** &mdash; Every message hits the LLM with all 27 tools. No pre-classification, no regex routing
-- **7 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/usage` `/trust` are deterministic and bypass the LLM
+- **8 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/version` `/usage` `/trust` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context
@@ -187,7 +187,7 @@ docker logs -f fetch-bridge
 
 Add these to `.env` in the project root before running `deploy.sh`.
 
-See [Configuration](docs/markdown/CONFIGURATION.md) for all 39 tunable parameters.
+See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameters.
 
 </details>
 

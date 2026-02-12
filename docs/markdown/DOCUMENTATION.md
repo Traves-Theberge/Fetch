@@ -21,7 +21,7 @@ This is the master documentation index for Fetch.
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
 - **[Agentic Workflow](AGENTIC_WORKFLOW.md)** - Logic flow and LLM autonomy.
-- **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot).
+- **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot/OpenCode/Codex).
 - **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.
 - **[Context Pipeline](CONTEXT_PIPELINE.md)** - Memory, sliding windows, and compaction.
 
@@ -37,7 +37,7 @@ This is the master documentation index for Fetch.
 
 1. **WhatsApp** delivers the message to the Bridge via whatsapp-web.js
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
-3. **Safety gate** checks for 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`). If matched, responds immediately without LLM
+3. **Safety gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`). If matched, responds immediately without LLM
 4. **Everything else** goes to the LLM with all 27 tools available — there is no intent classification or conversation/action split
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
@@ -70,6 +70,8 @@ This is the master documentation index for Fetch.
 | **Claude Code** | `claude` | `fetch-kennel` | Complex multi-file refactoring, architecture decisions |
 | **Gemini CLI** | `gemini` | `fetch-kennel` | Quick fixes, explanations, boilerplate generation |
 | **Copilot CLI** | `gh copilot` | `fetch-kennel` | Suggestions, command help, GitHub workflows |
+| **OpenCode** | `opencode` | `fetch-kennel` | Versatile coding, OpenRouter-native, general-purpose |
+| **Codex** | `codex` | `fetch-kennel` | Agentic coding with OpenAI models, JSON Lines streaming |
 
 All adapters extend `AbstractHarnessAdapter` and set `container: 'fetch-kennel'`. The spawner wraps CLI commands with `docker exec -w <cwd> fetch-kennel <command>`. The orchestrator selects which harness to use based on task complexity, enabled adapters, and skill hints.
 

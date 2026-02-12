@@ -14,7 +14,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.4.0
+  F E T C H    v4.6.1
 ```
 
 **Send coding tasks via WhatsApp. AI agents execute them in Docker.**
@@ -34,7 +34,7 @@ flowchart LR
     subgraph Bridge["Bridge (Node.js)"]
         direction TB
         Security["Security Gate\nWhitelist + Rate Limit"]
-        Safety["Safety Gate\n/stop /undo /clear /help /status"]
+        Safety["Safety Gate\n8 Escape Commands"]
         LLM["LLM + 27 Tools"]
         State["Session / Task / State\nSQLite"]
         Security --> Safety --> LLM
@@ -65,7 +65,7 @@ flowchart LR
 
 1. You send a message on WhatsApp
 2. **Security Gate** verifies sender (phone whitelist + rate limiting)
-3. **Safety Gate** checks for escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`)
+3. **Safety Gate** checks for escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`)
 4. Everything else goes to the **LLM** with all 27 tools available
 5. The LLM decides: respond, call tools, or delegate to a harness
 6. For coding tasks, a CLI agent is spawned in the **Kennel** via `docker exec`
@@ -84,11 +84,11 @@ flowchart LR
 
 **Core**
 - **LLM-First** — Every message goes directly to the LLM with all 27 tools. No pre-classification, no regex routing
-- **5 Safety Escapes** — Only `/stop`, `/undo`, `/clear`, `/help`, `/status` are deterministic
+- **8 Safety Escapes** — `/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
 - **Five Harnesses** — Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
 - **Structured Memory** — Cross-session recall with BM25-style keyword matching, chained compaction summaries
-- **Pipeline Tuning** — 39 parameters via `FETCH_*` env vars, no code changes needed
+- **Pipeline Tuning** — 42 parameters via `FETCH_*` env vars, no code changes needed
 
 **Tools & Capabilities**
 - **27 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
@@ -150,7 +150,7 @@ cd fetch-app
 npm run dev          # run with ts-node
 npm run build        # compile to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (307 passing)
+npm run test:run     # all tests (360 passing)
 npm run test:unit    # unit tests only
 
 # Manager (Go TUI)

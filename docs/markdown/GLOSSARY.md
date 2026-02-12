@@ -7,7 +7,7 @@
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
 | **The Pack** | Collective name for the five AI harness agents (Claude, Gemini, Copilot, OpenCode, Codex). |
-| **LLM-First Architecture** | Design where every message (except 5 safety escapes) takes the same single path through the LLM with all 27 tools. No intent classification or conversation/action split. |
+| **LLM-First Architecture** | Design where every message (except 8 safety escapes) takes the same single path through the LLM with all 27 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
 
@@ -31,7 +31,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Safety Gate** | The 5 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`) that bypass the LLM. Must work even when the LLM is unreachable. |
+| **Safety Gate** | The 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) that bypass the LLM. Must work even when the LLM is unreachable. |
 | **Safety Escape** | A single command handled by the safety gate. Responds immediately without an LLM call (<5ms). |
 | **Skill** | A Markdown file in `data/skills/` that injects domain-specific instructions when triggers match. |
 
@@ -96,7 +96,7 @@
 |------|------------|
 | **Autonomy Guard** | Pattern-matching interceptor on the `ask_user` tool. Auto-approves unnecessary confirmation questions ("Shall I?", "Would you like?") in non-supervised modes. The LLM believes the user said "Yes, proceed." |
 | **Dynamic Prompt Rebuild** | After state-changing tool calls (`workspace_select`, `workspace_create`, `task_create`), the system prompt at `messages[0]` is replaced with a fresh build reflecting current project/git/task state. |
-| **Autonomy Rules** | 7 highest-priority directives in the system prompt that enforce agentic behavior: act first, summarize after, never ask unnecessary questions. |
+| **Autonomy Rules** | 9 highest-priority directives in the system prompt that enforce agentic behavior: act first, summarize after, never ask unnecessary questions, use workspace context, express intent naturally. |
 | **ToolContext** | Object passed through the tool registry to handlers. Contains `sessionId` (for session-aware tools) and `autonomyLevel` (for the ask_user guard). Defined in `tools/types.ts`. |
 | **ProjectType** | Union type: `node`, `typescript`, `python`, `rust`, `go`, `java`, `ruby`, `php`, `dotnet`, `unknown`. Detected by `WorkspaceManager.detectProjectType()` using file indicators and glob patterns. |
 | **Structured Memory** | The `memory` table in sessions.db. Stores key facts, preferences, decisions, and file operations with BM25-style keyword recall. Entries have categories, importance scores (1-5), and recall counters. |

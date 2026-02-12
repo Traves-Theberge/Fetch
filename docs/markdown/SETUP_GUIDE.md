@@ -58,7 +58,7 @@ go build -o fetch-manager .
 ./fetch-manager
 ```
 
-The TUI will launch with a splash screen, then show the main menu. Select **🚀 Start Fetch** to build and launch the Docker containers. Use **🔑 Harness Auth** to authenticate each AI CLI via its native OAuth/login flow.
+The TUI will launch with a splash screen, then show the main menu. Select **🚀 Start Fetch** to build and launch the Docker containers. Use **🐕 Harnesses** to authenticate, enable, and configure each AI CLI.
 
 See [TUI Guide](TUI_GUIDE.md) for full Manager documentation.
 
@@ -133,7 +133,7 @@ Fetch's context pipeline has 35 tunable parameters with sane defaults. Override 
 | `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
-Add these to your `.env` file or use the TUI Manager's **⚙️ Configure** editor which shows all 39 parameters with defaults. See `config/pipeline.ts` for the full list.
+Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** editor (Advanced tab) which shows all pipeline parameters with defaults. See `config/pipeline.ts` for the full list.
 
 ## Verifying the Installation
 

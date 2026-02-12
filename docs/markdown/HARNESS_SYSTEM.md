@@ -18,13 +18,23 @@ spawn('claude', args) ->
   docker exec -w /workspace/project fetch-kennel claude ...args
 ```
 
-### 2. Adapters (`harness/adapters/*.ts`)
+### 2. Adapters (`harness/*.ts`)
 
-Each tool has an adapter that defines:
+Each harness has an adapter in the `src/harness/` directory that extends `AbstractHarnessAdapter` (`base.ts`). The adapter defines:
 
-* **Command**: The binary to run (`claude`, `gemini`, `gh`).
+* **Command**: The binary to run (`claude`, `gemini`, `gh`, `opencode`, `codex`).
 * **Args**: Flags for non-interactive mode (`--print`, `--no-interaction`).
 * **Parser**: Transforming raw stdout/stderr into structured `HarnessResult`.
+
+**Adapter files:** `claude.ts`, `gemini.ts`, `copilot.ts`, `opencode.ts`, `codex.ts` — all extend `base.ts`.
+
+**Supporting modules:**
+* `registry.ts` — Maps harness names to adapter instances (single source of truth)
+* `executor.ts` — Manages task execution lifecycle through the pool/spawner
+* `spawner.ts` — Creates and manages child processes with `docker exec` wrapping
+* `pool.ts` — Concurrency management (max 1, aligned with TaskManager)
+* `output-parser.ts` — Parses harness CLI stdout/stderr into structured events
+* `types.ts` — `HarnessConfig`, `ErrorCategory`, `HarnessResult` interfaces
 
 ## Available Harnesses
 

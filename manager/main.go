@@ -91,6 +91,14 @@ type harnessAuthStatus struct {
 	// GitHub-specific (multi-account)
 	ghAccounts []ghAccount
 	ghCursor   int
+	// Config fields (loaded from .env)
+	enabled   bool
+	apiKey    string
+	model     string
+	enableKey string // e.g. "ENABLE_COPILOT"
+	apiKeyKey string // e.g. "GH_TOKEN", "ANTHROPIC_API_KEY"
+	modelKey  string // e.g. "COPILOT_MODEL"
+	apiLabel  string // "Token" (GitHub) or "API Key" (others)
 }
 
 // ghAccount represents a single GitHub account from gh auth status
@@ -110,6 +118,11 @@ type harnessAuthResultMsg struct {
 // harnessStatusMsg carries status check results for all harnesses
 type harnessStatusMsg struct {
 	statuses []harnessAuthStatus
+}
+
+// harnessConfigMsg carries config values loaded from .env
+type harnessConfigMsg struct {
+	values map[string]string
 }
 
 // tickMsg triggers periodic status updates
@@ -147,9 +160,12 @@ type model struct {
 	// Config sub-screen: 0=sub-menu, 1=editor, 2=model selector
 	configMode int
 	// Harness auth state
-	harnessStatuses []harnessAuthStatus // Auth status for all 5 harnesses
-	harnessCursor   int                 // Which harness is selected (0-4)
-	harnessChecking bool                // Whether we're currently checking
+	harnessStatuses   []harnessAuthStatus // Auth status for all 5 harnesses
+	harnessCursor     int                 // Which harness is selected (0-4)
+	harnessChecking   bool                // Whether we're currently checking
+	harnessEditing    bool                // In text edit mode for config field
+	harnessEditField  string              // "apikey" or "model"
+	harnessEditBuffer string              // Accumulated text
 	// QR code refresh state
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
@@ -168,10 +184,10 @@ func initialModel() model {
 
 	menu := components.NewMenu("", []components.MenuItem{
 		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
-		{Icon: "\U0001f511", Label: "Harness Auth"},
+		{Icon: "\U0001f436", Label: "Harnesses"},
 		{Icon: "\U0001f680", Label: "Start Fetch"},
 		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
-		{Icon: "\u2699\ufe0f ", Label: "Configure"},
+		{Icon: "\u2699\ufe0f ", Label: "Settings"},
 		{Icon: "\U0001f510", Label: "Trusted Numbers"},
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
@@ -189,11 +205,11 @@ func initialModel() model {
 		qrMaxCountdown: qrCountdown,
 		mainMenu:       menu,
 		harnessStatuses: []harnessAuthStatus{
-			{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb"},
-			{id: harnessClaude, name: "Claude Code", icon: "\U0001f9e0"},
-			{id: harnessGemini, name: "Gemini CLI", icon: "\u2728"},
-			{id: harnessOpenCode, name: "OpenCode", icon: "\U0001f527"},
-			{id: harnessCodex, name: "Codex", icon: "\U0001f916"},
+			{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb", enableKey: "ENABLE_COPILOT", apiKeyKey: "GH_TOKEN", modelKey: "COPILOT_MODEL", apiLabel: "Token"},
+			{id: harnessClaude, name: "Claude Code", icon: "\U0001f9e0", enableKey: "ENABLE_CLAUDE", apiKeyKey: "ANTHROPIC_API_KEY", modelKey: "CLAUDE_MODEL", apiLabel: "API Key"},
+			{id: harnessGemini, name: "Gemini CLI", icon: "\u2728", enableKey: "ENABLE_GEMINI", apiKeyKey: "GEMINI_API_KEY", modelKey: "GEMINI_MODEL", apiLabel: "API Key"},
+			{id: harnessOpenCode, name: "OpenCode", icon: "\U0001f527", enableKey: "ENABLE_OPENCODE", apiKeyKey: "OPENCODE_API_KEY", modelKey: "OPENCODE_MODEL", apiLabel: "API Key"},
+			{id: harnessCodex, name: "Codex", icon: "\U0001f916", enableKey: "ENABLE_CODEX", apiKeyKey: "CODEX_API_KEY", modelKey: "CODEX_MODEL", apiLabel: "API Key"},
 		},
 	}
 }
@@ -348,10 +364,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case harnessStatusMsg:
 		m.harnessChecking = false
+		// Preserve config key mappings and values from existing statuses
+		for i := range msg.statuses {
+			if i < len(m.harnessStatuses) {
+				msg.statuses[i].enableKey = m.harnessStatuses[i].enableKey
+				msg.statuses[i].apiKeyKey = m.harnessStatuses[i].apiKeyKey
+				msg.statuses[i].modelKey = m.harnessStatuses[i].modelKey
+				msg.statuses[i].apiLabel = m.harnessStatuses[i].apiLabel
+				msg.statuses[i].enabled = m.harnessStatuses[i].enabled
+				msg.statuses[i].apiKey = m.harnessStatuses[i].apiKey
+				msg.statuses[i].model = m.harnessStatuses[i].model
+			}
+		}
 		m.harnessStatuses = msg.statuses
 		// Clamp cursor
 		if m.harnessCursor >= len(m.harnessStatuses) {
 			m.harnessCursor = 0
+		}
+		return m, nil
+
+	case harnessConfigMsg:
+		for i := range m.harnessStatuses {
+			hs := &m.harnessStatuses[i]
+			if v, ok := msg.values[hs.enableKey]; ok {
+				hs.enabled = v == "true"
+			}
+			if v, ok := msg.values[hs.apiKeyKey]; ok {
+				hs.apiKey = v
+			}
+			if v, ok := msg.values[hs.modelKey]; ok {
+				hs.model = v
+			}
 		}
 		return m, nil
 
@@ -455,10 +498,11 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 1: // Harness Auth — show harness auth screen
+		case 1: // Harnesses — auth + config
 			m.screen = screenHarnessAuth
 			m.harnessChecking = true
-			return m, checkAllHarnessStatusCmd()
+			m.harnessEditing = false
+			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
 		case 2: // Start
 			return m, startFetchCmd()
 		case 3: // Stop
@@ -507,10 +551,13 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.configMode {
 	case 1: // Editor mode
-		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() && !m.configEditor.IsSectionPickerOpen() {
+		if m.configEditor != nil && !m.configEditor.ModelPickerRequested() && !m.configEditor.IsSectionPickerOpen() && !m.configEditor.IsEditing() {
 			switch msg.String() {
 			case "esc":
 				m.screen = screenMenu
+				return m, nil
+			case "right", "left":
+				m.configEditor.SwitchMode()
 				return m, nil
 			}
 		}
@@ -604,6 +651,34 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+
+	// Text editing mode for API key or model
+	if m.harnessEditing {
+		switch msg.String() {
+		case "enter":
+			hs := &m.harnessStatuses[m.harnessCursor]
+			if m.harnessEditField == "apikey" {
+				hs.apiKey = m.harnessEditBuffer
+				_ = config.WriteEnvValue(hs.apiKeyKey, m.harnessEditBuffer)
+			} else if m.harnessEditField == "model" {
+				hs.model = m.harnessEditBuffer
+				_ = config.WriteEnvValue(hs.modelKey, m.harnessEditBuffer)
+			}
+			m.harnessEditing = false
+		case "esc":
+			m.harnessEditing = false
+		case "backspace":
+			if len(m.harnessEditBuffer) > 0 {
+				m.harnessEditBuffer = m.harnessEditBuffer[:len(m.harnessEditBuffer)-1]
+			}
+		default:
+			if len(msg.String()) == 1 {
+				m.harnessEditBuffer += msg.String()
+			}
+		}
+		return m, nil
+	}
+
 	selected := m.harnessStatuses[m.harnessCursor]
 
 	switch msg.String() {
@@ -619,6 +694,28 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.harnessCursor < len(m.harnessStatuses)-1 {
 			m.harnessCursor++
 		}
+		return m, nil
+	case "e":
+		// Toggle enable for selected harness
+		hs := &m.harnessStatuses[m.harnessCursor]
+		hs.enabled = !hs.enabled
+		val := "false"
+		if hs.enabled {
+			val = "true"
+		}
+		_ = config.WriteEnvValue(hs.enableKey, val)
+		return m, nil
+	case "a":
+		// Edit API key
+		m.harnessEditing = true
+		m.harnessEditField = "apikey"
+		m.harnessEditBuffer = m.harnessStatuses[m.harnessCursor].apiKey
+		return m, nil
+	case "m":
+		// Edit model
+		m.harnessEditing = true
+		m.harnessEditField = "model"
+		m.harnessEditBuffer = m.harnessStatuses[m.harnessCursor].model
 		return m, nil
 	case "l":
 		// Login selected harness
@@ -641,7 +738,7 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		// Refresh all statuses
 		m.harnessChecking = true
-		return m, checkAllHarnessStatusCmd()
+		return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
 	case "s":
 		// Switch GitHub account (GitHub-specific)
 		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 && selected.ghCursor < len(selected.ghAccounts) {
@@ -745,6 +842,21 @@ func checkAllHarnessStatusCmd() tea.Cmd {
 			checkCodexStatus(),
 		}
 		return harnessStatusMsg{statuses: statuses}
+	}
+}
+
+// loadHarnessConfigCmd loads harness config values from .env
+func loadHarnessConfigCmd() tea.Cmd {
+	return func() tea.Msg {
+		keys := []string{
+			"ENABLE_COPILOT", "GH_TOKEN", "COPILOT_MODEL",
+			"ENABLE_CLAUDE", "ANTHROPIC_API_KEY", "CLAUDE_MODEL",
+			"ENABLE_GEMINI", "GEMINI_API_KEY", "GEMINI_MODEL",
+			"ENABLE_OPENCODE", "OPENCODE_API_KEY", "OPENCODE_MODEL",
+			"ENABLE_CODEX", "CODEX_API_KEY", "CODEX_MODEL",
+		}
+		values := config.ReadEnvValues(keys)
+		return harnessConfigMsg{values: values}
 	}
 }
 
@@ -1128,16 +1240,32 @@ func (m model) viewConfig() string {
 			content = theme.StatusInfo.Render("   Loading models...") + "\n"
 		}
 		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Tab Toggle", "Esc Back"}
-		breadcrumb = []string{"Main Menu", "Configure", "Model Picker"}
+		breadcrumb = []string{"Main Menu", "Settings", "Model Picker"}
 
 	default: // Editor mode
-		title = "⚙️  Configuration"
-		if m.configEditor != nil {
-			m.configEditor.SetSize(height - 8)
-			content = m.configEditor.View()
+		title = "\u2699\ufe0f  Settings"
+		// Tab bar
+		tabGeneral := "  General  "
+		tabAdvanced := "  Advanced  "
+		activeTabStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.Primary).Background(theme.Surface).Padding(0, 1)
+		inactiveTabStyle := lipgloss.NewStyle().Foreground(theme.TextMuted).Padding(0, 1)
+		if m.configEditor != nil && m.configEditor.Mode() == config.ModeAdvanced {
+			tabGeneral = inactiveTabStyle.Render(tabGeneral)
+			tabAdvanced = activeTabStyle.Render(tabAdvanced)
+		} else {
+			tabGeneral = activeTabStyle.Render(tabGeneral)
+			tabAdvanced = inactiveTabStyle.Render(tabAdvanced)
 		}
-		helpKeys = []string{"↑/↓ Navigate", "Enter Edit", "Tab Sections", "s Save", "Esc Back"}
-		breadcrumb = []string{"Main Menu", "Configure"}
+		tabBar := "   " + tabGeneral + " " + tabAdvanced + "\n\n"
+
+		if m.configEditor != nil {
+			m.configEditor.SetSize(height - 10) // extra room for tab bar
+			content = tabBar + m.configEditor.View()
+		} else {
+			content = tabBar
+		}
+		helpKeys = []string{"←/→ Tabs", "↑/↓ Navigate", "Enter Edit", "Tab Sections", "s Save", "Esc Back"}
+		breadcrumb = []string{"Main Menu", "Settings"}
 	}
 
 	return layout.ScreenLayout{
@@ -1193,13 +1321,19 @@ func (m model) viewHarnessAuth() string {
 
 	// Summary line
 	authCount := 0
+	enabledCount := 0
 	for _, hs := range m.harnessStatuses {
 		if hs.authed {
 			authCount++
 		}
+		if hs.enabled {
+			enabledCount++
+		}
 	}
 	content.WriteString(fmt.Sprintf("   %s\n\n",
-		theme.Subtitle.Render(fmt.Sprintf("%d of %d harnesses authenticated", authCount, len(m.harnessStatuses)))))
+		theme.Subtitle.Render(fmt.Sprintf("%d authenticated, %d enabled", authCount, enabledCount))))
+
+	inputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
 
 	for i, hs := range m.harnessStatuses {
 		// Cursor prefix
@@ -1218,6 +1352,12 @@ func (m model) viewHarnessAuth() string {
 			statusBadge = theme.StatusError.Render("○ Not Authenticated")
 		}
 
+		// Enable badge
+		enableBadge := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("✗ Disabled")
+		if hs.enabled {
+			enableBadge = theme.StatusSuccess.Render("✓ Enabled")
+		}
+
 		// Name styling
 		var nameStyle lipgloss.Style
 		if i == m.harnessCursor {
@@ -1226,52 +1366,83 @@ func (m model) viewHarnessAuth() string {
 			nameStyle = theme.Value
 		}
 
-		// Pad name to align status badges
+		// Pad name to align badges
 		paddedName := fmt.Sprintf("%-18s", hs.name)
-		content.WriteString(fmt.Sprintf("%s%s %s  %s\n", prefix, hs.icon, nameStyle.Render(paddedName), statusBadge))
+		content.WriteString(fmt.Sprintf("%s%s %s  %s  %s\n", prefix, hs.icon, nameStyle.Render(paddedName), statusBadge, enableBadge))
 
 		// Expanded detail for selected harness
 		if i == m.harnessCursor {
 			detailIndent := "      "
 			if !hs.installed {
-				content.WriteString(fmt.Sprintf("%s%s\n", detailIndent,
-					theme.Subtitle.Render("Install the CLI on the host to enable authentication")))
-			} else if hs.id == harnessGitHub && len(hs.ghAccounts) > 0 {
-				// Show GitHub accounts inline
-				for j, acct := range hs.ghAccounts {
-					acctPrefix := detailIndent + "  "
-					if j == hs.ghCursor {
-						acctPrefix = detailIndent + lipgloss.NewStyle().Foreground(theme.Secondary).Render("› ")
+				content.WriteString(detailIndent + theme.Subtitle.Render("Install the CLI on the host to enable authentication") + "\n")
+			} else {
+				// Auth detail
+				if hs.id == harnessGitHub && len(hs.ghAccounts) > 0 {
+					for j, acct := range hs.ghAccounts {
+						acctPrefix := detailIndent + "  "
+						if j == hs.ghCursor {
+							acctPrefix = detailIndent + lipgloss.NewStyle().Foreground(theme.Secondary).Render("› ")
+						}
+						badge := ""
+						if acct.active {
+							badge = theme.StatusSuccess.Render(" (active)")
+						}
+						content.WriteString(acctPrefix + theme.Value.Render(acct.user) + badge + "\n")
 					}
-					badge := ""
-					if acct.active {
-						badge = theme.StatusSuccess.Render(" (active)")
-					}
-					content.WriteString(fmt.Sprintf("%s%s%s\n", acctPrefix,
-						theme.Value.Render(acct.user), badge))
+				} else if hs.detail != "" {
+					content.WriteString(detailIndent + theme.Subtitle.Render(hs.detail) + "\n")
 				}
-			} else if hs.detail != "" {
-				content.WriteString(fmt.Sprintf("%s%s\n", detailIndent,
-					theme.Subtitle.Render(hs.detail)))
+
+				// Config fields
+				apiLabel := hs.apiLabel
+				if apiLabel == "" {
+					apiLabel = "API Key"
+				}
+
+				// API key field
+				apiDisplay := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("(not set)")
+				if hs.apiKey != "" {
+					apiDisplay = lipgloss.NewStyle().Foreground(theme.TextMuted).Render(strings.Repeat("•", min(len(hs.apiKey), 20)))
+				}
+				if m.harnessEditing && m.harnessEditField == "apikey" {
+					apiDisplay = inputStyle.Render(m.harnessEditBuffer + "█")
+				}
+				content.WriteString(detailIndent + theme.Subtitle.Render(apiLabel+": ") + apiDisplay + "\n")
+
+				// Model field
+				modelDisplay := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("(default)")
+				if hs.model != "" {
+					modelDisplay = theme.Value.Render(hs.model)
+				}
+				if m.harnessEditing && m.harnessEditField == "model" {
+					modelDisplay = inputStyle.Render(m.harnessEditBuffer + "█")
+				}
+				content.WriteString(detailIndent + theme.Subtitle.Render("Model: ") + modelDisplay + "\n")
 			}
 		}
 		content.WriteString("\n")
 	}
 
 	// Context-sensitive help keys
-	helpKeys := []string{"↑/↓ Navigate", "l Login", "d Logout", "r Refresh", "Esc Back"}
-	if len(m.harnessStatuses) > 0 && m.harnessCursor < len(m.harnessStatuses) {
+	var helpKeys []string
+	if m.harnessEditing {
+		helpKeys = []string{"Type to edit", "Enter Save", "Esc Cancel"}
+	} else if len(m.harnessStatuses) > 0 && m.harnessCursor < len(m.harnessStatuses) {
 		selected := m.harnessStatuses[m.harnessCursor]
 		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 {
-			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
+			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "e Enable", "a Token", "m Model", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
+		} else {
+			helpKeys = []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
 		}
+	} else {
+		helpKeys = []string{"↑/↓ Navigate", "e Enable", "a API Key", "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
 	}
 
 	return layout.ScreenLayout{
-		Title:      "🔑 Harness Authentication",
+		Title:      "\U0001f436 Harnesses",
 		Content:    content.String(),
 		HelpKeys:   helpKeys,
-		Breadcrumb: []string{"Main Menu", "Harness Auth"},
+		Breadcrumb: []string{"Main Menu", "Harnesses"},
 		Width:      width,
 		Height:     height,
 	}.Render()

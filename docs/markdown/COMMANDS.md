@@ -16,7 +16,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 27 orchestrator tools.
 
-The only slash commands that exist are **7 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
+The only slash commands that exist are **8 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
 ## Safety Escape Commands
 
@@ -25,10 +25,11 @@ These are handled deterministically without an LLM call (<5ms):
 | Command | Aliases | Description |
 |---------|---------|-------------|
 | `/stop` | `stop`, `/cancel` | Cancel the running task immediately |
-| `/undo` | — | Undo last commit (soft git reset) |
-| `/clear` | `clear` | Clear conversation history |
-| `/help` | `help`, `/commands` | Show available commands |
+| `/undo` | — | Undo last commit (soft git reset). `/undo all` reverts to task start |
+| `/clear` | `clear`, `/reset` | Clear conversation history |
+| `/help` | `help`, `/h`, `/?` | Show available commands |
 | `/status` | `status`, `/st` | System and task status |
+| `/version` | `/v` | Show Fetch version information |
 | `/usage` | `/u` | Show OpenRouter API usage and spend |
 | `/trust` | — | Manage trusted phone numbers (owner only): `add`, `remove`, `list` |
 
@@ -113,7 +114,7 @@ The LLM has access to these 27 tools:
 | `workspace_delete` | Workspace | Delete a workspace project |
 | `workspace_sync` | Workspace | Commit + push to GitHub remote |
 | `workspace_publish` | Workspace | Create new GitHub repo from existing project |
-| `task_create` | Task | Delegate coding work to a harness (Claude/Gemini/Copilot) |
+| `task_create` | Task | Delegate coding work to a harness (Claude/Gemini/Copilot/OpenCode/Codex) |
 | `task_status` | Task | Check running task progress |
 | `task_cancel` | Task | Kill a running task |
 | `task_respond` | Task | Send follow-up input to running task |

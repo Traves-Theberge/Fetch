@@ -26,11 +26,15 @@ flowchart TB
         Claude[Claude Code]
         Gemini[Gemini ⚡]
         Copilot[Copilot 🐙]
+        OC[OpenCode 🔧]
+        Codex[Codex 🤖]
     end
 
     Pack -.->|Delegate| Claude
     Pack -.->|Delegate| Gemini
     Pack -.->|Delegate| Copilot
+    Pack -.->|Delegate| OC
+    Pack -.->|Delegate| Codex
 ```
 
 ## Core Components
@@ -58,12 +62,19 @@ For tasks requiring heavy lifting or specific domain knowledge, the Orchestrator
 * **Claude Code:** Architecture, refactoring, complex logic.
 * **Gemini CLI:** Fast iterations, explanations, diverse coding tasks.
 * **GitHub Copilot:** Shell commands, git operations, quick questions.
+* **OpenCode:** Versatile coding, OpenRouter-native, general-purpose.
+* **Codex:** Agentic coding with OpenAI models, JSON Lines streaming.
 
 ## Autonomy Rules
 
-To ensure Fetch behaves like an agent, it adheres to these **Prime Directives**:
+To ensure Fetch behaves like an agent, it adheres to these **9 Prime Directives** (injected at highest priority in the system prompt):
 
-1. **Execute Immediately:** Do not ask for permission for reversible actions.
-2. **Infer Context:** Make reasonable assumptions instead of asking clarifying questions for every detail.
-3. **Chain Actions:** Perform multiple steps (e.g., Create File -> Write Content -> Run Test) in a single turn.
-4. **Fail & Recover:** If a tool fails, analyze the error and try a fix *before* reporting back to the user.
+1. **Execute Immediately:** If the user tells you to do something, do it — don't ask for permission for reversible actions.
+2. **Use Active Workspace:** If a workspace is selected, use it — don't ask which project.
+3. **Infer Context:** If intent is clear, act immediately — make reasonable assumptions.
+4. **Minimal ask_user:** Use `ask_user` only when genuinely missing critical information.
+5. **Action Over Questions:** Prefer doing and reporting over asking and waiting.
+6. **No Parroting:** Never repeat the user's request back as a question.
+7. **Express Intent:** Briefly and naturally express your plan/intent before acting.
+8. **Clarify Agent Selection:** When multiple harnesses are enabled and the request is ambiguous, call `ask_user` to clarify which agent to use.
+9. **Short Messages Are Valid:** Treat short messages as valid requests — don't ask for elaboration.

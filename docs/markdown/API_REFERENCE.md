@@ -169,14 +169,14 @@ Create a new GitHub repository from an existing workspace and push all commits.
 
 #### task_create
 
-Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot) running in the Kennel container via `docker exec`.
+Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot/OpenCode/Codex) running in the Kennel container via `docker exec`.
 
 **Parameters:**
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `goal` | string | ✅ | Clear description of what to accomplish |
-| `agent` | string | — | Agent to use: `copilot`, `gemini`, `claude`, `auto` (default: `auto`). If multiple agents are enabled and user hasn't specified, the LLM must call `ask_user` first. |
+| `agent` | string | — | Agent to use: `copilot`, `gemini`, `claude`, `opencode`, `codex`, `auto` (default: `auto`). If multiple agents are enabled and user hasn't specified, the LLM must call `ask_user` first. |
 | `workspace` | string | — | Target workspace (uses active workspace if not specified) |
 | `timeout` | number | — | Task timeout in milliseconds (default: 300000 = 5 minutes) |
 

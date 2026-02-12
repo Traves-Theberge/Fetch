@@ -6,6 +6,7 @@
 flowchart TB
     WhatsApp((WhatsApp)) --> Bridge[Fetch Bridge<br/>Node.js]
     Bridge --> Kennel[Fetch Kennel<br/>Ubuntu Sandbox]
+    Bridge --> SearXNG[SearXNG<br/>Meta Search]
     Bridge <--> Workspace[("/workspace")]
     Kennel <--> Workspace
 
@@ -13,6 +14,7 @@ flowchart TB
         direction TB
         Bridge
         Kennel
+        SearXNG
         Workspace
     end
 
@@ -133,7 +135,7 @@ flowchart TD
 
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
-3. **Safety Gate** checks for 7 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/usage`, `/trust`) — if matched, responds immediately without LLM
+3. **Safety Gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) — if matched, responds immediately without LLM
 4. **Everything else** goes to the LLM with **all 27 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
@@ -148,9 +150,10 @@ The Bridge starts with this ordered initialization:
 1. `validateEnv()` — Zod schema validates all environment variables (fail-fast)
 2. Start HTTP status API on port 8765
 3. **Async identity loading** — `IdentityLoader.load()` reads identity files using `fs.promises` for non-blocking I/O
-4. Create WhatsApp Bridge client
-5. WhatsApp authenticates (QR code or cached session)
-6. Bridge `ready` event fires — system is operational
+4. **Skill initialization** — `SkillManager.init()` loads built-in skills from `src/skills/builtin/` and user skills from `data/skills/`
+5. Create WhatsApp Bridge client
+6. WhatsApp authenticates (QR code or cached session)
+7. Bridge `ready` event fires — system is operational
 
 ## Shutdown Sequence
 
@@ -162,7 +165,7 @@ On SIGINT/SIGTERM or unhandled exception:
 4. Close SQLite databases (flush WAL)
 5. `process.exit()`
 
-Global `unhandledRejection` and `uncaughtException` handlers trigger this same shutdown path.
+Global `uncaughtException` handler triggers this same shutdown path. `unhandledRejection` is logged but does not trigger shutdown.
 
 ### EventEmitter Subclasses
 
@@ -221,7 +224,7 @@ src/
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
 ├── commands/
 │   ├── index.ts          # Barrel exports
-│   ├── parser.ts         # Safety gate — 7 deterministic escape commands
+│   ├── parser.ts         # Safety gate — 8 deterministic escape commands
 │   ├── task.ts           # /stop, /undo handlers (kill task, git reset)
 │   ├── trust.ts          # /trust handler — owner-only whitelist management
 │   └── types.ts          # Command result types
@@ -271,7 +274,7 @@ src/
 │   └── browser.ts        # Browser tools (open, snapshot, action, screenshot via Playwright in Kennel)
 ├── validation/
 │   ├── common.ts         # Reusable Zod schemas (IDs, paths, timestamps, strings)
-│   └── tools.ts          # Zod schemas for all 19 tool inputs
+│   └── tools.ts          # Zod schemas for all 27 tool inputs
 ├── transcription/
 │   └── index.ts          # whisper.cpp voice transcription
 ├── vision/
@@ -366,7 +369,8 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 | `docker.sock` | ✅ | — | read-only |
 | `~/.config/gh` | — | ✅ | read-only |
 | `~/.config/claude-code` | — | ✅ | read-only |
-| `~/.gemini` | — | ✅ | read-only |
+| `~/.claude` | — | ✅ | read-only |
+| `~/.gemini` | — | ✅ | read-write |
 | `~/.config/opencode` | — | ✅ | read-only |
 | `~/.codex` | — | ✅ | read-only |
 

@@ -116,4 +116,4 @@ The `Whitelist` class uses a dedicated mutex (`persistMutex`) to serialize file 
 
 Fetch is "stateless" regarding file edits — it reads the current state of the disk and git index on every turn. This prevents "Context Amnesia" where the agent thinks a file exists but it was deleted externally.
 
-Each tool call (`workspace_select`, `git_commit`) triggers a re-read of the repo map, ensuring the LLM always sees the ground truth.
+Each tool call (`workspace_select`, `workspace_create`, `task_create`) triggers a re-read of the repo map, ensuring the LLM always sees the ground truth.

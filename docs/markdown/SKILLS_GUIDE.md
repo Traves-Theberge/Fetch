@@ -50,7 +50,7 @@ Fetch ships with 7 built-in skills that cover common development workflows. Each
 Each skill includes:
 
 - **Instructions** — Step-by-step tool-call guidance per user scenario
-- **Harness Routing** — Which CLI (Claude/Gemini/Copilot) to delegate to and why
+- **Harness Routing** — Which CLI (Claude/Gemini/Copilot/OpenCode/Codex) to delegate to and why
 - **Harness Hint** — Optional `harnessHint` in frontmatter that renders as an XML attribute, giving the LLM a skill-aware routing nudge
 - **Tool Reference** — The exact Fetch tool names the LLM should use
 
@@ -128,7 +128,7 @@ When the user asks to check database status:
 | `name` | Yes | string | Display name |
 | `description` | Yes | string | Short description (shown in skills summary) |
 | `triggers` | No | string[] | Keywords that activate this skill |
-| `harnessHint` | No | string | Suggested harness: `claude`, `gemini`, or `copilot` |
+| `harnessHint` | No | string | Suggested harness: `claude`, `gemini`, `copilot`, `opencode`, or `codex` |
 | `requirements.binaries` | No | string[] | Required CLI tools (not validated at load time) |
 | `requirements.envVars` | No | string[] | Required environment variables (validated at load time) |
 | `requirements.platform` | No | string[] | OS restrictions: `linux`, `darwin`, `win32` |

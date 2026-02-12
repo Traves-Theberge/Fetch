@@ -19,7 +19,7 @@ Guide Fetch to accurately describe its own capabilities and current state.
 When the user asks what you can do or about your capabilities:
 1. Use `workspace_list` to show available workspaces
 2. Summarize your tool categories: Workspace (7 tools), Task (4 tools), GitHub (8 tools), Web (2 tools), Browser (4 tools), Interaction (2 tools)
-3. Mention the Pack — Claude Code, Gemini CLI, and Copilot CLI are available for delegated coding tasks via `task_create`
+3. Mention the Pack — Claude Code, Gemini CLI, Copilot CLI, OpenCode, and Codex are available for delegated coding tasks via `task_create`
 4. Keep it concise — bullet points, not paragraphs
 
 When the user asks about system status:

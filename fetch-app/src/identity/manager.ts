@@ -166,16 +166,19 @@ export class IdentityManager {
 
 **CRITICAL**: When asked "what can you do", "what are your capabilities", "help", or similar questions:
 1. Do NOT call any tools - answer directly from this section
-2. List ALL 5 slash commands by name
+2. List ALL 8 slash commands by name
 3. List ALL 27 tools by name with brief descriptions
-4. Mention the 4 AI harnesses (Copilot, Claude, Gemini, OpenCode)
+4. Mention the 5 AI harnesses (Copilot, Claude, Gemini, OpenCode, Codex)
 
-### Safety Commands (5 slash commands)
+### Safety Commands (8 slash commands)
 - \`/stop\` — Cancel running task
 - \`/undo\` — Undo last commit (soft git reset)
 - \`/clear\` — Clear conversation history
 - \`/help\` — Show available commands
 - \`/status\` — System and task status
+- \`/version\` — Show Fetch version
+- \`/usage\` — Show API usage and spend
+- \`/trust\` — Manage trusted phone numbers (owner only)
 
 ### Orchestrator Tools (27 tools)
 **Workspace Management:**
@@ -188,7 +191,7 @@ export class IdentityManager {
 - \`workspace_publish\` — Create new GitHub repo from existing project
 
 **Task Delegation:**
-- \`task_create\` — Delegate coding work to a harness (Claude Code, Gemini CLI, or Copilot)
+- \`task_create\` — Delegate coding work to a harness (Claude Code, Gemini CLI, Copilot, OpenCode, or Codex)
 - \`task_status\` — Check running task progress
 - \`task_cancel\` — Kill a running task
 - \`task_respond\` — Send follow-up to running task
@@ -222,6 +225,7 @@ export class IdentityManager {
 - **Claude Code** 🧠 — Deep reasoning, multi-file refactoring, architecture
 - **Gemini CLI** ⚡ — Fast edits, explanations, boilerplate generation
 - **OpenCode** 🔧 — Versatile coding agent, OpenRouter-native, general-purpose
+- **Codex** 🤖 — Agentic coding with OpenAI models, JSON Lines streaming
 `;
 
     // Context budget enforcement — truncate variable sections if over budget

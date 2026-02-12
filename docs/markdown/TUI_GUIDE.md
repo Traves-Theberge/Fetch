@@ -40,10 +40,10 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | Option | Badge | Action |
 |--------|-------|--------|
 | 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
-| 🔑 Harness Auth | `[X/5 auth]` | Manage authentication for all 5 AI CLI harnesses |
+| 🐕 Harnesses | `[X/5 auth]` | Manage auth, enable/disable, API keys, and models for all 5 harnesses |
 | 🚀 Start Fetch | `[Running]` / `[Partial]` / `[Stopped]` | Runs `docker compose up -d --build` to start containers |
 | 🛑 Stop Fetch | — | Runs `docker compose down` to stop services |
-| ⚙️ Configure | — | Opens the configuration editor for all pipeline parameters |
+| ⚙️ Settings | — | General config (owner phone, API key, model) + Advanced pipeline tuning |
 | 🔐 Trusted Numbers | — | Manage the phone number whitelist (`data/whitelist.json`) |
 | 📄 View Logs | — | Stream live container logs |
 | 📚 Documentation | — | Opens the docs site in your browser |
@@ -80,30 +80,34 @@ The session persists across restarts. You only need to scan once unless you manu
 
 ---
 
-### Harness Auth
+### Harnesses
 
-The unified authentication screen for managing all 5 AI CLI harnesses. Each harness can be authenticated via its native OAuth/login flow directly from the TUI.
+The unified management screen for all 5 AI CLI harnesses. Each harness shows its authentication status, enable/disable state, API key, and model — all editable from one place.
 
-**Why:** Each AI CLI (GitHub/Copilot, Claude Code, Gemini, OpenCode, Codex) requires host-level authentication before Fetch can use it in the Kennel container. This screen lets you authenticate all of them from one place instead of running each CLI's login command manually.
+**Why:** Each AI CLI (GitHub/Copilot, Claude Code, Gemini, OpenCode, Codex) needs host-level authentication, an enable flag, and optionally an API key and model override. This screen lets you manage everything per-harness instead of hunting through separate screens.
 
-**How it works:** When you press `l` to login, the TUI suspends and the selected CLI's interactive login process takes over the terminal (browser OAuth flow, device codes, etc.). When the CLI finishes, the TUI resumes and refreshes the status.
+**How it works:** When you press `l` to login, the TUI suspends and the selected CLI's interactive login process takes over the terminal (browser OAuth flow, device codes, etc.). When the CLI finishes, the TUI resumes and refreshes the status. Config changes (enable, API key, model) are saved to `.env` immediately.
 
 **Layout:**
 
-Each harness is shown as a row with an icon, name, and status badge:
+Each harness is shown as a row with icon, name, auth status, and enable badge. The selected harness expands to show config fields:
 
 ```
- ▸ 💻 GitHub (Copilot)  ● Authenticated
+ ▸ 💻 GitHub (Copilot)  ● Authenticated     ✓ Enabled
       github.com/youruser
+      Token: ••••••••••••••••
+      Model: (default)
 
-   🧠 Claude Code       ○ Not Authenticated
+   🧠 Claude Code       ○ Not Authenticated  ✗ Disabled
 
-   ✨ Gemini CLI         ◌ Not Installed
+   ✨ Gemini CLI         ◌ Not Installed       ✗ Disabled
 
-   🔧 OpenCode           ● Authenticated
+   🔧 OpenCode           ● Authenticated     ✓ Enabled
       ~/.local/share/opencode/auth.json
+      API Key: ••••••••••••••••
+      Model: (default)
 
-   🤖 Codex              ○ Not Authenticated
+   🤖 Codex              ○ Not Authenticated  ✗ Disabled
 ```
 
 **Status badges:**
@@ -113,6 +117,8 @@ Each harness is shown as a row with an icon, name, and status badge:
 | `● Authenticated` (green) | CLI is installed and credentials are present |
 | `○ Not Authenticated` (red) | CLI is installed but no credentials found |
 | `◌ Not Installed` (muted) | CLI binary not found on the host PATH |
+| `✓ Enabled` (green) | Harness is enabled in `.env` |
+| `✗ Disabled` (muted) | Harness is disabled |
 
 **Status detection methods:**
 
@@ -124,35 +130,37 @@ Each harness is shown as a row with an icon, name, and status badge:
 | OpenCode | Runs `opencode auth list`, checks for non-empty output |
 | Codex | Runs `codex login status`, checks exit code |
 
-**Login commands (what runs when you press `l`):**
+**Config key mapping:**
 
-| Harness | Command | Auth method |
-|---------|---------|-------------|
-| GitHub (Copilot) | `gh auth login` | Browser OAuth — opens GitHub device flow |
-| Claude Code | `claude auth login` | Browser OAuth — opens Anthropic auth page |
-| Gemini CLI | `gemini` | Interactive menu — select "Sign in with Google" |
-| OpenCode | `opencode auth login` | Browser OAuth |
-| Codex | `codex login` | ChatGPT OAuth — opens OpenAI device flow |
-
-**Logout commands (what runs when you press `d`):**
-
-| Harness | Command |
-|---------|---------|
-| GitHub (Copilot) | `gh auth logout -u <username>` |
-| Claude Code | `claude auth logout` |
-| Gemini CLI | Removes `~/.gemini/oauth_creds.json` |
-| OpenCode | `opencode auth logout` |
-| Codex | `codex logout` |
+| Harness | Enable Key | API Key | Model Key |
+|---------|-----------|---------|-----------|
+| GitHub (Copilot) | `ENABLE_COPILOT` | `GH_TOKEN` | `COPILOT_MODEL` |
+| Claude Code | `ENABLE_CLAUDE` | `ANTHROPIC_API_KEY` | `CLAUDE_MODEL` |
+| Gemini CLI | `ENABLE_GEMINI` | `GEMINI_API_KEY` | `GEMINI_MODEL` |
+| OpenCode | `ENABLE_OPENCODE` | `OPENCODE_API_KEY` | `OPENCODE_MODEL` |
+| Codex | `ENABLE_CODEX` | `CODEX_API_KEY` | `CODEX_MODEL` |
 
 **Controls:**
 
 | Key | Action |
 |-----|--------|
 | `↑`/`↓` or `k`/`j` | Navigate between harnesses |
+| `e` | Toggle enable/disable for selected harness |
+| `a` | Edit API key for selected harness |
+| `m` | Edit model for selected harness |
 | `l` | Login the selected harness (launches interactive CLI) |
 | `d` | Logout the selected harness |
-| `r` | Refresh all harness statuses |
+| `r` | Refresh all harness statuses and config |
 | `Esc` | Return to main menu |
+
+**Edit mode** (when editing API key or model):
+
+| Key | Action |
+|-----|--------|
+| Characters | Type value |
+| `Backspace` | Delete last character |
+| `Enter` | Save value to `.env` |
+| `Esc` | Cancel editing |
 
 **GitHub-specific controls** (only available when GitHub is selected):
 
@@ -176,24 +184,32 @@ GitHub supports multiple authenticated accounts. When GitHub is selected, the ro
 | `~/.config/opencode/` | `/root/.config/opencode/` | OpenCode credentials |
 | `~/.codex/` | `/root/.codex/` | Codex OAuth tokens |
 
-> **Note:** You can also authenticate harnesses via API keys instead of OAuth login. Set the API key in the **Configure** screen (e.g., `CODEX_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_API_KEY`). API keys use per-call billing; OAuth login uses your subscription.
+> **Note:** You can authenticate harnesses via API keys instead of OAuth login by setting the key directly in this screen (press `a`). API keys use per-call billing; OAuth login uses your subscription.
 
 ---
 
-### Configuration Editor
+### Settings
 
-Edits the `.env` file with a scrollable form interface organized into subsystem groups.
+Edits the `.env` file with a scrollable form interface. The Settings screen has two tabs: **General** (essentials) and **Advanced** (pipeline tuning). Switch between tabs with `←`/`→` arrow keys.
 
-**Why:** Fetch has 42+ tunable parameters that control the LLM pipeline, harness behavior, rate limiting, and more. This editor lets you modify them without manually editing `.env`.
+**Why:** Fetch has 40+ tunable parameters. General settings cover the essentials you'll configure once. Advanced settings expose the full pipeline for fine-tuning — most users never need to change these.
 
 **How it works:** The editor reads the current `.env` file, shows each parameter with its current value (or a dimmed default), and writes changes back when you save. Saving automatically restarts the `fetch-bridge` container to apply changes.
 
-**Parameter groups:**
+**General tab fields:**
+
+| Field | Key | Default |
+|-------|-----|---------|
+| Owner Phone | `OWNER_PHONE_NUMBER` | — |
+| OpenRouter Key | `OPENROUTER_API_KEY` | — |
+| Agent Model | `AGENT_MODEL` | `openai/gpt-4o-mini` |
+| Log Level | `LOG_LEVEL` | `info` |
+| Timezone | `TZ` | `UTC` |
+
+**Advanced tab groups:**
 
 | Group | Parameters | Examples |
 |-------|-----------|----------|
-| **Core Settings** | 11 | Owner Phone, API Key, Agent Model, Log Level, Enable flags for each harness, Codex/OpenAI API keys |
-| **Harness Models** | 5 | Copilot Model, Claude Model, Gemini Model, OpenCode Model, Codex Model |
 | **Context Window** | 4 | History Window, Compaction Threshold |
 | **Agent LLM** | 6 | Chat/Tool Max Tokens, Temperature |
 | **Circuit Breaker** | 5 | CB Threshold, Backoff, Retries |
@@ -204,19 +220,22 @@ Edits the `.env` file with a scrollable form interface organized into subsystem 
 | **Session / Memory** | 3 | Recent Msg Limit, Truncation |
 | **Workspace** | 2 | Cache TTL, Git Timeout |
 | **BM25 Memory** | 3 | Recall Limit, Snippet Tokens, Decay |
+| **Web / Browser** | 6 | Enable Web Fetch, SearXNG URL, Browser Timeout |
 
 **Field types:**
 
 - **Text fields** — Type a value, displayed with a text cursor
-- **Toggle fields** — `ENABLE_*` flags shown as `true`/`false`, toggled with `Enter`
+- **Toggle fields** — `ENABLE_*` flags shown as `[✓]`/`[ ]`, toggled with `Enter`
 - **Masked fields** — API keys shown as `••••••` for security
 
 **Controls:**
 
 | Key | Action |
 |-----|--------|
+| `←`/`→` | Switch between General and Advanced tabs |
 | `↑`/`↓` | Navigate between parameters |
 | `Enter` | Edit the focused field (or open model picker for Agent Model, or toggle for boolean fields) |
+| `Tab` | Open section picker (jump to a section by number) |
 | `s` | Save all changes to `.env` and restart fetch-bridge |
 | `Esc` | Discard changes and return to main menu |
 
@@ -225,6 +244,7 @@ Edits the `.env` file with a scrollable form interface organized into subsystem 
 - Help text displayed below the focused field
 - Scroll indicators when the list overflows
 - **Agent Model** field opens the model selector overlay on `Enter`
+- Section picker overlay for quick navigation in the Advanced tab
 
 > **Tip:** When you press `s` to save, the Manager automatically restarts the `fetch-bridge` service so your changes take effect immediately.
 
@@ -232,7 +252,7 @@ Edits the `.env` file with a scrollable form interface organized into subsystem 
 
 ### Model Selector (Agent Model Overlay)
 
-When you press `Enter` on the **Agent Model** field in the configuration editor, a model selector overlay appears.
+When you press `Enter` on the **Agent Model** field in the Settings screen, a model selector overlay appears.
 
 **Why:** OpenRouter provides access to hundreds of models. This overlay helps you pick the right one by showing capabilities, pricing, and context window sizes.
 

@@ -73,7 +73,7 @@ docker logs -f fetch-bridge   # view bridge logs (QR code here)
 Every WhatsApp message follows a single path — no pre-classification or intent routing:
 
 1. **SecurityGate** (`security/gate.ts`) → whitelist + rate-limit
-2. **Commands** (`commands/parser.ts`) → deterministic slash commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/usage`, `/trust`) bypass LLM
+2. **Commands** (`commands/parser.ts`) → deterministic slash commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) bypass LLM
 3. **AgentCore** (`agent/core.ts`) → LLM receives full 27-tool set, decides to chat, call tools, or delegate
 4. **Tool loop** → up to 5 rounds of tool calls per message (ReAct pattern)
 5. **Harness delegation** → `task_create` spawns a CLI process in the kennel
@@ -156,11 +156,12 @@ Events: `task:created`, `task:started`, `task:progress`, `task:question`, `task:
 - Harness toggles: `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT`, `ENABLE_OPENCODE`, `ENABLE_CODEX`
 - Harness auth: `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `OPENCODE_API_KEY`, `CODEX_API_KEY`, `GH_TOKEN`
 - Web/browser toggles: `ENABLE_WEB_FETCH`, `ENABLE_WEB_SEARCH`, `ENABLE_BROWSER`
-- Voice: whisper.cpp (free, no API) — `OPENAI_API_KEY` optional for vision only
+- Voice: whisper.cpp (free, local, no API)
+- `OPENAI_API_KEY` is only used as a fallback for Codex harness
 
 ### Go TUI (manager)
 
-Single-file `main.go` with 9 screens: splash, menu, config, logs, status (polls bridge `/api/status`), setup (QR code display), version, whitelist, github.
+Single-file `main.go` with 9 screens: splash, menu, config (Settings with General/Advanced tabs), logs, status (polls bridge `/api/status`), setup (QR code display), version, whitelist, harnessAuth (unified harness management — auth + enable + API key + model).
 
 ### Docker Limits
 
