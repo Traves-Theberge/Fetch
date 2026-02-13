@@ -64,7 +64,7 @@ docker logs -f fetch-bridge   # view bridge logs (QR code here)
 
 ### Three-Container Model
 
-- **fetch-bridge**: Node.js orchestrator — WhatsApp client, LLM agent loop, 27 tools, SQLite persistence, whisper.cpp for voice transcription, controls kennel via `docker exec`
+- **fetch-bridge**: Node.js orchestrator — WhatsApp client, LLM agent loop, 29 tools, SQLite persistence, whisper.cpp for voice transcription, controls kennel via `docker exec`
 - **fetch-kennel**: Ubuntu sandbox — Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex, Playwright+Chromium, Python3, Go, Rust. Bridge spawns harness processes here. Workspace shared at `/workspace`
 - **searxng**: Meta search engine — aggregates Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm. Backend for the `web_search` tool
 
@@ -74,7 +74,7 @@ Every WhatsApp message follows a single path — no pre-classification or intent
 
 1. **SecurityGate** (`security/gate.ts`) → whitelist + rate-limit
 2. **Commands** (`commands/parser.ts`) → deterministic slash commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) bypass LLM
-3. **AgentCore** (`agent/core.ts`) → LLM receives full 27-tool set, decides to chat, call tools, or delegate
+3. **AgentCore** (`agent/core.ts`) → LLM receives full 29-tool set, decides to chat, call tools, or delegate
 4. **Tool loop** → up to 5 rounds of tool calls per message (ReAct pattern)
 5. **Harness delegation** → `task_create` spawns a CLI process in the kennel
 
@@ -102,7 +102,7 @@ handler/index.ts          ← WhatsApp message entry point (+ error sanitization
 
 ### Tool System
 
-All 27 tools implement the `OrchestratorTool` interface (`tools/types.ts`):
+All 29 tools implement the `OrchestratorTool` interface (`tools/types.ts`):
 - Zod schema for runtime input validation (`validation/tools.ts` defines all schemas)
 - Handler returns `ToolResult` with `success`, `output` (narrative text for LLM), `summary`, `error`, `duration`, `metadata` (structured data for state sync)
 - `DangerLevel` enum: `SAFE`, `MODERATE`, `DANGEROUS`

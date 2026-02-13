@@ -38,7 +38,7 @@ This is the master documentation index for Fetch.
 1. **WhatsApp** delivers the message to the Bridge via whatsapp-web.js
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Safety gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`). If matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with all 27 tools available — there is no intent classification or conversation/action split
+4. **Everything else** goes to the LLM with all 29 tools available — there is no intent classification or conversation/action split
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 7. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
@@ -81,7 +81,7 @@ All adapters extend `AbstractHarnessAdapter` and set `container: 'fetch-kennel'`
 
 | Category | Tools | Purpose |
 |----------|-------|---------|
-| Workspace | `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish` | Project management and GitHub sync |
+| Workspace | `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`, `file_delete`, `folder_delete` | Project management and GitHub sync |
 | Task | `task_create`, `task_status`, `task_cancel`, `task_respond` | Task lifecycle and harness delegation |
 | Interaction | `ask_user` (with autonomy guard), `report_progress` | User communication via WhatsApp |
 | GitHub | `github_pr_create`, `github_pr_list`, `github_pr_view`, `github_issue_create`, `github_issue_list`, `github_branch_create`, `github_action_status`, `github_search_repos` | GitHub operations via `gh` CLI |

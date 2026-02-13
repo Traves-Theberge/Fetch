@@ -76,7 +76,7 @@ flowchart LR
     LLM -->|"response"| User
 ```
 
-> **The flow:** Message arrives on WhatsApp &rarr; Security Gate checks sender &rarr; Safety Gate intercepts escape commands &rarr; LLM decides what to do with 28 tools available &rarr; For coding tasks, a CLI agent spawns in the Kennel via `docker exec` &rarr; Results sent back via WhatsApp.
+> **The flow:** Message arrives on WhatsApp &rarr; Security Gate checks sender &rarr; Safety Gate intercepts escape commands &rarr; LLM decides what to do with 29 tools available &rarr; For coding tasks, a CLI agent spawns in the Kennel via `docker exec` &rarr; Results sent back via WhatsApp.
 
 <br>
 
@@ -86,7 +86,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 | | Container | Tech | Role |
 |:-:|-----------|------|------|
-| **1** | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 28 orchestrator tools, session & task persistence |
+| **1** | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 29 orchestrator tools, session & task persistence |
 | **2** | **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex, Playwright + Chromium |
 | **3** | **SearXNG** | Meta search engine | Self-hosted search aggregator (Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm) |
 | | **Manager** | Go / Bubble Tea | Host-side TUI for managing services, editing config, viewing logs |
@@ -101,7 +101,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 ### Core
 
-- **LLM-First** &mdash; Every message hits the LLM with all 28 tools. No pre-classification, no regex routing
+- **LLM-First** &mdash; Every message hits the LLM with all 29 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/version` `/usage` `/trust` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management

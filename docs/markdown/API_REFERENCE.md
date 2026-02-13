@@ -86,11 +86,11 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 28 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 29 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 > **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
 
-### Workspace Tools (8)
+### Workspace Tools (9)
 
 #### workspace_list
 
@@ -173,9 +173,26 @@ Delete a specific file within the workspace. Use this for simple file removal or
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `path` | string | ✅ | Relative path to the file to delete |
+| `workspace` | string | — | Workspace name (uses active workspace if not specified) |
 | `confirm` | boolean | ✅ | Must be `true` to confirm deletion |
 
 **Returns:** Narrative text (e.g. `"Deleted file src/temp.txt"`)
+
+**Danger Level:** DANGEROUS
+
+#### folder_delete
+
+Delete a directory and all its contents. Use this for recursive folder removal. Requires explicit user confirmation.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `path` | string | ✅ | Relative path to the folder to delete |
+| `workspace` | string | — | Workspace name (uses active workspace if not specified) |
+| `confirm` | boolean | ✅ | Must be `true` to confirm deletion |
+
+**Returns:** Narrative text (e.g. `"Deleted folder src/generated"`).
 
 **Danger Level:** DANGEROUS
 

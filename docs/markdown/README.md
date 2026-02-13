@@ -28,7 +28,7 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 1. You send a message on WhatsApp
 2. **Security Gate** verifies sender (phone whitelist + rate limiting)
 3. **Safety Gate** checks for escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`)
-4. Everything else goes to the **LLM** with all 27 tools available
+4. Everything else goes to the **LLM** with all 29 tools available
 5. The LLM decides: respond, call tools, or delegate to a harness
 6. For coding tasks, a CLI agent is spawned in the **Kennel** via `docker exec`
 7. Results are formatted and sent back via WhatsApp
@@ -37,7 +37,7 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 
 | Container | Tech | Role |
 |-----------|------|------|
-| **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 27 orchestrator tools, session/task persistence |
+| **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 29 orchestrator tools, session/task persistence |
 | **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex, Playwright + Chromium |
 | **SearXNG** | Meta search engine | Self-hosted search aggregator (Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm) |
 | **Manager** | Go / Bubble Tea | TUI for managing services, configuring env vars, viewing logs |
@@ -46,7 +46,7 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 
 **Core**
 
-- **LLM-First** — Every message goes directly to the LLM with all 27 tools. No pre-classification, no regex routing
+- **LLM-First** — Every message goes directly to the LLM with all 29 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** — `/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
 - **Five Harnesses** — Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management

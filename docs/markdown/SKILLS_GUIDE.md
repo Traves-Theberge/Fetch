@@ -1,6 +1,6 @@
 # Skills Guide
 
-Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific domains. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt — teaching the orchestrator LLM how to use Fetch's 27 tools for that particular task type.
+Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific domains. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt — teaching the orchestrator LLM how to use Fetch's 29 tools for that particular task type.
 
 ## How Skills Work
 

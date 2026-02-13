@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Sensitive Data Leak** — `spawner.ts` no longer logs raw environment variables during container spawning.
 
+### Documentation
+
+- Synced tool inventory to 29 across architecture, systems deep dive, and glossary.
+- Added missing `folder_delete` docs and clarified `file_delete` parameters in the API reference.
+- Updated docker compose docs with the correct volumes (`./docs`, `./.env`) and kennel auth mounts.
+- Corrected pipeline tuning count to 42 and clarified `DATA_DIR` resolution behavior.
+
 ## [0.0.46] - 2026-02-13
 
 ### Added

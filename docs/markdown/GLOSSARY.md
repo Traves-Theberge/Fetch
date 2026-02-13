@@ -7,7 +7,7 @@
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
 | **The Pack** | Collective name for the five AI harness agents (Claude, Gemini, Copilot, OpenCode, Codex). |
-| **LLM-First Architecture** | Design where every message (except 8 safety escapes) takes the same single path through the LLM with all 27 tools. No intent classification or conversation/action split. |
+| **LLM-First Architecture** | Design where every message (except 8 safety escapes) takes the same single path through the LLM with all 29 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
 
@@ -80,7 +80,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Orchestrator Tool** | One of 27 tools the LLM can call during the ReAct loop: 7 workspace tools, 4 task tools, 2 interaction tools, 8 GitHub tools, 2 web tools (`web_fetch`, `web_search`), and 4 browser tools (`browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`). |
+| **Orchestrator Tool** | One of 29 tools the LLM can call during the ReAct loop: 9 workspace tools (includes `file_delete`, `folder_delete`), 4 task tools, 2 interaction tools, 8 GitHub tools, 2 web tools (`web_fetch`, `web_search`), and 4 browser tools (`browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`). |
 | **workspace_sync** | Tool that commits local changes and pushes to GitHub. Auto-generates commit messages from diffs. |
 | **Custom Tool** | A user-defined tool in `data/tools/` (JSON). Wraps a shell command with parameters. |
 | **web_fetch** | Tool that fetches a URL and extracts readable content as markdown using jsdom + Readability + Turndown. Blocks private/internal URLs. |

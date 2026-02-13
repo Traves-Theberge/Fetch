@@ -103,15 +103,15 @@ This starts three containers:
 
 | Container | Image | Ports | Volumes |
 |-----------|-------|-------|---------|
-| `fetch-bridge` | `fetch-app/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `/var/run/docker.sock` |
-| `fetch-kennel` | `kennel/Dockerfile` | — | `./workspace`, `~/.config/gh` (ro), `~/.config/claude-code` (ro), `~/.gemini` (ro) |
+| `fetch-bridge` | `fetch-app/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `./docs` (ro), `./.env` (ro), `/var/run/docker.sock` (ro) |
+| `fetch-kennel` | `kennel/Dockerfile` | — | `./workspace`, `~/.config/gh` (ro), `~/.config/claude-code` (ro), `~/.claude` (ro), `~/.gemini` (ro), `~/.config/opencode` (ro), `~/.codex` (ro) |
 | `searxng` | `searxng/searxng:latest` | 8888 (search API) | `./config/searxng` |
 
 The Bridge talks to the Kennel by spawning CLI processes inside it via `docker exec`. Auth credentials are mounted read-only. SearXNG provides the web search backend on the Docker network.
 
 ## Pipeline Tuning (Optional)
 
-Fetch's context pipeline has 35 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
+Fetch's context pipeline has 42 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
 
 | Variable | Default | Description |
 |----------|---------|-------------|

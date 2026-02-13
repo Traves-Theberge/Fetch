@@ -159,11 +159,11 @@ Skills also carry a `harnessHint` (e.g. `"copilot"`) that suggests which AI agen
 
 **Files**: `tools/registry.ts`, `tools/types.ts`, `tools/*.ts`
 
-27 built-in tools across 6 categories:
+29 built-in tools across 6 categories:
 
 | Category | Count | Examples |
 | --- | --- | --- |
-| Workspace | 7 | list, select, status, create, delete, sync, publish |
+| Workspace | 9 | list, select, status, create, delete, sync, publish, file_delete, folder_delete |
 | Task | 4 | create, status, cancel, respond |
 | Interaction | 2 | ask_user, report_progress |
 | GitHub | 8 | pr_create, pr_list, issue_create, branch_create... |
@@ -242,7 +242,7 @@ processMessage(message, session)
       +-- INITIAL LLM CALL
       |   '-- openai.chat.completions.create({
       |        messages: [system, ...history, user],
-      |        tools: registry.toOpenAIFormat(),  // all 27 tools
+      |        tools: registry.toOpenAIFormat(),  // all 29 tools
       |        tool_choice: 'auto'
       |      })
       |
@@ -279,7 +279,7 @@ flowchart TB
     ALPHA["ALPHA.md<br/>(owner profile)"]
     BuiltinSkills["Built-in Skills<br/>(7 SKILL.md files)"]
     UserSkills["User Skills<br/>(data/skills/)"]
-    BuiltinTools["Built-in Tools<br/>(27 tools, Zod schemas)"]
+    BuiltinTools["Built-in Tools<br/>(29 tools, Zod schemas)"]
     CustomTools["Custom Tools<br/>(data/tools/*.json)"]
 
     %% Managers
@@ -316,7 +316,7 @@ flowchart TB
     subgraph ContextAssembly ["System Prompt Assembly"]
         direction TB
         Identity["Identity + Directives<br/>+ Autonomy Rules"]
-        Capabilities["Capabilities<br/>(8 commands, 27 tools, 5 harnesses)"]
+        Capabilities["Capabilities<br/>(8 commands, 29 tools, 5 harnesses)"]
         SessionCtx["Session Context<br/>(workspace, task, repo map)"]
         RecalledMem["Recalled Memories<br/>(BM25 matched)"]
         SkillSummary["Skill Summary<br/>(all available)"]
@@ -370,7 +370,7 @@ flowchart TB
 
 ### The critical insight
 
-There is **no routing**. The LLM sees the complete system prompt (identity + context + skills + all 27 tools) on every single message and makes its own decisions. Skills guide it, tools empower it, context informs it, but nothing pre-classifies or restricts what it can do.
+There is **no routing**. The LLM sees the complete system prompt (identity + context + skills + all 29 tools) on every single message and makes its own decisions. Skills guide it, tools empower it, context informs it, but nothing pre-classifies or restricts what it can do.
 
 ---
 

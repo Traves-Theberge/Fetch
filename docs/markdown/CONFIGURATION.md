@@ -26,7 +26,7 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 
 | Variable | Type | Description |
 |----------|------|-------------|
-| `DATA_DIR` | string | Override data directory (default: `./data`) |
+| `DATA_DIR` | string | Override data directory (auto-resolved: `/app/data` in Docker, `./data` or `../data` in local dev) |
 | `DATABASE_PATH` | string | Override sessions database path |
 | `TASKS_DB_PATH` | string | Override tasks database path |
 | `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
@@ -125,9 +125,11 @@ build: ./fetch-app
 ports:
   - "8765:8765"           # Status API
 volumes:
-  - ./data:/app/data      # Persistent data (SQLite, WhatsApp auth, identity)
+  - ./data:/app/data             # Persistent data (SQLite, WhatsApp auth, identity)
+  - ./.env:/app/.env:ro          # Config (hot-reloadable)
+  - ./docs:/app/docs:ro          # Documentation site
   - /var/run/docker.sock:/var/run/docker.sock:ro  # For docker exec into kennel
-  - ./workspace:/workspace # Shared workspace
+  - ./workspace:/workspace       # Shared workspace
 depends_on:
   - fetch-kennel
 ```
