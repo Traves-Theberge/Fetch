@@ -23,43 +23,7 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 
 ## How It Works
 
-```mermaid
-flowchart LR
-    subgraph WhatsApp
-        User["You send a message"]
-    end
-
-    subgraph Bridge["Bridge (Node.js)"]
-        direction TB
-        Security["Security Gate\nWhitelist + Rate Limit"]
-        Safety["Safety Gate\n8 Escape Commands"]
-        LLM["LLM + 27 Tools"]
-        State["Session / Task / State\nSQLite"]
-        Security --> Safety --> LLM
-        LLM --- State
-    end
-
-    subgraph Kennel["Kennel (Ubuntu)"]
-        direction TB
-        Claude["Claude Code"]
-        Gemini["Gemini CLI"]
-        Copilot["Copilot CLI"]
-        OpenCode["OpenCode"]
-        Codex["Codex"]
-        Playwright["Playwright + Chromium"]
-        Workspace["/workspace (mounted)"]
-    end
-
-    subgraph Search["SearXNG"]
-        SearX["Meta Search Engine\nGoogle, DuckDuckGo, Bing\nWikipedia, GitHub, npm"]
-    end
-
-    User -->|"WhatsApp message"| Security
-    LLM -->|"docker exec"| Kennel
-    LLM -->|"web_search"| SearX
-    Kennel -->|"results"| LLM
-    LLM -->|"response"| User
-```
+![Fetch Architecture](/docs/assets/Arch-diagram.png)
 
 1. You send a message on WhatsApp
 2. **Security Gate** verifies sender (phone whitelist + rate limiting)
