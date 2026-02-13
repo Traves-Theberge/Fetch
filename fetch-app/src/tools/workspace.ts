@@ -27,12 +27,14 @@ import {
   WorkspaceSyncInputSchema,
   WorkspacePublishInputSchema,
   FileDeleteInputSchema,
+  FolderDeleteInputSchema,
   type WorkspaceSelectInput,
   type WorkspaceStatusInput,
   type WorkspaceCreateInput,
   type WorkspaceDeleteInput,
   type WorkspaceSyncInput,
   type FileDeleteInput,
+  type FolderDeleteInput,
   type WorkspacePublishInput,
 } from '../validation/tools.js';
 import type { ToolResult } from './types.js';
@@ -787,6 +789,73 @@ export async function handleFileDelete(
   }
 }
 
+/**
+ * Delete a directory and its contents from a workspace
+ *
+ * @param input - Tool input (path, workspace, confirm)
+ * @returns Result summary
+ */
+export async function handleFolderDelete(
+  input: unknown
+): Promise<ToolResult> {
+  const start = Date.now();
+
+  const parseResult = FolderDeleteInputSchema.safeParse(input);
+  if (!parseResult.success) {
+    return {
+      success: false,
+      output: '',
+      error: `Invalid input: ${parseResult.error.message}`,
+      duration: Date.now() - start,
+    };
+  }
+
+  const { path, workspace, confirm } = parseResult.data as FolderDeleteInput;
+
+  if (!confirm) {
+    return {
+      success: false,
+      output: '',
+      error: 'Deletion requires explicit confirmation. Set confirm: true to proceed.',
+      duration: Date.now() - start,
+    };
+  }
+
+  const workspaceId = workspace || workspaceManager.getActiveWorkspaceId();
+  if (!workspaceId) {
+    return {
+      success: false,
+      output: '',
+      error: 'No active workspace. Select a workspace first or provide a name.',
+      duration: Date.now() - start,
+    };
+  }
+
+  try {
+    await workspaceManager.deleteDirectory(workspaceId, path);
+
+    return {
+      success: true,
+      output: `Deleted folder ${path} from workspace ${workspaceId}`,
+      summary: `Deleted folder ${path} in ${workspaceId}`,
+      duration: Date.now() - start,
+      metadata: {
+        workspace: workspaceId,
+        path,
+        deleted: true,
+        type: 'directory',
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      output: '',
+      error: err instanceof Error ? err.message : String(err),
+      duration: Date.now() - start,
+    };
+  }
+}
+
 // ============================================================================
 // Tool Registry Integration
 // ============================================================================
@@ -830,6 +899,12 @@ export const workspaceTools = {
     description: 'Delete a single file within a workspace. IMPORTANT: Always call ask_user FIRST condensing the request for delete, then call this tool with confirm: true. Never simulate a two-step confirmation — the user confirms via ask_user, then you call this with confirm: true immediately.',
     handler: handleFileDelete,
     schema: FileDeleteInputSchema,
+  },
+  folder_delete: {
+    name: 'folder_delete',
+    description: 'Delete a directory and all its contents recursively. IMPORTANT: Always call ask_user FIRST condensing the request for delete, then call this tool with confirm: true.',
+    handler: handleFolderDelete,
+    schema: FolderDeleteInputSchema,
   },
   workspace_sync: {
     name: 'workspace_sync',

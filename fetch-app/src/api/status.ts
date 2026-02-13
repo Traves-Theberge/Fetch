@@ -302,6 +302,15 @@ export function startStatusServer(): void {
     }
 
     if (req.method === 'GET' && url.startsWith('/docs/')) {
+      // Redirect markdown navigation to viewer (e.g. /docs/SETUP_GUIDE.md -> /docs/index.html#SETUP_GUIDE)
+      // We check Sec-Fetch-Mode to distinguish between browser navigation and fetch() requests
+      if (url.endsWith('.md') && req.headers['sec-fetch-mode'] === 'navigate') {
+        const basename = path.basename(url, '.md');
+        res.writeHead(302, { Location: `/docs/index.html#${basename}` });
+        res.end();
+        return;
+      }
+
       const filePath = path.join(DOCS_PATH, url.slice(6)); // Remove '/docs/'
       serveStaticFile(filePath, res);
       return;
@@ -310,6 +319,13 @@ export function startStatusServer(): void {
     // Root redirect to docs
     if (req.method === 'GET' && url === '/') {
       res.writeHead(302, { Location: '/docs/' });
+      res.end();
+      return;
+    }
+
+    // Redirect root README to docs viewer
+    if (req.method === 'GET' && url === '/README.md') {
+      res.writeHead(302, { Location: '/docs/index.html#README' });
       res.end();
       return;
     }

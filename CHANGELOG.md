@@ -1,6 +1,20 @@
 # Changelog
 
-## [0.0.1] - 2026-02-13
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.0.46] - 2026-02-13
+
+### Added
+
+- Dedicated `folder_delete` tool for recursive directory removal.
+- Safety checks in `WorkspaceManager` to prevent root or file deletion via `folder_delete`.
+- Explicit confirmation requirement for all folder deletions.
+- Automatic tool capability awareness in `IdentityManager`.
+
+## [0.0.45] - 2026-02-13
 
 ### Improved
 
@@ -21,11 +35,6 @@
 - Improved role-based coloring for message history in the TUI (User, Assistant, Tool).
 - Fixed markdown formatting and alignment across all documentation files.
 - Corrected tool counts to 28 across architecture diagrams and feature lists.
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.0.43] - 2026-02-12
 

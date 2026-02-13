@@ -165,4 +165,4 @@ Fetch now supports automated updates via the Manager TUI.
     - Rebuild Docker containers.
     - Update the internal version state.
 
-You will see a status message: `✅ Harnesses updated to v0.1.0`.
+You will see a status message: `✅ Harnesses updated to latest version`.

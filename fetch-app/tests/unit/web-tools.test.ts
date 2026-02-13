@@ -6,6 +6,35 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleWebFetch, handleWebSearch } from '../../src/tools/web.js';
 
 describe('Web Tools', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = vi.fn().mockImplementation(async (input) => {
+      const url = input.toString();
+      if (url.includes('example.com')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => 'text/html' },
+          text: async () => '<html><head><title>Example Domain</title></head><body><h1>Example Domain</h1><p>This domain is for use in illustrative examples in documents.</p></body></html>',
+          json: async () => ({}),
+        };
+      }
+      if (url.includes('httpstat.us/404')) {
+        return {
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          headers: { get: () => 'text/plain' },
+          text: async () => 'Not Found',
+        };
+      }
+      if (url.includes('searxng')) {
+        throw new TypeError('fetch failed');
+      }
+      return { ok: false, status: 404 };
+    });
+  });
+
   // ─── web_fetch ───────────────────────────────────────────────
 
   describe('web_fetch', () => {

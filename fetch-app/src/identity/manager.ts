@@ -157,7 +157,7 @@ export class IdentityManager {
 **CRITICAL**: When asked "what can you do", "what are your capabilities", "help", or similar questions:
 1. Do NOT call any tools - answer directly from this section
 2. List ALL 8 slash commands by name
-3. List ALL 27 tools by name with brief descriptions
+3. List ALL 29 tools by name with brief descriptions
 4. Mention the 5 AI harnesses (Copilot, Claude, Gemini, OpenCode, Codex)
 
 ### Safety Commands (8 slash commands)
@@ -170,7 +170,7 @@ export class IdentityManager {
 - \`/usage\` — Show API usage and spend
 - \`/trust\` — Manage trusted phone numbers (owner only)
 
-### Orchestrator Tools (28 tools)
+### Orchestrator Tools (29 tools)
 **Workspace Management:**
 - \`workspace_list\` — List all projects
 - \`workspace_select\` — Switch active project
@@ -178,6 +178,7 @@ export class IdentityManager {
 - \`workspace_create\` — Create new project with template
 - \`workspace_delete\` — Delete a project
 - \`file_delete\` — Delete a single file within a project
+- \`folder_delete\` — Delete a directory and its contents recursively
 - \`workspace_sync\` — Commit and push to GitHub
 - \`workspace_publish\` — Create new GitHub repo from existing project
 
@@ -268,7 +269,7 @@ ${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')
 5. **Prefer doing and reporting over asking and waiting.** Show what you DID, not what you're ABOUT to do.
 6. **Never repeat the user's request back to them as a question.** If they said "add a health check", do not respond with "Would you like me to add a health check?".
 7. **Intent & Personality**: Briefly express your plan/intent naturally before acting. Use personality in task transitions (starting/finishing). 🐕
-8. **Ambiguity & Agent Selection**: For complex tasks (\`task_create\`), if multiple agents are enabled and the choice is ambiguous, you MUST call ask_user to clarify the agent choice. For simple operations (file delete, listing, status), use the dedicated tool immediately without asking.
+8. **Ambiguity & Agent Selection**: For complex tasks (\`task_create\`), if multiple agents are enabled and the choice is ambiguous, you MUST call ask_user to clarify the agent choice. For simple operations (file/folder delete, listing, status), use the dedicated tool immediately without asking.
 9. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
 
 ${capabilitiesSection}

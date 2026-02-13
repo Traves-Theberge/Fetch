@@ -1212,6 +1212,56 @@ export class WorkspaceManager extends EventEmitter {
     logger.info(`Deleted file ${filePath} in workspace ${workspaceId}`);
   }
 
+  /**
+   * Delete a directory (recursively) within a workspace.
+   * 
+   * @param workspaceId - Target workspace
+   * @param dirPath - Relative path to directory (or absolute inside /workspace)
+   * @throws Error if workspace or directory not found
+   */
+  async deleteDirectory(workspaceId: WorkspaceId, dirPath: string): Promise<void> {
+    const workspace = await this.getWorkspace(workspaceId);
+    if (!workspace) {
+      throw new Error(`Workspace not found: ${workspaceId}`);
+    }
+
+    const wsRoot = getWorkspacePath(workspaceId);
+
+    // Ensure the path is relative to wsRoot if it's not already absolute
+    let absolutePath = dirPath;
+    if (!dirPath.startsWith('/')) {
+      absolutePath = `${wsRoot}/${dirPath}`;
+    }
+
+    // Security: Ensure the path is still within the workspace base
+    if (!absolutePath.startsWith(wsRoot)) {
+      throw new Error(`Security breach: Attempted to delete outside workspace! Path: ${absolutePath}`);
+    }
+
+    // Validation: Ensure it's not the workspace root itself (use deleteWorkspace for that)
+    if (absolutePath === wsRoot || absolutePath === `${wsRoot}/`) {
+      throw new Error('Cannot delete the workspace root via folder_delete. Use workspace_delete instead.');
+    }
+
+    // Check if it exists and is a directory
+    const checkResult = await dockerExec('test', ['-d', absolutePath]);
+    if (checkResult.exitCode !== 0) {
+      // Check if it's a file
+      const fileCheck = await dockerExec('test', ['-f', absolutePath]);
+      if (fileCheck.exitCode === 0) {
+        throw new Error(`Path is a file, not a directory: ${dirPath}. Use file_delete instead.`);
+      }
+      throw new Error(`Directory not found: ${dirPath}`);
+    }
+
+    const result = await dockerExec('rm', ['-rf', absolutePath]);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to delete directory: ${result.stderr || result.stdout}`);
+    }
+
+    logger.info(`Deleted directory ${dirPath} in workspace ${workspaceId}`);
+  }
+
   // ============================================================================
   // GitHub: Pull Requests
   // ============================================================================

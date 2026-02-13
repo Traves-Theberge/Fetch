@@ -133,7 +133,7 @@ The system prompt is assembled with a token budget to prevent context overflow:
 
 ### Async File I/O
 
-The `IdentityLoader` uses an **async `load()` method** (changed from synchronous in v4.3.0):
+The `IdentityLoader` uses an **async `load()` method** (changed from synchronous in previous releases):
 
 ```typescript
 async load(): Promise<AgentIdentity> {

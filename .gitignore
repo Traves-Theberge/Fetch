@@ -52,3 +52,7 @@ data/whitelist.json
 .entire/settings.json
 .entire/.gitignore
 .entire/settings.json
+
+# Bridge logs
+bridge_logs.txt
+bridge_logs_full.txt

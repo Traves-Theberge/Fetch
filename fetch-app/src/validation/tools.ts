@@ -167,6 +167,29 @@ export const FileDeleteInputSchema = z
   .describe('Delete a specific file from a workspace. Use this for simple file removal or deleting untracked files.');
 
 /**
+ * folder_delete - Delete a directory and all its contents
+ */
+export const FolderDeleteInputSchema = z
+  .object({
+    /** Path to the folder to delete */
+    path: z.string().min(1, 'Folder path is required').describe('Relative path to the folder to delete'),
+
+    /** Workspace name (optional, uses active workspace if not specified) */
+    workspace: WorkspaceNameSchema.optional().describe(
+      'Workspace name (uses active workspace if not specified)'
+    ),
+
+    /** Confirmation that user wants to delete */
+    confirm: z.boolean()
+      .refine((val) => val === true, {
+        message: 'Must explicitly confirm deletion by setting confirm: true',
+      })
+      .describe('Must be true to confirm deletion'),
+  })
+  .strict()
+  .describe('Delete a directory and all its contents. Use this for recursive folder removal.');
+
+/**
  * workspace_sync - Sync workspace to GitHub (commit + push)
  */
 export const WorkspaceSyncInputSchema = z
@@ -676,6 +699,7 @@ export const ToolInputSchemas = {
   workspace_sync: WorkspaceSyncInputSchema,
   workspace_publish: WorkspacePublishInputSchema,
   file_delete: FileDeleteInputSchema,
+  folder_delete: FolderDeleteInputSchema,
   // Task tools (4)
   task_create: TaskCreateInputSchema,
   task_status: TaskStatusInputSchema,
@@ -717,6 +741,7 @@ export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;
 export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInputSchema>;
 export type WorkspaceDeleteInput = z.infer<typeof WorkspaceDeleteInputSchema>;
 export type FileDeleteInput = z.infer<typeof FileDeleteInputSchema>;
+export type FolderDeleteInput = z.infer<typeof FolderDeleteInputSchema>;
 export type WorkspaceSyncInput = z.infer<typeof WorkspaceSyncInputSchema>;
 export type WorkspacePublishInput = z.infer<typeof WorkspacePublishInputSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateInputSchema>;

@@ -13,10 +13,10 @@ describe('Tool Registry', () => {
   const registry = getToolRegistry();
 
   describe('Tool Registration', () => {
-    it('should have all 27 built-in orchestrator tools', () => {
+    it('should have all 28 built-in orchestrator tools', () => {
       const tools = registry.list();
-      // 7 workspace + 4 task + 2 interaction + 8 github + 2 web + 4 browser = 27
-      expect(tools.length).toBeGreaterThanOrEqual(27);
+      // 8 workspace + 4 task + 2 interaction + 8 github + 2 web + 4 browser = 28
+      expect(tools.length).toBeGreaterThanOrEqual(28);
     });
 
     it('should have workspace tools', () => {
@@ -25,6 +25,8 @@ describe('Tool Registry', () => {
       expect(registry.get('workspace_status')).toBeDefined();
       expect(registry.get('workspace_create')).toBeDefined();
       expect(registry.get('workspace_delete')).toBeDefined();
+      expect(registry.get('folder_delete')).toBeDefined();
+      expect(registry.get('file_delete')).toBeDefined();
       expect(registry.get('workspace_sync')).toBeDefined();
       expect(registry.get('workspace_publish')).toBeDefined();
     });

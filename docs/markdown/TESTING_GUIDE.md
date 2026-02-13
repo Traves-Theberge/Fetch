@@ -202,7 +202,7 @@ Quick checks that existing features still work.
 
 ### 4.1 Safety Escape Commands
 
-- [ ] `/status` — returns system status with version **v0.1.0**
+- [ ] `/status` — returns system status with current version
 - [ ] `/help` — returns command list (includes `/usage`)
 - [ ] `/usage` — returns OpenRouter API usage (total, daily, weekly, monthly, limit)
 - [ ] `/trust list` — shows trusted numbers (owner only)
@@ -250,6 +250,107 @@ Quick checks that existing features still work.
 ```
 
 - [ ] Response mentions commit hash, files changed, push status — in natural language
+
+---
+
+## Phase 5: Web & Search Capabilities
+
+Verify that Fetch can research and extract information from the live web.
+
+### 5.1 Multi-source Search
+
+```
+@fetch search the web for "latest stable version of node.js" and tell me the version number
+```
+
+- [ ] Uses `web_search` tool (check logs)
+- [ ] Returns a clear answer with the version number
+- [ ] Mentions source if applicable
+
+### 5.2 Deep Web Fetch (Reading Articles)
+
+```
+@fetch read this page and summarize the main points: https://nodejs.org/en/blog/release/v20.0.0
+```
+
+- [ ] Uses `web_fetch` tool
+- [ ] Summary is concise and relevant (not a raw HTML dump)
+
+---
+
+## Phase 6: Browser Automation
+
+Verify that Fetch can control a real browser (Playwright) to interact with websites.
+
+### 6.1 Basic Navigation & Snapshot
+
+```
+@fetch open google.com and tell me what the "I'm Feeling Lucky" button says in French
+```
+
+- [ ] Spawns/uses `browser-agent` in kennel
+- [ ] Successfully navigates and reads page content
+- [ ] Returns the correct text
+
+### 6.2 Visual Verification (Screenshots)
+
+```
+@fetch take a screenshot of github.com/trending
+```
+
+- [ ] Returns an image file (PNG/JPG) directly in WhatsApp
+- [ ] Image shows the requested page
+
+---
+
+## Phase 7: Advanced Workflows & Delegation
+
+Verify multi-agent coordination and complex task handling.
+
+### 7.1 Multi-Agent Task Delegation
+
+```
+@fetch use claude to create a new python scripts directory, then use gemini to write a fibonacci script in it
+```
+
+- [ ] Creates a task (`task_create`)
+- [ ] First harness (Claude) executes its portion
+- [ ] Second harness (Gemini) picks up the context and completes the script
+- [ ] Final notification summarizes both actions
+
+### 7.2 Voice & Media (if enabled)
+
+- [ ] Send a voice note: "Hello Fetch, what time is it?" -> Should transcribe and respond
+- [ ] Send an image of code: "Explain this code" -> Should use vision (if model supports) or acknowledge receipt
+
+---
+
+## Phase 8: Long-running Task Lifecycle
+
+### 8.1 Task Cancellation
+
+```
+@fetch use claude to build a massive project from scratch
+```
+
+(Wait for started notification)
+
+```
+/stop
+```
+
+- [ ] Active task is marked as `cancelled` in bridge logs
+- [ ] Kennel process is killed
+- [ ] Confirmation message "Task cancelled" received
+
+### 8.2 Task Resumption (Persistence)
+
+1. Start a task
+2. Restart the bridge container (`docker compose restart fetch-bridge`)
+3. Send `@fetch what's the status of my task?`
+
+- [ ] Bridge recovers task state from SQLite
+- [ ] Correct status ("running" or "interrupted") is reported
 
 ---
 

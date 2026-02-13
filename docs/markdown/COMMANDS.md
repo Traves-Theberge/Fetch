@@ -112,6 +112,7 @@ The LLM has access to these 28 tools:
 | `workspace_status` | Workspace | Git status, branch, recent commits |
 | `workspace_create` | Workspace | Create new project + GitHub repo |
 | `workspace_delete` | Workspace | Delete a workspace project |
+| `folder_delete` | Workspace | Delete a directory and its contents |
 | `file_delete` | Workspace | Delete a specific file in the active workspace |
 | `workspace_sync` | Workspace | Commit + push to GitHub remote |
 | `workspace_publish` | Workspace | Create new GitHub repo from existing project |

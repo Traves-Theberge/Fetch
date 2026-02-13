@@ -903,7 +903,7 @@ const FetchDiagrams = {
   },
 
   // =====================================================
-  // DIAGRAM: System Flow (v4.0 Architecture)
+  // DIAGRAM: System Flow
   // =====================================================
   renderMessageFlow(containerId) {
     const container = document.getElementById(containerId);
@@ -1541,7 +1541,7 @@ const FetchDiagrams = {
   },
 
   // =====================================================
-  // DIAGRAM: Context Pipeline (v3.4.0)
+  // DIAGRAM: Context Pipeline
   // =====================================================
   renderContextPipeline(containerId) {
     const container = document.getElementById(containerId);
@@ -1559,7 +1559,7 @@ const FetchDiagrams = {
       .attr('fill', colors.text)
       .attr('font-size', '20px')
       .attr('font-weight', '700')
-      .text('🧠 Context Pipeline (v4.0) — Multi-Turn Memory');
+      .text('🧠 Context Pipeline — Multi-Turn Memory');
 
     svg.append('text')
       .attr('x', 450)

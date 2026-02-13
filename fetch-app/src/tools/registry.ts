@@ -22,6 +22,7 @@ import {
   handleWorkspaceCreate,
   handleWorkspaceDelete,
   handleFileDelete,
+  handleFolderDelete,
   handleWorkspaceSync,
   handleWorkspacePublish,
   workspaceTools,
@@ -338,6 +339,7 @@ export class ToolRegistry {
       workspace_create: { h: handleWorkspaceCreate, s: ToolInputSchemas.workspace_create, d: DangerLevel.MODERATE },
       workspace_delete: { h: handleWorkspaceDelete, s: ToolInputSchemas.workspace_delete, d: DangerLevel.DANGEROUS },
       file_delete: { h: handleFileDelete, s: ToolInputSchemas.file_delete, d: DangerLevel.DANGEROUS },
+      folder_delete: { h: handleFolderDelete, s: ToolInputSchemas.folder_delete, d: DangerLevel.DANGEROUS },
       workspace_sync: { h: handleWorkspaceSync, s: ToolInputSchemas.workspace_sync, d: DangerLevel.MODERATE },
       workspace_publish: { h: handleWorkspacePublish, s: ToolInputSchemas.workspace_publish, d: DangerLevel.MODERATE },
 
