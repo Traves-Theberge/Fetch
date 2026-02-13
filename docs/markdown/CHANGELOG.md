@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.47] - 2026-02-13
+
+### Security
+
+- **Log Redaction** — Fixed a critical vulnerability where harness execution commands (including API keys in `-e` flags) were logged verbatim. Implemented `redactCommandArgs` to mask sensitive values (`API_KEY`, `TOKEN`, `SECRET`) in logs.
+- **Log Cleanup** — Removed compromised log files (`bridge_logs.txt`, `bridge_logs_full.txt`) from the repository and added them to `.gitignore`.
+
+### Fixed
+
+- **Sensitive Data Leak** — `spawner.ts` no longer logs raw environment variables during container spawning.
+
 ## [0.0.46] - 2026-02-13
 
 ### Added
