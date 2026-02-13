@@ -25,11 +25,15 @@ import {
   WorkspaceCreateInputSchema,
   WorkspaceDeleteInputSchema,
   WorkspaceSyncInputSchema,
+  WorkspacePublishInputSchema,
+  FileDeleteInputSchema,
   type WorkspaceSelectInput,
   type WorkspaceStatusInput,
   type WorkspaceCreateInput,
   type WorkspaceDeleteInput,
   type WorkspaceSyncInput,
+  type FileDeleteInput,
+  type WorkspacePublishInput,
 } from '../validation/tools.js';
 import type { ToolResult } from './types.js';
 
@@ -603,11 +607,6 @@ export async function handleWorkspaceSync(
 // workspace_publish
 // ============================================================================
 
-import {
-  WorkspacePublishInputSchema,
-  type WorkspacePublishInput,
-} from '../validation/tools.js';
-
 /**
  * Publish workspace to GitHub
  *
@@ -719,6 +718,76 @@ export async function handleWorkspacePublish(
 }
 
 // ============================================================================
+// file_delete
+// ============================================================================
+
+/**
+ * Delete a single file from a workspace
+ *
+ * @param input - Tool input (path, workspace, confirm)
+ * @returns Result summary
+ */
+export async function handleFileDelete(
+  input: unknown
+): Promise<ToolResult> {
+  const start = Date.now();
+
+  const parseResult = FileDeleteInputSchema.safeParse(input);
+  if (!parseResult.success) {
+    return {
+      success: false,
+      output: '',
+      error: `Invalid input: ${parseResult.error.message}`,
+      duration: Date.now() - start,
+    };
+  }
+
+  const { path, workspace, confirm } = parseResult.data as FileDeleteInput;
+
+  if (!confirm) {
+    return {
+      success: false,
+      output: '',
+      error: 'Deletion requires explicit confirmation. Set confirm: true to proceed.',
+      duration: Date.now() - start,
+    };
+  }
+
+  const workspaceId = workspace || workspaceManager.getActiveWorkspaceId();
+  if (!workspaceId) {
+    return {
+      success: false,
+      output: '',
+      error: 'No active workspace. Select a workspace first or provide a name.',
+      duration: Date.now() - start,
+    };
+  }
+
+  try {
+    await workspaceManager.deleteFile(workspaceId, path);
+
+    return {
+      success: true,
+      output: `Deleted file ${path} from workspace ${workspaceId}`,
+      summary: `Deleted ${path} in ${workspaceId}`,
+      duration: Date.now() - start,
+      metadata: {
+        workspace: workspaceId,
+        path,
+        deleted: true,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      output: '',
+      error: err instanceof Error ? err.message : String(err),
+      duration: Date.now() - start,
+    };
+  }
+}
+
+// ============================================================================
 // Tool Registry Integration
 // ============================================================================
 
@@ -752,9 +821,15 @@ export const workspaceTools = {
   },
   workspace_delete: {
     name: 'workspace_delete',
-    description: 'Delete a workspace permanently. IMPORTANT: Always call ask_user FIRST to confirm with the user, then call this tool with confirm: true in a single call. Never simulate a two-step confirmation — the user confirms via ask_user, then you call this with confirm: true immediately.',
+    description: 'Delete a workspace permanently. IMPORTANT: Always call ask_user FIRST condensing the request for delete, then call this tool with confirm: true. Never simulate a two-step confirmation — the user confirms via ask_user, then you call this with confirm: true immediately.',
     handler: handleWorkspaceDelete,
     schema: WorkspaceDeleteInputSchema,
+  },
+  file_delete: {
+    name: 'file_delete',
+    description: 'Delete a single file within a workspace. IMPORTANT: Always call ask_user FIRST condensing the request for delete, then call this tool with confirm: true. Never simulate a two-step confirmation — the user confirms via ask_user, then you call this with confirm: true immediately.',
+    handler: handleFileDelete,
+    schema: FileDeleteInputSchema,
   },
   workspace_sync: {
     name: 'workspace_sync',

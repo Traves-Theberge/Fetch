@@ -28,6 +28,61 @@ type BridgeStatus struct {
 	LastError    *string `json:"lastError"`    // Last error message (if any)
 }
 
+// SessionSummary represents a simplified session object for the list view
+type SessionSummary struct {
+	ID             string  `json:"id"`
+	UserID         string  `json:"userId"`
+	MessageCount   int     `json:"messageCount"`
+	LastActivityAt string  `json:"lastActivityAt"`
+	CreatedAt      string  `json:"createdAt"`
+	ActiveProject  *string `json:"activeProject"`
+}
+
+// SessionListResponse represents the response from the list sessions endpoint
+type SessionListResponse struct {
+	Success  bool             `json:"success"`
+	Sessions []SessionSummary `json:"sessions"`
+	Message  string           `json:"message"`
+}
+
+// ActionResponse represents a generic success/message response
+type ActionResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
+// ToolCallRequest represents a requested tool call
+type ToolCallRequest struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
+}
+
+// Message represents a single chat message
+type Message struct {
+	ID        string            `json:"id"`
+	Role      string            `json:"role"`
+	Content   string            `json:"content"`
+	ToolCalls []ToolCallRequest `json:"toolCalls,omitempty"`
+	Timestamp string            `json:"timestamp"`
+}
+
+// Session represents a full session with history
+type Session struct {
+	ID             string    `json:"id"`
+	UserID         string    `json:"userId"`
+	Messages       []Message `json:"messages"`
+	LastActivityAt string    `json:"lastActivityAt"`
+	CreatedAt      string    `json:"createdAt"`
+}
+
+// SessionDetailResponse represents the response from the get session endpoint
+type SessionDetailResponse struct {
+	Success bool    `json:"success"`
+	Session Session `json:"session"`
+	Message string  `json:"message"`
+}
+
 // Client provides HTTP access to the Fetch Bridge status and control APIs.
 type Client struct {
 	baseURL    string
@@ -157,4 +212,109 @@ func (c *Client) ReloadConfig(adminToken string) (*ConfigReloadResponse, error) 
 	}
 
 	return &result, nil
+}
+
+// ListSessions fetches the list of active sessions from the bridge.
+func (c *Client) ListSessions(adminToken string) ([]SessionSummary, error) {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+
+	req, err := http.NewRequest("GET", baseURL+"/api/sessions", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create list sessions request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to list sessions: status %d", resp.StatusCode)
+	}
+
+	var result SessionListResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode sessions response: %w", err)
+	}
+
+	return result.Sessions, nil
+}
+
+// GetSession fetches the full details of a specific session.
+func (c *Client) GetSession(adminToken, id string) (*Session, error) {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+
+	req, err := http.NewRequest("GET", baseURL+"/api/sessions/"+id, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create get session request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("unauthorized: invalid admin token")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get session: status %d", resp.StatusCode)
+	}
+
+	var result SessionDetailResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode session response: %w", err)
+	}
+
+	return &result.Session, nil
+}
+
+// DeleteSession deletes a session by ID.
+func (c *Client) DeleteSession(adminToken, sessionID string) error {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+
+	req, err := http.NewRequest("DELETE", baseURL+"/api/sessions/"+sessionID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to delete session: status %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// ClearSession clears message history for a session by ID.
+func (c *Client) ClearSession(adminToken, sessionID string) error {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+
+	req, err := http.NewRequest("POST", baseURL+"/api/sessions/"+sessionID+"/clear", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create clear request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to clear session: status %d", resp.StatusCode)
+	}
+
+	return nil
 }

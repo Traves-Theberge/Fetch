@@ -58,6 +58,7 @@ import path from 'path';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import { getVersion } from '../utils/version.js';
+import { getSessionManager } from '../session/manager.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -310,6 +311,150 @@ export function startStatusServer(): void {
     if (req.method === 'GET' && url === '/') {
       res.writeHead(302, { Location: '/docs/' });
       res.end();
+      return;
+    }
+
+
+
+    // GET /api/sessions
+    if (req.method === 'GET' && url === '/api/sessions') {
+      res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
+      try {
+        const manager = await getSessionManager();
+        const sessions = await manager.listSessions(100); // Limit to 100 for now
+
+        // Return simplified list
+        const summary = sessions.map(s => ({
+          id: s.id,
+          userId: s.userId,
+          messageCount: s.messages.length,
+          lastActivityAt: s.lastActivityAt,
+          createdAt: s.createdAt,
+          activeProject: s.currentProject?.name || null
+        }));
+
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, sessions: summary }));
+      } catch (err) {
+        logger.error('Failed to list sessions:', err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Internal server error' }));
+      }
+      return;
+    }
+
+    // GET /api/sessions/:id
+    if (req.method === 'GET' && url.match(/^\/api\/sessions\/[a-zA-Z0-9]+$/)) {
+      res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
+      const sessionId = url.split('/').pop();
+      if (!sessionId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
+        return;
+      }
+
+      try {
+        const manager = await getSessionManager();
+        const session = await manager.getSessionById(sessionId);
+
+        if (session) {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, session }));
+        } else {
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, message: 'Session not found' }));
+        }
+      } catch (err) {
+        logger.error(`Failed to get session ${sessionId}:`, err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Internal server error' }));
+      }
+      return;
+    }
+
+    // DELETE /api/sessions/:id
+    if (req.method === 'DELETE' && url.startsWith('/api/sessions/')) {
+      res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
+      const sessionId = url.split('/').pop();
+      if (!sessionId) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
+        return;
+      }
+
+      try {
+        const manager = await getSessionManager();
+        const success = await manager.deleteSession(sessionId);
+
+        if (success) {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Session deleted' }));
+        } else {
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, message: 'Session not found' }));
+        }
+      } catch (err) {
+        logger.error(`Failed to delete session ${sessionId}:`, err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Internal server error' }));
+      }
+      return;
+    }
+
+    // POST /api/sessions/:id/clear
+    if (req.method === 'POST' && url.match(/^\/api\/sessions\/[a-zA-Z0-9]+\/clear$/)) {
+      res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
+      const parts = url.split('/');
+      const sessionId = parts[3]; // /api/sessions/:id/clear
+
+      try {
+        const manager = await getSessionManager();
+        const cleared = await manager.clearSession(sessionId);
+
+        if (cleared) {
+          res.writeHead(200);
+          res.end(JSON.stringify({ success: true, message: 'Session cleared' }));
+        } else {
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, message: 'Session not found' }));
+        }
+      } catch (err) {
+        logger.error(`Failed to clear session ${sessionId}:`, err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Internal server error' }));
+      }
       return;
     }
 

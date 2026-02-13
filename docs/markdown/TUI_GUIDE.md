@@ -308,22 +308,36 @@ Allows you to browse past conversation histories, view full message transcripts,
 
 **Why:** Reviewing past tasks or cleaning up old sessions is essential for maintaining an organized workspace.
 
-**Controls:**
+**Controls (Session List):**
 
 | Key | Action |
-|-----|--------|
+| --- | --- |
 | `↑`/`↓` | Navigate session list |
 | `Enter` | View full message history for selected session |
 | `d` | Delete the selected session |
 | `C` | Clear ALL session history (requires confirmation) |
-| `Esc` | Return to main menu (or back to list from view) |
+| `Esc` | Return to main menu |
 
-**Message View:**
-Inside a session, messages are color-coded by role:
+**Controls (Message History):**
 
-- **User:** Green
-- **Assistant:** Cyan
-- **Tool:** Yellow (results) / Gray (calls)
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Scroll through messages |
+| `PgUp`/`PgDn` | Scroll by page |
+| `Home`/`End` | Jump to top/bottom |
+| `w` | Toggle word wrap |
+| `r` | Toggle raw/JSON mode (copyable) |
+| `c` | Copy selected message to clipboard |
+| `C` | Copy ALL messages in session to clipboard |
+| `Esc` | Return to session list |
+
+**Message Style:**
+Session history uses the same robust engine as the live Log Viewer:
+
+- **👤 USER**: Primary theme color (Bold)
+- **🐕 ASSISTANT**: Secondary theme color (Bold)
+- **🛠️ TOOL**: Muted theme color with italic formatting
+- **Timestamp**: Each message is timestamped for tracking conversation flow
 
 ---
 
@@ -338,6 +352,13 @@ Streams logs from the `fetch-bridge` container with parsed color-coded output.
 | Key | Action |
 |-----|--------|
 | `↑`/`↓` | Scroll through log output |
+| `PgUp`/`PgDn` | Scroll by half-page |
+| `Home`/`End` | Jump to top/bottom |
+| `w` | Toggle word wrap |
+| `r` | Toggle raw mode (raw JSON strings) |
+| `c` | Copy selected line |
+| `C` | Copy all visible logs |
+| `x` | Clear current log buffer |
 | `Esc` | Return to main menu |
 
 ---

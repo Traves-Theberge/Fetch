@@ -32,15 +32,17 @@ type screen int
 
 // Screen constants for navigation
 const (
-	screenSplash      screen = iota // Initial splash screen
-	screenMenu                      // Main menu
-	screenConfig                    // Configuration editor
-	screenLogs                      // Log viewer
-	screenStatus                    // System status
-	screenSetup                     // WhatsApp setup wizard
-	screenVersion                   // Version information
-	screenWhitelist                 // Trusted numbers manager
-	screenHarnessAuth               // Harness authentication screen
+	screenSplash         screen = iota // Initial splash screen
+	screenMenu                         // Main menu
+	screenConfig                       // Configuration editor
+	screenLogs                         // Log viewer
+	screenStatus                       // System status
+	screenSetup                        // WhatsApp setup wizard
+	screenVersion                      // Version information
+	screenWhitelist                    // Trusted numbers manager
+	screenHarnessAuth                  // Harness authentication screen
+	screenSessions                     // Session management screen
+	screenSessionHistory               // Detailed session message history
 )
 
 // Bubble Tea messages for async operations
@@ -56,6 +58,18 @@ type statusMsg struct {
 type actionResultMsg struct {
 	success bool
 	message string
+}
+
+// sessionsMsg carries the list of sessions
+type sessionsMsg struct {
+	sessions []status.SessionSummary
+	err      error
+}
+
+// sessionDetailMsg carries the full details of a session
+type sessionDetailMsg struct {
+	session *status.Session
+	err     error
 }
 
 // logMsg carries log lines from container logs
@@ -79,6 +93,15 @@ const (
 	harnessOpenCode                  // opencode auth
 	harnessCodex                     // codex login
 )
+
+func (m model) fetchSessionDetailCmd(id string) tea.Cmd {
+	return func() tea.Msg {
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		session, err := m.statusClient.GetSession(adminToken, id)
+		return sessionDetailMsg{session: session, err: err}
+	}
+}
 
 // harnessAuthStatus represents the auth state for a single CLI harness
 type harnessAuthStatus struct {
@@ -131,6 +154,9 @@ type tickMsg time.Time
 // qrRefreshTickMsg triggers the QR code refresh countdown
 type qrRefreshTickMsg time.Time
 
+// logTickMsg triggers periodic log updates
+type logTickMsg time.Time
+
 // splashDoneMsg signals splash screen timeout
 type splashDoneMsg struct{}
 
@@ -150,6 +176,7 @@ type model struct {
 	actionSuccess    bool
 	logLines         []string
 	logViewer        *components.LogViewer
+	historyViewer    *components.LogViewer
 	configEditor     *config.Editor
 	modelSelector    *models.Selector
 	whitelistManager *config.WhitelistManager
@@ -171,6 +198,12 @@ type model struct {
 	qrProgress     progress.Model
 	qrCountdown    int // Seconds remaining until refresh
 	qrMaxCountdown int // Total countdown time
+	// Session management state
+	sessions       []status.SessionSummary
+	sessionCursor  int
+	sessionLoading bool
+	currentSession *status.Session
+	historyLoading bool
 }
 
 func initialModel() model {
@@ -199,6 +232,7 @@ func initialModel() model {
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
 		{Icon: "\u2699\ufe0f ", Label: "Settings"},
+		{Icon: "\U0001f4ac", Label: "Global Sessions"},
 		{Icon: "\u2139\ufe0f ", Label: "Version"},
 		{Icon: "\u274c", Label: "Exit"},
 	}, 40)
@@ -215,6 +249,7 @@ func initialModel() model {
 		statusClient:   status.NewClient(),
 		versionInfo:    components.DefaultVersionInfo(),
 		logViewer:      components.NewLogViewer(80, 24),
+		historyViewer:  components.NewLogViewer(80, 24),
 		qrProgress:     prog,
 		qrCountdown:    qrCountdown,
 		qrMaxCountdown: qrCountdown,
@@ -298,6 +333,13 @@ func fetchBridgeStatusCmd(client *status.Client) tea.Cmd {
 	}
 }
 
+// Tick for log updates (every 1 second)
+func logTickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return logTickMsg(t)
+	})
+}
+
 // Tick for polling bridge status
 func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
@@ -319,6 +361,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		if m.logViewer != nil {
 			m.logViewer.SetSize(msg.Width, msg.Height)
+		}
+		if m.historyViewer != nil {
+			m.historyViewer.SetSize(msg.Width, msg.Height)
 		}
 		return m, nil
 
@@ -422,6 +467,52 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case sessionsMsg:
+		m.sessionLoading = false
+		if msg.err == nil {
+			m.sessions = msg.sessions
+		} else {
+			m.actionMessage = fmt.Sprintf("Error fetching sessions: %v", msg.err)
+			m.actionSuccess = false
+		}
+		return m, nil
+
+	case sessionDetailMsg:
+		m.historyLoading = false
+		if msg.err == nil {
+			m.currentSession = msg.session
+			if m.historyViewer != nil && msg.session != nil {
+				entries := make([]components.LogEntry, 0, len(msg.session.Messages))
+				for _, msg := range msg.session.Messages {
+					t, _ := time.Parse(time.RFC3339, msg.Timestamp)
+
+					// Combine content and tool calls for the log message
+					fullMsg := msg.Content
+					if len(msg.ToolCalls) > 0 {
+						if fullMsg != "" {
+							fullMsg += "\n"
+						}
+						for _, tc := range msg.ToolCalls {
+							fullMsg += fmt.Sprintf("  🛠️ Tool: %s(%s)", tc.Name, tc.Arguments)
+						}
+					}
+
+					entries = append(entries, components.LogEntry{
+						Timestamp: t,
+						Level:     strings.ToUpper(msg.Role),
+						Source:    "bridge",
+						Message:   fullMsg,
+					})
+				}
+				m.historyViewer.SetLogs(entries)
+			}
+		} else {
+			m.actionMessage = fmt.Sprintf("Error fetching history: %v", msg.err)
+			m.actionSuccess = false
+			m.screen = screenSessions
+		}
+		return m, nil
+
 	case models.ModelSavedMsg:
 		if m.modelSelector != nil {
 			m.modelSelector, _ = m.modelSelector.Update(msg)
@@ -454,6 +545,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			percent := float64(m.qrCountdown) / float64(m.qrMaxCountdown)
 			cmd := m.qrProgress.SetPercent(percent)
 			return m, tea.Batch(cmd, qrRefreshTickCmd())
+		}
+		return m, nil
+
+	case logTickMsg:
+		// Only fetch logs and schedule next tick if we are on the logs screen
+		if m.screen == screenLogs {
+			return m, tea.Batch(fetchLogs, logTickCmd())
 		}
 		return m, nil
 
@@ -491,6 +589,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateVersion(msg)
 		case screenHarnessAuth:
 			return m.updateHarnessAuth(msg)
+		case screenSessions:
+			return m.updateSessions(msg)
+		case screenSessionHistory:
+			if m.historyViewer != nil {
+				// Intercept Escape to go back
+				if msg.String() == "esc" {
+					m.screen = screenSessions
+					m.currentSession = nil
+					return m, nil
+				}
+				// Otherwise delegate to viewer (for scrolling, etc)
+				var cmd tea.Cmd
+				m.historyViewer, cmd = m.historyViewer.Update(msg)
+				return m, cmd
+			}
+			return m.updateSessionHistory(msg)
 		}
 	}
 
@@ -522,17 +636,21 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
 		case 3: // View Logs
 			m.screen = screenLogs
-			return m, fetchLogs
+			return m, tea.Batch(fetchLogs, logTickCmd())
 		case 4: // Documentation
 			return m, openDocs
 		case 5: // Settings (Sub-menu)
 			m.screen = screenConfig
 			m.configMode = 0 // Sub-menu mode
 			return m, nil
-		case 6: // Version
+		case 6: // Global Sessions
+			m.screen = screenSessions
+			m.sessionLoading = true
+			return m, m.fetchSessionsCmd()
+		case 7: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 7: // Exit
+		case 8: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -1146,6 +1264,187 @@ func switchGhAccountCmd(user string) tea.Cmd {
 	}
 }
 
+func (m model) updateSessions(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenMenu
+		return m, nil
+
+	case "up", "k":
+		if m.sessionCursor > 0 {
+			m.sessionCursor--
+		}
+
+	case "down", "j":
+		if m.sessionCursor < len(m.sessions)-1 {
+			m.sessionCursor++
+		}
+
+	case "r":
+		m.sessionLoading = true
+		return m, m.fetchSessionsCmd()
+
+	case "x": // Delete session
+		if len(m.sessions) == 0 {
+			return m, nil
+		}
+		sessionID := m.sessions[m.sessionCursor].ID
+		return m, m.deleteSessionCmd(sessionID)
+
+	case "c": // Clear session history
+		if len(m.sessions) == 0 {
+			return m, nil
+		}
+		sessionID := m.sessions[m.sessionCursor].ID
+		return m, m.clearSessionCmd(sessionID)
+
+	case "enter": // View session history
+		if len(m.sessions) == 0 {
+			return m, nil
+		}
+		sessionID := m.sessions[m.sessionCursor].ID
+		m.screen = screenSessionHistory
+		m.historyLoading = true
+		return m, m.fetchSessionDetailCmd(sessionID)
+	}
+	return m, nil
+}
+
+func (m model) fetchSessionsCmd() tea.Cmd {
+	return func() tea.Msg {
+		// Read ADMIN_TOKEN from .env for API authentication
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		sessions, err := m.statusClient.ListSessions(adminToken)
+		return sessionsMsg{sessions: sessions, err: err}
+	}
+}
+
+func (m model) deleteSessionCmd(id string) tea.Cmd {
+	return func() tea.Msg {
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		err := m.statusClient.DeleteSession(adminToken, id)
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to delete session: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "Session deleted"}
+	}
+}
+
+func (m model) clearSessionCmd(id string) tea.Cmd {
+	return func() tea.Msg {
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		err := m.statusClient.ClearSession(adminToken, id)
+		if err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to clear session: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "Session history cleared"}
+	}
+}
+
+func (m model) viewSessions() string {
+	width := m.width
+	if width == 0 {
+		width = 80
+	}
+
+	title := theme.Title.Render("Global Sessions")
+	subtitle := theme.Subtitle.Render(fmt.Sprintf("%d active sessions found", len(m.sessions)))
+
+	var content string
+	if m.sessionLoading && len(m.sessions) == 0 {
+		content = "\n  Loading sessions...\n"
+	} else if len(m.sessions) == 0 {
+		content = "\n  No active sessions found.\n"
+	} else {
+		header := lipgloss.NewStyle().
+			Foreground(theme.Primary).
+			Bold(true).
+			Render(fmt.Sprintf("%-10s %-15s %-10s %-20s %s", "ID", "User", "Msgs", "Last Activity", "Project"))
+
+		rows := []string{header, ""}
+
+		for i, s := range m.sessions {
+			style := lipgloss.NewStyle()
+			if i == m.sessionCursor {
+				style = style.Background(theme.Primary).Foreground(theme.Background).Bold(true)
+			} else {
+				style = style.Foreground(theme.TextPrimary)
+			}
+
+			project := "-"
+			if s.ActiveProject != nil {
+				project = *s.ActiveProject
+			}
+
+			lastActivity := s.LastActivityAt
+			if t, err := time.Parse(time.RFC3339, s.LastActivityAt); err == nil {
+				lastActivity = t.Format("01/02 15:04:05")
+			}
+
+			row := fmt.Sprintf("%-10s %-15s %-10d %-20s %s",
+				s.ID,
+				s.UserID,
+				s.MessageCount,
+				lastActivity,
+				project,
+			)
+			rows = append(rows, style.Render(row))
+		}
+		content = strings.Join(rows, "\n")
+	}
+
+	var actionMsg string
+	if m.actionMessage != "" {
+		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
+	}
+
+	help := lipgloss.NewStyle().
+		Foreground(theme.TextSecondary).
+		Render("\n  ↑/↓: Navigate • r: Refresh • x: Delete Session • c: Clear History • esc: Back")
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		title,
+		subtitle,
+		"",
+		actionMsg+content,
+		help,
+	)
+}
+
+func (m model) updateSessionHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		m.screen = screenSessions
+		m.currentSession = nil
+		return m, nil
+	case "r":
+		if m.currentSession != nil {
+			m.historyLoading = true
+			return m, m.fetchSessionDetailCmd(m.currentSession.ID)
+		}
+	}
+	return m, nil
+}
+
+func (m model) viewSessionHistory() string {
+	if m.historyLoading {
+		title := theme.Title.Render("Session History")
+		return lipgloss.JoinVertical(lipgloss.Left,
+			title,
+			"\n  Loading history...\n",
+		)
+	}
+
+	if m.historyViewer != nil {
+		return m.historyViewer.View()
+	}
+
+	return "\n  Initializing history viewer...\n"
+}
+
 func (m model) View() string {
 	if m.quitting {
 		return "\n  👋 Goodbye! Fetch is resting.\n\n"
@@ -1168,6 +1467,10 @@ func (m model) View() string {
 		return m.viewVersion()
 	case screenHarnessAuth:
 		return m.viewHarnessAuth()
+	case screenSessions:
+		return m.viewSessions()
+	case screenSessionHistory:
+		return m.viewSessionHistory()
 	default:
 		return m.viewMenu()
 	}

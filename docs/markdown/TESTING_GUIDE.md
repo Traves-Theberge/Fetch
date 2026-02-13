@@ -202,7 +202,7 @@ Quick checks that existing features still work.
 
 ### 4.1 Safety Escape Commands
 
-- [ ] `/status` — returns system status with version **v4.7.0**
+- [ ] `/status` — returns system status with version **v0.1.0**
 - [ ] `/help` — returns command list (includes `/usage`)
 - [ ] `/usage` — returns OpenRouter API usage (total, daily, weekly, monthly, limit)
 - [ ] `/trust list` — shows trusted numbers (owner only)

@@ -152,14 +152,10 @@ export class CodexAdapter extends AbstractHarnessAdapter {
         // Ensure non-interactive environment
         CI: 'true',
         TERM: 'dumb',
-        // API key auth (priority: Codex -> OpenAI -> OpenRouter)
+        // API key auth (priority: Codex -> OpenAI)
+        // If no keys are present, Codex CLI will use its local session (subscription)
         ...(env.CODEX_API_KEY ? { CODEX_API_KEY: env.CODEX_API_KEY } : {}),
         ...(env.OPENAI_API_KEY ? { OPENAI_API_KEY: env.OPENAI_API_KEY } : {}),
-        // Fallback to OpenRouter if no other key is present
-        ...(!env.CODEX_API_KEY && !env.OPENAI_API_KEY && env.OPENROUTER_API_KEY ? {
-          OPENAI_API_KEY: env.OPENROUTER_API_KEY,
-          OPENAI_BASE_URL: 'https://openrouter.ai/api/v1'
-        } : {}),
       },
       cwd: workspacePath,
       timeoutMs,

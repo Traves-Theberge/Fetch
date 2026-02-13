@@ -384,9 +384,21 @@ async function handleWithTools(
   const history = buildMessageHistory(session);
 
   // On retry (including 400 bad request), simplify context to avoid repeating the same oversized payload
-  const finalHistory = attempt > 1
+  let finalHistory = attempt > 1
     ? history.slice(-4) // Keep last 4 messages to ensure tool_call + tool_result pairs are preserved
     : history;
+
+  // SANITY CHECK: Ensure we didn't slice in the middle of a tool output pair
+  while (finalHistory.length > 0 && finalHistory[0].role === 'tool') {
+    // If we have the full history available, try to grab the parent
+    const firstMsgIndex = history.indexOf(finalHistory[0]);
+    if (firstMsgIndex > 0) {
+      finalHistory.unshift(history[firstMsgIndex - 1]);
+    } else {
+      // If we can't find the parent, drop the orphan tool output
+      finalHistory.shift();
+    }
+  }
 
   // Build messages
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -533,7 +545,7 @@ async function handleWithTools(
             task_create: 'setting up the task',
           };
           const label = toolLabels[toolName] ?? toolName;
-          progressCb(`🐕 Still ${label}... 🔄`).catch(() => {});
+          progressCb(`🐕 Still ${label}... 🔄`).catch(() => { });
         }, 4000);
       }
 
@@ -772,6 +784,15 @@ function extractToolArgsFromMessage(
       return null;
     }
 
+    case 'file_delete': {
+      // "delete file src/index.ts", "remove main.py"
+      const match = msg.match(/(?:delete|remove|destroy|unlink)\s+(?:the\s+)?(?:file\s+)?([a-zA-Z0-9_.\-/]+)/i);
+      if (match?.[1]) {
+        return { path: match[1], confirm: false }; // Always require explicit confirmation
+      }
+      return null;
+    }
+
     case 'task_create': {
       // For task_create, the full message IS the goal
       if (msg.length > 5) {
@@ -801,7 +822,27 @@ function buildMessageHistory(
   session: Session,
   maxMessages = pipeline.historyWindow
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-  const recent = session.messages.slice(-maxMessages);
+  let recent = session.messages.slice(-maxMessages);
+
+  // SANITY CHECK: Ensure we didn't slice in the middle of a tool output pair
+  // If the first message is a tool output, we must include its parent assistant message
+  while (recent.length > 0 && recent[0].role === 'tool') {
+    const firstMsgIndex = session.messages.indexOf(recent[0]);
+    if (firstMsgIndex > 0) {
+      // Try to grab the parent message
+      const parent = session.messages[firstMsgIndex - 1];
+      if (parent.role === 'assistant' && parent.toolCalls) {
+        recent.unshift(parent);
+      } else {
+        // Parent is missing or invalid type? Drop this orphan tool output.
+        recent.shift();
+      }
+    } else {
+      // No parent exists in session? Drop orphan.
+      recent.shift();
+    }
+  }
+
   const result: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
 
   for (const msg of recent) {

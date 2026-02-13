@@ -144,6 +144,29 @@ export const WorkspaceDeleteInputSchema = z
   .describe('Delete a workspace (requires explicit confirmation)');
 
 /**
+ * file_delete - Delete a single file from a workspace
+ */
+export const FileDeleteInputSchema = z
+  .object({
+    /** Path to the file to delete */
+    path: z.string().min(1, 'File path is required').describe('Relative path to the file to delete'),
+
+    /** Workspace name (optional, uses active workspace if not specified) */
+    workspace: WorkspaceNameSchema.optional().describe(
+      'Workspace name (uses active workspace if not specified)'
+    ),
+
+    /** Confirmation that user wants to delete */
+    confirm: z.boolean()
+      .refine((val) => val === true, {
+        message: 'Must explicitly confirm deletion by setting confirm: true',
+      })
+      .describe('Must be true to confirm deletion'),
+  })
+  .strict()
+  .describe('Delete a specific file from a workspace. Use this for simple file removal or deleting untracked files.');
+
+/**
  * workspace_sync - Sync workspace to GitHub (commit + push)
  */
 export const WorkspaceSyncInputSchema = z
@@ -200,7 +223,7 @@ export const TaskCreateInputSchema = z
     /** Which agent to use (default: auto) */
     agent: AgentSelectionSchema.optional()
       .default('auto')
-      .describe('Agent to use. If multiple agents are enabled AND the user has not specified a preference, you MUST call ask_user BEFORE calling this tool. Omit or use "auto" for system default.'),
+      .describe('Coding agent to use for specialized work. If multiple agents are enabled AND the user has not specified a preference, you MUST call ask_user BEFORE calling this tool to clarify the choice.'),
 
     /** Workspace name (uses active workspace if not specified) */
     workspace: WorkspaceNameSchema.optional().describe(
@@ -213,7 +236,7 @@ export const TaskCreateInputSchema = z
       .describe('Task timeout in milliseconds (default: 5 minutes)'),
   })
   .strict()
-  .describe('Create a new coding task to be executed by a harness');
+  .describe('Create a new coding task for complex work (refactoring, features). NEVER use this for simple file deletion or single-file removal.');
 
 /**
  * task_status - Get status of a task
@@ -652,6 +675,7 @@ export const ToolInputSchemas = {
   workspace_delete: WorkspaceDeleteInputSchema,
   workspace_sync: WorkspaceSyncInputSchema,
   workspace_publish: WorkspacePublishInputSchema,
+  file_delete: FileDeleteInputSchema,
   // Task tools (4)
   task_create: TaskCreateInputSchema,
   task_status: TaskStatusInputSchema,
@@ -692,6 +716,7 @@ export type WorkspaceSelectInput = z.infer<typeof WorkspaceSelectInputSchema>;
 export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;
 export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInputSchema>;
 export type WorkspaceDeleteInput = z.infer<typeof WorkspaceDeleteInputSchema>;
+export type FileDeleteInput = z.infer<typeof FileDeleteInputSchema>;
 export type WorkspaceSyncInput = z.infer<typeof WorkspaceSyncInputSchema>;
 export type WorkspacePublishInput = z.infer<typeof WorkspacePublishInputSchema>;
 export type TaskCreateInput = z.infer<typeof TaskCreateInputSchema>;

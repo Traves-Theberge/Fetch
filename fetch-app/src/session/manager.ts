@@ -107,8 +107,31 @@ export class SessionManager {
   /**
    * Update a session
    */
+
+
   async updateSession(session: Session): Promise<void> {
     await this.store.update(session);
+  }
+
+  /**
+   * List all sessions (paginated)
+   */
+  async listSessions(limit: number = 50, offset: number = 0): Promise<Session[]> {
+    return this.store.list(limit, offset);
+  }
+
+  /**
+   * Delete a session
+   */
+  async deleteSession(sessionId: string): Promise<boolean> {
+    return this.store.delete(sessionId);
+  }
+
+  /**
+   * Clear a session
+   */
+  async clearSession(sessionId: string): Promise<Session | undefined> {
+    return this.store.clear(sessionId);
   }
 
   // ============================================================================
@@ -122,7 +145,7 @@ export class SessionManager {
     const message = createMessage('user', content);
     session.messages.push(message);
     await this.store.update(session);
-    
+
     // Compact if message count exceeds threshold
     this.compactIfNeeded(session).then(() => {
       this.compactionFailures.delete(session.id);
@@ -172,13 +195,13 @@ export class SessionManager {
    * Add a tool call message to the session
    */
   async addToolMessage(
-    session: Session, 
+    session: Session,
     toolCall: ToolCall,
     content?: string,
     toolCallId?: string
   ): Promise<Message> {
     const message = createMessage(
-      'tool', 
+      'tool',
       content || `Tool: ${toolCall.name}`,
       toolCall
     );

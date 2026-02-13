@@ -28,7 +28,39 @@ Returns system health and WhatsApp connection state.
 | `qrUrl` | string\|null | URL to render QR code image when `state` is `qr_pending` |
 | `uptime` | number | Seconds since start |
 | `messageCount` | number | Messages processed this session |
-| `lastError` | string\|null | Most recent error message |
+| `lastError` | `string`\|`null` | Most recent error message |
+
+### GET /api/sessions/:id
+
+Returns the full message history for a specific session.
+
+**Response:**
+
+```json
+{
+  "id": "ses_1739572800",
+  "messages": [
+    {
+      "role": "user",
+      "content": "List my workspaces",
+      "timestamp": "2024-02-14T22:40:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "You have 3 workspaces: fetch-bridge, fetch-manager, and kennels.",
+      "timestamp": "2024-02-14T22:40:02Z"
+    }
+  ]
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Session ID |
+| `messages` | array | List of message objects |
+| `messages[].role` | `string` | `user`, `assistant`, or `tool` |
+| `messages[].content` | `string` | Raw message content |
+| `messages[].timestamp` | `string` | ISO 8601 timestamp |
 
 ### GET /api/health
 
@@ -134,7 +166,7 @@ Delete a workspace permanently. Requires explicit confirmation.
 
 #### file_delete
 
-Delete a specific file within the active workspace. Useful for cleanup or removing sensitive files. Requires user confirmation.
+Delete a specific file within the workspace. Use this for simple file removal or deleting untracked files. Requires explicit user confirmation.
 
 **Parameters:**
 
@@ -184,7 +216,7 @@ Create a new GitHub repository from an existing workspace and push all commits.
 
 #### task_create
 
-Create and start a new coding task. Delegates to a harness (Claude/Gemini/Copilot/OpenCode/Codex) running in the Kennel container via `docker exec`.
+Create and start a new coding task for complex work (refactoring, features). NEVER use this for simple file deletion or single-file removal. Delegates to a harness (Claude/Gemini/Copilot/OpenCode/Codex) running in the Kennel container via `docker exec`.
 
 **Parameters:**
 

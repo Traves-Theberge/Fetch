@@ -1,6 +1,13 @@
 # Changelog
 
-## [4.7.1] - 2026-02-13
+## [0.0.1] - 2026-02-13
+
+### Improved
+
+- **Tool Routing & Selection**: Refined tool descriptions for `task_create` and `file_delete` to prevent misclassification of simple requests.
+- **Autonomy Rules**: Updated high-priority prompt rules to skip agent selection for simple file operations, reducing clarification loops.
+
+## [0.0.44] - 2026-02-13
 
 ### Added
 
@@ -20,7 +27,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.7.0] - 2026-02-12
+## [0.0.43] - 2026-02-12
 
 ### Version Centralization & Agency Polish
 
@@ -52,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.6.1] - 2026-02-12
+## [0.0.42] - 2026-02-12
 
 ### Unified Harness Auth Screen + Codex Config + Docker Mount Fixes
 
@@ -86,7 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.6.0] - 2026-02-11
+## [0.0.41] - 2026-02-11
 
 ### Codex CLI — Fifth Harness (OpenAI Codex)
 
@@ -120,7 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.5.2] - 2026-02-11
+## [0.0.40] - 2026-02-11
 
 ### `/trust` Command — Owner-Only Whitelist Management via WhatsApp
 
@@ -144,7 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.5.1] - 2026-02-11
+## [0.0.39] - 2026-02-11
 
 ### `/usage` Command, Whitelist Hot-Reload, Duplicate Message Fix
 
@@ -169,7 +176,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [4.5.0] - 2026-02-11
+## [0.0.38] - 2026-02-11
 
 ### Project Intelligence, Hybrid Notifications, Narrative Tool Outputs
 
@@ -227,7 +234,7 @@ Three work streams that make Fetch smarter about the projects it works on, more 
 
 ---
 
-## [4.4.0] - 2026-02-11
+## [0.0.37] - 2026-02-11
 
 ### OpenCode Harness, Memory System Overhaul, TUI Cleanup
 
@@ -277,7 +284,7 @@ Three major work streams: a 4th AI harness adapter, a structured memory system w
 
 ---
 
-## [4.3.1] - 2026-02-11
+## [0.0.36] - 2026-02-11
 
 ### 🐕 Conversational & Tool Response Quality Improvements
 
@@ -316,7 +323,7 @@ Three major work streams: a 4th AI harness adapter, a structured memory system w
 
 ---
 
-## [4.3.0] - 2026-02-11
+## [0.0.35] - 2026-02-11
 
 ### 🛡️ Comprehensive Codebase Hardening — 50 Issues Resolved
 
@@ -419,7 +426,7 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 | Docker | `docker-compose.yml` |
 | Docs | `.env.example`, `docs/index.html` |
 
-## [4.2.0] - 2026-02-11
+## [0.0.34] - 2026-02-11
 
 ### 🔧 Harness, Identity, Skills & Tool System Hardening
 
@@ -490,7 +497,7 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 | `fetch-app/src/config/pipeline.ts` | Added `contextBudget` param (env: `FETCH_CONTEXT_BUDGET`) |
 | `fetch-app/src/skills/builtin/*/SKILL.md` | Added `harnessHint` to 6 built-in skills |
 
-## [4.1.1] - 2026-02-11
+## [0.0.33] - 2026-02-11
 
 ### 🎛️ TUI Layout Overhaul & Dead Code Cleanup
 
@@ -545,7 +552,7 @@ Major TUI improvements for the Fetch Manager, including a shared screen layout s
   - Back-to-top button, heading anchor links, improved tables
   - Responsive breakpoints: mobile (<768px), mid (769-1399px), wide (>1400px)
 
-## [4.1.0] - 2026-02-11
+## [0.0.32] - 2026-02-11
 
 ### 🌐 Web Fetch, Web Search & Browser Automation
 
@@ -623,7 +630,7 @@ Fetch gains 6 new tools for web content retrieval, search, and browser automatio
 - Private URL blocking prevents SSRF attacks (localhost, 127.x, 10.x, 172.16-31.x, 192.168.x, ::1, fe80:)
 - Browser tools default to disabled (`ENABLE_BROWSER=false`) since Playwright adds ~250MB to Kennel image
 
-## [4.0.7] - 2026-02-11
+## [0.0.31] - 2026-02-11
 
 ### 📖 Documentation & UX Overhaul
 
@@ -649,7 +656,7 @@ Fetch gains 6 new tools for web content retrieval, search, and browser automatio
 - **Accuracy Fix**: Updated outdated references stating Gemini Pro 1.5 as the default model; normalized documentation to point to `openai/gpt-4o-mini` per `src/config/env.ts`.
 - **Mermaid Reliability**: Fixed unhandled promise rejections in the diagram rendering engine.
 
-## [4.0.6] - 2026-02-10
+## [0.0.30] - 2026-02-10
 
 ### 🐙 GitHub Tools Expansion (8 New Tools)
 
@@ -709,7 +716,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - Read operations (`pr_list`, `pr_view`, `issue_list`, `action_status`, `search_repos`) are `DangerLevel.SAFE`
 - PR creation defaults to **draft mode** to prevent accidental merges
 
-## [4.0.5] - 2026-02-09
+## [0.0.29] - 2026-02-09
 
 ### 🔄 Hotreload & TUI UX
 
@@ -718,7 +725,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
   - **Benefit**: Ensures newly configured environment variables (like agent models) are applied immediately without manual Docker commands.
 - **Global Link Fix**: Streamlined the installation process for linking the local `fetch-manager` to the global `fetch` command.
 
-## [4.0.4] - 2026-02-09
+## [0.0.28] - 2026-02-09
 
 ### 🐛 Bug Fixes
 
@@ -748,7 +755,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 
 - **Reaction Filtering**: Updated `SecurityGate` to filter out historical WhatsApp reactions and non-whitelisted emoji reactions, preventing stale reactions from being processed as active input.
 
-## [4.0.3] - 2026-02-09
+## [0.0.27] - 2026-02-09
 
 ### ✨ UX Improvements
 
@@ -760,7 +767,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
   - **Fix**: Introduced `workspace_publish` for explicit, reliable creation of new GitHub repositories from existing local projects.
 - **Improved Tool Awareness**: Updated the system prompt to explicitly list all available tools and their categories for better ReAct loop performance.
 
-## [4.0.2] - 2026-02-09
+## [0.0.26] - 2026-02-09
 
 ### 🐛 Critical Bug Fixes
 
@@ -792,7 +799,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
   - **Issue**: The previous `gh copilot suggest` CLI syntax was deprecated/incorrect for the installed version.
   - **Fix**: Updated `fetch-app/src/harness/copilot.ts` to use `gh copilot --yolo -p` for headless execution.
 
-## [4.0.0] - 2026-02-07 (The Conversation IS the Interface 🐕)
+## [0.0.25] - 2026-02-07 (The Conversation IS the Interface 🐕)
 
 > Sprint 1 of the v4.0 Conversational Refactor — collapsing 5 pre-LLM routing layers into a single LLM-first architecture.
 > Based on competitive analysis of Claude Code, Goose, Cline, Aider, and Continue.dev.
@@ -841,7 +848,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 
 ---
 
-## [4.0.1] - 2026-02-08 (Dead Code Purge & Dependency Audit 🧹)
+## [0.0.24] - 2026-02-08 (Dead Code Purge & Dependency Audit 🧹)
 
 > Full codebase review sprint — systematic file-by-file audit of every src/ directory, config file, and dependency.
 
@@ -880,7 +887,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 
 ---
 
-## [3.5.0] - 2026-02-07 (Make It Feel Alive 🧠)
+## [0.0.23] - 2026-02-07 (Make It Feel Alive 🧠)
 
 > Full implementation of FIX_PLAN.md — addressing all critical issues found during live testing.
 > Goal: Make Fetch feel like an intelligent agent, not a boxy command processor.
@@ -928,7 +935,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - **Net impact:** +347 lines, −108 lines
 - **Commit:** `845aef5`
 
-## [3.4.0] - 2026-02-06 (Context Pipeline 🧠)
+## [0.0.22] - 2026-02-06 (Context Pipeline 🧠)
 
 ### 🧠 Phase 0 — Centralized Configuration Layer
 
@@ -959,7 +966,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - **New methods:** `compactIfNeeded()`, `generateCompactionSummary()` on `SessionManager`
 - **Commits:** `1db8814` (Phase 0), `91c2856` (Phase 1)
 
-## [3.3.0] - 2026-02-06 (Deep Refinement 🏗️)
+## [0.0.21] - 2026-02-06 (Deep Refinement 🏗️)
 
 ### 🏗️ Phase 4 — Architecture Simplification
 
@@ -1003,7 +1010,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - **Deleted files:** `task/queue.ts` (267 lines), `tests/e2e/` directory (moved)
 - **Net impact:** ~1,400 lines deleted, ~1,800 lines changed/added
 
-## [3.2.1] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
+## [0.0.20] - 2026-02-05 (Runtime Fixes, Security Hardening & Dead Code Purge 🔒)
 
 ### 🔴 Runtime Crash Fixes (P0)
 
@@ -1036,7 +1043,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 
 - `session/store.ts`, `harness/executor.ts`, `harness/spawner.ts`, `harness/pool.ts`, `tools/task.ts`, `index.ts`, `tools/registry.ts`, `workspace/manager.ts`, `commands/parser.ts`, `api/status.ts`, `security/validator.ts`, `agent/whatsapp-format.ts`, `utils/logger.ts`, `config/paths.ts`, plus 11 doc files
 
-## [3.2.0] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
+## [0.0.19] - 2026-02-05 (Identity & Skills Pipeline Unification 🧬)
 
 ### 🧬 Unified Identity Pipeline
 
@@ -1077,7 +1084,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - `data/agents/claude.md`, `gemini.md`, `copilot.md` — New agent profiles with YAML frontmatter
 - `data/agents/ROUTING.md` — Pack routing rules reference
 
-## [3.1.1] - 2026-02-05 (Code Audit & State Architecture 🧹)
+## [0.0.18] - 2026-02-05 (Code Audit & State Architecture 🧹)
 
 ### 🧹 Comprehensive Code Audit
 
@@ -1099,7 +1106,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - Updated README.md — fixed project structure, removed dead module references, corrected V2→V3 terminology.
 - Synced root and docs CHANGELOGs to parity.
 
-## [3.1.0] - 2026-02-05 (The Responsive Orchestrator)
+## [0.0.17] - 2026-02-05 (The Responsive Orchestrator)
 
 ### 🎭 Dynamic Identity System
 
@@ -1118,7 +1125,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - **Resurrection:** If the server crashes during a task, Fetch wakes up, checks the DB, restores the state, and resumes work (or alerts the user).
 - **Thread Management:** Introduction of `/thread` commands for switching contexts and manually archiving conversations.
 
-## [3.0.0] - 2026-02-04 (The Orchestrator Architecture)
+## [0.0.16] - 2026-02-04 (The Orchestrator Architecture)
 
 ### 🏗️ Core Architecture Overhaul
 
@@ -1136,7 +1143,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - **Modular Capabilities:** Created a plugin-like system for "Skills" (Git, Docker, React, etc.) defined in Markdown files.
 - **Auto-Loading:** Skills are automatically discovered and loaded on startup.
 
-## [2.4.4] - 2026-02-04 (Stability & Voice Fix 🎙️)
+## [0.0.15] - 2026-02-04 (Stability & Voice Fix 🎙️)
 
 ### 🔧 Bug Fixes
 
@@ -1164,7 +1171,7 @@ Improved Fetch's feedback loops and personality for a better WhatsApp experience
 - `agent/prompts.ts` - Rewrote CAPABILITIES to include all commands
 - `Dockerfile` - Fixed whisper binary copy command
 
-## [2.4.3] - 2026-02-04 (Zero Trust Bonding 🔐)
+## [0.0.14] - 2026-02-04 (Zero Trust Bonding 🔐)
 
 ### 🔐 Phone Number Whitelist (Issue #13)
 
@@ -1192,7 +1199,7 @@ Is sender in whitelist? → Yes → ALLOW
 DROP (silent)
 ```
 
-## [2.4.2] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
+## [0.0.13] - 2026-02-04 (Repo Maps & Media Intelligence 🗺️👀)
 
 ### 🗺️ Smart Repo Maps (Issue #9)
 
@@ -1220,7 +1227,7 @@ DROP (silent)
 - **Session Sync:** Fixed state synchronization issues where agent-initiated workspace changes weren't persisting.
 - **Self-Healing:** The agent now detects and automatically recovers from 429 Rate Limits and 500 errors.
 
-## [2.4.1] - 2026-02-04 (Harness Alignment & Diagnostics 🛠️)
+## [0.0.12] - 2026-02-04 (Harness Alignment & Diagnostics 🛠️)
 
 ### 🧩 Harness Interface Alignment
 
@@ -1241,7 +1248,7 @@ DROP (silent)
 - Fixed useless regex escape characters and unused variable warnings.
 - Achieved 100% test pass rate (104/104 tests) across Unit, E2E, and Integration suites.
 
-## [2.4.0] - 2026-02-04 (Reliability & Persistence 🔄 💾)
+## [0.0.11] - 2026-02-04 (Reliability & Persistence 🔄 💾)
 
 ### 🔄 Better Error Recovery & Retry Logic
 
@@ -1263,7 +1270,7 @@ DROP (silent)
 - Added essential developer tools (`jq`, `tree`, `build-essential`) to the sandbox.
 - Reduced image layers by grouping installations.
 
-## [2.3.0] - 2026-02-04 (Auto-scaffold Templates 🛠️)
+## [0.0.10] - 2026-02-04 (Auto-scaffold Templates 🛠️)
 
 ### 🛠️ Workspace Scaffolding Improvements
 
@@ -1309,7 +1316,7 @@ Auto-scaffolding for new workspaces using popular project templates.
 
 ---
 
-## [2.2.0] - 2026-02-04 (Test Harness Integration 🧪)
+## [0.0.9] - 2026-02-04 (Test Harness Integration 🧪)
 
 ### 🧪 Harness Integration Testing
 
@@ -1344,7 +1351,7 @@ Comprehensive integration test suite for the CLI harness adapters (Claude, Gemin
 
 ---
 
-## [2.1.2] - 2026-02-03 (SQLite Cleanup 🗄️)
+## [0.0.8] - 2026-02-03 (SQLite Cleanup 🗄️)
 
 ### 🗄️ Database Cleanup
 
@@ -1369,7 +1376,7 @@ Removed all remnants of the old lowdb/JSON-based session storage.
 
 ---
 
-## [2.1.1] - 2026-02-03 (Documentation & Diagrams Update 📊)
+## [0.0.7] - 2026-02-03 (Documentation & Diagrams Update 📊)
 
 ### 📊 Architecture Visualization Improvements
 
@@ -1402,7 +1409,7 @@ Enhanced documentation with better diagrams and clearer intent classification.
 
 ---
 
-## [2.1.0] - 2026-02-03 (Good Boy Update 🐕)
+## [0.0.6] - 2026-02-03 (Good Boy Update 🐕)
 
 ### 🐕 "Good Boy" Personality Enhancement
 
@@ -1458,7 +1465,7 @@ Fetch is now a proper good boy who just wants to help! Woof!
 
 ---
 
-## [2.0.1] - 2026-02-03 (Prompt Engineering Update)
+## [0.0.5] - 2026-02-03 (Prompt Engineering Update)
 
 ### 🐕 "Good Sniffer Dog" Prompt Engineering
 
@@ -1520,7 +1527,7 @@ Major prompt engineering improvements to make Fetch a better companion.
 
 ---
 
-## [2.0.0] - 2026-02-03 (Fetch-v2-demo)
+## [0.0.4] - 2026-02-03 (Fetch-v2-demo)
 
 ### 🚀 Major Architecture Change: Orchestrator Model
 
@@ -1660,7 +1667,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 ---
 
-## [1.1.0] - 2026-02-02
+## [0.0.3] - 2026-02-02
 
 ### Added
 
@@ -1702,7 +1709,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 ---
 
-## [0.2.0] - 2026-02-02
+## [0.0.2] - 2026-02-02
 
 ### Added
 
@@ -1725,7 +1732,7 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 ---
 
-## [0.1.0] - 2026-02-01
+## [0.0.1] - 2026-02-01
 
 ### Added
 
@@ -1752,66 +1759,66 @@ FETCH_V2_ROLLOUT_PERCENT=100
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 4.3.0 | 2026-02-11 | Comprehensive Codebase Hardening (50 Issues) |
-| 4.2.0 | 2026-02-11 | Harness, Identity, Skills & Tool Hardening |
-| 4.1.1 | 2026-02-11 | TUI Layout Overhaul & Dead Code Cleanup |
-| 4.1.0 | 2026-02-11 | Web Fetch, Web Search & Browser Automation |
-| 4.0.7 | 2026-02-11 | Documentation & UX Overhaul |
-| 4.0.6 | 2026-02-10 | GitHub Tools Expansion (8 New Tools) |
-| 4.0.5 | 2026-02-09 | Hotreload & TUI UX |
-| 4.0.4 | 2026-02-09 | Bug Fixes & TUI Configuration |
-| 4.0.3 | 2026-02-09 | New `workspace_publish` Tool |
-| 4.0.2 | 2026-02-09 | Session Recursion & Bug Fixes |
-| 4.0.1 | 2026-02-08 | Dead Code Purge & Dependency Audit |
-| 4.0.0 | 2026-02-07 | The Conversation IS the Interface |
-| 3.5.0 | 2026-02-07 | Make It Feel Alive |
-| 3.4.0 | 2026-02-06 | Context Pipeline |
-| 3.3.0 | 2026-02-06 | Deep Refinement |
-| 3.2.1 | 2026-02-05 | Runtime Fixes, Security Hardening & Dead Code Purge |
-| 3.2.0 | 2026-02-05 | Identity & Skills Pipeline Unification |
-| 3.1.1 | 2026-02-05 | Code Audit & State Architecture |
-| 3.1.0 | 2026-02-05 | Dynamic Identity, Skills, Crash Recovery |
-| 3.0.0 | 2026-02-04 | Orchestrator Architecture & Mode System |
-| 2.4.4 | 2026-02-04 | Stability & Voice Fix |
-| 2.4.3 | 2026-02-04 | Zero Trust Bonding |
-| 2.4.2 | 2026-02-04 | Repo Maps & Media Intelligence |
-| 2.4.1 | 2026-02-04 | Harness Alignment & Diagnostics |
-| 2.4.0 | 2026-02-04 | Reliability & Persistence |
-| 2.3.0 | 2026-02-04 | Auto-scaffold Templates |
-| 2.2.0 | 2026-02-04 | Test Harness Integration |
-| 2.1.2 | 2026-02-03 | SQLite Cleanup |
-| 2.1.1 | 2026-02-03 | Documentation & Diagrams |
-| 2.1.0 | 2026-02-03 | Good Boy Update |
-| 2.0.1 | 2026-02-03 | Prompt Engineering |
-| 2.0.0 | 2026-02-03 | V2 Orchestrator Architecture |
-| 1.1.0 | 2026-02-02 | 4-Mode Architecture & Zod Validation |
-| 0.2.0 | 2026-02-02 | TUI Redesign |
-| 0.1.0 | 2026-02-01 | Initial beta release |
+| 0.0.35 | 2026-02-11 | Comprehensive Codebase Hardening (50 Issues) |
+| 0.0.34 | 2026-02-11 | Harness, Identity, Skills & Tool Hardening |
+| 0.0.33 | 2026-02-11 | TUI Layout Overhaul & Dead Code Cleanup |
+| 0.0.32 | 2026-02-11 | Web Fetch, Web Search & Browser Automation |
+| 0.0.31 | 2026-02-11 | Documentation & UX Overhaul |
+| 0.0.30 | 2026-02-10 | GitHub Tools Expansion (8 New Tools) |
+| 0.0.29 | 2026-02-09 | Hotreload & TUI UX |
+| 0.0.28 | 2026-02-09 | Bug Fixes & TUI Configuration |
+| 0.0.27 | 2026-02-09 | New `workspace_publish` Tool |
+| 0.0.26 | 2026-02-09 | Session Recursion & Bug Fixes |
+| 0.0.24 | 2026-02-08 | Dead Code Purge & Dependency Audit |
+| 0.0.25 | 2026-02-07 | The Conversation IS the Interface |
+| 0.0.23 | 2026-02-07 | Make It Feel Alive |
+| 0.0.22 | 2026-02-06 | Context Pipeline |
+| 0.0.21 | 2026-02-06 | Deep Refinement |
+| 0.0.20 | 2026-02-05 | Runtime Fixes, Security Hardening & Dead Code Purge |
+| 0.0.19 | 2026-02-05 | Identity & Skills Pipeline Unification |
+| 0.0.18 | 2026-02-05 | Code Audit & State Architecture |
+| 0.0.17 | 2026-02-05 | Dynamic Identity, Skills, Crash Recovery |
+| 0.0.16 | 2026-02-04 | Orchestrator Architecture & Mode System |
+| 0.0.15 | 2026-02-04 | Stability & Voice Fix |
+| 0.0.14 | 2026-02-04 | Zero Trust Bonding |
+| 0.0.13 | 2026-02-04 | Repo Maps & Media Intelligence |
+| 0.0.12 | 2026-02-04 | Harness Alignment & Diagnostics |
+| 0.0.11 | 2026-02-04 | Reliability & Persistence |
+| 0.0.10 | 2026-02-04 | Auto-scaffold Templates |
+| 0.0.9 | 2026-02-04 | Test Harness Integration |
+| 0.0.8 | 2026-02-03 | SQLite Cleanup |
+| 0.0.7 | 2026-02-03 | Documentation & Diagrams |
+| 0.0.6 | 2026-02-03 | Good Boy Update |
+| 0.0.5 | 2026-02-03 | Prompt Engineering |
+| 0.0.4 | 2026-02-03 | V2 Orchestrator Architecture |
+| 0.0.3 | 2026-02-02 | 4-Mode Architecture & Zod Validation |
+| 0.0.2 | 2026-02-02 | TUI Redesign |
+| 0.0.1 | 2026-02-01 | Initial beta release |
 
-[4.3.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.2.0...v4.3.0
-[4.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.1.1...v4.2.0
-[4.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.1.0...v4.1.1
-[4.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.7...v4.1.0
-[4.0.7]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.6...v4.0.7
-[4.0.6]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.5...v4.0.6
-[4.0.5]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.4...v4.0.5
-[4.0.4]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.3...v4.0.4
-[4.0.3]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.2...v4.0.3
-[4.0.2]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.1...v4.0.2
-[4.0.1]: https://github.com/Traves-Theberge/Fetch/compare/v4.0.0...v4.0.1
-[4.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.5.0...v4.0.0
-[3.5.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.4.0...v3.5.0
-[3.4.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.3.0...v3.4.0
-[3.3.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.2.1...v3.3.0
-[3.2.1]: https://github.com/Traves-Theberge/Fetch/compare/v3.2.0...v3.2.1
-[3.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.1.1...v3.2.0
-[3.1.1]: https://github.com/Traves-Theberge/Fetch/compare/v3.1.0...v3.1.1
-[3.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v3.0.0...v3.1.0
-[3.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.4...v3.0.0
-[2.4.4]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.3...v2.4.4
-[2.4.3]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.2...v2.4.3
-[2.4.2]: https://github.com/Traves-Theberge/Fetch/compare/v2.4.1...v2.4.2
-[2.0.0]: https://github.com/Traves-Theberge/Fetch/compare/v1.1.0...v2.0.0
-[1.1.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.2.0...v1.1.0
-[0.2.0]: https://github.com/Traves-Theberge/Fetch/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/Traves-Theberge/Fetch/releases/tag/v0.1.0
+[0.0.35]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.34...v0.0.35
+[0.0.34]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.33...v0.0.34
+[0.0.33]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.32...v0.0.33
+[0.0.32]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.31...v0.0.32
+[0.0.31]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.30...v0.0.31
+[0.0.30]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.29...v0.0.30
+[0.0.29]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.28...v0.0.29
+[0.0.28]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.27...v0.0.28
+[0.0.27]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.26...v0.0.27
+[0.0.26]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.24...v0.0.26
+[0.0.24]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.25...v0.0.24
+[0.0.25]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.23...v0.0.25
+[0.0.23]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.22...v0.0.23
+[0.0.22]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.21...v0.0.22
+[0.0.21]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.20...v0.0.21
+[0.0.20]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.19...v0.0.20
+[0.0.19]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.18...v0.0.19
+[0.0.18]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.17...v0.0.18
+[0.0.17]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.16...v0.0.17
+[0.0.16]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.15...v0.0.16
+[0.0.15]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.14...v0.0.15
+[0.0.14]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.13...v0.0.14
+[0.0.13]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.12...v0.0.13
+[0.0.4]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.3...v0.0.4
+[0.0.3]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.2...v0.0.3
+[0.0.2]: https://github.com/Traves-Theberge/Fetch/compare/v0.0.1...v0.0.2
+[0.0.1]: https://github.com/Traves-Theberge/Fetch/releases/tag/v0.0.1

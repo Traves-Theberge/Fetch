@@ -248,6 +248,15 @@ func (l *LogViewer) renderLogs() {
 		case "SUCCESS", "OK":
 			levelStyle = lipgloss.NewStyle().Foreground(theme.Success)
 			levelIcon = "✅"
+		case "USER":
+			levelStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+			levelIcon = "👤"
+		case "ASSISTANT":
+			levelStyle = lipgloss.NewStyle().Foreground(theme.Secondary).Bold(true)
+			levelIcon = "🐕"
+		case "TOOL":
+			levelStyle = lipgloss.NewStyle().Foreground(theme.TextSecondary).Italic(true)
+			levelIcon = "🛠️ "
 		default:
 			levelStyle = lipgloss.NewStyle().Foreground(theme.TextPrimary)
 			levelIcon = "  "
@@ -451,7 +460,7 @@ func (l *LogViewer) View() string {
 			Render(" [raw]")
 	}
 
-	title := titleStyle.Render("📜 Fetch Logs") + scrollIndicator + wrapIndicator + rawIndicator
+	title := titleStyle.Render(l.getTitle()) + scrollIndicator + wrapIndicator + rawIndicator
 
 	// Log count and scroll position
 	filteredCount := 0
@@ -521,4 +530,13 @@ func (l *LogViewer) View() string {
 	)
 
 	return content
+}
+
+func (l *LogViewer) getTitle() string {
+	for _, entry := range l.logs {
+		if entry.Level == "USER" || entry.Level == "ASSISTANT" || entry.Level == "TOOL" {
+			return "💬 Session History"
+		}
+	}
+	return "📜 Fetch Logs"
 }

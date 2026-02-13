@@ -91,12 +91,12 @@ services:
       - ./workspace:/workspace
       # CLI Authentication (mounted from host, read-only)
       # Only mount directories that exist on host
-      - ~/.config/gh:/root/.config/gh:ro
-      - ~/.config/claude-code:/root/.config/claude-code:ro
-      - ~/.claude:/root/.claude:ro
+      - ~/.config/gh:/root/.config/gh
+      - ~/.config/claude-code:/root/.config/claude-code
+      - ~/.claude:/root/.claude
       - ~/.gemini:/root/.gemini
-      - ~/.config/opencode:/root/.config/opencode:ro
-      - ~/.codex:/root/.codex:ro
+      - ~/.config/opencode:/root/.config/opencode
+      - ~/.codex:/root/.codex
     working_dir: /workspace
     # Keep container running for exec commands
     command: [ "tail", "-f", "/dev/null" ]

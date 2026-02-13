@@ -178,6 +178,13 @@ export class HarnessExecutor extends EventEmitter {
 
     const outputHandler = (event: { id: HarnessId, type: string, data: string }) => {
       if (event.id === harnessId) {
+        // Log output for debugging (INFO level to force visibility)
+        if (event.type === 'stderr') {
+          logger.info(`[${harnessId}] stderr: ${event.data.trim()}`);
+        } else {
+          logger.info(`[${harnessId}] stdout: ${event.data.trim()}`);
+        }
+
         const timestamp = new Date().toISOString();
         const outputEvent: HarnessOutputEvent = {
           type: event.type as HarnessOutputEventType,

@@ -107,6 +107,7 @@ export class SessionStore {
   private stmtUpdate: Database.Statement | null = null;
   private stmtDelete: Database.Statement | null = null;
   private stmtCount: Database.Statement | null = null;
+  private stmtList: Database.Statement | null = null;
   private stmtCleanup: Database.Statement | null = null;
   private stmtMemoryInsert: Database.Statement | null = null;
   private stmtMemorySearch: Database.Statement | null = null;
@@ -128,10 +129,10 @@ export class SessionStore {
 
       // Open database
       this.db = new Database(this.dbPath);
-      
+
       // Enable WAL mode for better concurrency
       this.db.pragma('journal_mode = WAL');
-      
+
       // Create tables if they don't exist
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS sessions (
@@ -185,6 +186,7 @@ export class SessionStore {
       `);
       this.stmtDelete = this.db.prepare('DELETE FROM sessions WHERE id = ?');
       this.stmtCount = this.db.prepare('SELECT COUNT(*) as count FROM sessions');
+      this.stmtList = this.db.prepare('SELECT * FROM sessions ORDER BY last_activity_at DESC LIMIT ? OFFSET ?');
       this.stmtCleanup = this.db.prepare('DELETE FROM sessions WHERE last_activity_at < ?');
 
       // Memory statements
@@ -246,7 +248,7 @@ export class SessionStore {
     if (!row) {
       // Create new session
       const session = createSession(userId);
-      
+
       this.stmtInsert!.run({
         id: session.id,
         user_id: session.userId,
@@ -254,7 +256,7 @@ export class SessionStore {
         created_at: session.createdAt,
         last_activity_at: session.lastActivityAt,
       });
-      
+
       logger.info('Created new session', { sessionId: session.id, userId });
       return session;
     }
@@ -262,7 +264,7 @@ export class SessionStore {
     // Parse existing session
     const session = this.rowToSession(row);
     let needsUpdate = false;
-    
+
     // Migrate old sessions to have new fields
     if (session.availableProjects === undefined) {
       session.availableProjects = [];
@@ -276,14 +278,14 @@ export class SessionStore {
       session.activeFiles = [];
       needsUpdate = true;
     }
-    
+
     // Update last activity
     session.lastActivityAt = new Date().toISOString();
-    
+
     if (needsUpdate) {
       logger.info('Migrated session to new schema', { sessionId: session.id });
     }
-    
+
     // Always update activity timestamp
     this.stmtUpdate!.run({
       id: session.id,
@@ -319,13 +321,13 @@ export class SessionStore {
     this.ensureInitialized();
 
     session.lastActivityAt = new Date().toISOString();
-    
+
     const result = this.stmtUpdate!.run({
       id: session.id,
       data: JSON.stringify(session),
       last_activity_at: session.lastActivityAt,
     });
-    
+
     if (result.changes === 0) {
       throw new Error(`Session not found: ${session.id}`);
     }
@@ -338,7 +340,7 @@ export class SessionStore {
     this.ensureInitialized();
 
     const result = this.stmtDelete!.run(sessionId);
-    
+
     if (result.changes > 0) {
       logger.info('Deleted session', { sessionId });
       return true;
@@ -374,7 +376,7 @@ export class SessionStore {
 
     const expiryDate = new Date(Date.now() - SESSION_EXPIRY_MS).toISOString();
     const result = this.stmtCleanup!.run(expiryDate);
-    
+
     if (result.changes > 0) {
       logger.info('Cleaned up expired sessions', { count: result.changes });
     }
@@ -389,6 +391,15 @@ export class SessionStore {
     this.ensureInitialized();
     const result = this.stmtCount!.get() as { count: number };
     return result.count;
+  }
+
+  /**
+   * List sessions with pagination
+   */
+  async list(limit: number = 50, offset: number = 0): Promise<Session[]> {
+    this.ensureInitialized();
+    const rows = this.stmtList!.all(limit, offset) as SessionRow[];
+    return rows.map(row => this.rowToSession(row));
   }
 
   // ===========================================================================

@@ -1178,6 +1178,40 @@ export class WorkspaceManager extends EventEmitter {
     logger.info(`Deleted workspace: ${workspaceId}`);
   }
 
+  /**
+   * Delete a single file within a workspace.
+   * 
+   * @param workspaceId - Target workspace
+   * @param filePath - Relative path to file (or absolute inside /workspace)
+   * @throws Error if workspace or file not found
+   */
+  async deleteFile(workspaceId: WorkspaceId, filePath: string): Promise<void> {
+    const workspace = await this.getWorkspace(workspaceId);
+    if (!workspace) {
+      throw new Error(`Workspace not found: ${workspaceId}`);
+    }
+
+    const wsRoot = getWorkspacePath(workspaceId);
+
+    // Ensure the path is relative to wsRoot if it's not already absolute
+    let absolutePath = filePath;
+    if (!filePath.startsWith('/')) {
+      absolutePath = `${wsRoot}/${filePath}`;
+    }
+
+    // Security: Ensure the path is still within the workspace base
+    if (!absolutePath.startsWith(wsRoot)) {
+      throw new Error(`Security breach: Attempted to delete outside workspace! Path: ${absolutePath}`);
+    }
+
+    const result = await dockerExec('rm', ['-f', absolutePath]);
+    if (result.exitCode !== 0) {
+      throw new Error(`Failed to delete file: ${result.stderr || result.stdout}`);
+    }
+
+    logger.info(`Deleted file ${filePath} in workspace ${workspaceId}`);
+  }
+
   // ============================================================================
   // GitHub: Pull Requests
   // ============================================================================

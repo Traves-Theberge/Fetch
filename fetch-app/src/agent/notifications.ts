@@ -121,7 +121,7 @@ async function llmNotification(event: NotificationEvent, data: NotificationData)
       messages: [
         {
           role: 'system',
-          content: `You are writing a short WhatsApp notification (2-4 lines max) for a coding task result. Voice: ${voiceTone}. Be concise, informative, and natural. Include key facts (what changed, duration). No markdown headers. Use bold (*text*) sparingly for key items. Do NOT start with an emoji.`,
+          content: `You are writing a short WhatsApp notification (2-4 lines max) for a coding task result. Voice: ${voiceTone}. Be concise, informative, and natural. Include key facts (what changed, duration). If the task failed, state the specific technical reason (e.g., "Network timeout", "Syntax error"). Do NOT use generic phrases like "unexpected process error" or "something went wrong". No markdown headers. Use bold (*text*) sparingly for key items. Do NOT start with an emoji.`,
         },
         { role: 'user', content: userPrompt },
       ],
