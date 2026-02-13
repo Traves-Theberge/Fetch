@@ -14,7 +14,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 27 orchestrator tools.
+Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 29 orchestrator tools.
 
 The only slash commands that exist are **8 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
@@ -37,7 +37,7 @@ Everything else — including project switching, git operations, settings, ident
 
 ## Natural Language (Everything Else)
 
-The LLM has access to 27 orchestrator tools and decides which to call based on your message. Here are examples:
+The LLM has access to 29 orchestrator tools and decides which to call based on your message. Here are examples:
 
 ### Workspace Management
 
@@ -103,7 +103,7 @@ The LLM has access to 27 orchestrator tools and decides which to call based on y
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 28 tools:
+The LLM has access to these 29 tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|

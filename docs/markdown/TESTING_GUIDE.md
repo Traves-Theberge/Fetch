@@ -1,64 +1,48 @@
 # Testing Guide
 
-> Manual verification checklist for the three work streams via WhatsApp. Work through each section in order — later sections depend on earlier ones.
+> Manual verification checklist for Fetch’s WhatsApp workflow, tools, and metrics. Run sections in order; later phases depend on earlier setup.
 
 ## Prerequisites
 
-- [ ] Docker containers running (`docker compose up -d`)
-- [ ] Bridge logs show "Fetch is Ready!" (`docker logs -f fetch-bridge`)
-- [ ] WhatsApp connected (QR code scanned or session cached)
-- [ ] At least one workspace exists with files in it
+- [ ] Containers running: `docker compose up -d`
+- [ ] Bridge ready in logs: `docker logs -f fetch-bridge` (look for “Fetch is Ready!”)
+- [ ] WhatsApp connected (QR scanned or session cached)
+- [ ] At least one workspace exists and is accessible in `/workspace`
 
 ---
 
 ## Phase 1: Project Profiling
 
-Test that Fetch detects framework, package manager, test runner, and entry points when selecting a workspace.
+Validate that Fetch detects language, framework, package manager, test runner, and entry points.
 
-### 1.1 Workspace Selection (TypeScript/Node)
+### 1.1 Workspace Selection
 
 Send via WhatsApp:
 
 ```
-@fetch list my workspaces
+@fetch list workspaces
 ```
 
-- [x] Response lists workspaces with project type labels (e.g. "typescript", "node") — not raw JSON
-- [x] Active workspace is marked
-
-> [!NOTE]
-> Observed labels: `lab-test` correctly detected as "node". `github-test` and `my-app` are unlabeled (expected as they lack manifest files like `package.json`).
+- [ ] Response lists workspaces with human-friendly labels (no raw JSON)
+- [ ] Active workspace is clearly marked
 
 ```
-@fetch switch to <your-typescript-project>
+@fetch switch to <project-name>
 ```
 
-- [x] Response says "Switched to ..." with project type and branch info
-- [x] If the project has a framework (Next.js, Express, etc.), it should be mentioned
+- [ ] Response confirms workspace switch and shows branch + cleanliness
+- [ ] If a framework exists (Next.js, Express, etc.), it is mentioned
 
-> [!NOTE]
-> Observed labels: `lab-test` correctly detected as "node". `github-test` and `my-app` are unlabeled (expected as they lack manifest files like `package.json`).
-> Switch to `lab-test` confirmed detection: "Node.js, JavaScript, branch main, clean".
-
-### 1.2 Verify Profile in Context
+### 1.2 Profile in Context
 
 ```
 @fetch what do you know about this project?
 ```
 
-- [x] Response mentions the detected **language** (e.g. "TypeScript")
-- [ ] Response mentions the **framework** if one exists (e.g. "Next.js", "Express")
-- [x] Response mentions the **package manager** (e.g. "pnpm", "npm", "yarn")
-- [ ] Response mentions the **test runner** if detected (e.g. "vitest", "jest")
-- [x] Response mentions **entry points** (e.g. "src/index.ts")
-
-> [!NOTE]
-> `lab-test` profile verified:
->
-> - Language: Node.js (JavaScript)
-> - Entry point: index.js
-> - Package manager: npm (via "npm run build")
-> - No framework/test-runner detected (expected for this bare-bones workspace).
+- [ ] Language is correct (e.g., TypeScript, Go)
+- [ ] Package manager is correct (e.g., npm, pnpm, yarn)
+- [ ] Test runner is correct when present (e.g., vitest, jest)
+- [ ] Entry point(s) are detected (e.g., `src/index.ts`, `main.go`)
 
 ### 1.3 Profile Passed to Harness
 
@@ -66,310 +50,150 @@ Send via WhatsApp:
 @fetch use claude to add a hello world test
 ```
 
-- [x] Check bridge logs (`docker logs fetch-bridge | grep "Project Context"`) — should show the `--- Project Context ---` block with language, framework, and commands
-- [x] The harness should use the correct test command (e.g. `npx vitest run` not `npm test`) when writing or running tests
+- [ ] Bridge logs show `--- Project Context ---` with language/framework/commands
+- [ ] Harness chooses the correct test command for the project
+  - Example for this repo’s bridge (`fetch-app/`): `npm run test:run` or `npx vitest run`
 
-> [!NOTE]
-> Verified via `lab-test`: Copilot correctly identified the Node.js context, installed `jest`, created a test directory, and ran the tests successfully (50s duration).
+### 1.4 Multi-Project Spot Checks (Optional)
 
-### 1.4 Multiple Project Types (Optional)
+Repeat 1.1–1.3 for at least one other language:
 
-If you have workspaces of different types, repeat 1.1-1.2 for each:
-
-- [ ] **Python** project — detects pip/poetry, pytest, main.py or app.py
-- [ ] **Rust** project — detects cargo, `cargo test`, src/main.rs
-- [ ] **Go** project — detects go modules, `go test ./...`, main.go
+- [ ] Go project — detects `go test ./...`, `main.go`
+- [ ] Python project — detects `pytest`, entry point (`main.py`/`app.py`)
+- [ ] Rust project — detects `cargo test`, `src/main.rs`
 
 ---
 
-## Phase 2: Narrative Tool Outputs
+## Phase 2: Commands & Tool Inventory
 
-Verify that all tool responses are human-readable text, not JSON dumps.
+Verify safety commands and tool listings match what exists.
 
-### 2.1 Workspace Tools
+### 2.1 Safety Escapes (Deterministic)
 
-```
-@fetch list workspaces
-```
+Run each command (aliases in parentheses):
 
-- [x] Output is a sentence like "3 workspaces: my-app (active, TypeScript, main), api (Go, dev)" — **not** a JSON block
+- [ ] `/stop` (`/cancel`) — cancels a running task
+- [ ] `/undo` and `/undo all` — soft reset last commit / revert to task start
+- [ ] `/clear` (`/reset`) — clears conversation (confirmation expected)
+- [ ] `/help` (`/h`, `/?`) — shows help
+- [ ] `/status` (`/st`) — system + task status
+- [ ] `/version` (`/v`) — version info
+- [ ] `/usage` (`/u`) — OpenRouter usage
+- [ ] `/trust` — owner-only whitelist management (`list`, `add`, `remove`)
 
-```
-@fetch what's the status of this workspace?
-```
+### 2.2 Capability Trigger (Bypasses LLM)
 
-- [x] Output describes branch, modified files, ahead/behind in natural language — **not** JSON
-
-### 2.2 Task Tools
-
-```
-@fetch what's the current task status?
-```
-
-- [ ] If a task exists: output is a sentence like "Task tsk_Xy7z running (45s) — 'goal'. Last: progress msg"
-- [ ] If no task: a clear "no active task" message — **not** an error JSON blob
-
-### 2.3 GitHub Tools
+These messages should return the same help output as `/help`:
 
 ```
-@fetch list pull requests
+@fetch show me your tools
+@fetch what can you do
 ```
 
-- [ ] Output lists PRs as "3 open PRs: #1 'title' (open, by user), ..." — **not** JSON array
+- [ ] Output is the compact help message (not JSON)
+- [ ] Tool list matches the help formatter (expected to be a subset, not all tools)
+
+### 2.3 Full Tool Coverage (LLM Output)
+
+Ask the LLM directly:
 
 ```
+@fetch list all orchestrator tools with one-line descriptions
+```
+
+- [ ] Response lists 29 tools, including:
+  - Workspace: `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`, `file_delete`, `folder_delete`
+  - Task: `task_create`, `task_status`, `task_cancel`, `task_respond`
+  - Interaction: `ask_user`, `report_progress`
+  - GitHub: `github_pr_create`, `github_pr_list`, `github_pr_view`, `github_issue_create`, `github_issue_list`, `github_branch_create`, `github_action_status`, `github_search_repos`
+  - Web: `web_fetch`, `web_search`
+  - Browser: `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
+
+---
+
+## Phase 3: Tool Output Quality (No JSON Dumps)
+
+Verify tool responses are concise, human-readable summaries.
+
+### 3.1 Workspace Tools
+
+```
+@fetch what projects do I have?
+@fetch how's the project looking?
+```
+
+- [ ] Natural language summaries (no JSON arrays/objects)
+
+### 3.2 Task Tools
+
+```
+@fetch build a quick API endpoint for status
+@fetch how's the task going?
+@fetch cancel the current task
+```
+
+- [ ] Status includes goal, duration, and most recent progress line
+- [ ] Cancel is acknowledged clearly
+
+### 3.3 GitHub Tools
+
+```
+@fetch list open PRs on <org/repo>
 @fetch show GitHub actions status
 ```
 
-- [ ] Output lists workflow runs with pass/fail indicators — **not** raw JSON
+- [ ] Summaries show titles, status, and key fields without JSON
 
-### 2.4 Interaction Tools (Autonomy Check)
+### 3.4 Web & Browser Tools (Optional)
 
 ```
-@fetch should you proceed with this?
+@fetch search for "typescript vitest config"
+@fetch fetch the docs at <url>
 ```
 
-- [ ] If autonomy is not "supervised", the LLM should auto-approve (response contains "Auto-approved: Yes, proceed") — not a JSON object
+- [ ] Web results are summarized with sources, not raw HTML
 
 ---
 
-## Phase 3: Hybrid LLM Notifications
+## Phase 4: Task Notifications & Progress
 
-Verify that task notifications are varied and natural-sounding.
-
-### 3.1 Task Started Notification
-
-```
-@fetch use claude to fix the README formatting
-```
-
-- [ ] WhatsApp notification for task start is a natural sentence (not just "Task started")
-- [ ] The notification includes the goal text
-
-### 3.2 Notification Variety
-
-Run the same type of task 3 times (can cancel after the started notification):
+### 4.1 Task Started
 
 ```
 @fetch use copilot to explain the main entry point
 ```
 
-```
-/stop
-```
+- [ ] Start notification includes goal + selected harness
 
-(repeat 3 times)
+### 4.2 Progress Updates
 
-- [ ] At least 2 of the 3 "started" notifications have **different wording** (not identical templates)
+During a longer task:
 
-### 3.3 Task Completion Notification
+- [ ] Progress messages are varied and action-specific (e.g., “running tests”)
 
-Let a task run to completion:
+### 4.3 Task Completion
 
-```
-@fetch use claude to add a comment to the main entry point file
-```
+Let a task finish:
 
-- [ ] Completion notification mentions the **summary** of what was done
-- [ ] Completion notification includes **file counts** (e.g. "3 modified")
-- [ ] Completion notification includes **duration** (e.g. "45s")
-- [ ] Notification tone matches Fetch's personality (not robotic)
+- [ ] Completion includes summary, file counts, and duration
+- [ ] Tone is natural and not robotic
 
-### 3.4 Task Failure Notification
+### 4.4 Task Failure
 
-Trigger a failure (e.g. work on a nonexistent workspace):
+Trigger a failure (e.g., switch to a nonexistent workspace and run a task):
 
-```
-@fetch switch to nonexistent-workspace-xyz
-@fetch use claude to build the project
-```
-
-- [ ] Failure notification includes the **error message**
-- [ ] Failure notification is natural language, not a stack trace
-
-### 3.5 Progress Messages
-
-During a longer task, watch for progress updates:
-
-- [ ] Progress messages are varied (not always "Working on it...")
-- [ ] Progress messages mention specific actions when detectable (e.g. "installing dependencies", "running tests")
+- [ ] Failure message includes a clear error cause
+- [ ] No stack traces or raw tool errors
 
 ---
 
-## Phase 4: Regression Smoke Test
+## Phase 5: Metrics & Evidence
 
-Quick checks that existing features still work.
+Capture these for each testing run:
 
-### 4.1 Safety Escape Commands
+- [ ] Date/time, tester, and environment (local vs. remote)
+- [ ] Task counts (started/completed/failed/cancelled)
+- [ ] Durations for task start → completion
+- [ ] Number of progress updates per task
+- [ ] Any flake/retry notes and relevant logs or screenshots
 
-- [ ] `/status` — returns system status with current version
-- [ ] `/help` — returns command list (includes `/usage`)
-- [ ] `/usage` — returns OpenRouter API usage (total, daily, weekly, monthly, limit)
-- [ ] `/trust list` — shows trusted numbers (owner only)
-- [ ] `/trust add <number>` — adds a trusted number (owner only)
-- [ ] `/trust remove <number>` — removes a trusted number (owner only)
-- [ ] `/clear` — clears conversation (confirms before clearing)
-
-### 4.2 Conversational
-
-```
-@fetch hello, how are you?
-```
-
-- [ ] Responds conversationally (no tool calls, no errors)
-
-### 4.3 Web Tools (if enabled)
-
-```
-@fetch search the web for "vitest testing framework"
-```
-
-- [ ] Returns search results with titles and snippets
-- [ ] Results are formatted for WhatsApp (not JSON)
-
-### 4.4 Workspace Create & Delete
-
-```
-@fetch create a workspace called test-checklist with the node template
-```
-
-- [ ] Response is narrative: "Created test-checklist ..."
-- [ ] Workspace appears in workspace list
-
-```
-@fetch delete workspace test-checklist
-```
-
-- [ ] Asks for confirmation before deleting
-- [ ] After confirming: response is "Deleted workspace test-checklist"
-
-### 4.5 Git Sync (if GH_TOKEN configured)
-
-```
-@fetch sync this workspace
-```
-
-- [ ] Response mentions commit hash, files changed, push status — in natural language
-
----
-
-## Phase 5: Web & Search Capabilities
-
-Verify that Fetch can research and extract information from the live web.
-
-### 5.1 Multi-source Search
-
-```
-@fetch search the web for "latest stable version of node.js" and tell me the version number
-```
-
-- [ ] Uses `web_search` tool (check logs)
-- [ ] Returns a clear answer with the version number
-- [ ] Mentions source if applicable
-
-### 5.2 Deep Web Fetch (Reading Articles)
-
-```
-@fetch read this page and summarize the main points: https://nodejs.org/en/blog/release/v20.0.0
-```
-
-- [ ] Uses `web_fetch` tool
-- [ ] Summary is concise and relevant (not a raw HTML dump)
-
----
-
-## Phase 6: Browser Automation
-
-Verify that Fetch can control a real browser (Playwright) to interact with websites.
-
-### 6.1 Basic Navigation & Snapshot
-
-```
-@fetch open google.com and tell me what the "I'm Feeling Lucky" button says in French
-```
-
-- [ ] Spawns/uses `browser-agent` in kennel
-- [ ] Successfully navigates and reads page content
-- [ ] Returns the correct text
-
-### 6.2 Visual Verification (Screenshots)
-
-```
-@fetch take a screenshot of github.com/trending
-```
-
-- [ ] Returns an image file (PNG/JPG) directly in WhatsApp
-- [ ] Image shows the requested page
-
----
-
-## Phase 7: Advanced Workflows & Delegation
-
-Verify multi-agent coordination and complex task handling.
-
-### 7.1 Multi-Agent Task Delegation
-
-```
-@fetch use claude to create a new python scripts directory, then use gemini to write a fibonacci script in it
-```
-
-- [ ] Creates a task (`task_create`)
-- [ ] First harness (Claude) executes its portion
-- [ ] Second harness (Gemini) picks up the context and completes the script
-- [ ] Final notification summarizes both actions
-
-### 7.2 Voice & Media (if enabled)
-
-- [ ] Send a voice note: "Hello Fetch, what time is it?" -> Should transcribe and respond
-- [ ] Send an image of code: "Explain this code" -> Should use vision (if model supports) or acknowledge receipt
-
----
-
-## Phase 8: Long-running Task Lifecycle
-
-### 8.1 Task Cancellation
-
-```
-@fetch use claude to build a massive project from scratch
-```
-
-(Wait for started notification)
-
-```
-/stop
-```
-
-- [ ] Active task is marked as `cancelled` in bridge logs
-- [ ] Kennel process is killed
-- [ ] Confirmation message "Task cancelled" received
-
-### 8.2 Task Resumption (Persistence)
-
-1. Start a task
-2. Restart the bridge container (`docker compose restart fetch-bridge`)
-3. Send `@fetch what's the status of my task?`
-
-- [ ] Bridge recovers task state from SQLite
-- [ ] Correct status ("running" or "interrupted") is reported
-
----
-
-## Results Summary
-
-| Phase | Items | Passed | Failed | Notes |
-|-------|-------|--------|--------|-------|
-| 1. Project Profiling | 13 | | | |
-| 2. Narrative Outputs | 8 | | | |
-| 3. Notifications | 11 | | | |
-| 4. Regression | 10 | | | |
-| **Total** | **42** | | | |
-
-### Common Issues
-
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| JSON in tool responses | Old cached container | `docker compose down && docker compose up -d --build` |
-| "Type: unknown" for project | Missing manifest file | Ensure `package.json` / `Cargo.toml` / etc. exists in workspace root |
-| Same notification every time | LLM call failing silently | Check bridge logs for notification errors |
-| Profile not showing framework | Framework file not at expected path | Check for `next.config.*`, `manage.py`, express in deps, etc. |
-| `/status` shows old version | Stale container image | Rebuild: `docker compose build fetch-bridge` |
