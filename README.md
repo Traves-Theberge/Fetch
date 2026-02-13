@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.7.0
+  F E T C H    v4.7.1
 ```
 
 **Unleash Multi-agent orchestration.**
@@ -48,7 +48,7 @@ flowchart LR
         direction TB
         Security["Security Gate\nWhitelist + Rate Limit"]
         Safety["Safety Gate\n8 Escape Commands"]
-        LLM["LLM + 27 Tools"]
+        LLM["LLM + 28 Tools"]
         State["Session / Task / State\nSQLite"]
         Security --> Safety --> LLM
         LLM --- State
@@ -76,7 +76,7 @@ flowchart LR
     LLM -->|"response"| User
 ```
 
-> **The flow:** Message arrives on WhatsApp &rarr; Security Gate checks sender &rarr; Safety Gate intercepts escape commands &rarr; LLM decides what to do with 27 tools available &rarr; For coding tasks, a CLI agent spawns in the Kennel via `docker exec` &rarr; Results sent back via WhatsApp.
+> **The flow:** Message arrives on WhatsApp &rarr; Security Gate checks sender &rarr; Safety Gate intercepts escape commands &rarr; LLM decides what to do with 28 tools available &rarr; For coding tasks, a CLI agent spawns in the Kennel via `docker exec` &rarr; Results sent back via WhatsApp.
 
 <br>
 
@@ -86,7 +86,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 | | Container | Tech | Role |
 |:-:|-----------|------|------|
-| **1** | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 27 orchestrator tools, session & task persistence |
+| **1** | **Bridge** | Node.js / TypeScript | WhatsApp client, agent core, 28 orchestrator tools, session & task persistence |
 | **2** | **Kennel** | Ubuntu | Sandboxed env with Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex, Playwright + Chromium |
 | **3** | **SearXNG** | Meta search engine | Self-hosted search aggregator (Google, DuckDuckGo, Bing, Wikipedia, GitHub, npm) |
 | | **Manager** | Go / Bubble Tea | Host-side TUI for managing services, editing config, viewing logs |
@@ -101,7 +101,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 ### Core
 
-- **LLM-First** &mdash; Every message hits the LLM with all 27 tools. No pre-classification, no regex routing
+- **LLM-First** &mdash; Every message hits the LLM with all 28 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/version` `/usage` `/trust` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
@@ -113,7 +113,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 ### Tools & Capabilities
 
-- **27 Orchestrator Tools** &mdash; Workspace management, task lifecycle, GitHub ops, web fetch, web search, browser automation
+- **28 Orchestrator Tools** &mdash; Workspace management, task lifecycle, GitHub ops, web fetch, web search, browser automation
 - **Web Fetch & Search** &mdash; Readability + Turndown for pages, self-hosted SearXNG for search (no API keys)
 - **Browser Automation** &mdash; Headless Chromium via Playwright with accessibility tree snapshots
 - **Voice & Vision** &mdash; Voice notes transcribed via whisper.cpp, image analysis via vision model

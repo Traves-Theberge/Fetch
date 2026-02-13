@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.7.1] - 2026-02-13
+
+### Added
+
+- **Session History View in TUI**: Users can now view, delete, and clear message history of past sessions directly from the Fetch Manager.
+- **Individual File Deletion**: New `file_delete` tool allows agents to delete specific files in the workspace (safely gated with confirmation).
+- **Session API**: Added `/api/sessions` endpoints for listing, retrieving, deleting, and clearing session history.
+
+### Fixed
+
+- Resolved duplicate keybindings in the Session History screen of the TUI.
+- Improved role-based coloring for message history in the TUI (User, Assistant, Tool).
+- Fixed markdown formatting and alignment across all documentation files.
+- Corrected tool counts to 28 across architecture diagrams and feature lists.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

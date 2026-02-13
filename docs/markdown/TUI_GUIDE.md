@@ -46,6 +46,7 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | ⚙️ Settings | — | General config (owner phone, API key, model) + Advanced pipeline tuning |
 | 🔐 Trusted Numbers | — | Manage the phone number whitelist (`data/whitelist.json`) |
 | 📄 View Logs | — | Stream live container logs |
+| 🕒 Session History | — | View and manage past conversation histories |
 | 📚 Documentation | — | Opens the docs site in your browser |
 | ℹ️ Version | — | Shows system version info (neofetch-style) |
 | ❌ Exit | — | Quit the TUI |
@@ -296,6 +297,33 @@ Manages `data/whitelist.json` — the list of phone numbers allowed to use `@fet
 | `d` | Delete the selected number |
 | `r` | Refresh the list from disk |
 | `Esc` | Return to main menu |
+
+---
+
+---
+
+### Session History
+
+Allows you to browse past conversation histories, view full message transcripts, and manage session lifecycle.
+
+**Why:** Reviewing past tasks or cleaning up old sessions is essential for maintaining an organized workspace.
+
+**Controls:**
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Navigate session list |
+| `Enter` | View full message history for selected session |
+| `d` | Delete the selected session |
+| `C` | Clear ALL session history (requires confirmation) |
+| `Esc` | Return to main menu (or back to list from view) |
+
+**Message View:**
+Inside a session, messages are color-coded by role:
+
+- **User:** Green
+- **Assistant:** Cyan
+- **Tool:** Yellow (results) / Gray (calls)
 
 ---
 

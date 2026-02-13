@@ -54,11 +54,11 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 
 ## Orchestrator Tools
 
-These are the 27 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 28 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 > **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
 
-### Workspace Tools (7)
+### Workspace Tools (8)
 
 #### workspace_list
 
@@ -129,6 +129,21 @@ Delete a workspace permanently. Requires explicit confirmation.
 **Returns:** Narrative text (e.g. `"Deleted workspace old-project"`)
 
 > Cannot delete the currently active workspace. Select a different workspace first.
+
+**Danger Level:** DANGEROUS
+
+#### file_delete
+
+Delete a specific file within the active workspace. Useful for cleanup or removing sensitive files. Requires user confirmation.
+
+**Parameters:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `path` | string | ✅ | Relative path to the file to delete |
+| `confirm` | boolean | ✅ | Must be `true` to confirm deletion |
+
+**Returns:** Narrative text (e.g. `"Deleted file src/temp.txt"`)
 
 **Danger Level:** DANGEROUS
 

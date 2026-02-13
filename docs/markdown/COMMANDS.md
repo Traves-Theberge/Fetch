@@ -86,9 +86,9 @@ The LLM has access to 27 orchestrator tools and decides which to call based on y
 
 | Message | What Fetch Does |
 |---------|----------------|
-| "Fetch the docs at https://example.com/api" | Calls `web_fetch` — extracts readable content as markdown |
+| "Fetch the docs at <https://example.com/api>" | Calls `web_fetch` — extracts readable content as markdown |
 | "Search for 'typescript zod validation'" | Calls `web_search` — searches the web via SearXNG |
-| "Open https://example.com in the browser" | Calls `browser_open` — navigates and returns accessibility tree |
+| "Open <https://example.com> in the browser" | Calls `browser_open` — navigates and returns accessibility tree |
 | "Click the login button" | Calls `browser_action` — performs click on referenced element |
 | "Take a screenshot of the page" | Calls `browser_screenshot` — captures current browser state |
 
@@ -103,7 +103,7 @@ The LLM has access to 27 orchestrator tools and decides which to call based on y
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 27 tools:
+The LLM has access to these 28 tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|
@@ -112,6 +112,7 @@ The LLM has access to these 27 tools:
 | `workspace_status` | Workspace | Git status, branch, recent commits |
 | `workspace_create` | Workspace | Create new project + GitHub repo |
 | `workspace_delete` | Workspace | Delete a workspace project |
+| `file_delete` | Workspace | Delete a specific file in the active workspace |
 | `workspace_sync` | Workspace | Commit + push to GitHub remote |
 | `workspace_publish` | Workspace | Create new GitHub repo from existing project |
 | `task_create` | Task | Delegate coding work to a harness (Claude/Gemini/Copilot/OpenCode/Codex) |
