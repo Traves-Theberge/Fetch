@@ -38,7 +38,7 @@ function mockSessionManager() {
     setAutonomyLevel: vi.fn(),
     setPreference: vi.fn(),
     updatePreferences: vi.fn(),
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any;
 }
 
@@ -112,7 +112,7 @@ describe('Command Parser — Safety Gate', () => {
     const result = await parseCommand('/version', session, sm);
     expect(result.handled).toBe(true);
     expect(result.responses?.[0]).toContain('Fetch');
-    expect(result.responses?.[0]).toContain('v4.6.1');
+    expect(result.responses?.[0]).toContain('v4.7.0');
   });
 
   // ─── Task Control ──────────────────────────────────────────────────

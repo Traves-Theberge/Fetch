@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  F E T C H    v4.6.1
+  F E T C H    v4.7.0
 ```
 
 **Unleash Multi-agent orchestration.**
@@ -158,22 +158,24 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js 20+, Docker, Go 1.21+
-git clone https://github.com/Traves-Theberge/Fetch.git && cd Fetch
+# 1. Clone
+git clone https://github.com/Traves-Theberge/Fetch.git
+cd Fetch
 
-# One-liner setup
-./setup-dev.sh
+# 2. Install (Auto-installs Docker, Go, Node.js, and Harnesses)
+chmod +x install.sh
+sudo ./install.sh
 
-# Or manually:
-cd fetch-app && npm install && npm run build && cd ..
-cd manager && go build -o fetch-manager . && cd ..
+# 3. Configure
+cp .env.example .env
+nano .env
 
-# Launch
-./deploy.sh
-
-# Scan the QR code from bridge logs
-docker logs -f fetch-bridge
+# 4. Launch Manager
+cd manager
+./fetch-manager
 ```
+
+> **Note:** The `install.sh` script automates dependency checks and harness updates. For manual control, you can still use `./setup-dev.sh` and `./deploy.sh`.
 
 <details>
 <summary><strong>Required Environment Variables</strong></summary>
@@ -218,7 +220,7 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameter
 | [Context Pipeline](docs/markdown/CONTEXT_PIPELINE.md) | Memory, compaction, prompt assembly |
 | [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite persistence and shutdown |
 | [API Reference](docs/markdown/API_REFERENCE.md) | Tool interfaces and endpoints |
-| [Testing Guide](docs/markdown/TESTING_GUIDE.md) | v4.5.0 verification checklist |
+| [Testing Guide](docs/markdown/TESTING_GUIDE.md) | Verification checklist |
 | [Changelog](CHANGELOG.md) | Version history |
 
 </td>

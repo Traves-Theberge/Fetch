@@ -2,9 +2,11 @@
 package status
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -116,3 +118,43 @@ func (s *BridgeStatus) FormatUptime() string {
 	return fmt.Sprintf("%ds", seconds)
 }
 
+// ConfigReloadResponse represents the response from the config reload endpoint.
+type ConfigReloadResponse struct {
+	Success     bool     `json:"success"`
+	UpdatedKeys []string `json:"updatedKeys"`
+	Message     string   `json:"message"`
+}
+
+// ReloadConfig triggers a hot-reload of the .env configuration in the running bridge.
+// It sends a POST request to /api/config/reload with the admin token for authentication.
+func (c *Client) ReloadConfig(adminToken string) (*ConfigReloadResponse, error) {
+	// Derive base URL from status URL: http://localhost:8765/api/status -> http://localhost:8765
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+
+	req, err := http.NewRequest("POST", baseURL+"/api/config/reload", bytes.NewReader(nil))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reload request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to bridge for reload: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, fmt.Errorf("unauthorized: invalid admin token")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("reload failed with status code: %d", resp.StatusCode)
+	}
+
+	var result ConfigReloadResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode reload response: %w", err)
+	}
+
+	return &result, nil
+}

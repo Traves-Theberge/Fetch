@@ -48,8 +48,8 @@ type Editor struct {
 	modelPickerRequested bool       // signals parent to open model picker
 	mode                 EditorMode // current tab (ModeSettings or ModeAdvanced)
 	// Section navigation
-	sectionPicker bool         // true when section picker overlay is open
-	sectionCursor int          // cursor within the section picker
+	sectionPicker bool          // true when section picker overlay is open
+	sectionCursor int           // cursor within the section picker
 	sections      []sectionInfo // cached section index
 }
 
@@ -187,8 +187,15 @@ func settingsFields() []ConfigField {
 		{Key: "OWNER_PHONE_NUMBER", Label: "Owner Phone", Help: "Your WhatsApp number (e.g., 15551234567)"},
 		{Key: "OPENROUTER_API_KEY", Label: "OpenRouter Key", Help: "API key from openrouter.ai", Masked: true},
 		{Key: "AGENT_MODEL", Label: "Agent Model", Help: "OpenRouter model ID", Default: "openai/gpt-4o-mini"},
+		{Key: "SUMMARY_MODEL", Label: "Summary Model", Help: "Model for summaries and compaction", Default: "openai/gpt-4o-mini"},
+		{Key: "VISION_MODEL", Label: "Vision Model", Help: "Model for image analysis", Default: "openai/gpt-4o-mini"},
 		{Key: "LOG_LEVEL", Label: "Log Level", Help: "debug, info, warn, error", Default: "info"},
 		{Key: "TZ", Label: "Timezone", Help: "IANA timezone", Default: "UTC"},
+
+		{IsSeparator: true, Label: "─── Security ───"},
+		{Key: "ADMIN_TOKEN", Label: "Admin Token", Help: "API auth token (auto-generated if empty)", Masked: true},
+		{Key: "OPENAI_API_KEY", Label: "OpenAI API Key", Help: "Used by Codex CLI internally", Masked: true},
+		{Key: "TRUSTED_PHONE_NUMBERS", Label: "Trusted Numbers", Help: "Comma-separated phone numbers allowed to interact"},
 	}
 }
 
@@ -197,65 +204,72 @@ func advancedFields() []ConfigField {
 	return []ConfigField{
 		// ─── Context Window ──────────────────────────────────────
 		{IsSeparator: true, Label: "─── Context Window ───"},
-			{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},
-			{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this", Default: "40"},
-			{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary", Default: "500"},
-			{Key: "FETCH_COMPACTION_MODEL", Label: "Compaction Model", Help: "Model for summaries", Default: "openai/gpt-4o-mini"},
-			// ─── Agent LLM ───────────────────────────────────────────
-			{IsSeparator: true, Label: "─── Agent LLM ───"},
-			{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message", Default: "5"},
-			{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses", Default: "2048"},
-			{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0", Default: "0.3"},
-			{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing", Default: "200"},
-			// ─── Circuit Breaker ─────────────────────────────────────
-			{IsSeparator: true, Label: "─── Circuit Breaker ───"},
-			{Key: "FETCH_CB_THRESHOLD", Label: "CB Threshold", Help: "Errors before circuit opens", Default: "3"},
-			{Key: "FETCH_CB_BACKOFF", Label: "CB Backoff (ms)", Help: "Backoff schedule, comma-separated", Default: "1000,5000,30000"},
-			{Key: "FETCH_MAX_RETRIES", Label: "Max Retries", Help: "Max retries for retriable errors", Default: "3"},
-			{Key: "FETCH_RETRY_BACKOFF", Label: "Retry Backoff (ms)", Help: "Retry schedule, comma-separated", Default: "0,1000,3000,10000"},
-			{Key: "FETCH_CB_RESET_MS", Label: "CB Reset (ms)", Help: "Reset error count after quiet period", Default: "300000"},
-			// ─── Task Execution ──────────────────────────────────────
-			{IsSeparator: true, Label: "─── Task Execution ───"},
-			{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout", Default: "300000"},
-			{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout", Default: "300000"},
-			{Key: "FETCH_TASK_MAX_RETRIES", Label: "Task Max Retries", Help: "Max task retries", Default: "1"},
-			// ─── WhatsApp Formatting ─────────────────────────────────
-			{IsSeparator: true, Label: "─── WhatsApp Formatting ───"},
-			{Key: "FETCH_WA_MAX_LENGTH", Label: "WA Max Length", Help: "Max chars per WhatsApp message", Default: "4000"},
-			{Key: "FETCH_WA_LINE_WIDTH", Label: "WA Line Width", Help: "Max chars per line for readability", Default: "40"},
-			// ─── Rate Limiting ───────────────────────────────────────
-			{IsSeparator: true, Label: "─── Rate Limiting ───"},
-			{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window", Default: "30"},
-			{Key: "FETCH_RATE_LIMIT_WINDOW", Label: "Rate Limit Window (ms)", Help: "Rate limit window duration", Default: "60000"},
-			// ─── Bridge / Reconnection ───────────────────────────────
-			{IsSeparator: true, Label: "─── Bridge / Reconnection ───"},
-			{Key: "FETCH_MAX_RECONNECT", Label: "Max Reconnect", Help: "Max reconnect attempts", Default: "10"},
-			{Key: "FETCH_RECONNECT_BASE_DELAY", Label: "Reconnect Base (ms)", Help: "Base delay for exponential backoff", Default: "5000"},
-			{Key: "FETCH_RECONNECT_MAX_DELAY", Label: "Reconnect Max (ms)", Help: "Max delay cap for reconnect", Default: "300000"},
-			{Key: "FETCH_RECONNECT_JITTER", Label: "Reconnect Jitter (ms)", Help: "Max jitter added to delay", Default: "2000"},
-			{Key: "FETCH_DEDUP_TTL", Label: "Dedup TTL (ms)", Help: "Message deduplication cache TTL", Default: "30000"},
-			{Key: "FETCH_PROGRESS_THROTTLE", Label: "Progress Throttle (ms)", Help: "Throttle interval for progress updates", Default: "3000"},
-			// ─── Session / Memory ────────────────────────────────────
-			{IsSeparator: true, Label: "─── Session / Memory ───"},
-			{Key: "FETCH_RECENT_MSG_LIMIT", Label: "Recent Msg Limit", Help: "Default recent messages limit", Default: "50"},
-			{Key: "FETCH_TRUNCATION_LIMIT", Label: "Truncation Limit", Help: "Max messages before hard truncation", Default: "100"},
-			{Key: "FETCH_REPO_MAP_TTL", Label: "Repo Map TTL (ms)", Help: "Repo map staleness check interval", Default: "300000"},
-			// ─── Workspace ───────────────────────────────────────────
-			{IsSeparator: true, Label: "─── Workspace ───"},
-			{Key: "FETCH_WORKSPACE_CACHE_TTL", Label: "Workspace Cache (ms)", Help: "Workspace info cache TTL", Default: "30000"},
-			{Key: "FETCH_GIT_TIMEOUT", Label: "Git Timeout (ms)", Help: "Git command execution timeout", Default: "5000"},
-			// ─── BM25 Memory ─────────────────────────────────────────
-			{IsSeparator: true, Label: "─── BM25 Memory ───"},
-			{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context", Default: "5"},
-			{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet", Default: "300"},
-			{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster", Default: "0.1"},
-			// ─── Web / Browser ────────────────────────────────────────
-			{IsSeparator: true, Label: "─── Web / Browser ───"},
-			{Key: "ENABLE_WEB_FETCH", Label: "Enable Web Fetch", Help: "Enable web page fetching tool", Default: "true", IsToggle: true},
-			{Key: "ENABLE_WEB_SEARCH", Label: "Enable Web Search", Help: "Enable SearXNG web search tool", Default: "true", IsToggle: true},
-			{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false", IsToggle: true},
-			{Key: "FETCH_SEARXNG_URL", Label: "SearXNG URL", Help: "SearXNG instance URL for search", Default: "http://searxng:8080"},
-			{Key: "FETCH_WEB_FETCH_MAX_LENGTH", Label: "Fetch Max Length", Help: "Max chars extracted from web pages", Default: "50000"},
+		{Key: "FETCH_HISTORY_WINDOW", Label: "History Window", Help: "Messages in sliding window", Default: "20"},
+		{Key: "FETCH_COMPACTION_THRESHOLD", Label: "Compaction Threshold", Help: "Compact when messages exceed this", Default: "40"},
+		{Key: "FETCH_COMPACTION_MAX_TOKENS", Label: "Compaction Max Tokens", Help: "Max tokens for compaction summary", Default: "500"},
+		{Key: "FETCH_COMPACTION_MODEL", Label: "Compaction Model", Help: "Model for summaries", Default: "openai/gpt-4o-mini"},
+		// ─── Notification LLM ────────────────────────────────────
+		{IsSeparator: true, Label: "─── Notification LLM ───"},
+		{Key: "FETCH_NOTIFICATION_MODEL", Label: "Notification Model", Help: "Model for notifications", Default: "openai/gpt-4o-mini"},
+		{Key: "FETCH_NOTIFICATION_MAX_TOKENS", Label: "Notification Max Tokens", Help: "Max tokens for notifications", Default: "150"},
+		{Key: "FETCH_NOTIFICATION_TEMPERATURE", Label: "Notification Temp", Help: "Temperature 0.0-1.0", Default: "0.7"},
+		// ─── Agent LLM ───────────────────────────────────────────
+		{IsSeparator: true, Label: "─── Agent LLM ───"},
+		{Key: "FETCH_MAX_TOOL_CALLS", Label: "Max Tool Calls", Help: "Tool call rounds per message", Default: "5"},
+		{Key: "FETCH_TOOL_MAX_TOKENS", Label: "Tool Max Tokens", Help: "Token budget for tool responses", Default: "2048"},
+		{Key: "FETCH_TOOL_TEMPERATURE", Label: "Tool Temperature", Help: "LLM precision 0.0-1.0", Default: "0.3"},
+		{Key: "FETCH_FRAME_MAX_TOKENS", Label: "Frame Max Tokens", Help: "Token budget for task framing", Default: "200"},
+		// ─── Circuit Breaker ─────────────────────────────────────
+		{IsSeparator: true, Label: "─── Circuit Breaker ───"},
+		{Key: "FETCH_CB_THRESHOLD", Label: "CB Threshold", Help: "Errors before circuit opens", Default: "3"},
+		{Key: "FETCH_CB_BACKOFF", Label: "CB Backoff (ms)", Help: "Backoff schedule, comma-separated", Default: "1000,5000,30000"},
+		{Key: "FETCH_MAX_RETRIES", Label: "Max Retries", Help: "Max retries for retriable errors", Default: "3"},
+		{Key: "FETCH_RETRY_BACKOFF", Label: "Retry Backoff (ms)", Help: "Retry schedule, comma-separated", Default: "0,1000,3000,10000"},
+		{Key: "FETCH_CB_RESET_MS", Label: "CB Reset (ms)", Help: "Reset error count after quiet period", Default: "300000"},
+		// ─── Task Execution ──────────────────────────────────────
+		{IsSeparator: true, Label: "─── Task Execution ───"},
+		{Key: "FETCH_TASK_TIMEOUT", Label: "Task Timeout (ms)", Help: "Task execution timeout", Default: "300000"},
+		{Key: "FETCH_HARNESS_TIMEOUT", Label: "Harness Timeout (ms)", Help: "AI harness timeout", Default: "300000"},
+		{Key: "FETCH_TASK_MAX_RETRIES", Label: "Task Max Retries", Help: "Max task retries", Default: "1"},
+		// ─── WhatsApp Formatting ─────────────────────────────────
+		{IsSeparator: true, Label: "─── WhatsApp Formatting ───"},
+		{Key: "FETCH_WA_MAX_LENGTH", Label: "WA Max Length", Help: "Max chars per WhatsApp message", Default: "4000"},
+		{Key: "FETCH_WA_LINE_WIDTH", Label: "WA Line Width", Help: "Max chars per line for readability", Default: "40"},
+		// ─── Rate Limiting ───────────────────────────────────────
+		{IsSeparator: true, Label: "─── Rate Limiting ───"},
+		{Key: "FETCH_RATE_LIMIT_MAX", Label: "Rate Limit Max", Help: "Requests per window", Default: "30"},
+		{Key: "FETCH_RATE_LIMIT_WINDOW", Label: "Rate Limit Window (ms)", Help: "Rate limit window duration", Default: "60000"},
+		// ─── Bridge / Reconnection ───────────────────────────────
+		{IsSeparator: true, Label: "─── Bridge / Reconnection ───"},
+		{Key: "FETCH_MAX_RECONNECT", Label: "Max Reconnect", Help: "Max reconnect attempts", Default: "10"},
+		{Key: "FETCH_RECONNECT_BASE_DELAY", Label: "Reconnect Base (ms)", Help: "Base delay for exponential backoff", Default: "5000"},
+		{Key: "FETCH_RECONNECT_MAX_DELAY", Label: "Reconnect Max (ms)", Help: "Max delay cap for reconnect", Default: "300000"},
+		{Key: "FETCH_RECONNECT_JITTER", Label: "Reconnect Jitter (ms)", Help: "Max jitter added to delay", Default: "2000"},
+		{Key: "FETCH_DEDUP_TTL", Label: "Dedup TTL (ms)", Help: "Message deduplication cache TTL", Default: "30000"},
+		{Key: "FETCH_PROGRESS_THROTTLE", Label: "Progress Throttle (ms)", Help: "Throttle interval for progress updates", Default: "3000"},
+		// ─── Session / Memory ────────────────────────────────────
+		{IsSeparator: true, Label: "─── Session / Memory ───"},
+		{Key: "FETCH_RECENT_MSG_LIMIT", Label: "Recent Msg Limit", Help: "Default recent messages limit", Default: "50"},
+		{Key: "FETCH_TRUNCATION_LIMIT", Label: "Truncation Limit", Help: "Max messages before hard truncation", Default: "100"},
+		{Key: "FETCH_REPO_MAP_TTL", Label: "Repo Map TTL (ms)", Help: "Repo map staleness check interval", Default: "300000"},
+		{Key: "FETCH_CONTEXT_BUDGET", Label: "Context Budget", Help: "Token budget for system prompt", Default: "6000"},
+		{Key: "FETCH_TOOL_RESULT_MAX_PERSIST", Label: "Tool Result Max", Help: "Max chars for persisted tool results", Default: "2000"},
+		// ─── Workspace ───────────────────────────────────────────
+		{IsSeparator: true, Label: "─── Workspace ───"},
+		{Key: "FETCH_WORKSPACE_CACHE_TTL", Label: "Workspace Cache (ms)", Help: "Workspace info cache TTL", Default: "30000"},
+		{Key: "FETCH_GIT_TIMEOUT", Label: "Git Timeout (ms)", Help: "Git command execution timeout", Default: "5000"},
+		// ─── BM25 Memory ─────────────────────────────────────────
+		{IsSeparator: true, Label: "─── BM25 Memory ───"},
+		{Key: "FETCH_RECALL_LIMIT", Label: "Recall Limit", Help: "Max recalled results injected into context", Default: "5"},
+		{Key: "FETCH_RECALL_SNIPPET_TOKENS", Label: "Recall Snippet Tokens", Help: "Max tokens per recalled snippet", Default: "300"},
+		{Key: "FETCH_RECALL_DECAY", Label: "Recall Decay", Help: "Recency decay factor, higher=faster", Default: "0.1"},
+		// ─── Web / Browser ────────────────────────────────────────
+		{IsSeparator: true, Label: "─── Web / Browser ───"},
+		{Key: "ENABLE_WEB_FETCH", Label: "Enable Web Fetch", Help: "Enable web page fetching tool", Default: "true", IsToggle: true},
+		{Key: "ENABLE_WEB_SEARCH", Label: "Enable Web Search", Help: "Enable SearXNG web search tool", Default: "true", IsToggle: true},
+		{Key: "ENABLE_BROWSER", Label: "Enable Browser", Help: "Enable headless browser tools (Playwright)", Default: "false", IsToggle: true},
+		{Key: "FETCH_SEARXNG_URL", Label: "SearXNG URL", Help: "SearXNG instance URL for search", Default: "http://searxng:8080"},
+		{Key: "FETCH_WEB_FETCH_MAX_LENGTH", Label: "Fetch Max Length", Help: "Max chars extracted from web pages", Default: "50000"},
 		{Key: "FETCH_BROWSER_TIMEOUT", Label: "Browser Timeout (ms)", Help: "Browser command timeout", Default: "30000"},
 	}
 }

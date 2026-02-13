@@ -240,6 +240,7 @@ Edits the `.env` file with a scrollable form interface. The Settings screen has 
 | `Esc` | Discard changes and return to main menu |
 
 **Features:**
+
 - Default values shown in dim text when a field is empty
 - Help text displayed below the focused field
 - Scroll indicators when the list overflows
@@ -259,6 +260,7 @@ When you press `Enter` on the **Agent Model** field in the Settings screen, a mo
 **How it works:** It fetches the model list from the OpenRouter API and displays them grouped by provider.
 
 **Each model entry shows:**
+
 - **Context window** size
 - **Pricing** per million tokens
 - **Modality** badges (text, image, audio)
@@ -319,6 +321,7 @@ Shows the current state of Docker containers.
 **Why:** Quick health check to verify both Bridge and Kennel are running.
 
 **Display:**
+
 - **Bridge (WhatsApp)** — Running/Stopped indicator
 - **Kennel (AI Agents)** — Running/Stopped indicator
 
@@ -367,3 +370,23 @@ The Manager is a standalone Go binary that:
 7. Uses Lipgloss for styled terminal rendering with custom themes
 
 It does not communicate with the Bridge beyond the HTTP status API and Docker container management.
+
+## Auto-Update & Hot-Reload
+
+Fetch includes automated lifecycle management:
+
+### Auto-Update
+
+On startup, the Manager checks the installed version against the project's `VERSION` file. If a mismatch is detected (e.g., after `git pull`), it automatically:
+
+1. Installs or updates global AI CLI tools (Claude, Gemini, OpenCode, Codex).
+2. Rebuilds Docker containers to ensure they match the code.
+3. Updates the internal version record.
+
+### Hot-Reload
+
+When you save changes in the **⚙️ Settings** screen:
+
+1. The `.env` file is updated immediately.
+2. The `fetch-bridge` container is automatically restarted to apply the new configuration.
+3. The TUI remains active, so you can continue managing the system while the backend reloads.

@@ -10,7 +10,7 @@ services:
     container_name: fetch-bridge
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8765/api/status"]
+      test: [ "CMD", "curl", "-sf", "http://localhost:8765/api/status" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -40,6 +40,8 @@ services:
     volumes:
       # Persistent data (WhatsApp auth, task database)
       - ./data:/app/data
+      # Configuration file (hot-reload via POST /api/config/reload)
+      - ./.env:/app/.env:ro
       # Documentation site (live-reload without image rebuild)
       - ./docs:/app/docs:ro
       # Docker socket for controlling Kennel
@@ -69,7 +71,7 @@ services:
     container_name: fetch-kennel
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "test", "-f", "/tmp/kennel-ready"]
+      test: [ "CMD", "test", "-f", "/tmp/kennel-ready" ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -97,7 +99,7 @@ services:
       - ~/.codex:/root/.codex:ro
     working_dir: /workspace
     # Keep container running for exec commands
-    command: ["tail", "-f", "/dev/null"]
+    command: [ "tail", "-f", "/dev/null" ]
     logging:
       driver: json-file
       options:

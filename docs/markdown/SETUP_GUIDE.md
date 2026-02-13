@@ -2,80 +2,70 @@
 
 ## Prerequisites
 
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Linux host | Any distro | Host machine |
-| Docker + Docker Compose | Latest | Container runtime |
-| Go | 1.21+ | Build the Manager TUI |
-| Node.js | 20+ | Development only (not needed for Docker) |
-| OpenRouter API key | — | LLM access ([openrouter.ai](https://openrouter.ai)) |
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| Linux host | Debian/Ubuntu | Recommended OS |
+| OpenRouter Key | — | Required for LLM access ([openrouter.ai](https://openrouter.ai)) |
+| WhatsApp Account| — | Required for primary interface |
 
-You also need at least one AI CLI authenticated on your host:
-
-- **GitHub Copilot**: `gh auth login` completed, hosts file at `~/.config/gh/`
-- **Claude Code**: `claude` CLI with active session at `~/.config/claude-code/`
-- **Gemini CLI**: `gemini` CLI with API key in `~/.gemini/` (or set `GEMINI_API_KEY`)
-- **OpenCode**: `opencode` CLI at `~/.config/opencode/` (or set `OPENCODE_API_KEY`)
-- **Codex**: `codex login` for ChatGPT OAuth at `~/.codex/auth.json` (or set `CODEX_API_KEY`/`OPENAI_API_KEY`)
+> **Note:** The `install.sh` script handles the installation of Docker, Go, Node.js, and GitHub CLI for you.
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. clone & Install
+
+The automated installer sets up all dependencies (Docker, Go, Node.js v20, gh), builds the Manager TUI, and installs the `fetch` systemd service.
 
 ```bash
 git clone https://github.com/Traves-Theberge/Fetch.git
 cd Fetch
+chmod +x install.sh
+sudo ./install.sh
 ```
 
 ### 2. Configure Environment
 
 ```bash
 cp .env.example .env
+nano .env
 ```
 
-Edit `.env` and set at minimum:
+Set your critical variables:
 
 ```env
 OWNER_PHONE_NUMBER=15551234567
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-Optionally, set `GH_TOKEN` for GitHub workspace sync (auto-push, repo creation):
+### 3. Authenticate Harnesses (Optional)
 
-```env
-GH_TOKEN=ghp_...
-```
+Fetch uses CLI tools on your host for AI coding tasks. You should authenticate the ones you plan to use:
 
-> **Tip:** If you have the `gh` CLI authenticated, run `setup-dev.sh` — it auto-populates `GH_TOKEN` from `gh auth token`.
+- **GitHub Copilot**: `gh auth login`
+- **Claude Code**: `claude login`
+- **Gemini CLI**: Set `GEMINI_API_KEY` in `.env`
+- **OpenCode**: `opencode auth login`
+- **Codex**: `codex login`
 
-See [Configuration](CONFIGURATION.md) for all environment variables.
+The Manager TUI's **🐕 Harnesses** screen can helps manage this state.
 
-### 3. Start with the TUI Manager
+### 4. Start Fetch
+
+Use the Manager TUI to manage the system.
 
 ```bash
 cd manager
-go build -o fetch-manager .
 ./fetch-manager
 ```
 
-The TUI will launch with a splash screen, then show the main menu. Select **🚀 Start Fetch** to build and launch the Docker containers. Use **🐕 Harnesses** to authenticate, enable, and configure each AI CLI.
-
-See [TUI Guide](TUI_GUIDE.md) for full Manager documentation.
-
-### 4. Start without the TUI (Alternative)
-
-```bash
-docker compose up -d
-docker logs -f fetch-bridge
-```
+Select **🚀 Start Fetch** to launch the Docker containers.
 
 ### 5. Authenticate WhatsApp
 
-On first launch, the Bridge container prints a QR code to the terminal. Scan it with WhatsApp (Settings → Linked Devices → Link a Device).
+On first launch, the Bridge container generates a QR code.
 
-If using the TUI, select **📱 Setup WhatsApp** — it shows the QR code directly in the terminal with an auto-refresh timer.
-
-The session persists in `./data/.wwebjs_auth/`. You only need to scan once unless you log out.
+- In the TUI: Select **📱 Setup WhatsApp**.
+- Scan the QR code with your phone (Settings → Linked Devices).
 
 ### 6. Send Your First Message
 
@@ -154,10 +144,25 @@ Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** edito
 
 ## Updating
 
-```bash
-git pull
-docker compose build
-docker compose up -d
-```
+Fetch now supports automated updates via the Manager TUI.
 
-Or use the TUI Manager's built-in update option if available.
+1. **Pull changes**:
+
+    ```bash
+    git pull
+    ```
+
+2. **Launch Manager**:
+
+    ```bash
+    cd manager
+    ./fetch-manager
+    ```
+
+3. **Auto-Update**:
+    The Manager will detect the new version and automatically:
+    - Install/Update global harness dependencies (Claude, Gemini, etc.).
+    - Rebuild Docker containers.
+    - Update the internal version state.
+
+You will see a status message: `✅ Harnesses updated to v4.7.0`.

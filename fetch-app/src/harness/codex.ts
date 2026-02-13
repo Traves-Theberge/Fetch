@@ -146,14 +146,20 @@ export class CodexAdapter extends AbstractHarnessAdapter {
       command: CODEX_COMMAND,
       args: [
         ...DEFAULT_ARGS,
+        '--skip-git-repo-check', // Allow running in non-git dirs (e.g. /workspace root)
       ],
       env: {
         // Ensure non-interactive environment
         CI: 'true',
         TERM: 'dumb',
-        // API key auth (alternative to OAuth via ~/.codex/auth.json mount)
+        // API key auth (priority: Codex -> OpenAI -> OpenRouter)
         ...(env.CODEX_API_KEY ? { CODEX_API_KEY: env.CODEX_API_KEY } : {}),
         ...(env.OPENAI_API_KEY ? { OPENAI_API_KEY: env.OPENAI_API_KEY } : {}),
+        // Fallback to OpenRouter if no other key is present
+        ...(!env.CODEX_API_KEY && !env.OPENAI_API_KEY && env.OPENROUTER_API_KEY ? {
+          OPENAI_API_KEY: env.OPENROUTER_API_KEY,
+          OPENAI_BASE_URL: 'https://openrouter.ai/api/v1'
+        } : {}),
       },
       cwd: workspacePath,
       timeoutMs,

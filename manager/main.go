@@ -270,12 +270,13 @@ func (m model) buildMenuBadges() {
 }
 
 func (m model) Init() tea.Cmd {
-	// Show splash for 2 seconds, then check status
+	// Show splash for 2 seconds, then check status, then check version
 	return tea.Batch(
 		tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 			return splashDoneMsg{}
 		}),
 		checkStatus,
+		checkVersionAndInstallCmd(),
 	)
 }
 
@@ -602,7 +603,7 @@ func (m model) updateConfig(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.configEditor != nil {
 			restartNeeded := m.configEditor.Update(msg)
 			if restartNeeded {
-				return m, restartBridgeCmd()
+				return m, reloadConfigCmd(m.statusClient)
 			}
 			// Check if editor wants the model picker
 			if m.configEditor.ModelPickerRequested() {
@@ -697,14 +698,16 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "enter":
 			hs := &m.harnessStatuses[m.harnessCursor]
-			if m.harnessEditField == "apikey" {
+			switch m.harnessEditField {
+			case "apikey":
 				hs.apiKey = m.harnessEditBuffer
 				_ = config.WriteEnvValue(hs.apiKeyKey, m.harnessEditBuffer)
-			} else if m.harnessEditField == "model" {
+			case "model":
 				hs.model = m.harnessEditBuffer
 				_ = config.WriteEnvValue(hs.modelKey, m.harnessEditBuffer)
 			}
 			m.harnessEditing = false
+			return m, reloadConfigCmd(m.statusClient)
 		case "esc":
 			m.harnessEditing = false
 		case "backspace":
@@ -745,7 +748,7 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			val = "true"
 		}
 		_ = config.WriteEnvValue(hs.enableKey, val)
-		return m, nil
+		return m, reloadConfigCmd(m.statusClient)
 	case "a":
 		// Edit API key
 		m.harnessEditing = true
@@ -829,14 +832,37 @@ func stopFetchCmd() tea.Cmd {
 	}
 }
 
-// restartBridgeCmd restarts the bridge container to apply config changes
-func restartBridgeCmd() tea.Cmd {
+// reloadConfigCmd triggers a hot-reload of configuration in the running bridge.
+// Falls back to a full restart if the reload API is not available.
+func reloadConfigCmd(client *status.Client) tea.Cmd {
 	return func() tea.Msg {
-		err := docker.RestartBridge()
-		if err != nil {
-			return actionResultMsg{success: false, message: fmt.Sprintf("Restart failed: %v", err)}
+		// Read ADMIN_TOKEN from .env for API authentication
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+
+		if adminToken == "" {
+			// No admin token set — fall back to restart
+			err := docker.RestartBridge()
+			if err != nil {
+				return actionResultMsg{success: false, message: fmt.Sprintf("Restart failed: %v", err)}
+			}
+			return actionResultMsg{success: true, message: "🔄 Config applied! Fetch restarted (no admin token for hot-reload)."}
 		}
-		return actionResultMsg{success: true, message: "🔄 Config applied! Fetch restarted."}
+
+		result, err := client.ReloadConfig(adminToken)
+		if err != nil {
+			// Reload failed — fall back to restart
+			err2 := docker.RestartBridge()
+			if err2 != nil {
+				return actionResultMsg{success: false, message: fmt.Sprintf("Hot-reload failed (%v), restart also failed: %v", err, err2)}
+			}
+			return actionResultMsg{success: true, message: "🔄 Config applied via restart (hot-reload unavailable)."}
+		}
+
+		if len(result.UpdatedKeys) == 0 {
+			return actionResultMsg{success: true, message: "✅ Config saved (no changes to apply)."}
+		}
+		return actionResultMsg{success: true, message: fmt.Sprintf("⚡ Hot-reloaded %d key(s): %s", len(result.UpdatedKeys), strings.Join(result.UpdatedKeys, ", "))}
 	}
 }
 
@@ -883,6 +909,53 @@ func checkAllHarnessStatusCmd() tea.Cmd {
 			checkCodexStatus(),
 		}
 		return harnessStatusMsg{statuses: statuses}
+	}
+}
+
+// checkVersionAndInstallCmd checks if the installed version matches the current version.
+// If not, it triggers the update_harnesses.sh script.
+func checkVersionAndInstallCmd() tea.Cmd {
+	return func() tea.Msg {
+		currentVer := components.DefaultVersionInfo().Version
+		if currentVer == "dev" {
+			return nil // Don't auto-update in dev mode
+		}
+
+		// Check .installed_version in data dir (assuming ../data relative to binary/CWD)
+		versionFile := "../data/.installed_version"
+
+		// If data dir doesn't exist, we might be in a non-standard location
+		if _, err := os.Stat("../data"); os.IsNotExist(err) {
+			return nil
+		}
+
+		installedVerBytes, err := os.ReadFile(versionFile)
+		installedVer := strings.TrimSpace(string(installedVerBytes))
+
+		if err == nil && installedVer == currentVer {
+			return nil // Already up to date
+		}
+
+		// Needs update
+		scriptPath := "../scripts/update_harnesses.sh"
+
+		// Ensure script is executable
+		_ = os.Chmod(scriptPath, 0755)
+
+		cmd := exec.Command(scriptPath)
+		if err := cmd.Run(); err != nil {
+			return actionResultMsg{
+				success: false,
+				message: fmt.Sprintf("⚠️ Auto-update failed: %v", err),
+			}
+		}
+
+		// Success - write new version
+		if err := os.WriteFile(versionFile, []byte(currentVer), 0644); err != nil {
+			return actionResultMsg{success: true, message: "✅ Harnesses updated (failed to save state)"}
+		}
+
+		return actionResultMsg{success: true, message: fmt.Sprintf("✅ Harnesses updated to %s", currentVer)}
 	}
 }
 
@@ -1410,8 +1483,10 @@ func (m model) viewHarnessAuth() string {
 		var statusBadge string
 		if !hs.installed {
 			statusBadge = lipgloss.NewStyle().Foreground(theme.TextMuted).Render("◌ Not Installed")
+		} else if hs.apiKey != "" {
+			statusBadge = theme.StatusSuccess.Render("● Authenticated (Key Configured)")
 		} else if hs.authed {
-			statusBadge = theme.StatusSuccess.Render("● Authenticated")
+			statusBadge = theme.StatusSuccess.Render("● Authenticated (Local CLI)")
 		} else {
 			statusBadge = theme.StatusError.Render("○ Not Authenticated")
 		}
@@ -1466,7 +1541,11 @@ func (m model) viewHarnessAuth() string {
 				// API key field
 				apiDisplay := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("(not set)")
 				if hs.apiKey != "" {
-					apiDisplay = lipgloss.NewStyle().Foreground(theme.TextMuted).Render(strings.Repeat("•", min(len(hs.apiKey), 20)))
+					masked := strings.Repeat("•", min(len(hs.apiKey), 16))
+					if len(hs.apiKey) > 4 {
+						masked = strings.Repeat("•", min(len(hs.apiKey)-4, 16)) + hs.apiKey[len(hs.apiKey)-4:]
+					}
+					apiDisplay = lipgloss.NewStyle().Foreground(theme.TextMuted).Render(masked)
 				}
 				if m.harnessEditing && m.harnessEditField == "apikey" {
 					apiDisplay = inputStyle.Render(m.harnessEditBuffer + "█")

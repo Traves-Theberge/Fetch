@@ -16,6 +16,7 @@ WORKDIR /app
 
 # Copy package files
 COPY fetch-app/package*.json ./
+COPY VERSION ./VERSION
 
 # Install all dependencies (including devDependencies for build)
 RUN npm ci

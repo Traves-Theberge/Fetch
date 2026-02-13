@@ -11,7 +11,7 @@ import (
 
 // Build-time variables set via -ldflags.
 var (
-	version   = "v4.6.1"
+	version   = "dev"
 	buildDate = "unknown"
 	gitCommit = "unknown"
 )
@@ -132,4 +132,3 @@ func Version(info VersionInfo, width, height int) string {
 	// Center the entire content block in the available viewport
 	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
 }
-

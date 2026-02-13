@@ -66,6 +66,7 @@ import { validateEnv } from './config/env.js';
 import { getSessionStore } from './session/store.js';
 import { getTaskStore } from './task/store.js';
 import { getSkillManager } from './skills/manager.js';
+import { getVersion } from './utils/version.js';
 
 /** Module-scoped bridge reference for graceful shutdown */
 let activeBridge: Bridge | null = null;
@@ -81,8 +82,9 @@ let activeBridge: Bridge | null = null;
  * @returns {Promise<void>}
  */
 async function main(): Promise<void> {
-  logger.info('🐕 Fetch Bridge starting...');
-  
+  const version = getVersion();
+  logger.info(`🐕 Fetch Bridge ${version} starting...`);
+
   // Validate critical environment variables FIRST (before starting subsystems)
   const { valid, missing } = validateEnv();
   if (!valid) {
@@ -100,7 +102,7 @@ async function main(): Promise<void> {
     const bridge = new Bridge();
     await bridge.initialize();
     activeBridge = bridge;
-    
+
     // Register logout callback for the status API
     setLogoutCallback(async () => {
       logger.info('🔌 Logout requested via API, destroying bridge...');
@@ -108,7 +110,7 @@ async function main(): Promise<void> {
       activeBridge = null;
       logger.info('✅ Bridge destroyed, WhatsApp disconnected');
     });
-    
+
     logger.info('✅ Fetch Bridge is ready and listening!');
   } catch (error) {
     // Properly serialize error for logging

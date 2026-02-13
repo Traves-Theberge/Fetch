@@ -7,10 +7,16 @@
  *
  * All consumers import `pipeline` from here — no magic numbers anywhere else.
  *
+ * ## Hot-Reload Support
+ *
+ * This module uses a Proxy to read `process.env` on every access.
+ * When the TUI config editor saves changes and triggers a hot-reload,
+ * updates to `process.env` are immediately reflected — no restart needed.
+ *
  * ## Data Flow
  *
  * ```
- * TUI Config Editor → .env file → Docker Compose → process.env → pipeline.* → all consumers
+ * TUI Config Editor → .env file → Docker Mount → reload API → process.env → pipeline.* → all consumers
  * ```
  *
  * ## Quick Tuning (docker-compose.yml)
@@ -29,158 +35,188 @@
 import { env } from './env.js';
 
 // =============================================================================
-// Pipeline Configuration
+// Pipeline Definition Types
+// =============================================================================
+
+type PipelineDef =
+  | { type: 'int'; key: string; fallback: number }
+  | { type: 'float'; key: string; fallback: number }
+  | { type: 'str'; key: string; fallback: string }
+  | { type: 'ints'; key: string; fallback: number[] }
+  | { type: 'envStr'; key: string; envFallbackKey: string; fallback: string };
+
+// =============================================================================
+// Pipeline Definitions — env key, type, and default for each parameter
+// =============================================================================
+
+const PIPELINE_DEFS: Record<string, PipelineDef> = {
+  // ─── Context Window ────────────────────────────────────────
+  historyWindow: { type: 'int', key: 'FETCH_HISTORY_WINDOW', fallback: 20 },
+  compactionThreshold: { type: 'int', key: 'FETCH_COMPACTION_THRESHOLD', fallback: 40 },
+  compactionMaxTokens: { type: 'int', key: 'FETCH_COMPACTION_MAX_TOKENS', fallback: 500 },
+  compactionModel: { type: 'envStr', key: 'FETCH_COMPACTION_MODEL', envFallbackKey: 'SUMMARY_MODEL', fallback: 'openai/gpt-4o-mini' },
+
+  // ─── Notification LLM ────────────────────────────────────────
+  notificationModel: { type: 'envStr', key: 'FETCH_NOTIFICATION_MODEL', envFallbackKey: 'SUMMARY_MODEL', fallback: 'openai/gpt-4o-mini' },
+  notificationMaxTokens: { type: 'int', key: 'FETCH_NOTIFICATION_MAX_TOKENS', fallback: 150 },
+  notificationTemperature: { type: 'float', key: 'FETCH_NOTIFICATION_TEMPERATURE', fallback: 0.7 },
+
+  // ─── Agent LLM ────────────────────────────────────────────
+  maxToolCalls: { type: 'int', key: 'FETCH_MAX_TOOL_CALLS', fallback: 5 },
+  toolMaxTokens: { type: 'int', key: 'FETCH_TOOL_MAX_TOKENS', fallback: 2048 },
+  toolTemperature: { type: 'float', key: 'FETCH_TOOL_TEMPERATURE', fallback: 0.3 },
+  frameMaxTokens: { type: 'int', key: 'FETCH_FRAME_MAX_TOKENS', fallback: 200 },
+
+  // ─── Circuit Breaker ──────────────────────────────────────
+  circuitBreakerThreshold: { type: 'int', key: 'FETCH_CB_THRESHOLD', fallback: 3 },
+  circuitBreakerBackoff: { type: 'ints', key: 'FETCH_CB_BACKOFF', fallback: [1000, 5000, 30000] },
+  maxRetries: { type: 'int', key: 'FETCH_MAX_RETRIES', fallback: 3 },
+  retryBackoff: { type: 'ints', key: 'FETCH_RETRY_BACKOFF', fallback: [0, 1000, 3000, 10000] },
+  circuitBreakerResetMs: { type: 'int', key: 'FETCH_CB_RESET_MS', fallback: 300_000 },
+
+  // ─── Task Execution ───────────────────────────────────────
+  taskTimeout: { type: 'int', key: 'FETCH_TASK_TIMEOUT', fallback: 300_000 },
+  harnessTimeout: { type: 'int', key: 'FETCH_HARNESS_TIMEOUT', fallback: 300_000 },
+  taskMaxRetries: { type: 'int', key: 'FETCH_TASK_MAX_RETRIES', fallback: 1 },
+
+  // ─── WhatsApp Formatting ──────────────────────────────────
+  whatsappMaxLength: { type: 'int', key: 'FETCH_WA_MAX_LENGTH', fallback: 4000 },
+  whatsappLineWidth: { type: 'int', key: 'FETCH_WA_LINE_WIDTH', fallback: 40 },
+
+  // ─── Rate Limiting ────────────────────────────────────────
+  rateLimitMax: { type: 'int', key: 'FETCH_RATE_LIMIT_MAX', fallback: 30 },
+  rateLimitWindow: { type: 'int', key: 'FETCH_RATE_LIMIT_WINDOW', fallback: 60_000 },
+
+  // ─── Bridge / Reconnection ────────────────────────────────
+  maxReconnectAttempts: { type: 'int', key: 'FETCH_MAX_RECONNECT', fallback: 10 },
+  reconnectBaseDelay: { type: 'int', key: 'FETCH_RECONNECT_BASE_DELAY', fallback: 5_000 },
+  reconnectMaxDelay: { type: 'int', key: 'FETCH_RECONNECT_MAX_DELAY', fallback: 300_000 },
+  reconnectJitter: { type: 'int', key: 'FETCH_RECONNECT_JITTER', fallback: 2_000 },
+  deduplicationTtl: { type: 'int', key: 'FETCH_DEDUP_TTL', fallback: 30_000 },
+  progressThrottle: { type: 'int', key: 'FETCH_PROGRESS_THROTTLE', fallback: 3_000 },
+
+  // ─── Session / Memory ─────────────────────────────────────
+  recentMessageLimit: { type: 'int', key: 'FETCH_RECENT_MSG_LIMIT', fallback: 50 },
+  truncationLimit: { type: 'int', key: 'FETCH_TRUNCATION_LIMIT', fallback: 100 },
+  repoMapTtl: { type: 'int', key: 'FETCH_REPO_MAP_TTL', fallback: 300_000 },
+  contextBudget: { type: 'int', key: 'FETCH_CONTEXT_BUDGET', fallback: 6000 },
+
+  // ─── Workspace ────────────────────────────────────────────
+  workspaceCacheTtl: { type: 'int', key: 'FETCH_WORKSPACE_CACHE_TTL', fallback: 30_000 },
+  gitCommandTimeout: { type: 'int', key: 'FETCH_GIT_TIMEOUT', fallback: 5_000 },
+
+  // ─── Memory / Recall ─────────────────────────────────────────
+  recallLimit: { type: 'int', key: 'FETCH_RECALL_LIMIT', fallback: 5 },
+  recallSnippetTokens: { type: 'int', key: 'FETCH_RECALL_SNIPPET_TOKENS', fallback: 300 },
+  recallDecay: { type: 'float', key: 'FETCH_RECALL_DECAY', fallback: 0.1 },
+  toolResultMaxPersist: { type: 'int', key: 'FETCH_TOOL_RESULT_MAX_PERSIST', fallback: 2000 },
+
+  // ─── Web / Browser ─────────────────────────────────────────
+  searxngUrl: { type: 'str', key: 'FETCH_SEARXNG_URL', fallback: 'http://searxng:8080' },
+  webFetchMaxLength: { type: 'int', key: 'FETCH_WEB_FETCH_MAX_LENGTH', fallback: 50_000 },
+  browserTimeout: { type: 'int', key: 'FETCH_BROWSER_TIMEOUT', fallback: 30_000 },
+};
+
+// =============================================================================
+// Dynamic Pipeline Proxy
 // =============================================================================
 
 /**
- * Centralized pipeline configuration.
- *
- * Every parameter reads from `process.env` with a fallback default.
- * Restart required to apply changes (read once at import time).
+ * Resolve a pipeline definition to its current value from process.env.
+ * Called fresh on every property access for hot-reload support.
  */
-export const pipeline = {
-  // ─── Context Window ────────────────────────────────────────
-  /** Messages in the sliding window sent to the LLM */
-  historyWindow: int('FETCH_HISTORY_WINDOW', 20),
-  /** Compact when total messages exceed this */
-  compactionThreshold: int('FETCH_COMPACTION_THRESHOLD', 40),
-  /** Max tokens for LLM-generated compaction summary */
-  compactionMaxTokens: int('FETCH_COMPACTION_MAX_TOKENS', 500),
-  /** Model for compaction summaries (cheap + fast) */
-  compactionModel: str('FETCH_COMPACTION_MODEL', env.SUMMARY_MODEL ?? 'openai/gpt-4o-mini'),
+function resolve(def: PipelineDef): unknown {
+  const v = process.env[def.key];
 
-  // ─── Notification LLM ────────────────────────────────────────
-  /** Model for LLM-formatted notifications (cheap + fast) */
-  notificationModel: str('FETCH_NOTIFICATION_MODEL', env.SUMMARY_MODEL ?? 'openai/gpt-4o-mini'),
-  /** Max tokens for notification generation */
-  notificationMaxTokens: int('FETCH_NOTIFICATION_MAX_TOKENS', 150),
-  /** Temperature for notification generation (higher = more varied) */
-  notificationTemperature: float('FETCH_NOTIFICATION_TEMPERATURE', 0.7),
-
-  // ─── Agent LLM ────────────────────────────────────────────
-  /** Max tool call rounds per single user message */
-  maxToolCalls: int('FETCH_MAX_TOOL_CALLS', 5),
-  /** Token budget for LLM responses (all paths go through handleWithTools) */
-  toolMaxTokens: int('FETCH_TOOL_MAX_TOKENS', 2048),
-  /** Temperature for LLM responses */
-  toolTemperature: float('FETCH_TOOL_TEMPERATURE', 0.3),
-  /** Token budget for task framing prompt */
-  frameMaxTokens: int('FETCH_FRAME_MAX_TOKENS', 200),
-
-  // ─── Circuit Breaker ──────────────────────────────────────
-  /** Errors before circuit opens */
-  circuitBreakerThreshold: int('FETCH_CB_THRESHOLD', 3),
-  /** Backoff schedule (ms) for circuit breaker */
-  circuitBreakerBackoff: ints('FETCH_CB_BACKOFF', [1000, 5000, 30000]),
-  /** Max retries for retriable errors */
-  maxRetries: int('FETCH_MAX_RETRIES', 3),
-  /** Retry backoff schedule (ms) */
-  retryBackoff: ints('FETCH_RETRY_BACKOFF', [0, 1000, 3000, 10000]),
-  /** Circuit breaker reset window (ms) — resets error count after this period of no errors */
-  circuitBreakerResetMs: int('FETCH_CB_RESET_MS', 300_000),
-
-  // ─── Task Execution ───────────────────────────────────────
-  /** Default task timeout (ms) */
-  taskTimeout: int('FETCH_TASK_TIMEOUT', 300_000),
-  /** Default harness timeout (ms) */
-  harnessTimeout: int('FETCH_HARNESS_TIMEOUT', 300_000),
-  /** Max task retries */
-  taskMaxRetries: int('FETCH_TASK_MAX_RETRIES', 1),
-
-  // ─── WhatsApp Formatting ──────────────────────────────────
-  /** Max characters per WhatsApp message */
-  whatsappMaxLength: int('FETCH_WA_MAX_LENGTH', 4000),
-  /** Max chars per line for mobile readability */
-  whatsappLineWidth: int('FETCH_WA_LINE_WIDTH', 40),
-
-  // ─── Rate Limiting ────────────────────────────────────────
-  /** Requests per rate limit window */
-  rateLimitMax: int('FETCH_RATE_LIMIT_MAX', 30),
-  /** Rate limit window (ms) */
-  rateLimitWindow: int('FETCH_RATE_LIMIT_WINDOW', 60_000),
-
-  // ─── Bridge / Reconnection ────────────────────────────────
-  /** Max reconnect attempts before giving up */
-  maxReconnectAttempts: int('FETCH_MAX_RECONNECT', 10),
-  /** Base delay for exponential backoff reconnect (ms) */
-  reconnectBaseDelay: int('FETCH_RECONNECT_BASE_DELAY', 5_000),
-  /** Max delay cap for reconnect (ms) */
-  reconnectMaxDelay: int('FETCH_RECONNECT_MAX_DELAY', 300_000),
-  /** Max jitter added to reconnect delay (ms) */
-  reconnectJitter: int('FETCH_RECONNECT_JITTER', 2_000),
-  /** Deduplication TTL for message dedup cache (ms) */
-  deduplicationTtl: int('FETCH_DEDUP_TTL', 30_000),
-  /** Throttle interval for progress updates (ms) */
-  progressThrottle: int('FETCH_PROGRESS_THROTTLE', 3_000),
-
-  // ─── Session / Memory ─────────────────────────────────────
-  /** Default recent messages limit for getRecentMessages() */
-  recentMessageLimit: int('FETCH_RECENT_MSG_LIMIT', 50),
-  /** Truncation limit — max messages before hard truncation */
-  truncationLimit: int('FETCH_TRUNCATION_LIMIT', 100),
-  /** Repo map staleness check (ms) */
-  repoMapTtl: int('FETCH_REPO_MAP_TTL', 300_000),
-  /** Token budget for system prompt (estimated via chars/4 heuristic) */
-  contextBudget: int('FETCH_CONTEXT_BUDGET', 6000),
-
-  // ─── Workspace ────────────────────────────────────────────
-  /** Workspace info cache TTL (ms) */
-  workspaceCacheTtl: int('FETCH_WORKSPACE_CACHE_TTL', 30_000),
-  /** Git command execution timeout (ms) */
-  gitCommandTimeout: int('FETCH_GIT_TIMEOUT', 5_000),
-
-  // ─── Memory / Recall ─────────────────────────────────────────
-  /** Max recalled memory entries injected into context */
-  recallLimit: int('FETCH_RECALL_LIMIT', 5),
-  /** Max tokens per recalled snippet */
-  recallSnippetTokens: int('FETCH_RECALL_SNIPPET_TOKENS', 300),
-  /** Recency decay factor (higher = faster decay) */
-  recallDecay: float('FETCH_RECALL_DECAY', 0.1),
-  /** Max chars for tool results persisted in session history */
-  toolResultMaxPersist: int('FETCH_TOOL_RESULT_MAX_PERSIST', 2000),
-
-  // ─── Web / Browser ─────────────────────────────────────────
-  /** SearXNG instance URL for web search */
-  searxngUrl: str('FETCH_SEARXNG_URL', 'http://searxng:8080'),
-  /** Web fetch max content length (chars) */
-  webFetchMaxLength: int('FETCH_WEB_FETCH_MAX_LENGTH', 50_000),
-  /** Browser command timeout (ms) */
-  browserTimeout: int('FETCH_BROWSER_TIMEOUT', 30_000),
-
-} as const;
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-function int(key: string, fallback: number): number {
-  const v = process.env[key];
-  if (v === undefined || v === '') return fallback;
-  const parsed = parseInt(v, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function float(key: string, fallback: number): number {
-  const v = process.env[key];
-  if (v === undefined || v === '') return fallback;
-  const parsed = parseFloat(v);
-  return Number.isNaN(parsed) ? fallback : parsed;
-}
-
-function str(key: string, fallback: string): string {
-  const v = process.env[key];
-  return v !== undefined && v !== '' ? v : fallback;
-}
-
-function ints(key: string, fallback: number[]): number[] {
-  const v = process.env[key];
-  if (v === undefined || v === '') return fallback;
-  const parsed = v.split(',').map(Number);
-  return parsed.some(Number.isNaN) ? fallback : parsed;
+  switch (def.type) {
+    case 'int': {
+      if (v === undefined || v === '') return def.fallback;
+      const parsed = parseInt(v, 10);
+      return Number.isNaN(parsed) ? def.fallback : parsed;
+    }
+    case 'float': {
+      if (v === undefined || v === '') return def.fallback;
+      const parsed = parseFloat(v);
+      return Number.isNaN(parsed) ? def.fallback : parsed;
+    }
+    case 'str': {
+      return v !== undefined && v !== '' ? v : def.fallback;
+    }
+    case 'ints': {
+      if (v === undefined || v === '') return def.fallback;
+      const parsed = v.split(',').map(Number);
+      return parsed.some(Number.isNaN) ? def.fallback : parsed;
+    }
+    case 'envStr': {
+      // First check the specific env var, then the env fallback, then hardcoded default
+      if (v !== undefined && v !== '') return v;
+      const envFallback = env[def.envFallbackKey as keyof typeof env];
+      return envFallback ?? def.fallback;
+    }
+  }
 }
 
 // =============================================================================
-// Type Export
+// Pipeline Configuration Interface (for type safety)
 // =============================================================================
 
-export type PipelineConfig = typeof pipeline;
+interface PipelineConfig {
+  historyWindow: number;
+  compactionThreshold: number;
+  compactionMaxTokens: number;
+  compactionModel: string;
+  notificationModel: string;
+  notificationMaxTokens: number;
+  notificationTemperature: number;
+  maxToolCalls: number;
+  toolMaxTokens: number;
+  toolTemperature: number;
+  frameMaxTokens: number;
+  circuitBreakerThreshold: number;
+  circuitBreakerBackoff: number[];
+  maxRetries: number;
+  retryBackoff: number[];
+  circuitBreakerResetMs: number;
+  taskTimeout: number;
+  harnessTimeout: number;
+  taskMaxRetries: number;
+  whatsappMaxLength: number;
+  whatsappLineWidth: number;
+  rateLimitMax: number;
+  rateLimitWindow: number;
+  maxReconnectAttempts: number;
+  reconnectBaseDelay: number;
+  reconnectMaxDelay: number;
+  reconnectJitter: number;
+  deduplicationTtl: number;
+  progressThrottle: number;
+  recentMessageLimit: number;
+  truncationLimit: number;
+  repoMapTtl: number;
+  contextBudget: number;
+  workspaceCacheTtl: number;
+  gitCommandTimeout: number;
+  recallLimit: number;
+  recallSnippetTokens: number;
+  recallDecay: number;
+  toolResultMaxPersist: number;
+  searxngUrl: string;
+  webFetchMaxLength: number;
+  browserTimeout: number;
+}
+
+/**
+ * Centralized pipeline configuration with hot-reload support.
+ *
+ * Uses a Proxy to read `process.env` on every access, so changes
+ * made via the TUI hot-reload API are immediately reflected.
+ */
+export const pipeline: PipelineConfig = new Proxy({} as PipelineConfig, {
+  get(_target, prop: string) {
+    const def = PIPELINE_DEFS[prop];
+    if (!def) return undefined;
+    return resolve(def);
+  },
+});
+
+export type { PipelineConfig };

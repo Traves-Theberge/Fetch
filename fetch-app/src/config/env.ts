@@ -100,8 +100,10 @@ const DEFAULTS: Partial<Record<string, string>> = {
 // Version
 // ============================================================================
 
+import { getVersion } from '../utils/version.js';
+
 /** Single source of truth for the application version string. */
-export const VERSION = '4.6.1';
+export const VERSION = getVersion();
 
 // ============================================================================
 // Exports
@@ -130,14 +132,30 @@ export const env = new Proxy({} as EnvConfig, {
   },
 });
 
+// Load .env file if present
+import dotenv from 'dotenv';
+dotenv.config();
+
 /**
  * Validate all required env vars are present (Zod).
  * Call once at startup — logs a structured error on failure.
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
-  const result = EnvSchema.safeParse(process.env);
+  // Construct an object with all values (process.env + DEFAULTS)
+  const envVars = Object.keys(EnvSchema.shape).reduce((acc, key) => {
+    const val = process.env[key];
+    if (val !== undefined && val !== '') {
+      acc[key] = val;
+    } else if (key in DEFAULTS) {
+      acc[key] = DEFAULTS[key];
+    }
+    return acc;
+  }, {} as Record<string, any>);
+
+  const result = EnvSchema.safeParse(envVars);
 
   if (!result.success) {
+    // Collect missing paths from Zod issues
     const missing = result.error.issues.map((i) => i.path.join('.'));
     return { valid: false, missing };
   }

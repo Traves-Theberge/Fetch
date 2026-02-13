@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-02-12
+
+### Version Centralization & Agency Polish
+
+#### Added
+
+- **Centralized Versioning** — Single `VERSION` file in project root serves as the source of truth for all components
+- **Dynamic Manager Builds** — `scripts/build_manager.sh` injects version, commit, and build date into the Go binary at build time
+- **Runtime Versioning** — Fetch Bridge now reads the explicit version on startup instead of hardcoded fallback
+- **Automated Harness Management** — `scripts/update_harnesses.sh` installs/updates global AI CLI tools and rebuilds Docker containers; `install.sh` now handles host dependencies (Node.js, gh)
+- **TUI Auto-Update** — Manager detects version mismatches on startup and automatically triggers the harness update script
+- **TUI Hot-Reload** — Saving changes in the Settings editor automatically restarts the `fetch-bridge` container to apply new values immediately
+
+#### Changed
+
+- **Install Script** — Updated `install.sh` to use the new build script for consistent versioning
+- **Status API** — `/api/status` now reports the actual running version from the `VERSION` file
+
+#### Fixed
+
+- **Codex Agent Selection** — Fixed issue where Codex harness selection was ambiguous or failed
+- **Group Chat Logic** — Fixed regression causing unsolicited responses in group chats
+- **Documentation** — Updated all static documentation to reflect the new versioning strategy
+
+#### Files Changed (11)
+
+| Area | Files |
+|------|-------|
+| Root | `VERSION` (new), `install.sh` |
+| App | `src/utils/version.ts` (new), `src/index.ts`, `src/api/status.ts`, `Dockerfile` |
+| Manager | `scripts/build_manager.sh` (new), `manager/internal/components/version.go`, `manager/main.go` |
+| Scripts | `scripts/update_harnesses.sh` (new) |
+| Docs | `README.md`, `docs/index.html`, `CHANGELOG.md`, `docs/markdown/SETUP_GUIDE.md`, `docs/markdown/TUI_GUIDE.md` |
+
+---
+
 ## [4.6.1] - 2026-02-12
 
 ### Unified Harness Auth Screen + Codex Config + Docker Mount Fixes
@@ -157,6 +193,7 @@ Three work streams that make Fetch smarter about the projects it works on, more 
 Full codebase audit identified 55 issues across 12 clusters. 50 resolved across security, process lifecycle, concurrency, resilience, Docker, agent core, task system, tools, harness adapters, session management, and configuration. 5 test coverage items deferred.
 
 #### Security & Shell Injection (Cluster 1)
+
 - **Shell injection prevention** — Quoted all `${path}` variables in `sh -c` commands across 10+ locations in workspace manager
 - **Sed injection fix** — Replaced unsafe `sed`-based JSON editing with `npm pkg set`
 - **Heredoc file creation** — Replaced `echo '${content}'` (literal `\n`) with `cat << 'HEREDOC'` pattern
@@ -165,28 +202,33 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 - **GitHub rollback** — Graceful handling when GitHub repo creation fails during workspace create
 
 #### Process Lifecycle (Cluster 2)
+
 - **Timer cleanup** — Store timeout IDs in Map, `clearTimeout` on process completion
 - **Listener cleanup** — Remove stdout/stderr listeners in close handler
 - **Execution isolation** — Added `settled` flag per-execution to prevent cross-fire between concurrent harness instances
 - **Race condition fix** — Timer-map guard pattern prevents timeout/close race condition
 
 #### Concurrency (Cluster 3)
+
 - **Singleton races** — Promise-lock pattern for `getSessionManager()`, `getTaskManager()`, `getWhitelistStore()` singletons
 - **Persistence mutex** — Promise-chain serialization for whitelist `add()`/`remove()` writes
 - **Rate limiter consistency** — Extracted shared `prune()` method used by both `isAllowed()` and `getRemaining()`
 
 #### Watcher & Loader Resilience (Cluster 4)
+
 - **Error handlers** — Added `.on('error')` to chokidar watchers (identity + skills)
 - **Async I/O** — Converted `IdentityLoader.load()` to async with `fs.promises`
 - **Structured logging** — Replaced `console.warn`/`console.error` with `logger` in loader
 - **Shutdown methods** — Added `shutdown()` to close watcher file descriptors in identity and skills managers
 
 #### Docker Hardening (Cluster 5)
+
 - **Health checks** — Added `HEALTHCHECK` to fetch-bridge (curl /api/status) and fetch-kennel (test -f /tmp/kennel-ready)
 - **Resource limits** — Memory (2G) and CPU (2.0) limits on fetch-bridge container
 - **Log rotation** — `json-file` driver with 50m max-size, 3 max-files for both services
 
 #### Handler & Agent Core (Cluster 6)
+
 - **Async safety** — Fixed fire-and-forget async setTimeout callback with `.then()/.catch()` pattern
 - **Input validation** — Empty/whitespace message rejection before LLM processing
 - **State sync validation** — Added field validation after `JSON.parse` in tool call state sync (workspace_select, workspace_create, task_create)
@@ -195,6 +237,7 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 - **Context simplification** — Clarified retry context reduction on 400 errors
 
 #### Task & Pool System (Cluster 7)
+
 - **Unused AbortController removed** — Changed `activeExecutions` from `Map<TaskId, AbortController>` to `Set<TaskId>`
 - **Persistence safety** — Try/catch around store save operations in TaskManager
 - **Queue resilience** — Wrapped recursive `processQueue()` in try/catch
@@ -203,12 +246,14 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 - **Helper extraction** — `isActiveStatus()` helper for status comparisons
 
 #### Tool System (Cluster 8)
+
 - **Workspace validation** — Check workspace exists in `handleWorkspaceSync` before proceeding
 - **Configurable timeout** — Browser timeout via `FETCH_BROWSER_TIMEOUT` pipeline param
 - **Output cap** — Shell handler output capped at 100K characters
 - **Custom tool lifecycle** — Implemented `unloadCustomTool()` with file-to-name tracking
 
 #### Harness Adapters (Cluster 9)
+
 - **Shared constant** — Extracted `KENNEL_CONTAINER` from hardcoded `'fetch-kennel'` strings
 - **Path validation** — Workspace path existence check before spawning harness
 - **Cross-platform errors** — Added timeout string matching alongside Linux exit code 124/137
@@ -216,10 +261,12 @@ Full codebase audit identified 55 issues across 12 clusters. 50 resolved across 
 - **Execution metadata** — Populated `HarnessExecution.pid` and `exitCode` fields
 
 #### Session & Security (Cluster 10)
+
 - **Compaction tracking** — Track consecutive compaction failures, escalate after 3
 - **Atomic clear** — Only mutate session after confirmed DB write in `/clear` command
 
 #### Config & Cleanup (Cluster 11)
+
 - **API key docs** — Added `ANTHROPIC_API_KEY` to `.env.example`
 - **Centralized version** — Single `VERSION` constant in `config/env.ts`, used by parser, format, and identity manager
 - **Emoji reactions** — Implemented approval/rejection handling for WhatsApp emoji reactions in bridge client

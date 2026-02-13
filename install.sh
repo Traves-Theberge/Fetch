@@ -10,7 +10,7 @@ echo ""
 
 # Must run as root or with sudo
 if [ "$EUID" -ne 0 ]; then
-    echo "Please run with sudo: sudo ./install-pi.sh"
+    echo "Please run with sudo: sudo ./install.sh"
     exit 1
 fi
 
@@ -44,6 +44,43 @@ echo ""
 echo "🐳 Installing Docker Compose..."
 apt-get install -y docker-compose-plugin
 echo "✅ Docker Compose installed"
+
+# Check for git
+if ! command -v git &> /dev/null; then
+    echo "📦 Installing git..."
+    apt-get update
+    apt-get install -y git
+fi
+
+# Check for curl
+if ! command -v curl &> /dev/null; then
+    echo "📦 Installing curl..."
+    apt-get install -y curl
+fi
+
+# Check for Node.js (v20)
+if ! command -v node &> /dev/null; then
+    echo "📦 Installing Node.js v20..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+fi
+
+# Check for GitHub CLI
+if ! command -v gh &> /dev/null; then
+    echo "📦 Installing GitHub CLI..."
+    mkdir -p -m 755 /etc/apt/keyrings
+    wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    apt-get update
+    apt-get install -y gh
+fi
+
+# Install/Update Harnesses
+echo ""
+echo "🤖 Installing/Updating AI Harnesses..."
+chmod +x scripts/update_harnesses.sh
+./scripts/update_harnesses.sh
 
 # Install Go (for Manager TUI)
 echo ""
@@ -91,7 +128,11 @@ echo ""
 echo "🔨 Building Manager TUI..."
 cd manager
 sudo -u $FETCH_USER /usr/local/go/bin/go mod tidy
-sudo -u $FETCH_USER /usr/local/go/bin/go build -o fetch-manager .
+echo "   Running build script..."
+# Ensure script is executable
+chmod +x ../scripts/build_manager.sh
+# Run build script as user
+sudo -u $FETCH_USER ../scripts/build_manager.sh
 echo "✅ Manager built"
 
 cd $FETCH_DIR

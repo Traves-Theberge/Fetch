@@ -528,7 +528,7 @@ export class TaskManager extends EventEmitter {
    */
   private selectAgent(selection: string, _goal: string): AgentType {
     // Helper to check if a string flag is 'true'
-    const isTrue = (val: any) => String(val) === 'true';
+    const isTrue = (val: any) => String(val).trim().toLowerCase() === 'true';
 
     const copilotEnabled = isTrue(env.ENABLE_COPILOT);
     const geminiEnabled = isTrue(env.ENABLE_GEMINI);
@@ -537,14 +537,19 @@ export class TaskManager extends EventEmitter {
     // 1. Explicit selection
     if (selection !== 'auto') {
       const agent = selection as AgentType;
+      const opencodeEnabled = isTrue(env.ENABLE_OPENCODE);
+      const codexEnabled = isTrue(env.ENABLE_CODEX);
+
       const isEnabled = (agent === 'copilot' && copilotEnabled) ||
         (agent === 'gemini' && geminiEnabled) ||
-        (agent === 'claude' && claudeEnabled);
+        (agent === 'claude' && claudeEnabled) ||
+        (agent === 'opencode' && opencodeEnabled) ||
+        (agent === 'codex' && codexEnabled);
 
       if (!isEnabled) {
         throw new Error(
           `Requested agent "${selection}" is not enabled. ` +
-          `Enabled agents: ${copilotEnabled ? 'copilot ' : ''}${geminiEnabled ? 'gemini ' : ''}${claudeEnabled ? 'claude' : ''}`.trim()
+          `Enabled agents: ${copilotEnabled ? 'copilot ' : ''}${geminiEnabled ? 'gemini ' : ''}${claudeEnabled ? 'claude ' : ''}${opencodeEnabled ? 'opencode ' : ''}${codexEnabled ? 'codex' : ''}`.trim()
         );
       }
       return agent;
@@ -555,6 +560,8 @@ export class TaskManager extends EventEmitter {
     if (copilotEnabled) enabled.push('copilot');
     if (geminiEnabled) enabled.push('gemini');
     if (claudeEnabled) enabled.push('claude');
+    if (isTrue(env.ENABLE_OPENCODE)) enabled.push('opencode');
+    if (isTrue(env.ENABLE_CODEX)) enabled.push('codex');
     logger.info(`Enabled agents for selection: ${enabled.join(', ')}`);
 
     if (enabled.length === 1) {
@@ -570,7 +577,7 @@ export class TaskManager extends EventEmitter {
     }
 
     throw new Error(
-      'No agents are currently enabled in configuration (ENABLE_COPILOT, ENABLE_GEMINI, or ENABLE_CLAUDE). ' +
+      'No agents are currently enabled in configuration (ENABLE_COPILOT, ENABLE_GEMINI, ENABLE_CLAUDE, ENABLE_OPENCODE, or ENABLE_CODEX). ' +
       'Please check your .env settings.'
     );
   }

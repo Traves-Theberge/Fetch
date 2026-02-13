@@ -9,7 +9,7 @@ echo "🐕 Building Fetch Manager..."
 cd "$(dirname "$0")"
 
 # Version info for ldflags injection
-VERSION="v4.6.1"
+VERSION=$(cat ../VERSION)
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 

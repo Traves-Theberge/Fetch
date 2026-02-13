@@ -57,6 +57,7 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
+import { getVersion } from '../utils/version.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -89,6 +90,8 @@ export interface BridgeStatus {
   messageCount: number;
   /** Last error message (if any) */
   lastError: string | null;
+  /** Current version */
+  version: string;
 }
 
 // =============================================================================
@@ -102,7 +105,8 @@ let status: BridgeStatus = {
   qrUrl: null,
   uptime: 0,
   messageCount: 0,
-  lastError: null
+  lastError: null,
+  version: getVersion()
 };
 
 /** Server start time for uptime calculation */
@@ -181,7 +185,7 @@ export function getStatus(): BridgeStatus {
 export function startStatusServer(): void {
   const server = http.createServer(async (req, res) => {
     const url = req.url || '/';
-    
+
     // CORS headers for local development
     res.setHeader('Access-Control-Allow-Origin', '*');
 
@@ -192,14 +196,14 @@ export function startStatusServer(): void {
       res.end(JSON.stringify(getStatus()));
       return;
     }
-    
+
     if (req.method === 'GET' && url === '/api/health') {
       res.setHeader('Content-Type', 'application/json');
       res.writeHead(200);
       res.end(JSON.stringify({ healthy: true }));
       return;
     }
-    
+
     // Logout/Disconnect endpoint (requires admin token)
     if (req.method === 'POST' && url === '/api/logout') {
       res.setHeader('Content-Type', 'application/json');
@@ -221,27 +225,94 @@ export function startStatusServer(): void {
       }
       return;
     }
-    
+
+    // Hot-reload configuration from mounted .env file
+    if (req.method === 'POST' && url === '/api/config/reload') {
+      res.setHeader('Content-Type', 'application/json');
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+
+      try {
+        const envPath = '/app/.env';
+        if (!fs.existsSync(envPath)) {
+          res.writeHead(404);
+          res.end(JSON.stringify({ success: false, message: '.env not mounted' }));
+          return;
+        }
+
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        const updatedKeys: string[] = [];
+        const envFileKeys = new Set<string>();
+
+        for (const line of envContent.split('\n')) {
+          const trimmed = line.trim();
+          // Skip comments and empty lines
+          if (!trimmed || trimmed.startsWith('#')) continue;
+
+          const eqIndex = trimmed.indexOf('=');
+          if (eqIndex === -1) continue;
+
+          const key = trimmed.substring(0, eqIndex).trim();
+          let value = trimmed.substring(eqIndex + 1).trim();
+
+          if (!key) continue;
+
+          // Strip surrounding quotes (docker-compose does this at startup)
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+          }
+
+          envFileKeys.add(key);
+
+          // Only update if value actually changed
+          if (process.env[key] !== value) {
+            process.env[key] = value;
+            updatedKeys.push(key);
+          }
+        }
+
+        logger.info(`Config reload: ${updatedKeys.length} key(s) updated${updatedKeys.length > 0 ? ': ' + updatedKeys.join(', ') : ''}`);
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          updatedKeys,
+          message: `${updatedKeys.length} key(s) updated`,
+        }));
+      } catch (err) {
+        logger.error('Config reload failed:', err);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Reload failed' }));
+      }
+      return;
+    }
+
     // Documentation Routes
     if (req.method === 'GET' && (url === '/docs' || url === '/docs/')) {
       res.writeHead(302, { Location: '/docs/index.html' });
       res.end();
       return;
     }
-    
+
     if (req.method === 'GET' && url.startsWith('/docs/')) {
       const filePath = path.join(DOCS_PATH, url.slice(6)); // Remove '/docs/'
       serveStaticFile(filePath, res);
       return;
     }
-    
+
     // Root redirect to docs
     if (req.method === 'GET' && url === '/') {
       res.writeHead(302, { Location: '/docs/' });
       res.end();
       return;
     }
-    
+
     // 404
     res.setHeader('Content-Type', 'application/json');
     res.writeHead(404);
@@ -272,7 +343,7 @@ function serveStaticFile(filePath: string, res: http.ServerResponse): void {
     res.end('Forbidden');
     return;
   }
-  
+
   // Content type mapping
   const ext = path.extname(filePath).toLowerCase();
   const contentTypes: Record<string, string> = {
@@ -288,7 +359,7 @@ function serveStaticFile(filePath: string, res: http.ServerResponse): void {
     '.gif': 'image/gif',
     '.ico': 'image/x-icon',
   };
-  
+
   fs.readFile(normalizedPath, (err, data) => {
     if (err) {
       if (err.code === 'ENOENT') {
@@ -300,7 +371,7 @@ function serveStaticFile(filePath: string, res: http.ServerResponse): void {
       }
       return;
     }
-    
+
     const contentType = contentTypes[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     res.writeHead(200);
