@@ -6,9 +6,10 @@ describe('index runtime', () => {
     vi.clearAllMocks();
   });
 
-  it('calls exit(1) when environment validation fails', async () => {
+  it('starts status API and stays alive in setup mode when env validation fails', async () => {
     const exitMock = vi.fn();
     const startStatusServer = vi.fn();
+    const updateStatus = vi.fn();
 
     vi.doMock('../../src/config/env.js', () => ({
       validateEnv: vi.fn(() => ({ valid: false, missing: ['OPENAI_API_KEY'] })),
@@ -16,6 +17,7 @@ describe('index runtime', () => {
     vi.doMock('../../src/api/status.js', () => ({
       startStatusServer,
       setLogoutCallback: vi.fn(),
+      updateStatus,
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
       Bridge: class {
@@ -50,8 +52,9 @@ describe('index runtime', () => {
 
     await runtime.main();
 
-    expect(exitMock).toHaveBeenCalledWith(1);
-    expect(startStatusServer).not.toHaveBeenCalled();
+    expect(exitMock).not.toHaveBeenCalled();
+    expect(startStatusServer).toHaveBeenCalledTimes(1);
+    expect(updateStatus).toHaveBeenCalled();
   });
 
   it('shutdown is idempotent and exits once', async () => {
@@ -65,6 +68,7 @@ describe('index runtime', () => {
     vi.doMock('../../src/api/status.js', () => ({
       startStatusServer: vi.fn(),
       setLogoutCallback: vi.fn(),
+      updateStatus: vi.fn(),
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
       Bridge: class {

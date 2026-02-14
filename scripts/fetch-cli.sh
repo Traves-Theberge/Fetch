@@ -53,7 +53,7 @@ Commands:
   self update        Update to latest stable release from manifest
   self update --channel <name>
                      Update from a release channel (stable/beta/nightly)
-  self pin <version> Install exact manifest version (example: v0.0.51)
+  self pin <version> Install exact manifest version (example: v0.0.52)
   self version       Show installed version and git commit
 
   help               Show this help

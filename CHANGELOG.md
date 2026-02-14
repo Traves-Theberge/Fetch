@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.52] - 2026-02-14
+
+### Changed
+
+- **Setup-mode bridge bootstrap** — Bridge now starts the status API before strict env gating and stays alive in setup mode when required keys are missing, allowing TUI configuration without crash-looping.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.52`.
+
 ## [0.0.51] - 2026-02-14
 
 ### Added

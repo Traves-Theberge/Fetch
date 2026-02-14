@@ -10,7 +10,7 @@ import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
-import { startStatusServer, setLogoutCallback } from './api/status.js';
+import { startStatusServer, setLogoutCallback, updateStatus } from './api/status.js';
 import { validateEnv } from './config/env.js';
 import { getSessionStore } from './session/store.js';
 import { getTaskStore } from './task/store.js';
@@ -40,23 +40,31 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   let activeBridge: Bridge | null = null;
   let shuttingDown = false;
   let handlersRegistered = false;
+  let bootstrapTimer: ReturnType<typeof setInterval> | null = null;
+  let bridgeStarting = false;
 
-  const main = async (): Promise<void> => {
-    const version = getVersion();
-    logger.info(`🐕 Fetch Bridge ${version} starting...`);
-
-    // Validate critical environment variables FIRST (before starting subsystems)
-    const { valid, missing } = validateEnv();
-    if (!valid) {
-      logger.error(`Missing required environment variables: ${missing.join(', ')}`);
-      exit(1);
-      return;
+  const clearBootstrapTimer = (): void => {
+    if (bootstrapTimer) {
+      clearInterval(bootstrapTimer);
+      bootstrapTimer = null;
     }
+  };
 
-    // Start status API server
-    startStatusServer();
+  const startBridge = async (): Promise<void> => {
+    if (bridgeStarting || shuttingDown || activeBridge) return;
+    bridgeStarting = true;
 
     try {
+      const { valid, missing } = validateEnv();
+      if (!valid) {
+        const missingMsg = `Setup required: missing ${missing.join(', ')}`;
+        updateStatus({ state: 'error', lastError: missingMsg });
+        logger.warn(missingMsg);
+        return;
+      }
+
+      clearBootstrapTimer();
+
       // Load skills (builtin + user) before bridge starts accepting messages
       await getSkillManager().init();
 
@@ -77,7 +85,27 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
       logger.error('Failed to initialize Fetch Bridge:', { message: errorMessage, stack: errorStack });
+      updateStatus({ state: 'error', lastError: errorMessage });
       exit(1);
+    } finally {
+      bridgeStarting = false;
+    }
+  };
+
+  const main = async (): Promise<void> => {
+    const version = getVersion();
+    logger.info(`🐕 Fetch Bridge ${version} starting...`);
+
+    // Start status API first so TUI can configure missing env in setup mode.
+    startStatusServer();
+
+    // Attempt immediate startup. If env is incomplete, remain in setup mode and retry.
+    await startBridge();
+    if (!activeBridge && !shuttingDown) {
+      bootstrapTimer = setInterval(() => {
+        void startBridge();
+      }, 2000);
+      bootstrapTimer.unref();
     }
   };
 
@@ -87,6 +115,8 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
     logger.info(`🛑 Received ${signal}, shutting down gracefully...`);
 
     try {
+      clearBootstrapTimer();
+
       // 1. Kill any running harness child processes
       const { getHarnessPool } = await import('./harness/pool.js');
       try {
