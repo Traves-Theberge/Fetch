@@ -73,7 +73,46 @@ jobs:
           git fetch origin main
           git checkout -B main origin/main
 
-          cp "$GITHUB_WORKSPACE/release-manifest.generated.json" release-manifest.json
+          python3 - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          generated_path = os.path.join(os.environ["GITHUB_WORKSPACE"], "release-manifest.generated.json")
+
+          with open(generated_path, "r", encoding="utf-8") as f:
+            generated = json.load(f)
+
+          try:
+            with open("release-manifest.json", "r", encoding="utf-8") as f:
+              existing = json.load(f)
+          except FileNotFoundError:
+            existing = {}
+
+          channels = dict(existing.get("channels") or {})
+          channels["stable"] = tag
+          channels["beta"] = tag
+          channels["nightly"] = tag
+
+          releases = dict(existing.get("releases") or {})
+          new_entry = (generated.get("releases") or {}).get(tag)
+          if not new_entry:
+            raise SystemExit(f"Generated manifest missing release entry for {tag}")
+          releases[tag] = new_entry
+
+          manifest = {
+            "schemaVersion": max(int(existing.get("schemaVersion", 1)), int(generated.get("schemaVersion", 1))),
+            "generatedAt": generated.get("generatedAt") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "defaultChannel": existing.get("defaultChannel", generated.get("defaultChannel", "stable")),
+            "channels": channels,
+            "releases": releases,
+          }
+
+          with open("release-manifest.json", "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+            f.write("\n")
+          PY
 
           if git diff --quiet -- release-manifest.json; then
             echo "Manifest unchanged; no commit needed"
@@ -88,7 +127,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-manifest
-          path: release-manifest.generated.json
+          path: release-manifest.json
 
   build-manager:
     runs-on: ubuntu-latest
@@ -104,7 +143,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: manager/go.mod
 
       - name: Build manager archive
         working-directory: manager
@@ -140,7 +179,7 @@ jobs:
       - name: Prepare release files
         run: |
           set -euo pipefail
-          cp dist/release-manifest/release-manifest.generated.json dist/release-manifest.json
+          cp dist/release-manifest/release-manifest.json dist/release-manifest.json
           find dist -type f -name '*.tar.gz' -print0 | sort -z | xargs -0 sha256sum > dist/checksums.txt
 
       - name: Publish GitHub release
