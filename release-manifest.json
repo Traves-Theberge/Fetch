@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-02-14T21:11:54Z",
+  "generatedAt": "2026-02-14T21:23:53Z",
   "defaultChannel": "stable",
   "channels": {
     "stable": "v0.0.52",
@@ -37,10 +37,10 @@
       }
     },
     "v0.0.52": {
-      "gitRef": "07b47894b3bc184d37d8168af031cf11a72e9411",
+      "gitRef": "54453e8147c6da427a3132770e795bfdc82f5eb9",
       "archive": {
-        "url": "https://codeload.github.com/Traves-Theberge/Fetch/tar.gz/07b47894b3bc184d37d8168af031cf11a72e9411",
-        "sha256": "d3c7920bbc5d271ba607dff5d06dd20b199084fe1f08e97381a5b132fb599946"
+        "url": "https://codeload.github.com/Traves-Theberge/Fetch/tar.gz/54453e8147c6da427a3132770e795bfdc82f5eb9",
+        "sha256": "738be3be32f822d97584d558f01eb942b95f9a41306464a514a1f8bfc757e6aa"
       }
     }
   }
