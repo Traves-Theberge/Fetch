@@ -52,6 +52,7 @@ Commands:
   self doctor --json Output machine-readable doctor results
   self update        Update to latest stable release from manifest
   self update --channel <name>
+  self update --manifest-url <url>
                      Update from a release channel (stable/beta/nightly)
   self pin <version> Install exact manifest version (example: v0.0.52)
   self version       Show installed version and git commit
@@ -433,6 +434,7 @@ EOF
 self_update() {
   need_repo
   local channel="stable"
+  local manifest_url="$MANIFEST_URL"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -444,6 +446,14 @@ self_update() {
         channel="$2"
         shift 2
         ;;
+      --manifest-url)
+        [[ $# -lt 2 ]] && {
+          echo "[fetch] --manifest-url requires a value" >&2
+          exit 1
+        }
+        manifest_url="$2"
+        shift 2
+        ;;
       *)
         echo "[fetch] unknown option for self update: $1" >&2
         exit 1
@@ -453,7 +463,7 @@ self_update() {
 
   echo "[fetch] updating from channel: $channel"
   "$REPO_DIR/scripts/install.sh" \
-    --manifest-url "$MANIFEST_URL" \
+    --manifest-url "$manifest_url" \
     --channel "$channel" \
     --home "$FETCH_HOME" \
     --bin-dir "$BIN_DIR" \
@@ -487,12 +497,19 @@ self_version() {
   need_repo
   local version="unknown"
   local commit="unknown"
+  local meta_file="$REPO_DIR/.fetch-install-meta"
 
   if [[ -f "$REPO_DIR/VERSION" ]]; then
     version="$(tr -d '[:space:]' < "$REPO_DIR/VERSION")"
   fi
   if git -C "$REPO_DIR" rev-parse --short HEAD >/dev/null 2>&1; then
     commit="$(git -C "$REPO_DIR" rev-parse --short HEAD)"
+  elif [[ -f "$meta_file" ]]; then
+    local meta_ref
+    meta_ref="$(awk -F= '/^INSTALL_GIT_REF=/{print $2; exit}' "$meta_file" | tr -d '[:space:]')"
+    if [[ -n "$meta_ref" ]]; then
+      commit="${meta_ref:0:7}"
+    fi
   fi
 
   echo "Fetch version: $version"

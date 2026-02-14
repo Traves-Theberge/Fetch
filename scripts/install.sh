@@ -22,6 +22,7 @@ ACTIVATED_BACKUP_DIR=""
 NEW_INSTALL_ACTIVATED=0
 PATH_UPDATED=0
 PATH_UPDATE_NOTE=""
+INSTALL_META_FILE=".fetch-install-meta"
 
 usage() {
   cat <<USAGE
@@ -283,6 +284,29 @@ install_from_archive() {
   log "Installed Fetch $version"
 }
 
+write_install_metadata() {
+  local version="${VERSION:-}"
+  local git_ref="${GIT_REF:-}"
+  local installed_at
+  installed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  if [[ -z "$version" && -f "$REPO_DIR/VERSION" ]]; then
+    version="$(tr -d '[:space:]' < "$REPO_DIR/VERSION")"
+  fi
+
+  if [[ -z "$git_ref" && -d "$REPO_DIR/.git" ]]; then
+    git_ref="$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || true)"
+  fi
+
+  cat > "$REPO_DIR/$INSTALL_META_FILE" <<EOF
+INSTALL_VERSION=${version}
+INSTALL_GIT_REF=${git_ref}
+INSTALL_CHANNEL=${CHANNEL}
+INSTALL_MANIFEST_URL=${MANIFEST_URL}
+INSTALL_DATE=${installed_at}
+EOF
+}
+
 install_from_git_ref() {
   local ref="$1"
   require_cmd git
@@ -324,6 +348,7 @@ fi
 post_install_steps() {
   mkdir -p "$REPO_DIR/data" "$REPO_DIR/workspace" "$REPO_DIR/config/github" "$REPO_DIR/config/claude"
   ensure_admin_token "$REPO_DIR/.env"
+  write_install_metadata
 
   if [[ "$SKIP_BUILD" -eq 0 ]]; then
     if command -v go >/dev/null 2>&1; then
