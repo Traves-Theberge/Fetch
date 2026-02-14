@@ -512,8 +512,12 @@ func (e *Editor) handleKey(msg tea.KeyMsg) bool {
 				e.editBuffer = e.editBuffer[:len(e.editBuffer)-1]
 			}
 		default:
-			if len(msg.String()) == 1 {
-				e.editBuffer += msg.String()
+			if msg.Type == tea.KeyRunes && len(msg.Runes) > 0 {
+				// Bubble Tea reports pasted text as multi-rune KeyRunes payloads.
+				// Keep config values single-line by stripping pasted newlines.
+				pasted := strings.ReplaceAll(string(msg.Runes), "\r", "")
+				pasted = strings.ReplaceAll(pasted, "\n", "")
+				e.editBuffer += pasted
 			}
 		}
 		return false
