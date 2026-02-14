@@ -28,7 +28,7 @@
 
 ---
 
-Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats with you on WhatsApp to understand your goals, then commands a squad of specialized agents—Claude Code, Gemini, Copilot, and more—to execute complex coding tasks inside sandboxed Docker containers.
+Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats with you on WhatsApp to understand your goals, then commands a squad of specialized agents, Claude Code, Gemini, Copilot, Opencode and Codex execute complex coding tasks inside sandboxed Docker containers.
 
 <br>
 
