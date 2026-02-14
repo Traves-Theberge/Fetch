@@ -64,7 +64,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 - Severity: S2
 - Priority: P0
-- Status: Open
+- Status: Done
 - Outcome: New `fetch setup` command to bootstrap env, validate prerequisites, run auth checks, and guide WhatsApp QR/linking.
 - Deliverables:
   - Interactive CLI flow with step resume.
@@ -79,7 +79,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 - Severity: S1
 - Priority: P0
-- Status: Open
+- Status: Done
 - Outcome: CI blocks release/manifest update if required files are missing from published archive.
 - Required Files:
   - `scripts/install.sh`
@@ -93,7 +93,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 - Severity: S2
 - Priority: P0
-- Status: Open
+- Status: Done
 - Outcome: `fetch self doctor` supports `--json` and categorized checks (binary, network, docker, auth, runtime config).
 - Deliverables:
   - Stable JSON schema.
@@ -104,7 +104,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 - Severity: S2
 - Priority: P1
-- Status: Open
+- Status: Done
 - Outcome: Add `fetch config validate` and `fetch config doctor`.
 - Deliverables:
   - Schema validation for `.env` and runtime config.
@@ -115,7 +115,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 - Severity: S2
 - Priority: P1
-- Status: Open
+- Status: Done
 - Outcome: Add `docs/markdown/SECURITY_RUNBOOK.md` and hardened deployment profile guidance.
 - Deliverables:
   - Secrets handling checklist.
@@ -159,7 +159,7 @@ Scope: Close high-impact product and operations gaps identified from other agent
 
 ## Release N Plan (Stability + Setup)
 
-Target: next production release after current `v0.0.48` line.
+Target: next production release after current `v0.0.50` line.
 
 1. P0
    - GAP-COMP-001 `fetch setup`

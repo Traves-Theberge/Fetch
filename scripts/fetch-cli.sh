@@ -36,6 +36,7 @@ Usage:
   fetch <command>
 
 Commands:
+  setup              Guided host/bootstrap setup checks
   up                 Start Fetch services (docker compose up -d --build)
   down               Stop Fetch services
   restart            Restart Fetch services
@@ -43,7 +44,11 @@ Commands:
   logs [svc]         Tail logs (optional service name)
   tui                Launch manager TUI
 
+  config validate    Validate .env values and required keys
+  config doctor      Diagnose config and integration readiness
+
   self doctor        Validate local environment and install
+  self doctor --json Output machine-readable doctor results
   self update        Update to latest stable release from manifest
   self update --channel <name>
                      Update from a release channel (stable/beta/nightly)
@@ -109,61 +114,127 @@ cmd_tui() {
   exec "$REPO_DIR/manager/fetch-manager"
 }
 
-self_doctor() {
-  local missing=0
-  local optional_missing=0
-  local docker_perm_issue=0
-  echo "[fetch] doctor: checking environment"
+env_get() {
+  local key="$1"
+  local file="$REPO_DIR/.env"
+  [[ -f "$file" ]] || return 0
+  awk -F= -v k="$key" '
+    /^[[:space:]]*#/ {next}
+    /^[[:space:]]*$/ {next}
+    {
+      kk=$1
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", kk)
+      gsub(/^export[[:space:]]+/, "", kk)
+      if (kk==k) {
+        v=substr($0, index($0, "=")+1)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+        gsub(/^"|"$/, "", v)
+        gsub(/^'\''|'\''$/, "", v)
+        print v
+        exit
+      }
+    }
+  ' "$file"
+}
 
-  for c in git curl docker tar sha256sum python3; do
-    if command -v "$c" >/dev/null 2>&1; then
-      echo "  ✅ $c"
-    else
-      echo "  ❌ $c (missing)"
-      missing=1
-    fi
+self_doctor() {
+  local json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1; shift ;;
+      *)
+        echo "[fetch] unknown option for self doctor: $1" >&2
+        exit 1
+        ;;
+    esac
   done
 
-  if docker compose version >/dev/null 2>&1; then
-    echo "  ✅ docker compose"
-  else
-    echo "  ❌ docker compose plugin (missing)"
-    missing=1
+  local has_git=0 has_curl=0 has_docker=0 has_tar=0 has_sha=0 has_py=0
+  local has_compose=0 has_docker_access=0 has_env=0 has_manager=0 has_node=0 has_npm=0
+  local missing=0 optional_missing=0
+
+  command -v git >/dev/null 2>&1 && has_git=1
+  command -v curl >/dev/null 2>&1 && has_curl=1
+  command -v docker >/dev/null 2>&1 && has_docker=1
+  command -v tar >/dev/null 2>&1 && has_tar=1
+  command -v sha256sum >/dev/null 2>&1 && has_sha=1
+  command -v python3 >/dev/null 2>&1 && has_py=1
+  docker compose version >/dev/null 2>&1 && has_compose=1 || true
+  docker ps >/dev/null 2>&1 && has_docker_access=1 || true
+  [[ -f "$REPO_DIR/.env" ]] && has_env=1
+  [[ -f "$REPO_DIR/manager/fetch-manager" ]] && has_manager=1
+  command -v node >/dev/null 2>&1 && has_node=1
+  command -v npm >/dev/null 2>&1 && has_npm=1
+
+  ((has_git)) || missing=1
+  ((has_curl)) || missing=1
+  ((has_docker)) || missing=1
+  ((has_tar)) || missing=1
+  ((has_sha)) || missing=1
+  ((has_py)) || missing=1
+  ((has_compose)) || missing=1
+  ((has_docker_access)) || missing=1
+  ((has_env)) || missing=1
+  ((has_manager)) || missing=1
+  ((has_node)) || optional_missing=1
+  ((has_npm)) || optional_missing=1
+
+  if [[ $json -eq 1 ]]; then
+    python3 - <<PY
+import json
+checks = {
+  "git": bool($has_git),
+  "curl": bool($has_curl),
+  "docker": bool($has_docker),
+  "tar": bool($has_tar),
+  "sha256sum": bool($has_sha),
+  "python3": bool($has_py),
+  "docker_compose": bool($has_compose),
+  "docker_daemon_access": bool($has_docker_access),
+  "env_file": bool($has_env),
+  "manager_binary": bool($has_manager),
+  "node": bool($has_node),
+  "npm": bool($has_npm),
+}
+critical = ["git","curl","docker","tar","sha256sum","python3","docker_compose","docker_daemon_access","env_file","manager_binary"]
+optional = ["node","npm"]
+result = {
+  "status": "healthy" if all(checks[k] for k in critical) else "issues",
+  "checks": checks,
+  "missing_critical": [k for k in critical if not checks[k]],
+  "missing_optional": [k for k in optional if not checks[k]],
+  "remediation": [
+    "sudo systemctl enable --now docker",
+    "sudo usermod -aG docker $USER",
+    "newgrp docker"
+  ] if not checks["docker_daemon_access"] else []
+}
+print(json.dumps(result, indent=2))
+PY
+    [[ $missing -eq 0 ]]
+    return
   fi
 
-  if docker ps >/dev/null 2>&1; then
+  echo "[fetch] doctor: checking environment"
+  ((has_git)) && echo "  ✅ git" || echo "  ❌ git (missing)"
+  ((has_curl)) && echo "  ✅ curl" || echo "  ❌ curl (missing)"
+  ((has_docker)) && echo "  ✅ docker" || echo "  ❌ docker (missing)"
+  ((has_tar)) && echo "  ✅ tar" || echo "  ❌ tar (missing)"
+  ((has_sha)) && echo "  ✅ sha256sum" || echo "  ❌ sha256sum (missing)"
+  ((has_py)) && echo "  ✅ python3" || echo "  ❌ python3 (missing)"
+  ((has_compose)) && echo "  ✅ docker compose" || echo "  ❌ docker compose plugin (missing)"
+  if ((has_docker_access)); then
     echo "  ✅ docker daemon access"
   else
     echo "  ❌ docker daemon access (permission denied or daemon not running)"
     echo "     fix: sudo systemctl enable --now docker"
     echo "          sudo usermod -aG docker \$USER"
     echo "          newgrp docker"
-    docker_perm_issue=1
-    missing=1
   fi
-
-  if [[ -f "$REPO_DIR/.env" ]]; then
-    echo "  ✅ .env"
-  else
-    echo "  ⚠️  .env missing (copy from .env.example)"
-    missing=1
-  fi
-
-  if [[ -f "$REPO_DIR/manager/fetch-manager" ]]; then
-    echo "  ✅ manager binary"
-  else
-    echo "  ⚠️  manager binary missing (run: fetch self update)"
-    missing=1
-  fi
-
-  for c in node npm; do
-    if command -v "$c" >/dev/null 2>&1; then
-      echo "  ✅ $c"
-    else
-      echo "  ⚠️  $c missing (required to install/update harness CLIs)"
-      optional_missing=1
-    fi
-  done
+  ((has_env)) && echo "  ✅ .env" || echo "  ⚠️  .env missing (copy from .env.example)"
+  ((has_manager)) && echo "  ✅ manager binary" || echo "  ⚠️  manager binary missing (run: fetch self update)"
+  ((has_node)) && echo "  ✅ node" || echo "  ⚠️  node missing (required to install/update harness CLIs)"
+  ((has_npm)) && echo "  ✅ npm" || echo "  ⚠️  npm missing (required to install/update harness CLIs)"
 
   if [[ $missing -eq 0 ]]; then
     if [[ $optional_missing -eq 0 ]]; then
@@ -173,12 +244,149 @@ self_doctor() {
     fi
     return 0
   fi
-
-  if [[ $docker_perm_issue -eq 1 ]]; then
-    echo "[fetch] doctor: docker access check failed (see fix commands above)"
-  fi
   echo "[fetch] doctor: issues found"
   return 1
+}
+
+config_validate() {
+  need_repo
+  local json=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --json) json=1; shift ;;
+      *)
+        echo "[fetch] unknown option for config validate: $1" >&2
+        exit 1
+        ;;
+    esac
+  done
+  python3 - "$REPO_DIR" "$json" <<'PY'
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1])
+as_json = sys.argv[2] == "1"
+env_path = repo / ".env"
+example_path = repo / ".env.example"
+
+def parse_env(path: Path):
+    out = {}
+    if not path.exists():
+        return out
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+errors = []
+warnings = []
+env = parse_env(env_path)
+example = parse_env(example_path)
+
+if not env_path.exists():
+    errors.append(".env is missing")
+required = ["OPENROUTER_API_KEY", "OWNER_PHONE_NUMBER"]
+for key in required:
+    if not env.get(key):
+        errors.append(f"{key} is required and missing/empty")
+
+owner = env.get("OWNER_PHONE_NUMBER", "")
+digits = re.sub(r"\D", "", owner)
+if owner and (len(digits) < 10 or len(digits) > 15):
+    errors.append("OWNER_PHONE_NUMBER must be E.164-like digits (10-15)")
+
+if example:
+    unknown = sorted([k for k in env.keys() if k not in example])
+    if unknown:
+        warnings.append("Unknown keys not found in .env.example: " + ", ".join(unknown))
+
+result = {
+    "status": "ok" if not errors else "error",
+    "errors": errors,
+    "warnings": warnings,
+}
+if as_json:
+    print(json.dumps(result, indent=2))
+else:
+    if errors:
+        print("[fetch] config validate: errors found")
+        for e in errors:
+            print(f"  ❌ {e}")
+    else:
+        print("[fetch] config validate: no blocking errors")
+    for w in warnings:
+        print(f"  ⚠️  {w}")
+sys.exit(1 if errors else 0)
+PY
+}
+
+config_doctor() {
+  need_repo
+  config_validate "$@" || true
+  local enable_copilot gh_token admin_token
+  enable_copilot="$(env_get ENABLE_COPILOT)"
+  gh_token="$(env_get GH_TOKEN)"
+  admin_token="$(env_get ADMIN_TOKEN)"
+  echo "[fetch] config doctor: integration checks"
+  if [[ "${enable_copilot,,}" == "true" && -z "$gh_token" ]]; then
+    echo "  ⚠️  ENABLE_COPILOT=true but GH_TOKEN is empty"
+  else
+    echo "  ✅ Copilot/GitHub token wiring looks consistent"
+  fi
+  if [[ -z "$admin_token" ]]; then
+    echo "  ℹ️  ADMIN_TOKEN not set; bridge auto-generates one at startup"
+  else
+    echo "  ✅ ADMIN_TOKEN is set"
+  fi
+}
+
+cmd_setup() {
+  need_repo
+  local non_interactive=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --non-interactive) non_interactive=1; shift ;;
+      *)
+        echo "[fetch] unknown option for setup: $1" >&2
+        exit 1
+        ;;
+    esac
+  done
+
+  echo "[fetch] setup: bootstrap checks"
+  if [[ ! -f "$REPO_DIR/.env" && -f "$REPO_DIR/.env.example" ]]; then
+    cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
+    echo "  ✅ created .env from .env.example"
+  fi
+
+  self_doctor || true
+  config_validate || true
+  config_doctor || true
+
+  if [[ $non_interactive -eq 0 && -t 0 ]]; then
+    echo
+    read -r -p "[fetch] Open .env in nano now? [y/N] " ans
+    if [[ "${ans,,}" == "y" ]]; then
+      nano "$REPO_DIR/.env"
+    fi
+  fi
+
+  cat <<EOF
+[fetch] setup: next steps
+  1) Validate: fetch self doctor
+  2) Start:    fetch up
+  3) Launch:   fetch tui
+EOF
 }
 
 self_update() {
@@ -256,12 +464,26 @@ main() {
   shift || true
 
   case "$cmd" in
+    setup) cmd_setup "$@" ;;
     up) cmd_up "$@" ;;
     down) cmd_down "$@" ;;
     restart) cmd_restart "$@" ;;
     status) cmd_status "$@" ;;
     logs) cmd_logs "$@" ;;
     tui) cmd_tui "$@" ;;
+    config)
+      local sub="${1:-}"
+      shift || true
+      case "$sub" in
+        validate) config_validate "$@" ;;
+        doctor) config_doctor "$@" ;;
+        *)
+          echo "Unknown config command: ${sub:-<empty>}" >&2
+          help_text
+          exit 1
+          ;;
+      esac
+      ;;
     self)
       local sub="${1:-}"
       shift || true

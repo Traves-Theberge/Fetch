@@ -8,6 +8,7 @@ This is the master documentation index for Fetch.
 - [Setup Guide](SETUP_GUIDE.md) — Installation, configuration, first run
 - [Install & Update](INSTALL_UPDATE.md) — Curl install, self-update, and version pinning
 - [Uninstall Guide](UNINSTALL.md) — Remove Fetch from host and optional Docker cleanup
+- [Security Runbook](SECURITY_RUNBOOK.md) — Production hardening and incident checklist
 - [TUI Guide](TUI_GUIDE.md) — Using the Manager terminal interface
 - [Commands](COMMANDS.md) — Safety escapes, natural language patterns, orchestrator tools
 

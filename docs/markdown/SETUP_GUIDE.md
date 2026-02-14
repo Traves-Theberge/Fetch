@@ -69,7 +69,7 @@ which fetch
 
 ```bash
 nano ~/.fetch/repo/.env
-fetch self doctor
+fetch setup
 fetch up
 fetch tui
 ```
@@ -235,6 +235,9 @@ Use the Fetch CLI:
 fetch self update
 fetch self update --channel beta
 fetch self version
+fetch self doctor --json
+fetch config validate
+fetch config doctor
 ```
 
 Pin to a specific released version:
@@ -244,3 +247,4 @@ fetch self pin <version>
 ```
 
 Uninstall instructions: [Uninstall Guide](UNINSTALL.md)
+Security checklist: [Security Runbook](SECURITY_RUNBOOK.md)

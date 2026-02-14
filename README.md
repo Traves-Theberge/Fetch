@@ -164,8 +164,8 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
 # echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc  # zsh
 # fish_add_path $HOME/.local/bin                           # fish
 
-# 3. Verify environment
-fetch self doctor
+# 3. Guided setup
+fetch setup
 
 # 4. Configure
 nano ~/.fetch/repo/.env
@@ -182,6 +182,9 @@ fetch self update
 fetch self update --channel beta
 fetch self version
 fetch self pin <version>
+fetch self doctor --json
+fetch config validate
+fetch config doctor
 ```
 
 <details>
@@ -214,6 +217,7 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameter
 | [Setup Guide](docs/markdown/SETUP_GUIDE.md) | Installation and first run |
 | [Install & Update](docs/markdown/INSTALL_UPDATE.md) | Curl install, self-update, pinning |
 | [Uninstall Guide](docs/markdown/UNINSTALL.md) | Clean removal and optional full purge |
+| [Security Runbook](docs/markdown/SECURITY_RUNBOOK.md) | Production security and operational checklist |
 | [TUI Guide](docs/markdown/TUI_GUIDE.md) | Manager terminal interface |
 | [Commands](docs/markdown/COMMANDS.md) | Safety escapes and usage |
 | [Configuration](docs/markdown/CONFIGURATION.md) | Env vars and config files |

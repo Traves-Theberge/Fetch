@@ -58,11 +58,15 @@ Node/npm install docs:
 ## CLI Management
 
 ```bash
+fetch setup
 fetch self doctor
+fetch self doctor --json
 fetch self version
 fetch self update
 fetch self update --channel beta
 fetch self pin <version>
+fetch config validate
+fetch config doctor
 ```
 
 Exact manifest version pin:
@@ -127,3 +131,7 @@ fetch self update
 ## Uninstall
 
 See [Uninstall Guide](UNINSTALL.md) for full removal steps.
+
+## Security
+
+See [Security Runbook](SECURITY_RUNBOOK.md) for production hardening and recovery guidance.
