@@ -113,7 +113,8 @@ export const env = new Proxy({} as EnvConfig, {
 
 // Load .env file if present
 import dotenv from 'dotenv';
-dotenv.config();
+// Keep .env as the source of truth for runtime config inside the container.
+dotenv.config({ override: true });
 
 /**
  * Validate environment values against `EnvSchema`.

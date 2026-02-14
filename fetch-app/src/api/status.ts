@@ -45,6 +45,7 @@ const PORT = 8765;
 
 /** Path to documentation files */
 const DOCS_PATH = '/app/docs';
+const ENV_PATH = '/app/.env';
 const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
 
 // =============================================================================
@@ -94,6 +95,7 @@ const startTime = Date.now();
 
 /** Callback for logout action */
 let logoutCallback: (() => Promise<void>) | null = null;
+let envWatcherInitialized = false;
 
 /** Optional admin token for protected endpoints (logout/config/session APIs). */
 const ADMIN_TOKEN = env.ADMIN_TOKEN || '';
@@ -170,6 +172,54 @@ export function isValidSessionId(sessionId: string): boolean {
 }
 
 /**
+ * Reload process.env from mounted .env file.
+ *
+ * @returns Updated key names
+ */
+function reloadEnvFromFile(): string[] {
+  if (!fs.existsSync(ENV_PATH)) {
+    throw new Error('.env not mounted');
+  }
+
+  const envContent = fs.readFileSync(ENV_PATH, 'utf-8');
+  const updatedKeys: string[] = [];
+  const pendingUpdates: Record<string, string> = {};
+
+  for (const line of envContent.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.substring(0, eqIndex).trim();
+    let value = trimmed.substring(eqIndex + 1).trim();
+    if (!key) continue;
+
+    if ((value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    pendingUpdates[key] = value;
+  }
+
+  const validation = validateRuntimeEnvUpdates(pendingUpdates);
+  if (!validation.valid) {
+    const first = validation.invalid[0];
+    throw new Error(`Invalid runtime config updates: ${first?.key ?? 'unknown'} ${first?.reason ?? ''}`.trim());
+  }
+
+  for (const [key, value] of Object.entries(pendingUpdates)) {
+    if (process.env[key] !== value) {
+      process.env[key] = value;
+      updatedKeys.push(key);
+    }
+  }
+
+  return updatedKeys;
+}
+
+/**
  * Start the HTTP server and register all API/docs routes.
  */
 export function startStatusServer(): void {
@@ -226,59 +276,7 @@ export function startStatusServer(): void {
       }
 
       try {
-        const envPath = '/app/.env';
-        if (!fs.existsSync(envPath)) {
-          res.writeHead(404);
-          res.end(JSON.stringify({ success: false, message: '.env not mounted' }));
-          return;
-        }
-
-        const envContent = fs.readFileSync(envPath, 'utf-8');
-        const updatedKeys: string[] = [];
-        const envFileKeys = new Set<string>();
-        const pendingUpdates: Record<string, string> = {};
-
-        for (const line of envContent.split('\n')) {
-          const trimmed = line.trim();
-          // Skip comments and empty lines
-          if (!trimmed || trimmed.startsWith('#')) continue;
-
-          const eqIndex = trimmed.indexOf('=');
-          if (eqIndex === -1) continue;
-
-          const key = trimmed.substring(0, eqIndex).trim();
-          let value = trimmed.substring(eqIndex + 1).trim();
-
-          if (!key) continue;
-
-          // Strip surrounding quotes (docker-compose does this at startup)
-          if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))) {
-            value = value.slice(1, -1);
-          }
-
-          envFileKeys.add(key);
-          pendingUpdates[key] = value;
-        }
-
-        const validation = validateRuntimeEnvUpdates(pendingUpdates);
-        if (!validation.valid) {
-          res.writeHead(400);
-          res.end(JSON.stringify({
-            success: false,
-            message: 'Invalid runtime config updates',
-            invalid: validation.invalid,
-          }));
-          return;
-        }
-
-        for (const [key, value] of Object.entries(pendingUpdates)) {
-          // Only update if value actually changed
-          if (process.env[key] !== value) {
-            process.env[key] = value;
-            updatedKeys.push(key);
-          }
-        }
+        const updatedKeys = reloadEnvFromFile();
 
         logger.info(`Config reload: ${updatedKeys.length} key(s) updated${updatedKeys.length > 0 ? ': ' + updatedKeys.join(', ') : ''}`);
 
@@ -500,6 +498,21 @@ export function startStatusServer(): void {
     logger.info(`Documentation available at http://localhost:${PORT}/docs`);
     if (!env.ADMIN_TOKEN) logger.info('Admin token not set; admin endpoints allow local access.');
   });
+
+  if (!envWatcherInitialized) {
+    envWatcherInitialized = true;
+    fs.watchFile(ENV_PATH, { interval: 1000 }, (curr, prev) => {
+      if (curr.mtimeMs === prev.mtimeMs) return;
+      try {
+        const updatedKeys = reloadEnvFromFile();
+        if (updatedKeys.length > 0) {
+          logger.info(`Auto-reloaded .env: ${updatedKeys.length} key(s) updated: ${updatedKeys.join(', ')}`);
+        }
+      } catch (error) {
+        logger.warn(`Auto-reload from .env failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    });
+  }
 
   server.on('error', (err) => {
     logger.error('Status API server error:', err);

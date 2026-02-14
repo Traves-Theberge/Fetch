@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.53] - 2026-02-14
+
+### Changed
+
+- **Owner authorization hot-reload** — Security gate now reads `OWNER_PHONE_NUMBER` dynamically from runtime env, so config reload updates owner trust without requiring bridge restart.
+- **Runtime env source-of-truth** — `.env` loading now uses override semantics so mounted `.env` values win over stale container env on startup.
+- **Automatic `.env` parity reload** — Bridge status API now watches `/app/.env` and auto-applies validated runtime env updates on file change; `/api/config/reload` uses the same reload path.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.53`.
+
 ## [0.0.52] - 2026-02-14
 
 ### Changed

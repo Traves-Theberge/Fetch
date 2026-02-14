@@ -29,7 +29,6 @@ const FETCH_TRIGGER = '@fetch';
  * Message authorization gate backed by owner identity and whitelist checks.
  */
 export class SecurityGate {
-  private readonly ownerNumberClean: string;
   private whitelist: WhitelistStore | null = null;
 
   constructor() {
@@ -39,8 +38,14 @@ export class SecurityGate {
       throw new Error('CRITICAL: OWNER_PHONE_NUMBER environment variable is not set');
     }
 
-    // Store clean number for participant checking
-    this.ownerNumberClean = ownerNumber.replace(/\D/g, '');
+  }
+
+  /**
+   * Reads owner number from environment and normalizes to digit-only form.
+   * This enables runtime config reload to take effect without bridge restart.
+   */
+  private getOwnerNumberClean(): string {
+    return (env.OWNER_PHONE_NUMBER || '').replace(/\D/g, '');
   }
 
   /**
@@ -59,7 +64,7 @@ export class SecurityGate {
     this.whitelist = await getWhitelistStore();
 
     logger.section('🔒 Security Gate Initialized');
-    logger.info(`Owner: +${this.ownerNumberClean} (always trusted)`);
+    logger.info(`Owner: +${this.getOwnerNumberClean()} (always trusted)`);
     logger.info(`Trusted numbers: ${this.whitelist.count()}`);
     logger.info(`Trigger: ${FETCH_TRIGGER} (case-insensitive)`);
     logger.divider();
@@ -113,7 +118,7 @@ export class SecurityGate {
    */
   private isOwner(whatsappId: string): boolean {
     const number = this.extractNumber(whatsappId);
-    return number === this.ownerNumberClean;
+    return number === this.getOwnerNumberClean();
   }
 
   /**
