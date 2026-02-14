@@ -45,6 +45,7 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
 | 📄 View Logs | — | Stream live container logs |
 | 📚 Documentation | — | Opens the docs site in your browser |
+| 🔑 GitHub Auth | `[Authed]` / `[Setup]` | Opens harness auth focused on GitHub CLI/Copilot setup |
 | ⚙️ Settings | `[X/5 auth]` | General config, harness auth/config, trusted numbers |
 | 💬 Global Sessions | — | View and manage persisted conversation sessions |
 | ℹ️ Version | — | Shows system version info (neofetch-style) |
@@ -86,7 +87,7 @@ The unified management screen for all 5 AI CLI harnesses. Each harness shows its
 
 **Why:** Each AI CLI (GitHub/Copilot, Claude Code, Gemini, OpenCode, Codex) needs host-level authentication, an enable flag, and optionally an API key and model override. This screen lets you manage everything per-harness instead of hunting through separate screens.
 
-**How it works:** When you press `l` to login, the TUI suspends and the selected CLI's interactive login process takes over the terminal (browser OAuth flow, device codes, etc.). When the CLI finishes, the TUI resumes and refreshes the status. Config changes (enable, API key, model) are saved to `.env` immediately.
+**How it works:** When you press `l` to login, the TUI suspends and the selected CLI's interactive login process takes over the terminal (browser OAuth flow, device codes, etc.). When the CLI finishes, the TUI resumes and refreshes the status. For GitHub, successful login now auto-syncs `gh auth token` into `.env` as `GH_TOKEN`. Config changes (enable, API key, model) are saved to `.env` immediately.
 
 **Layout:**
 
@@ -148,6 +149,7 @@ Each harness is shown as a row with icon, name, auth status, and enable badge. T
 | `e` | Toggle enable/disable for selected harness |
 | `a` | Edit API key for selected harness |
 | `m` | Edit model for selected harness |
+| `i` | Install GitHub CLI on host (GitHub row only) |
 | `l` | Login the selected harness (launches interactive CLI) |
 | `d` | Logout the selected harness |
 | `r` | Refresh all harness statuses and config |

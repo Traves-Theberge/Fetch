@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.57] - 2026-02-14
+
+### Changed
+
+- **Dedicated GitHub auth menu flow** — Added a `🔑 GitHub Auth` entry on the TUI main menu that opens harness authentication focused on GitHub/Copilot setup.
+- **GitHub token auto-sync** — After successful `gh auth login`, manager now syncs `gh auth token` into `.env` as `GH_TOKEN` automatically.
+- **In-TUI GitHub CLI install action** — Added `i` key action on the GitHub harness row to run `scripts/install_gh_cli.sh` directly from the manager.
+- **TUI docs updated** — Updated menu and harness auth controls documentation to include dedicated GitHub auth flow and install keybinding.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.57`.
+
 ## [0.0.56] - 2026-02-14
 
 ### Changed

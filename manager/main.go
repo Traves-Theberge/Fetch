@@ -228,10 +228,11 @@ func initialModel() model {
 	// 4. Setup WhatsApp
 	// 5. View Logs
 	// 6. Documentation
-	// 7. Settings (Sub-menu)
-	// 8. Global Sessions
-	// 9. Version
-	// 10. Exit
+	// 7. GitHub Auth
+	// 8. Settings (Sub-menu)
+	// 9. Global Sessions
+	// 10. Version
+	// 11. Exit
 	menu := components.NewMenu("", []components.MenuItem{
 		{Icon: "\U0001f680", Label: "Start Fetch"},
 		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
@@ -239,6 +240,7 @@ func initialModel() model {
 		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
+		{Icon: "\U0001f511", Label: "GitHub Auth"},
 		{Icon: "\u2699\ufe0f ", Label: "Settings"},
 		{Icon: "\U0001f4ac", Label: "Global Sessions"},
 		{Icon: "\u2139\ufe0f ", Label: "Version"},
@@ -296,17 +298,27 @@ func (m model) buildMenuBadges() {
 		}
 	}
 
-	// Harness Auth badge - Moved to Settings item (Index 6)
+	// GitHub auth badge on dedicated menu item (Index 6)
+	ghAuthed := false
 	authCount := 0
 	for _, hs := range m.harnessStatuses {
 		if hs.authed {
 			authCount++
 		}
+		if hs.id == harnessGitHub && hs.authed {
+			ghAuthed = true
+		}
 	}
-	if authCount > 0 {
-		items[6].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
+	if ghAuthed {
+		items[6].Badge = "[Authed]"
 	} else {
-		items[6].Badge = ""
+		items[6].Badge = "[Setup]"
+	}
+	// Harness Auth summary badge on Settings item (Index 7)
+	if authCount > 0 {
+		items[7].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
+	} else {
+		items[7].Badge = ""
 	}
 
 	m.mainMenu.Items = items
@@ -433,13 +445,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.actionMessage = fmt.Sprintf("%s auth failed: %v", harnessName(msg.harness), msg.err)
 			m.actionSuccess = false
 		} else {
-			m.actionMessage = fmt.Sprintf("✅ %s authenticated! Restart Fetch to apply.", harnessName(msg.harness))
-			m.actionSuccess = true
+			if msg.harness == harnessGitHub {
+				if syncErr := syncGitHubTokenFromCLI(); syncErr != nil {
+					m.actionMessage = fmt.Sprintf("✅ %s authenticated, but GH_TOKEN sync failed: %v", harnessName(msg.harness), syncErr)
+					m.actionSuccess = false
+				} else {
+					m.actionMessage = "✅ GitHub authenticated and GH_TOKEN synced to .env."
+					m.actionSuccess = true
+				}
+			} else {
+				m.actionMessage = fmt.Sprintf("✅ %s authenticated! Restart Fetch to apply.", harnessName(msg.harness))
+				m.actionSuccess = true
+			}
 		}
 		// Re-check status after login/logout attempt
 		if m.screen == screenHarnessAuth {
 			m.harnessChecking = true
-			return m, checkAllHarnessStatusCmd()
+			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd(), reloadConfigCmd(m.statusClient))
 		}
 		return m, nil
 
@@ -659,18 +681,30 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(fetchLogs, logTickCmd())
 		case 5: // Documentation
 			return m, openDocs
-		case 6: // Settings (Sub-menu)
+		case 6: // GitHub Auth
+			m.screen = screenHarnessAuth
+			m.harnessChecking = true
+			m.harnessEditing = false
+			m.harnessCursor = 0
+			for i, hs := range m.harnessStatuses {
+				if hs.id == harnessGitHub {
+					m.harnessCursor = i
+					break
+				}
+			}
+			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
+		case 7: // Settings (Sub-menu)
 			m.screen = screenConfig
 			m.configMode = 0 // Sub-menu mode
 			return m, nil
-		case 7: // Global Sessions
+		case 8: // Global Sessions
 			m.screen = screenSessions
 			m.sessionLoading = true
 			return m, m.fetchSessionsCmd()
-		case 8: // Version
+		case 9: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 9: // Exit
+		case 10: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -907,6 +941,12 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, loginHarnessCmd(selected.id)
+	case "i":
+		// Install GitHub CLI on host (GitHub harness only)
+		if selected.id == harnessGitHub {
+			return m, installGitHubCLICmd()
+		}
+		return m, nil
 	case "d":
 		// Logout selected harness
 		if !selected.authed {
@@ -1002,6 +1042,42 @@ func resolveFetchCLIPath() (string, error) {
 	return "", fmt.Errorf("could not locate fetch CLI on PATH or local repo (expected scripts/fetch-cli.sh)")
 }
 
+func resolveGitHubInstallScriptPath() (string, error) {
+	if cwd, err := os.Getwd(); err == nil {
+		candidates := []string{
+			filepath.Join(cwd, "scripts", "install_gh_cli.sh"),
+			filepath.Join(cwd, "..", "scripts", "install_gh_cli.sh"),
+		}
+		for _, candidate := range candidates {
+			if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
+				return candidate, nil
+			}
+		}
+	}
+	if exePath, err := os.Executable(); err == nil {
+		candidate := filepath.Clean(filepath.Join(filepath.Dir(exePath), "..", "scripts", "install_gh_cli.sh"))
+		if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("could not locate scripts/install_gh_cli.sh")
+}
+
+func syncGitHubTokenFromCLI() error {
+	tokenOut, err := exec.Command("gh", "auth", "token").Output()
+	if err != nil {
+		return fmt.Errorf("gh auth token failed: %w", err)
+	}
+	token := strings.TrimSpace(string(tokenOut))
+	if token == "" {
+		return fmt.Errorf("gh returned empty token")
+	}
+	if err := config.WriteEnvValue("GH_TOKEN", token); err != nil {
+		return fmt.Errorf("failed to write GH_TOKEN to .env: %w", err)
+	}
+	return nil
+}
+
 // updateFetchCmd runs `fetch self update` from the TUI and exits on success.
 func updateFetchCmd() tea.Cmd {
 	fetchPath, err := resolveFetchCLIPath()
@@ -1012,6 +1088,33 @@ func updateFetchCmd() tea.Cmd {
 	cmd := exec.Command(fetchPath, "self", "update")
 	return tea.ExecProcess(cmd, func(execErr error) tea.Msg {
 		return updateFetchDoneMsg{err: execErr}
+	})
+}
+
+func installGitHubCLICmd() tea.Cmd {
+	if _, err := exec.LookPath("gh"); err == nil {
+		return func() tea.Msg {
+			return actionResultMsg{success: true, message: "✅ GitHub CLI already installed"}
+		}
+	}
+	scriptPath, err := resolveGitHubInstallScriptPath()
+	if err != nil {
+		return func() tea.Msg {
+			return actionResultMsg{success: false, message: fmt.Sprintf("GitHub CLI install script not found: %v", err)}
+		}
+	}
+	c := exec.Command(scriptPath)
+	return tea.ExecProcess(c, func(execErr error) tea.Msg {
+		if execErr != nil {
+			return actionResultMsg{
+				success: false,
+				message: "GitHub CLI install failed. Run: fetch setup --install-gh-cli",
+			}
+		}
+		return actionResultMsg{
+			success: true,
+			message: "✅ GitHub CLI installed. Press 'l' to authenticate and sync GH_TOKEN.",
+		}
 	})
 }
 
@@ -1929,9 +2032,13 @@ func (m model) viewHarnessAuth() string {
 	} else if len(m.harnessStatuses) > 0 && m.harnessCursor < len(m.harnessStatuses) {
 		selected := m.harnessStatuses[m.harnessCursor]
 		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 {
-			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "e Enable", "a Token", "m Model", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
+			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "e Enable", "a Token", "m Model", "i Install gh", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
 		} else {
-			helpKeys = []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
+			base := []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
+			if selected.id == harnessGitHub {
+				base = []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "i Install gh", "l Login", "d Logout", "r Refresh", "Esc Back"}
+			}
+			helpKeys = base
 		}
 	} else {
 		helpKeys = []string{"↑/↓ Navigate", "e Enable", "a API Key", "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
