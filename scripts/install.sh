@@ -340,7 +340,10 @@ if [[ "$POST_INSTALL_RC" -ne 0 ]]; then
 fi
 
 if [[ -n "$ACTIVATED_BACKUP_DIR" && -d "$ACTIVATED_BACKUP_DIR" ]]; then
-  rm -rf "$ACTIVATED_BACKUP_DIR"
+  if ! rm -rf "$ACTIVATED_BACKUP_DIR"; then
+    log "Warning: failed to remove backup directory '$ACTIVATED_BACKUP_DIR' (permission issue)."
+    log "You can remove it manually later with: sudo rm -rf '$ACTIVATED_BACKUP_DIR'"
+  fi
 fi
 
 installed_version="unknown"

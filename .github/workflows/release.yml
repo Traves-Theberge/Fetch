@@ -31,6 +31,17 @@ jobs:
           ARCHIVE_URL="https://codeload.github.com/${GITHUB_REPOSITORY}/tar.gz/${TAG}"
 
           curl -fsSL "$ARCHIVE_URL" -o /tmp/fetch-src.tar.gz
+          ARCHIVE_LIST="$(tar -tzf /tmp/fetch-src.tar.gz)"
+          for required in \
+            "scripts/install.sh" \
+            "scripts/fetch-cli.sh" \
+            "VERSION" \
+            "docker-compose.yml"; do
+            if ! grep -qE "/${required}\$" <<<"$ARCHIVE_LIST"; then
+              echo "Release archive missing required file: ${required}" >&2
+              exit 1
+            fi
+          done
           ARCHIVE_SHA="$(sha256sum /tmp/fetch-src.tar.gz | awk '{print $1}')"
 
           cat > /tmp/release-manifest.json <<JSON

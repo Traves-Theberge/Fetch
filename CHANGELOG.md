@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Harness install docs linked** — Added direct official install/setup links for Copilot CLI, Claude Code, Gemini CLI, OpenCode, Codex, plus Node/npm prerequisite links.
 - **Doctor prerequisite checks expanded** — `fetch self doctor` now reports missing `node`/`npm` as optional warnings for harness CLI installation.
 - **TUI in-app update action** — Main menu now includes `Update Fetch`, which runs `fetch self update` from the manager and exits on successful completion so the operator can relaunch on the updated install.
+- **Backup cleanup resilience** — Installer no longer fails the update when removing old backup directories hits permission-denied files; it logs a warning and continues.
 - **Production doc cleanup** — Removed personal attribution/footer text, corrected legacy service placeholders, and tightened setup wording.
 - **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.
 - **Repo slug centralization** — Installer/update scripts now derive canonical URLs from `FETCH_REPO_SLUG` (with optional `FETCH_MANIFEST_URL` override) instead of duplicating hardcoded repo strings.
@@ -27,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **CI install/update smoke coverage** — Added GitHub Actions workflow that validates installer syntax, local manifest install, `self doctor`, `self pin`, and `self update`.
 - **CI manager cross-arch builds** — Added GitHub Actions matrix build for `linux/amd64` and `linux/arm64` manager binaries on PR/push.
 - **Release automation** — Added tag-triggered release workflow that builds manager archives, publishes checksums + release notes, and updates `release-manifest.json` on `main`.
+- **Release preflight validation** — Release workflow now verifies required files exist in the source archive before generating/publishing manifest metadata.
 
 ### Documentation
 
