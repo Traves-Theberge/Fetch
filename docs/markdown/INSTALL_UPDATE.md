@@ -67,12 +67,13 @@ fetch self update --channel beta
 fetch self pin <version>
 fetch config validate
 fetch config doctor
+fetch uninstall
 ```
 
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.48
+fetch self pin v0.0.51
 ```
 
 ## Service Lifecycle
@@ -130,7 +131,12 @@ fetch self update
 
 ## Uninstall
 
-See [Uninstall Guide](UNINSTALL.md) for full removal steps.
+```bash
+fetch uninstall
+fetch uninstall --with-docker --with-deps --clean-path
+```
+
+See [Uninstall Guide](UNINSTALL.md) for full removal steps and option details.
 
 ## Security
 

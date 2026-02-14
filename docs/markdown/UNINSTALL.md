@@ -4,45 +4,45 @@ This guide removes Fetch from a host installed via `scripts/install.sh`.
 
 ## Default Uninstall (recommended)
 
-Removes the CLI symlink and installed repo/data under `~/.fetch`.
+Use the built-in CLI command:
 
 ```bash
-# Stop running services first (if available)
-fetch down || true
-
-# Remove CLI entrypoint
-rm -f ~/.local/bin/fetch
-
-# Remove installed home (repo, data, workspace, config)
-rm -rf ~/.fetch
+fetch uninstall
 ```
 
-## Optional: Remove Docker Artifacts
+This removes:
+- `~/.local/bin/fetch` symlink (if present)
+- `~/.fetch` install directory (`repo`, `data`, `workspace`, `config`)
+- running Fetch services (best effort)
 
-Run this if you also want to remove Fetch containers/images/volumes:
+## Optional: Deep Cleanup
+
+Remove docker artifacts, harness npm packages, and PATH profile entries:
+
+```bash
+fetch uninstall --with-docker --with-deps --clean-path
+```
+
+## Option Reference
+
+| Option | Purpose |
+|--------|---------|
+| `--with-docker` | Remove Fetch containers/images/volumes |
+| `--with-deps` | Remove global harness npm packages (`claude-code`, `gemini-cli`, `opencode-ai`, `codex`) |
+| `--clean-path` | Remove bin-dir PATH lines from shell profiles |
+| `--yes` | Non-interactive uninstall |
+| `--home <path>` | Override install home path |
+| `--bin-dir <path>` | Override CLI bin dir |
+
+## Manual Docker Cleanup Only
+
+If you only want docker cleanup without uninstalling the repo:
 
 ```bash
 docker rm -f fetch-bridge fetch-kennel fetch-searxng 2>/dev/null || true
 docker volume rm fetch_searxng_data 2>/dev/null || true
 docker image rm fetch-bridge fetch-kennel 2>/dev/null || true
 ```
-
-## Optional: Remove PATH Entry
-
-If installer added PATH lines to your shell profile, remove them:
-
-```bash
-# bash
-sed -i '\|$HOME/.local/bin|d' ~/.bashrc
-
-# zsh
-sed -i '\|$HOME/.local/bin|d' ~/.zshrc
-
-# fish
-sed -i '\|fish_add_path .*\\.local/bin|d' ~/.config/fish/config.fish
-```
-
-Open a new shell after editing shell profiles.
 
 ## Verify Removal
 

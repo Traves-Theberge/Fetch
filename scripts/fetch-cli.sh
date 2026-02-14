@@ -43,6 +43,7 @@ Commands:
   status             Show docker compose status
   logs [svc]         Tail logs (optional service name)
   tui                Launch manager TUI
+  uninstall          Remove Fetch install (supports --with-docker/--with-deps)
 
   config validate    Validate .env values and required keys
   config doctor      Diagnose config and integration readiness
@@ -52,7 +53,7 @@ Commands:
   self update        Update to latest stable release from manifest
   self update --channel <name>
                      Update from a release channel (stable/beta/nightly)
-  self pin <version> Install exact manifest version (example: v0.0.48)
+  self pin <version> Install exact manifest version (example: v0.0.51)
   self version       Show installed version and git commit
 
   help               Show this help
@@ -459,6 +460,15 @@ self_version() {
   echo "Repo path:    $REPO_DIR"
 }
 
+cmd_uninstall() {
+  local script="$REPO_DIR/scripts/uninstall.sh"
+  [[ -x "$script" ]] || {
+    echo "[fetch] uninstall script not found: $script" >&2
+    exit 1
+  }
+  "$script" --home "$FETCH_HOME" --bin-dir "$BIN_DIR" "$@"
+}
+
 main() {
   local cmd="${1:-help}"
   shift || true
@@ -471,6 +481,7 @@ main() {
     status) cmd_status "$@" ;;
     logs) cmd_logs "$@" ;;
     tui) cmd_tui "$@" ;;
+    uninstall) cmd_uninstall "$@" ;;
     config)
       local sub="${1:-}"
       shift || true

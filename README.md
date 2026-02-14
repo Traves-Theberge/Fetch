@@ -185,6 +185,9 @@ fetch self pin <version>
 fetch self doctor --json
 fetch config validate
 fetch config doctor
+fetch uninstall
+# optional deep cleanup:
+fetch uninstall --with-docker --with-deps --clean-path
 ```
 
 <details>

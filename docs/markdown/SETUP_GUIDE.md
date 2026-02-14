@@ -238,6 +238,7 @@ fetch self version
 fetch self doctor --json
 fetch config validate
 fetch config doctor
+fetch uninstall
 ```
 
 Pin to a specific released version:

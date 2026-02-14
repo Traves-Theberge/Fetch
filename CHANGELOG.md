@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.51] - 2026-02-14
+
+### Added
+
+- **Uninstall command in CLI** — Added `fetch uninstall` to execute a supported host uninstall flow.
+- **Dedicated uninstall script** — Added `scripts/uninstall.sh` (and root `uninstall.sh` wrapper) for non-interactive and scripted removal.
+
+### Changed
+
+- **Uninstall docs and runbook** — Updated install/update and uninstall documentation with command-first workflows and deep cleanup flags.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.51`.
+
 ### Changed
 
 - **Installer flow unified** — Removed legacy root installer logic and made `install.sh` a wrapper to `scripts/install.sh`.
@@ -30,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Installer rollback safety** — `scripts/install.sh` now keeps a pre-update backup until post-install steps succeed and restores the previous install on failure.
 - **Installer PATH onboarding** — Installer now auto-adds the CLI bin directory to shell profile PATH files (bash/zsh/fish/profile fallback) and prints immediate-shell fallback instructions.
 - **Installer CLI activation hardening** — Install now fails if Fetch CLI script is missing and validates symlink/`fetch help` before reporting success.
+- **CLI uninstall command** — Added `fetch uninstall` to run a first-class uninstall flow from the CLI.
+- **Uninstall script with optional deep cleanup** — Added `scripts/uninstall.sh` and root `uninstall.sh` wrapper with optional `--with-docker`, `--with-deps`, and `--clean-path` modes.
 - **CI install/update smoke coverage** — Added GitHub Actions workflow that validates installer syntax, local manifest install, `self doctor`, `self pin`, and `self update`.
 - **CI manager cross-arch builds** — Added GitHub Actions matrix build for `linux/amd64` and `linux/arm64` manager binaries on PR/push.
 - **Release automation** — Added tag-triggered release workflow that builds manager archives, publishes checksums + release notes, and updates `release-manifest.json` on `main`.
