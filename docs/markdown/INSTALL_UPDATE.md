@@ -50,6 +50,7 @@ docker ps
 Optional:
 - `go` (required for manager rebuilds)
 - `node` + `npm` (required to install/update harness CLIs)
+- `gh` GitHub CLI (required host prerequisite for Copilot auth/workflows)
 
 Node/npm install docs:
 - https://nodejs.org/en/download/package-manager
@@ -59,6 +60,7 @@ Node/npm install docs:
 
 ```bash
 fetch setup
+fetch setup --install-gh-cli
 fetch self doctor
 fetch self doctor --json
 fetch self version
@@ -73,7 +75,7 @@ fetch uninstall
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.55
+fetch self pin v0.0.56
 ```
 
 ## Service Lifecycle

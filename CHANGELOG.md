@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.56] - 2026-02-14
+
+### Changed
+
+- **GitHub CLI host prerequisite automation** — Added `scripts/install_gh_cli.sh` and `fetch setup --install-gh-cli` to install `gh` on supported host package managers (apt/dnf/yum/pacman/zypper/Homebrew) with clear fallback guidance.
+- **Doctor/setup visibility for `gh`** — `fetch self doctor` and `fetch config doctor` now check/report GitHub CLI presence and provide install hints when missing.
+- **Install docs updated** — Setup/install/README documentation now explicitly includes GitHub CLI as a host prerequisite and wires recommended setup flow through `fetch setup --install-gh-cli`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.56`.
+
 ## [0.0.55] - 2026-02-14
 
 ### Changed

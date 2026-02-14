@@ -37,6 +37,8 @@ Usage:
 
 Commands:
   setup              Guided host/bootstrap setup checks
+  setup --install-gh-cli
+                     Attempt host install of GitHub CLI prerequisite
   up                 Start Fetch services (docker compose up -d --build)
   down               Stop Fetch services
   restart            Restart Fetch services
@@ -54,7 +56,7 @@ Commands:
   self update --channel <name>
   self update --manifest-url <url>
                      Update from a release channel (stable/beta/nightly)
-  self pin <version> Install exact manifest version (example: v0.0.55)
+  self pin <version> Install exact manifest version (example: v0.0.56)
   self version       Show installed version and git commit
 
   help               Show this help
@@ -178,6 +180,24 @@ PY
   echo "  ✅ generated ADMIN_TOKEN in .env"
 }
 
+gh_install_hint() {
+  cat <<'EOF'
+  install GitHub CLI (gh):
+    Ubuntu/Debian:
+      type -p curl >/dev/null || sudo apt update && sudo apt install -y curl
+      curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+        sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+      sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+      echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+        sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null
+      sudo apt update && sudo apt install -y gh
+    macOS:
+      brew install gh
+    Windows:
+      winget install --id GitHub.cli -e
+EOF
+}
+
 self_doctor() {
   local json=0
   while [[ $# -gt 0 ]]; do
@@ -191,7 +211,7 @@ self_doctor() {
   done
 
   local has_git=0 has_curl=0 has_docker=0 has_tar=0 has_sha=0 has_py=0
-  local has_compose=0 has_docker_access=0 has_env=0 has_manager=0 has_node=0 has_npm=0
+  local has_compose=0 has_docker_access=0 has_env=0 has_manager=0 has_node=0 has_npm=0 has_gh=0
   local missing=0 optional_missing=0
 
   command -v git >/dev/null 2>&1 && has_git=1
@@ -206,6 +226,7 @@ self_doctor() {
   [[ -f "$REPO_DIR/manager/fetch-manager" ]] && has_manager=1
   command -v node >/dev/null 2>&1 && has_node=1
   command -v npm >/dev/null 2>&1 && has_npm=1
+  command -v gh >/dev/null 2>&1 && has_gh=1
 
   ((has_git)) || missing=1
   ((has_curl)) || missing=1
@@ -219,6 +240,7 @@ self_doctor() {
   ((has_manager)) || missing=1
   ((has_node)) || optional_missing=1
   ((has_npm)) || optional_missing=1
+  ((has_gh)) || optional_missing=1
 
   if [[ $json -eq 1 ]]; then
     python3 - <<PY
@@ -236,9 +258,10 @@ checks = {
   "manager_binary": bool($has_manager),
   "node": bool($has_node),
   "npm": bool($has_npm),
+  "gh_cli": bool($has_gh),
 }
 critical = ["git","curl","docker","tar","sha256sum","python3","docker_compose","docker_daemon_access","env_file","manager_binary"]
-optional = ["node","npm"]
+optional = ["node","npm","gh_cli"]
 result = {
   "status": "healthy" if all(checks[k] for k in critical) else "issues",
   "checks": checks,
@@ -276,6 +299,11 @@ PY
   ((has_manager)) && echo "  ✅ manager binary" || echo "  ⚠️  manager binary missing (run: fetch self update)"
   ((has_node)) && echo "  ✅ node" || echo "  ⚠️  node missing (required to install/update harness CLIs)"
   ((has_npm)) && echo "  ✅ npm" || echo "  ⚠️  npm missing (required to install/update harness CLIs)"
+  if ((has_gh)); then
+    echo "  ✅ gh (GitHub CLI)"
+  else
+    echo "  ⚠️  gh missing (required for Copilot CLI auth and GitHub workflow tooling)"
+  fi
 
   if [[ $missing -eq 0 ]]; then
     if [[ $optional_missing -eq 0 ]]; then
@@ -384,6 +412,12 @@ config_doctor() {
   else
     echo "  ✅ Copilot/GitHub token wiring looks consistent"
   fi
+  if command -v gh >/dev/null 2>&1; then
+    echo "  ✅ gh CLI installed on host"
+  else
+    echo "  ⚠️  gh CLI missing on host (install required for Copilot setup/auth flows)"
+    gh_install_hint
+  fi
   if [[ -z "$admin_token" ]]; then
     echo "  ⚠️  ADMIN_TOKEN not set; run 'fetch setup' to generate one"
   else
@@ -394,9 +428,11 @@ config_doctor() {
 cmd_setup() {
   need_repo
   local non_interactive=0
+  local install_gh_cli=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --non-interactive) non_interactive=1; shift ;;
+      --install-gh-cli) install_gh_cli=1; shift ;;
       *)
         echo "[fetch] unknown option for setup: $1" >&2
         exit 1
@@ -408,6 +444,22 @@ cmd_setup() {
   if [[ ! -f "$REPO_DIR/.env" && -f "$REPO_DIR/.env.example" ]]; then
     cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
     echo "  ✅ created .env from .env.example"
+  fi
+  if [[ $install_gh_cli -eq 1 ]]; then
+    if command -v gh >/dev/null 2>&1; then
+      echo "  ✅ gh already installed"
+    elif [[ -x "$REPO_DIR/scripts/install_gh_cli.sh" ]]; then
+      echo "  • installing GitHub CLI (gh) on host..."
+      if "$REPO_DIR/scripts/install_gh_cli.sh"; then
+        echo "  ✅ gh installation complete"
+      else
+        echo "  ⚠️  gh install script failed; see manual instructions below"
+        gh_install_hint
+      fi
+    else
+      echo "  ⚠️  scripts/install_gh_cli.sh not found; install gh manually"
+      gh_install_hint
+    fi
   fi
   ensure_admin_token
 
@@ -426,8 +478,9 @@ cmd_setup() {
   cat <<EOF
 [fetch] setup: next steps
   1) Validate: fetch self doctor
-  2) Start:    fetch up
-  3) Launch:   fetch tui
+  2) Install:  gh auth login
+  3) Start:    fetch up
+  4) Launch:   fetch tui
 EOF
 }
 

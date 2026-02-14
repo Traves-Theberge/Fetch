@@ -139,6 +139,7 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 | **Codex** | Agentic coding with OpenAI models, JSON Lines streaming |
 
 Harness install docs:
+- GitHub CLI (host prerequisite): https://github.com/cli/cli#installation
 - Copilot CLI: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli
 - Claude Code: https://docs.claude.com/en/docs/claude-code/getting-started
 - Gemini CLI: https://github.com/google-gemini/gemini-cli
@@ -165,7 +166,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
 # fish_add_path $HOME/.local/bin                           # fish
 
 # 3. Guided setup
-fetch setup
+fetch setup --install-gh-cli
 
 # 4. Configure
 nano ~/.fetch/repo/.env

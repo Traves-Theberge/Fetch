@@ -8,6 +8,7 @@
 | OpenRouter Key | — | Required for LLM access ([openrouter.ai](https://openrouter.ai)) |
 | WhatsApp Account| — | Required for primary interface |
 | Node.js + npm | Node 20+ recommended | Needed to install/update harness CLIs on host |
+| GitHub CLI (`gh`) | latest | Required host prerequisite for Copilot CLI auth and GitHub workflow tooling |
 
 > **Note:** The canonical installer is `scripts/install.sh` (also accessible through root `install.sh` wrapper).
 
@@ -69,7 +70,7 @@ which fetch
 
 ```bash
 nano ~/.fetch/repo/.env
-fetch setup
+fetch setup --install-gh-cli
 fetch up
 fetch tui
 ```
@@ -127,6 +128,13 @@ Node/npm install docs:
 - **Gemini CLI** (install): https://github.com/google-gemini/gemini-cli
 - **OpenCode** (install): https://opencode.ai/docs/
 - **Codex CLI** (install + auth): https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started
+
+Install GitHub CLI explicitly if needed:
+
+```bash
+fetch setup --install-gh-cli
+gh --version
+```
 
 Common login commands after install:
 
