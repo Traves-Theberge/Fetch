@@ -16,6 +16,7 @@ import {
   ResponseSchema,
   ProgressMessageSchema,
   PercentageSchema,
+  SafePathSchema,
   DEFAULT_TIMEOUT_MS,
 } from './common.js';
 
@@ -24,8 +25,11 @@ import {
 // ============================================================================
 
 /** Allowed agent identifiers for `task_create`. */
+export const AGENT_SELECTION_VALUES = ['copilot', 'gemini', 'claude', 'opencode', 'codex', 'auto'] as const;
+
+/** Allowed agent identifiers for `task_create`. */
 export const AgentSelectionSchema = z.enum(
-  ['copilot', 'gemini', 'claude', 'opencode', 'codex', 'auto'],
+  AGENT_SELECTION_VALUES,
   {
     error: 'Agent must be one of: copilot, gemini, claude, opencode, codex, auto',
   }
@@ -128,7 +132,7 @@ export const WorkspaceDeleteInputSchema = z
 export const FileDeleteInputSchema = z
   .object({
     /** Path to the file to delete */
-    path: z.string().min(1, 'File path is required').describe('Relative path to the file to delete'),
+    path: SafePathSchema.describe('Relative path to the file to delete'),
 
     /** Workspace name (optional, uses active workspace if not specified) */
     workspace: WorkspaceNameSchema.optional().describe(
@@ -149,7 +153,7 @@ export const FileDeleteInputSchema = z
 export const FolderDeleteInputSchema = z
   .object({
     /** Path to the folder to delete */
-    path: z.string().min(1, 'Folder path is required').describe('Relative path to the folder to delete'),
+    path: SafePathSchema.describe('Relative path to the folder to delete'),
 
     /** Workspace name (optional, uses active workspace if not specified) */
     workspace: WorkspaceNameSchema.optional().describe(
@@ -604,6 +608,45 @@ export const BrowserActionInputSchema = z
     y: z.number().optional().describe('Y coordinate for coordinate-based click'),
   })
   .strict()
+  .superRefine((value, ctx) => {
+    const hasCoordinates = value.x !== undefined || value.y !== undefined;
+    const hasCompleteCoordinates = value.x !== undefined && value.y !== undefined;
+    if (hasCoordinates && !hasCompleteCoordinates) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: value.x === undefined ? ['x'] : ['y'],
+        message: 'Both x and y are required for coordinate-based clicks',
+      });
+    }
+
+    if (value.action === 'click') {
+      if (value.ref === undefined && !hasCompleteCoordinates) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ref'],
+          message: 'click requires ref or both x and y coordinates',
+        });
+      }
+      return;
+    }
+
+    if (value.action === 'type') {
+      if (value.ref === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['ref'],
+          message: 'type requires ref',
+        });
+      }
+      if (!value.text || value.text.trim().length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['text'],
+          message: 'type requires non-empty text',
+        });
+      }
+    }
+  })
   .describe('Perform an action on the browser page using element references from snapshot');
 
 /** Input schema for `browser_screenshot` (no params). */

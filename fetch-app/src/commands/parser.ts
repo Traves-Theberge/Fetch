@@ -115,7 +115,7 @@ export async function parseCommand(
 
     case 'version':
     case 'v':
-      return { handled: true, responses: [`🐕 Fetch v${VERSION} (Good Boy Reporting!)`] };
+      return { handled: true, responses: [`🐕 Fetch ${VERSION} (Good Boy Reporting!)`] };
 
     case 'usage':
     case 'u':

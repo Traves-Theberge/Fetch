@@ -655,4 +655,63 @@ describe('Harness Event Emission', () => {
     expect(result.success).toBe(true);
     expect(outputEventFired).toBe(true);
   });
+
+  it('should emit parsed progress, file_op, and question events from output lines', async () => {
+    const mockAdapter: HarnessAdapter = {
+      agent: 'gemini',
+      buildConfig: () => ({
+        command: 'sh',
+        args: ['-c', 'printf "Working...\\nEdited src/index.ts\\nDo you want to continue?\\n"; sleep 0.05'],
+        env: {},
+        cwd: '/tmp',
+        timeoutMs: 5000,
+      }),
+      parseOutputLine: (line: string) => {
+        if (line.includes('?')) return 'question';
+        if (line.includes('Working') || line.includes('Edited')) return 'progress';
+        return null;
+      },
+      detectQuestion: (output: string) => output.split('\n').find((l) => l.includes('?')) ?? null,
+      formatResponse: (r: string) => `${r}\n`,
+      extractSummary: () => 'summary',
+      extractFileOperations: (output: string) => {
+        if (output.includes('Edited src/index.ts')) {
+          return { created: [], modified: ['src/index.ts'], deleted: [] };
+        }
+        return { created: [], modified: [], deleted: [] };
+      },
+    };
+
+    const executor = new HarnessExecutor();
+    registerAdapter(mockAdapter);
+
+    let progressCount = 0;
+    let question: string | undefined;
+    let fileOpSeen = false;
+    let waitingInputObserved = false;
+
+    executor.on('harness:progress', () => {
+      progressCount++;
+    });
+
+    executor.on('harness:file_op', (event) => {
+      const data = event.data as { modified?: string[] };
+      if (data?.modified?.includes('src/index.ts')) {
+        fileOpSeen = true;
+      }
+    });
+
+    executor.on('harness:question', (event) => {
+      question = (event.data as { question?: string } | undefined)?.question;
+      const current = executor.getExecution(event.harnessId);
+      waitingInputObserved = current?.status === 'waiting_input';
+    });
+
+    await executor.execute('tsk_1', 'gemini', 'test', '/tmp', 5000);
+
+    expect(progressCount).toBeGreaterThan(0);
+    expect(fileOpSeen).toBe(true);
+    expect(question).toContain('continue');
+    expect(waitingInputObserved).toBe(true);
+  });
 });

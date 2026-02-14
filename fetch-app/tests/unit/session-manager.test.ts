@@ -363,5 +363,38 @@ describe('SessionManager', () => {
       expect(session.metadata.compactedAt).toBeDefined();
       expect(session.metadata.compactedMessageCount).toBe(4);
     });
+
+    it('should compact from latest persisted session state when given a stale object', async () => {
+      const session = await manager.getOrCreateSession('compact_stale');
+      for (let i = 0; i < 6; i++) {
+        session.messages.push({
+          id: `seed_${i}`,
+          role: 'user',
+          content: `Seed ${i}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await manager.updateSession(session);
+
+      const staleSnapshot = {
+        ...session,
+        messages: session.messages.slice(),
+      };
+
+      session.messages.push({
+        id: 'newest',
+        role: 'assistant',
+        content: 'Newest message',
+        timestamp: new Date().toISOString(),
+      });
+      await manager.updateSession(session);
+
+      await manager.compactIfNeeded(staleSnapshot);
+
+      const refreshed = await manager.getSessionById(session.id);
+      expect(refreshed).toBeDefined();
+      expect(refreshed!.messages).toHaveLength(3);
+      expect(refreshed!.messages.some((m) => m.content === 'Newest message')).toBe(true);
+    });
   });
 });

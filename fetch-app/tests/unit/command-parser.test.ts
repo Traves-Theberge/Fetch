@@ -113,6 +113,7 @@ describe('Command Parser — Safety Gate', () => {
     expect(result.handled).toBe(true);
     expect(result.responses?.[0]).toContain('Fetch');
     expect(result.responses?.[0]).toMatch(/v\d+\.\d+\.\d+/);
+    expect(result.responses?.[0]).not.toContain('vv');
   });
 
   // ─── Task Control ──────────────────────────────────────────────────

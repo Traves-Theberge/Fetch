@@ -168,7 +168,11 @@ export class WhitelistStore {
    * Writes are serialized via `persistLock`.
    */
   private async persist(): Promise<void> {
-    this.persistLock = this.persistLock.then(() => this.doPersist());
+    this.persistLock = this.persistLock
+      .catch(() => {
+        // Recover chain after previous write failure so future writes still run.
+      })
+      .then(() => this.doPersist());
     return this.persistLock;
   }
 
@@ -293,6 +297,17 @@ export class WhitelistStore {
     await this.persist();
     logger.warn('Whitelist cleared');
   }
+
+  /**
+   * Closes watcher and waits for pending writes to settle.
+   */
+  async shutdown(): Promise<void> {
+    if (this.watcher) {
+      await this.watcher.close();
+      this.watcher = null;
+    }
+    await this.persistLock.catch(() => undefined);
+  }
 }
 
 // =============================================================================
@@ -314,7 +329,10 @@ export async function getWhitelistStore(): Promise<WhitelistStore> {
     await instance.initialize();
     whitelistStore = instance;
     return instance;
-  })();
+  })().catch((error) => {
+    whitelistInitPromise = null;
+    throw error;
+  });
 
   return whitelistInitPromise;
 }

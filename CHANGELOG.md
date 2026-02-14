@@ -9,8 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- No unreleased changes yet.
+
+## [0.0.48] - 2026-02-14
+
+### Changed
+
 - **Manual verification scripts moved** — Ad-hoc root verification scripts were reorganized into `fetch-app/scripts/manual/` to separate manual checks from Vitest CI coverage.
 - **Import path fixes for moved scripts** — Updated manual script imports to reference `fetch-app/src/*` from their new location.
+- **Undo-all git safety** — `/undo all` now validates git repo state and runs `git reset` with explicit workspace `cwd` instead of implicit process cwd.
+- **Version output normalization** — `/version` and related formatters now use one version source string (no duplicate `v` prefix rendering).
+- **Harness output pipeline** — Executor now parses line-level output and emits `harness:progress`, `harness:file_op`, and `harness:question`; integration now maps output payloads using a normalized `line` contract.
+- **Delete-path hardening** — Workspace delete operations now normalize/resolve paths and enforce workspace-root boundary checks to block traversal/sibling-prefix escapes.
+- **Thinking timer safety** — Message handler now clears delayed progress timers in `finally`, preventing stale post-error progress sends.
+- **Secret redaction hardening** — Harness command arg redaction now matches sensitive env keys case-insensitively (covers lowercase/mixed-case `api_key`/`token` patterns).
+- **Status API session-id consistency** — All session routes now enforce one shared session-id grammar (`[A-Za-z0-9_-]+`) for GET/DELETE/CLEAR endpoints.
+- **Spawner terminal-state precedence** — Harness kill status now remains terminal (`killed`) and is no longer overwritten by close-event `failed`.
+- **Identity owner context reload** — Identity manager now merges loaded `ALPHA.md` context fields into in-memory identity on reload.
+- **Whitelist persistence resilience** — Whitelist write lock now recovers after write failures, and singleton initialization retries after failed init attempts.
+- **Runtime config validation gate** — `/api/config/reload` now validates updated env keys/values against config schema and rejects invalid updates before mutating runtime state.
+- **Session write coordination** — Session manager now serializes writes per session and compaction re-reads latest persisted state before trimming history.
+- **Session manager init retry safety** — `getSessionManager()` now resets cached init promise after failure so transient startup errors can recover without process restart.
+- **Skill availability consistency** — Skill load/reload now enforces requirement checks and disabled-skill gating before registry insertion, keeping summary and activation behavior aligned.
+- **Skill reload stale-entry cleanup** — When a skill becomes unavailable on reload, the existing in-memory skill entry is removed immediately.
+- **Activated skill context escaping** — Skill summary/activation XML blocks now escape dynamic content to prevent prompt-structure breakage from tag-like instructions.
+- **Task persistence health signal** — Task manager now exposes degraded persistence initialization state/error for observability when store init fails.
+- **Custom-tool reload rename safety** — Tool registry now removes stale prior tool names when a JSON file renames its tool definition.
+- **Custom-tool validation hardening** — Custom tool definitions now use strict schema validation (including parameter shape) and invalid reloads unload stale mappings safely.
+- **Browser action contract enforcement** — `browser_action` now validates action-specific required fields (`click` requires ref or x/y pair, `type` requires ref + non-empty text).
+- **Dynamic ambiguous-agent choices** — `task_create` ambiguity payload now lists currently enabled agents (with schema-aligned fallback) instead of hardcoded choices.
+- **Web fetch SSRF hardening** — `web_fetch` now enforces `http/https`, validates DNS-resolved IPs against private ranges, and re-validates each redirect hop before fetching.
+- **Transcription exec safety** — Voice transcription now executes `ffmpeg` and `whisper-cpp` via argument arrays (`execFile`), validates model path existence, and avoids shell interpolation.
+- **Docker timeout cancellation** — Timed-out docker exec paths now attempt process termination in-container and keep timeout as terminal result (with late-stream suppression via finished-state guards).
+- **Docker stdin contract alignment** — `dockerExec`/`dockerExecStream` now honor `DockerExecOptions.stdin`.
+- **Repo-map determinism** — Repo-map file discovery is now normalized/sorted before `maxFiles` truncation.
+- **Symbol extraction dedupe** — Symbol extractor now deduplicates by `(name,type)` and returns stable sorted output.
+- **Vision input guardrails** — Vision analysis now enforces MIME allowlist and payload-size limits before provider calls.
+- **Session row corruption tolerance** — Session store now catches malformed session JSON rows and rebuilds safe fallback session objects.
+- **Task row corruption tolerance** — Task store now skips malformed task rows during load instead of failing whole initialization.
+- **Security teardown hooks** — Added explicit `shutdown()` for rate limiter and whitelist store resources.
+- **Watcher teardown integration** — Bridge/index shutdown now closes skill, identity, custom-tool, and whitelist watchers during graceful exit.
+- **Notification anti-repeat scoping** — Template anti-repeat cache now keys by session scope with TTL/cap pruning to avoid cross-user coupling.
+- **Harness history retention bounds** — Spawner/executor now prune terminal in-memory records using TTL + max-count policies.
+- **Identity readiness contract** — Identity manager now exposes `whenReady()` and promise-returning reload sequencing; agent/notification paths await readiness before prompt/voice usage.
+- **Path sanitizer hardening** — `sanitizePath` now normalizes backslashes, strips Windows drive/UNC prefixes, and removes traversal segments consistently.
+- **Session store singleton test isolation** — Added explicit singleton reset hook and db-path mismatch guard to prevent silent path override coupling.
+- **Deterministic session ID strategy** — Session/message IDs now use an injectable generator with reset hook for deterministic tests.
+- **Import-safe entrypoint runtime** — `src/index.ts` now exports a testable runtime (`createRuntime`/`main`/`shutdown`) and only auto-starts when executed as the CLI entry module.
+- **Notification telemetry counters** — Added runtime metrics for notification formatting path selection (LLM success, template fallback, rewrite disabled/errors/timeouts, duplicate suppression).
+- **Status API telemetry surface** — `/api/status` now includes notification formatter metrics for operational visibility.
+- **Pipeline rewrite controls** — Added typed `FETCH_NOTIFICATION_REWRITE`, `FETCH_NOTIFICATION_REWRITE_TIMEOUT_MS`, `FETCH_PROGRESS_REWRITE`, and `FETCH_PROGRESS_REWRITE_TIMEOUT_MS` flags.
 
 ### Removed
 
@@ -20,6 +68,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `fetch-app/scripts/manual/README.md` with run commands, prerequisites, and side-effect warnings (notably GitHub remote operations).
 - Updated root and docs readmes to point contributors to manual verification scripts separately from automated test commands.
+- Updated `ENGINEERING_GAP_BACKLOG.md` to mark P0 GAP-001/002/003/007/008/037 as done.
+
+### Tests
+
+- Added/updated targeted coverage for:
+  - command parser version output and undo-all command behavior
+  - handler timer cleanup on thrown `processMessage`
+  - harness executor parsed event emission
+  - task integration output payload mapping and question pause path
+  - workspace delete-path traversal/sibling-prefix blocking
+  - status API session-id validation helper and route grammar
+  - spawner killed-vs-close status precedence
+  - identity context merge on reload
+  - whitelist lock recovery and singleton init retry behavior
+  - runtime env-update validation (valid/unknown/invalid-value cases)
+  - session compaction stale-state protection and singleton init retry
+  - skills manager requirement-gated load parity, reload removal, and XML escaping in activated context
+  - task manager persistence-health visibility on init failure
+  - custom tool loader strict validation and rename/unload reload behavior
+  - browser action schema action-specific validation
+  - task tool ambiguity choices sourced from runtime enabled agents
+  - web fetch DNS/redirect SSRF protections (including private-resolution and redirect-chain blocking tests)
+  - transcription model-path argument safety and missing-model failure path
+  - docker timeout cancellation and stdin option behavior in docker exec helpers
+  - deterministic repo-map truncation ordering
+  - symbol dedupe contract enforcement
+  - vision MIME/payload-size guardrails
+  - interaction tool auto-approval/question/progress paths
+  - github tool workspace-error and search output paths
+  - session/task store malformed-row guardrails
+  - teardown coverage for whitelist watcher, rate limiter shutdown, and tool-registry watcher shutdown
+  - notification anti-repeat cache scoped isolation behavior
+  - spawner/executor terminal record retention pruning (TTL + cap)
+  - identity readiness (`whenReady`) and reload sequencing paths
+  - Windows/backslash/UNC path normalization in security sanitizer
+  - session store singleton reset/mismatch behavior and deterministic session ID injection
+  - import-safe index runtime startup/shutdown behavior without module-import side effects
+  - notification telemetry counters and status payload exposure
+  - pipeline bool parsing and rewrite feature-flag/timeout settings
 
 ## [0.0.47] - 2026-02-13
 

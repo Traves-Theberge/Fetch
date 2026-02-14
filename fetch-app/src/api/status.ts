@@ -34,6 +34,8 @@ import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import { getVersion } from '../utils/version.js';
 import { getSessionManager } from '../session/manager.js';
+import { validateRuntimeEnvUpdates } from '../config/env.js';
+import { getNotificationMetrics, type NotificationMetrics } from '../agent/notifications.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -44,6 +46,7 @@ const PORT = 8765;
 
 /** Path to documentation files */
 const DOCS_PATH = '/app/docs';
+const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
 
 // =============================================================================
 // TYPES
@@ -67,6 +70,8 @@ export interface BridgeStatus {
   lastError: string | null;
   /** Current version */
   version: string;
+  /** Notification formatter path/fallback counters */
+  notificationMetrics: NotificationMetrics;
 }
 
 // =============================================================================
@@ -81,7 +86,8 @@ let status: BridgeStatus = {
   uptime: 0,
   messageCount: 0,
   lastError: null,
-  version: getVersion()
+  version: getVersion(),
+  notificationMetrics: getNotificationMetrics(),
 };
 
 /** Server start time for uptime calculation */
@@ -147,8 +153,14 @@ export function incrementMessageCount(): void {
 export function getStatus(): BridgeStatus {
   return {
     ...status,
-    uptime: Math.floor((Date.now() - startTime) / 1000)
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    notificationMetrics: getNotificationMetrics(),
   };
+}
+
+/** Returns true when session-id uses supported URL-safe grammar. */
+export function isValidSessionId(sessionId: string): boolean {
+  return SESSION_ID_REGEX.test(sessionId);
 }
 
 /**
@@ -220,6 +232,7 @@ export function startStatusServer(): void {
         const envContent = fs.readFileSync(envPath, 'utf-8');
         const updatedKeys: string[] = [];
         const envFileKeys = new Set<string>();
+        const pendingUpdates: Record<string, string> = {};
 
         for (const line of envContent.split('\n')) {
           const trimmed = line.trim();
@@ -241,7 +254,21 @@ export function startStatusServer(): void {
           }
 
           envFileKeys.add(key);
+          pendingUpdates[key] = value;
+        }
 
+        const validation = validateRuntimeEnvUpdates(pendingUpdates);
+        if (!validation.valid) {
+          res.writeHead(400);
+          res.end(JSON.stringify({
+            success: false,
+            message: 'Invalid runtime config updates',
+            invalid: validation.invalid,
+          }));
+          return;
+        }
+
+        for (const [key, value] of Object.entries(pendingUpdates)) {
           // Only update if value actually changed
           if (process.env[key] !== value) {
             process.env[key] = value;
@@ -339,7 +366,7 @@ export function startStatusServer(): void {
     }
 
     // GET /api/sessions/:id
-    if (req.method === 'GET' && url.match(/^\/api\/sessions\/[a-zA-Z0-9]+$/)) {
+    if (req.method === 'GET' && url.startsWith('/api/sessions/')) {
       res.setHeader('Content-Type', 'application/json');
 
       const authHeader = req.headers.authorization;
@@ -349,10 +376,16 @@ export function startStatusServer(): void {
         return;
       }
 
-      const sessionId = url.split('/').pop();
+      const parts = url.split('/');
+      const sessionId = parts[3];
       if (!sessionId) {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
+        return;
+      }
+      if (parts.length !== 4 || !isValidSessionId(sessionId)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
         return;
       }
 
@@ -386,10 +419,16 @@ export function startStatusServer(): void {
         return;
       }
 
-      const sessionId = url.split('/').pop();
+      const parts = url.split('/');
+      const sessionId = parts[3];
       if (!sessionId) {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
+        return;
+      }
+      if (parts.length !== 4 || !isValidSessionId(sessionId)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
         return;
       }
 
@@ -413,7 +452,7 @@ export function startStatusServer(): void {
     }
 
     // POST /api/sessions/:id/clear
-    if (req.method === 'POST' && url.match(/^\/api\/sessions\/[a-zA-Z0-9]+\/clear$/)) {
+    if (req.method === 'POST' && url.startsWith('/api/sessions/') && url.endsWith('/clear')) {
       res.setHeader('Content-Type', 'application/json');
 
       const authHeader = req.headers.authorization;
@@ -425,6 +464,11 @@ export function startStatusServer(): void {
 
       const parts = url.split('/');
       const sessionId = parts[3]; // /api/sessions/:id/clear
+      if (parts.length !== 5 || parts[4] !== 'clear' || !sessionId || !isValidSessionId(sessionId)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
+        return;
+      }
 
       try {
         const manager = await getSessionManager();

@@ -94,6 +94,7 @@ export const VERSION = getVersion();
 // ============================================================================
 
 type EnvConfig = z.infer<typeof EnvSchema>;
+type EnvShape = typeof EnvSchema.shape;
 
 /**
  * Environment accessor proxy.
@@ -140,4 +141,34 @@ export function validateEnv(): { valid: boolean; missing: string[] } {
   }
 
   return { valid: true, missing: [] };
+}
+
+/**
+ * Validate runtime env updates before applying them to `process.env`.
+ *
+ * Unknown keys and values that fail the declared schema are rejected.
+ */
+export function validateRuntimeEnvUpdates(
+  updates: Record<string, string>
+): { valid: boolean; invalid: Array<{ key: string; reason: string }> } {
+  const invalid: Array<{ key: string; reason: string }> = [];
+  const shape = EnvSchema.shape as EnvShape;
+
+  for (const [key, value] of Object.entries(updates)) {
+    const schema = shape[key as keyof EnvShape];
+    if (!schema) {
+      invalid.push({ key, reason: 'Unknown environment key' });
+      continue;
+    }
+
+    const result = schema.safeParse(value);
+    if (!result.success) {
+      invalid.push({
+        key,
+        reason: result.error.issues[0]?.message ?? 'Invalid value',
+      });
+    }
+  }
+
+  return { valid: invalid.length === 0, invalid };
 }

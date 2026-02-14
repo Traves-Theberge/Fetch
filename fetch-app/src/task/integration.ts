@@ -139,7 +139,11 @@ export class TaskIntegration extends EventEmitter {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Task execution failed: ${task.id}`, { error: errorMessage });
 
-      await this.manager!.failTask(task.id, errorMessage);
+      try {
+        await this.manager!.failTask(task.id, errorMessage);
+      } catch (transitionError) {
+        logger.error(`Failed to transition task ${task.id} to failed`, transitionError);
+      }
 
       return {
         taskId: task.id,
@@ -173,12 +177,16 @@ export class TaskIntegration extends EventEmitter {
       const { taskId, data } = event;
       const callback = this.progressCallbacks.get(taskId);
       const sessionId = this.taskSessions.get(taskId);
+      const payload = data as { line?: unknown; data?: unknown } | undefined;
+      const line = typeof payload?.line === 'string'
+        ? payload.line
+        : (typeof payload?.data === 'string' ? payload.data : undefined);
 
-      if (callback && data?.line) {
-        callback(taskId, data.line as string);
+      if (callback && line) {
+        callback(taskId, line);
       }
 
-      this.emit('task:output', { taskId, sessionId, line: data?.line });
+      this.emit('task:output', { taskId, sessionId, line });
     });
 
     executor.on('harness:progress', (event) => {
@@ -230,14 +238,21 @@ export class TaskIntegration extends EventEmitter {
   /** Resolves `auto` to a concrete agent using enabled harness flags. */
   private selectAgent(agent: string): AgentType {
     if (agent === 'auto') {
-      // Intelligent routing based on enabled harnesses
-      if (env.ENABLE_CLAUDE) return 'claude';
-      if (env.ENABLE_COPILOT) return 'copilot';
-      if (env.ENABLE_GEMINI) return 'gemini';
+      const enabled: AgentType[] = [];
+      if (String(env.ENABLE_COPILOT).trim().toLowerCase() === 'true') enabled.push('copilot');
+      if (String(env.ENABLE_GEMINI).trim().toLowerCase() === 'true') enabled.push('gemini');
+      if (String(env.ENABLE_CLAUDE).trim().toLowerCase() === 'true') enabled.push('claude');
+      if (String(env.ENABLE_OPENCODE).trim().toLowerCase() === 'true') enabled.push('opencode');
+      if (String(env.ENABLE_CODEX).trim().toLowerCase() === 'true') enabled.push('codex');
 
-      // Fallback if nothing matches (shouldn't happen if properly configured)
-      logger.warn('No harnesses enabled! Defaulting to copilot.');
-      return 'copilot';
+      if (enabled.length === 1) return enabled[0];
+      if (enabled.length > 1) {
+        throw new Error(
+          `Ambiguous agent selection: Multiple agents are enabled (${enabled.join(', ')}). ` +
+          'Please specify which agent to use.'
+        );
+      }
+      throw new Error('No harnesses are currently enabled.');
     }
     return agent as AgentType;
   }

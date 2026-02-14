@@ -27,19 +27,37 @@ export interface CustomToolDefinition {
   }[];
 }
 
+const customToolParameterSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['string', 'number', 'boolean']),
+  description: z.string().min(1),
+  required: z.boolean().optional(),
+  default: z.unknown().optional(),
+});
+
+const customToolDefinitionSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  command: z.string().min(1),
+  cwd: z.string().min(1).optional(),
+  danger: z.nativeEnum(DangerLevel).optional(),
+  parameters: z.array(customToolParameterSchema).default([]),
+}).strict();
+
 /** Loads and validates a single custom tool definition file. */
 export async function loadToolDefinition(filePath: string): Promise<CustomToolDefinition | null> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    const data = JSON.parse(content);
-
-    // Basic validation
-    if (!data.name || !data.description || !data.command) {
-        logger.warn(`Invalid tool definition in ${filePath}: missing core fields`);
-        return null;
+    const parsed = JSON.parse(content);
+    const validated = customToolDefinitionSchema.safeParse(parsed);
+    if (!validated.success) {
+      logger.warn(`Invalid tool definition in ${filePath}`, {
+        issues: validated.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+      });
+      return null;
     }
-    
-    return data as CustomToolDefinition;
+
+    return validated.data;
   } catch (error) {
     logger.error(`Failed to load tool from ${filePath}`, error);
     return null;

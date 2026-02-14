@@ -38,7 +38,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-001: `/undo all` git reset may run in wrong directory
 - Severity: S1 Critical
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/commands/task.ts`
 - Evidence: `fetch-app/src/commands/task.ts:29` uses `execSync("git reset --hard ...")` without explicit `cwd`.
 - Risk: Undo command can fail or target the wrong git repository depending on process working directory.
@@ -53,7 +53,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-002: `/version` can render `vv...`
 - Severity: S2 High
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/commands/parser.ts`, `fetch-app/src/utils/version.ts`
 - Evidence:
   - `fetch-app/src/commands/parser.ts:118` uses `v${VERSION}`.
@@ -68,7 +68,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-003: Thinking/progress timer not guaranteed to clear on thrown errors
 - Severity: S2 High
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/handler/index.ts`
 - Evidence:
   - Timer starts around `fetch-app/src/handler/index.ts:227`.
@@ -83,7 +83,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-004: Status API session-id validation is inconsistent across routes
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/api/status.ts`
 - Evidence:
   - GET/CLEAR use strict alphanumeric regex (`fetch-app/src/api/status.ts:342`, `fetch-app/src/api/status.ts:416`).
@@ -98,7 +98,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-005: Notification anti-repeat cache scope is global
 - Severity: S4 Low
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/agent/notifications.ts`
 - Evidence: Module-level map keyed only by event type near `fetch-app/src/agent/notifications.ts:52`.
 - Risk: Cross-session coupling of variation behavior (different users influence each other).
@@ -110,7 +110,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-006: Runtime config reload path lacks strict validation gate
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/api/status.ts`, `fetch-app/src/config/env.ts`
 - Evidence: Runtime updates write to env directly (`fetch-app/src/api/status.ts:246-247`) without full schema validation.
 - Risk: Invalid runtime values accepted, failures occur later and are harder to trace.
@@ -123,7 +123,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-007: Harness executor never emits parsed progress/question/file-op events
 - Severity: S1 Critical
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/harness/executor.ts`, `fetch-app/src/task/integration.ts`
 - Evidence:
   - `fetch-app/src/task/integration.ts:205`, `fetch-app/src/task/integration.ts:211`, `fetch-app/src/task/integration.ts:217` subscribe to `harness:progress`, `harness:file_op`, `harness:question`.
@@ -144,7 +144,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-008: `task:output` bridge expects `data.line` but executor emits `data.data`
 - Severity: S2 High
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/task/integration.ts`, `fetch-app/src/harness/executor.ts`
 - Evidence:
   - `fetch-app/src/task/integration.ts:198` checks `data?.line`.
@@ -163,7 +163,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-009: Spawner kill path can be overwritten by close-event failure status
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/harness/spawner.ts`
 - Evidence:
   - `fetch-app/src/harness/spawner.ts:209` emits `status: 'killed'` on manual/timeout kill.
@@ -180,7 +180,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-010: Harness instance records are never pruned from spawner/executor maps
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/harness/spawner.ts`, `fetch-app/src/harness/executor.ts`
 - Evidence:
   - `fetch-app/src/harness/spawner.ts:41` and `fetch-app/src/harness/executor.ts:72` maintain in-memory maps.
@@ -197,7 +197,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-011: Command-arg redaction is case-sensitive and misses lower-case keys
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/harness/spawner.ts`
 - Evidence:
   - `fetch-app/src/harness/spawner.ts:32` uses `key.includes(s)` against uppercase tokens only.
@@ -212,7 +212,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-012: Identity manager ignores loaded owner context from ALPHA
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/identity/manager.ts`, `fetch-app/src/identity/loader.ts`
 - Evidence:
   - Loader parses/returns `context.owner` (`fetch-app/src/identity/loader.ts:47-49`, `fetch-app/src/identity/loader.ts:73`).
@@ -229,7 +229,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-013: Whitelist persistence lock can become permanently rejected after one write failure
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/security/whitelist.ts`
 - Evidence:
   - Writes are serialized as `this.persistLock = this.persistLock.then(() => this.doPersist())` (`fetch-app/src/security/whitelist.ts:170-172`).
@@ -245,7 +245,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-014: Whitelist singleton init promise is sticky on initialization failure
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/security/whitelist.ts`
 - Evidence:
   - `whitelistInitPromise` is assigned once (`fetch-app/src/security/whitelist.ts:312-317`) and never reset on reject.
@@ -260,7 +260,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-015: Identity manager startup and reload are fire-and-forget with no readiness contract
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/identity/manager.ts`
 - Evidence:
   - Constructor calls `this.reloadIdentity()` without await (`fetch-app/src/identity/manager.ts:66`).
@@ -277,7 +277,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-016: `sanitizePath` does not normalize backslash traversal or Windows-style absolute paths
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/security/validator.ts`
 - Evidence:
   - Sanitizer normalizes `/` only (`fetch-app/src/security/validator.ts:105-108`), not backslashes or drive prefixes.
@@ -293,7 +293,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-017: No explicit shutdown/teardown path for whitelist watcher and rate-limiter timer
 - Severity: S4 Low
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/security/whitelist.ts`, `fetch-app/src/security/rateLimiter.ts`
 - Evidence:
   - Whitelist watcher created (`fetch-app/src/security/whitelist.ts:135`) but no public close/shutdown method.
@@ -310,7 +310,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-018: Background compaction can race with normal message writes
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/session/manager.ts`
 - Evidence:
   - `addUserMessage()` triggers `compactIfNeeded()` asynchronously without awaiting (`fetch-app/src/session/manager.ts:112`).
@@ -328,7 +328,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-019: Session manager singleton init promise is sticky on initialization failure
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/session/manager.ts`
 - Evidence:
   - `initPromise` is cached in `getSessionManager()` (`fetch-app/src/session/manager.ts:344-360`) and never reset on rejection.
@@ -343,7 +343,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-020: Session row deserialization is unguarded and can crash reads on malformed JSON
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/session/store.ts`
 - Evidence:
   - `rowToSession()` parses raw JSON without try/catch (`fetch-app/src/session/store.ts:189-193`).
@@ -358,7 +358,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-021: Session store singleton makes dbPath-dependent testing/config fragile
 - Severity: S4 Low
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/session/store.ts`
 - Evidence:
   - `getSessionStore(dbPath?)` returns first-created singleton and ignores subsequent dbPath overrides (`fetch-app/src/session/store.ts:506-510`).
@@ -374,7 +374,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-022: Session ID generation is random but not deterministic/test-injectable
 - Severity: S4 Low
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/session/types.ts`
 - Evidence:
   - `generateId()` uses `Math.random()` directly (`fetch-app/src/session/types.ts:206-211`).
@@ -390,7 +390,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-023: Skill summary can advertise skills whose runtime requirements are not met
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/skills/manager.ts`
 - Evidence:
   - Initial load path stores skills without requirement validation (`fetch-app/src/skills/manager.ts:172-176`).
@@ -409,7 +409,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-024: Skill reload keeps stale in-memory skill when updated requirements become unmet
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/skills/manager.ts`
 - Evidence:
   - On file change with unmet requirements, reload path logs and skips (`fetch-app/src/skills/manager.ts:96-101`) but does not remove existing entry.
@@ -425,7 +425,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-025: Activated-skill XML blocks are built with unescaped markdown content
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/skills/manager.ts`
 - Evidence:
   - Raw `skill.name` and `skill.instructions` are interpolated directly into pseudo-XML blocks (`fetch-app/src/skills/manager.ts:229-233`).
@@ -441,7 +441,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-026: File watchers are not fully included in graceful shutdown path
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/index.ts`, `fetch-app/src/skills/manager.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/tools/registry.ts`
 - Evidence:
   - `SkillManager` and `IdentityManager` expose shutdown APIs (`fetch-app/src/skills/manager.ts:188-193`, `fetch-app/src/identity/manager.ts:127-131`).
@@ -459,7 +459,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-027: `disabledSkills` config is defined but not enforced
 - Severity: S4 Low
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/skills/types.ts`, `fetch-app/src/skills/manager.ts`
 - Evidence:
   - Config includes `disabledSkills` (`fetch-app/src/skills/types.ts:64`, `fetch-app/src/skills/manager.ts:24`) but it is not referenced in load/match paths.
@@ -474,7 +474,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-028: `TaskIntegration` auto-agent resolution is inconsistent with `TaskManager` and ignores OpenCode/Codex
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/task/integration.ts`, `fetch-app/src/task/manager.ts`
 - Evidence:
   - Integration resolves `auto` locally with only claude/copilot/gemini checks and hard fallback to copilot (`fetch-app/src/task/integration.ts:231-240`).
@@ -492,7 +492,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-029: Task integration failure path can rethrow when `failTask` transition is invalid
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/task/integration.ts`
 - Evidence:
   - `executeTask()` catch block always calls `this.manager!.failTask(...)` (`fetch-app/src/task/integration.ts:142`) without guarding secondary transition errors.
@@ -510,7 +510,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-030: Task store task-row deserialization is unguarded
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/task/store.ts`
 - Evidence:
   - `loadAllTasks()` directly parses JSON rows without try/catch (`fetch-app/src/task/store.ts:89-90`).
@@ -526,7 +526,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-031: Task manager initialization silently degrades on persistence failure
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/task/manager.ts`
 - Evidence:
   - `init()` catches all store errors and does not propagate (`fetch-app/src/task/manager.ts:84-87`).
@@ -543,7 +543,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-032: Custom tool rename-on-reload leaves stale tool registrations
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/tools/registry.ts`
 - Evidence:
   - On file change, loader registers the new tool and then overwrites `customToolFiles` (`fetch-app/src/tools/registry.ts:164-166`).
@@ -561,7 +561,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-033: Custom tool definition validation is too weak for runtime safety
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/tools/loader.ts`, `fetch-app/src/tools/registry.ts`
 - Evidence:
   - Loader only checks `name`, `description`, `command` (`fetch-app/src/tools/loader.ts:36-42`).
@@ -580,7 +580,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-034: `browser_action` schema does not enforce action-specific required fields
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/validation/tools.ts`, `fetch-app/src/tools/browser.ts`
 - Evidence:
   - Schema marks `ref`/`text` optional for all actions (`fetch-app/src/validation/tools.ts:653-663`), while docs state `ref` required for `click`/`type`, `text` required for `type`.
@@ -600,7 +600,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-035: `web_fetch` SSRF guard is hostname-pattern only
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/tools/web.ts`
 - Evidence:
   - Blocking logic only matches hostname text patterns (`fetch-app/src/tools/web.ts:28-36`, `59-63`).
@@ -618,7 +618,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-036: `task_create` ambiguous-agent response uses hardcoded, potentially stale choices
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/tools/task.ts`
 - Evidence:
   - Ambiguity fallback returns fixed choices `['copilot', 'gemini', 'codex']` (`fetch-app/src/tools/task.ts:159-164`).
@@ -636,7 +636,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-037: File/folder delete path guard is bypassable via string-prefix checks
 - Severity: S1 Critical
 - Priority: P0 Now
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/workspace/manager.ts`, `fetch-app/src/validation/tools.ts`, `fetch-app/src/validation/common.ts`
 - Evidence:
   - Delete operations build `absolutePath` and only check `startsWith(wsRoot)` (`fetch-app/src/workspace/manager.ts:1202-1204`, `fetch-app/src/workspace/manager.ts:1236-1238`).
@@ -656,7 +656,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-038: Docker exec timeout returns early without terminating container process
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/utils/docker.ts`
 - Evidence:
   - Timeout path resolves with `124` but does not stop/kill the running exec process (`fetch-app/src/utils/docker.ts:315-319` and timeout path in buffered exec around `fetch-app/src/utils/docker.ts:270-279`).
@@ -673,7 +673,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-039: `dockerExecOptions.stdin` is defined but ignored in execution calls
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/utils/docker.ts`
 - Evidence:
   - `DockerExecOptions` includes `stdin?: boolean` (`fetch-app/src/utils/docker.ts:42`), but both execution paths hardcode `stdin: false` in `exec.start(...)` (`fetch-app/src/utils/docker.ts:200`, `fetch-app/src/utils/docker.ts:322`).
@@ -688,7 +688,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-040: Transcription command builds shell string with unquoted model path from env
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/transcription/index.ts`
 - Evidence:
   - Whisper command interpolates `WHISPER_MODEL` directly into shell string without quoting (`fetch-app/src/transcription/index.ts:62`).
@@ -705,7 +705,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-041: Repo-map file selection order is nondeterministic and can churn prompt context
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/workspace/repo-map.ts`
 - Evidence:
   - File list comes directly from `find` output and is consumed as-is (`fetch-app/src/workspace/repo-map.ts:89`, `fetch-app/src/workspace/repo-map.ts:94`).
@@ -723,7 +723,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-042: Symbol extractor claims dedupe but returns duplicate symbol entries
 - Severity: S3 Medium
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/workspace/symbols.ts`
 - Evidence:
   - Implementation comment says "Sort and deduplicate" (`fetch-app/src/workspace/symbols.ts:125`).
@@ -741,7 +741,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-043: Vision analysis path has no input guardrails for MIME type or payload size
 - Severity: S2 High
 - Priority: P1 Next
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/vision/index.ts`
 - Evidence:
   - `analyzeImage` directly interpolates provided `mimeType` and `base64Data` into a `data:` URL (`fetch-app/src/vision/index.ts:66`).
@@ -759,7 +759,7 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ### GAP-044: Process entrypoint is hard to test due to import-time side effects and tight `process.exit` coupling
 - Severity: S3 Medium
 - Priority: P2 Later
-- Status: Open
+- Status: Done
 - Area: `fetch-app/src/index.ts`
 - Evidence:
   - Startup runs unconditionally on module import (`fetch-app/src/index.ts:121`).
@@ -1036,61 +1036,61 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 ## Prioritized TODO
 
 ### P0 Now
-- [ ] Fix GAP-001: enforce explicit `cwd` + repo validation for git undo path.
-- [ ] Fix GAP-002: normalize version prefix handling to prevent `vv` output.
-- [ ] Fix GAP-003: move timer cleanup to `finally` and guard post-error progress send.
-- [ ] Fix GAP-007: emit parsed harness events and implement `waiting_input` transitions.
-- [ ] Fix GAP-008: align executor/integration output event payload schema.
-- [ ] Fix GAP-037: harden delete-path validation with normalized workspace-root containment.
-- [ ] Add tests for GAP-001/002/003/007/008/037.
+- [x] Fix GAP-001: enforce explicit `cwd` + repo validation for git undo path.
+- [x] Fix GAP-002: normalize version prefix handling to prevent `vv` output.
+- [x] Fix GAP-003: move timer cleanup to `finally` and guard post-error progress send.
+- [x] Fix GAP-007: emit parsed harness events and implement `waiting_input` transitions.
+- [x] Fix GAP-008: align executor/integration output event payload schema.
+- [x] Fix GAP-037: harden delete-path validation with normalized workspace-root containment.
+- [x] Add tests for GAP-001/002/003/007/008/037.
 
 ### P1 Next
-- [ ] Fix GAP-004: unify session-id grammar/validation across status routes.
-- [ ] Fix GAP-006: strict validation for runtime config updates.
-- [ ] Fix GAP-009: prevent killed->failed status overwrite race.
-- [ ] Fix GAP-011: harden log redaction matching to case-insensitive.
-- [ ] Fix GAP-012: merge identity context fields during reload.
-- [ ] Fix GAP-013: make whitelist persist lock recover after write failures.
-- [ ] Fix GAP-014: make whitelist singleton initialization retry-safe.
-- [ ] Fix GAP-018: add per-session compaction write coordination.
-- [ ] Fix GAP-019: make session manager singleton initialization retry-safe.
-- [ ] Fix GAP-023: keep skills summary and requirement-gated activation consistent.
-- [ ] Fix GAP-024: remove/disable stale skills when reload requirements are unmet.
-- [ ] Fix GAP-025: escape or reformat activated skill blocks to prevent prompt-structure breakage.
-- [ ] Fix GAP-028: unify task auto-agent selection behavior across manager/integration.
-- [ ] Fix GAP-029: harden integration catch path against secondary failTask transition errors.
-- [ ] Fix GAP-031: make task-store initialization failure observable (or fail fast by policy).
-- [ ] Fix GAP-032: remove stale custom tools when file-backed names change.
-- [ ] Fix GAP-033: enforce strict custom-tool definition validation and guarded watcher reload.
-- [ ] Fix GAP-034: enforce action-specific required fields in `browser_action` schema.
-- [ ] Fix GAP-035: harden `web_fetch` against hostname-resolved and redirect-based SSRF.
-- [ ] Fix GAP-036: derive ambiguous agent choices from runtime enabled agents.
-- [ ] Fix GAP-038: enforce real process cancellation on docker timeout paths.
-- [ ] Fix GAP-040: move transcription command execution to argument-safe spawn flow.
-- [ ] Fix GAP-041: make repo-map file selection deterministic before truncation.
-- [ ] Fix GAP-042: enforce symbol dedupe contract in extractor output.
-- [ ] Fix GAP-043: add MIME/payload guardrails on vision analysis input.
-- [ ] Add tests for session-id compatibility, config validation, kill-race, redaction, identity/whitelist recovery, and session compaction/init retry paths.
-- [ ] Add missing unit coverage for `tools/github`, `tools/interaction`, and custom-tool reload lifecycle.
-- [ ] Add unit coverage for transcription, docker utility timeout semantics, and validation schema contracts.
-- [ ] Add direct unit coverage for `workspace/repo-map`, `workspace/symbols`, and `vision/index`.
+- [x] Fix GAP-004: unify session-id grammar/validation across status routes.
+- [x] Fix GAP-006: strict validation for runtime config updates.
+- [x] Fix GAP-009: prevent killed->failed status overwrite race.
+- [x] Fix GAP-011: harden log redaction matching to case-insensitive.
+- [x] Fix GAP-012: merge identity context fields during reload.
+- [x] Fix GAP-013: make whitelist persist lock recover after write failures.
+- [x] Fix GAP-014: make whitelist singleton initialization retry-safe.
+- [x] Fix GAP-018: add per-session compaction write coordination.
+- [x] Fix GAP-019: make session manager singleton initialization retry-safe.
+- [x] Fix GAP-023: keep skills summary and requirement-gated activation consistent.
+- [x] Fix GAP-024: remove/disable stale skills when reload requirements are unmet.
+- [x] Fix GAP-025: escape or reformat activated skill blocks to prevent prompt-structure breakage.
+- [x] Fix GAP-028: unify task auto-agent selection behavior across manager/integration.
+- [x] Fix GAP-029: harden integration catch path against secondary failTask transition errors.
+- [x] Fix GAP-031: make task-store initialization failure observable (or fail fast by policy).
+- [x] Fix GAP-032: remove stale custom tools when file-backed names change.
+- [x] Fix GAP-033: enforce strict custom-tool definition validation and guarded watcher reload.
+- [x] Fix GAP-034: enforce action-specific required fields in `browser_action` schema.
+- [x] Fix GAP-035: harden `web_fetch` against hostname-resolved and redirect-based SSRF.
+- [x] Fix GAP-036: derive ambiguous agent choices from runtime enabled agents.
+- [x] Fix GAP-038: enforce real process cancellation on docker timeout paths.
+- [x] Fix GAP-040: move transcription command execution to argument-safe spawn flow.
+- [x] Fix GAP-041: make repo-map file selection deterministic before truncation.
+- [x] Fix GAP-042: enforce symbol dedupe contract in extractor output.
+- [x] Fix GAP-043: add MIME/payload guardrails on vision analysis input.
+- [x] Add tests for session-id compatibility, config validation, kill-race, redaction, identity/whitelist recovery, and session compaction/init retry paths.
+- [x] Add missing unit coverage for `tools/github`, `tools/interaction`, and custom-tool reload lifecycle.
+- [x] Add unit coverage for transcription, docker utility timeout semantics, and validation schema contracts.
+- [x] Add direct unit coverage for `workspace/repo-map`, `workspace/symbols`, and `vision/index`.
 
 ### P2 Later
-- [ ] Fix GAP-005: session-scoped anti-repeat cache with TTL.
-- [ ] Fix GAP-010: add retention policy for harness instance/execution maps.
-- [ ] Fix GAP-015: add deterministic readiness contract for identity manager.
-- [ ] Fix GAP-016: harden path sanitizer for backslash/Windows path traversal forms.
-- [ ] Fix GAP-017: add explicit security subsystem teardown (`whitelist` watcher, `rateLimiter` timer).
-- [ ] Fix GAP-020: guard session JSON deserialization against corrupt rows.
-- [ ] Fix GAP-021: improve session store singleton path/test isolation semantics.
-- [ ] Fix GAP-022: centralize/inject session ID generator for deterministic testing.
-- [ ] Fix GAP-026: add full watcher teardown in global shutdown path.
-- [ ] Fix GAP-027: enforce or remove `disabledSkills` config.
-- [ ] Fix GAP-030: guard task-row JSON deserialization against malformed rows.
-- [ ] Fix GAP-039: implement or remove `stdin` option in docker utility APIs.
-- [ ] Fix GAP-044: decouple index entrypoint side effects from import for deterministic testing.
-- [ ] Add telemetry for notification path selection/fallback rates.
-- [ ] Add bounded micro-rewriter flag and rollback-safe fallback path.
+- [x] Fix GAP-005: session-scoped anti-repeat cache with TTL.
+- [x] Fix GAP-010: add retention policy for harness instance/execution maps.
+- [x] Fix GAP-015: add deterministic readiness contract for identity manager.
+- [x] Fix GAP-016: harden path sanitizer for backslash/Windows path traversal forms.
+- [x] Fix GAP-017: add explicit security subsystem teardown (`whitelist` watcher, `rateLimiter` timer).
+- [x] Fix GAP-020: guard session JSON deserialization against corrupt rows.
+- [x] Fix GAP-021: improve session store singleton path/test isolation semantics.
+- [x] Fix GAP-022: centralize/inject session ID generator for deterministic testing.
+- [x] Fix GAP-026: add full watcher teardown in global shutdown path.
+- [x] Fix GAP-027: enforce or remove `disabledSkills` config.
+- [x] Fix GAP-030: guard task-row JSON deserialization against malformed rows.
+- [x] Fix GAP-039: implement or remove `stdin` option in docker utility APIs.
+- [x] Fix GAP-044: decouple index entrypoint side effects from import for deterministic testing.
+- [x] Add telemetry for notification path selection/fallback rates.
+- [x] Add bounded micro-rewriter flag and rollback-safe fallback path.
 
 ## Later Improvements
 
@@ -1106,8 +1106,8 @@ Scope: Review findings for bridge reliability, notification behavior, command sa
 
 ## Acceptance Checklist
 
-- [ ] All P0 items merged.
+- [x] All P0 items merged.
 - [ ] All P0 tests passing in CI.
-- [ ] Relevant README/docs updated for behavior changes.
-- [ ] No regression in command parsing and status API integration tests.
-- [ ] Backlog reviewed and reprioritized after P0 completion.
+- [x] Relevant README/docs updated for behavior changes.
+- [x] No regression in command parsing and status API integration tests.
+- [x] Backlog reviewed and reprioritized after P0 completion.

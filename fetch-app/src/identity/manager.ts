@@ -56,6 +56,8 @@ export class IdentityManager {
   private identity: AgentIdentity;
   private loader: IdentityLoader;
   private watchers: ReturnType<typeof chokidar.watch>[] = [];
+  private reloadQueue: Promise<void> = Promise.resolve();
+  private readyPromise: Promise<void> = Promise.resolve();
 
   /**
    * Creates singleton state, loads identity once, and starts file watchers.
@@ -63,7 +65,7 @@ export class IdentityManager {
   private constructor() {
     this.identity = { ...DEFAULT_IDENTITY }; // Clone
     this.loader = new IdentityLoader(IDENTITY_DIR);
-    this.reloadIdentity();
+    this.readyPromise = this.reloadIdentity();
     this.setupWatchers(IDENTITY_DIR);
   }
 
@@ -80,7 +82,7 @@ export class IdentityManager {
 
       watcher.on('change', (filePath) => {
         logger.info(`Identity file changed: ${filePath}. Reloading...`);
-        this.reloadIdentity();
+        void this.reloadIdentity();
       });
 
       watcher.on('error', (error) => {
@@ -96,29 +98,48 @@ export class IdentityManager {
   /**
    * Reloads identity data and merges parsed fields into current in-memory identity.
    */
-  public reloadIdentity() {
-    this.loader.load().then(loaded => {
+  public reloadIdentity(): Promise<void> {
+    const nextReload = this.reloadQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const loaded = await this.loader.load();
 
-      // Deep merge or simple override? Simple override for top level, specific for arrays
-      if (loaded.name) this.identity.name = loaded.name;
-      if (loaded.role) this.identity.role = loaded.role;
-      if (loaded.emoji) this.identity.emoji = loaded.emoji;
-      if (loaded.voice && loaded.voice.tone) this.identity.voice.tone = loaded.voice.tone;
+        // Deep merge or simple override? Simple override for top level, specific for arrays
+        if (loaded.name) this.identity.name = loaded.name;
+        if (loaded.role) this.identity.role = loaded.role;
+        if (loaded.emoji) this.identity.emoji = loaded.emoji;
+        if (loaded.voice && loaded.voice.tone) this.identity.voice.tone = loaded.voice.tone;
 
-      if (loaded.directives?.primary?.length) {
-        this.identity.directives.primary = loaded.directives.primary;
-      }
-      if (loaded.directives?.secondary?.length) {
-        this.identity.directives.secondary = loaded.directives.secondary;
-      }
-      if (loaded.directives?.behavioral?.length) {
-        this.identity.directives.behavioral = loaded.directives.behavioral;
-      }
+        if (loaded.directives?.primary?.length) {
+          this.identity.directives.primary = loaded.directives.primary;
+        }
+        if (loaded.directives?.secondary?.length) {
+          this.identity.directives.secondary = loaded.directives.secondary;
+        }
+        if (loaded.directives?.behavioral?.length) {
+          this.identity.directives.behavioral = loaded.directives.behavioral;
+        }
+        if (loaded.context) {
+          this.identity.context = { ...this.identity.context, ...loaded.context };
+        }
 
-      logger.info(`Identity loaded: ${this.identity.name}`);
-    }).catch(error => {
-      logger.error('Failed to reload identity', error);
-    });
+        logger.info(`Identity loaded: ${this.identity.name}`);
+      })
+      .catch(error => {
+        logger.error('Failed to reload identity', error);
+        throw error;
+      });
+
+    this.reloadQueue = nextReload;
+    this.readyPromise = nextReload;
+    return nextReload;
+  }
+
+  /**
+   * Resolves when initial identity load (or latest queued reload) finishes.
+   */
+  public whenReady(): Promise<void> {
+    return this.readyPromise;
   }
 
   /**
@@ -258,7 +279,7 @@ export class IdentityManager {
 
     return `## IDENTITY
 You are **${this.identity.name}** ${this.identity.emoji}, the ${this.identity.role}.
-- **Version**: v${VERSION} (Always report this exact version when asked "what version" or similar)
+- **Version**: ${VERSION} (Always report this exact version when asked "what version" or similar)
 - **Voice**: ${this.identity.voice.tone}
 - **Platform**: WhatsApp (mobile)
 - **Time**: ${date}

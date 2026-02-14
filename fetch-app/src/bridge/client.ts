@@ -501,7 +501,7 @@ export class Bridge {
         const manager = await getSessionManager();
         const session = await manager.getSessionById(sessionId);
         return session ? session.userId : null;
-      } catch (err) {
+      } catch (_err) {
         logger.warn('Failed to resolve session owner', { sessionId });
         return null;
       }
@@ -796,6 +796,8 @@ export class Bridge {
       this.reconnectTimer = null;
     }
 
+    this.rateLimiter.shutdown();
+    await this.securityGate.shutdown();
     await shutdown();
     await this.client.destroy();
   }

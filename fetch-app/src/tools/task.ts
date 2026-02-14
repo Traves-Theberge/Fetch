@@ -12,6 +12,7 @@ import { workspaceManager } from '../workspace/manager.js';
 import { getTaskIntegration } from '../task/integration.js';
 import { getHarnessExecutor } from '../harness/executor.js';
 import {
+  AGENT_SELECTION_VALUES,
   TaskCreateInputSchema,
   TaskStatusInputSchema,
   TaskCancelInputSchema,
@@ -24,6 +25,21 @@ import {
 import type { ToolResult, ToolContext } from './types.js';
 import type { TaskId } from '../task/types.js';
 import { logger } from '../utils/logger.js';
+import { env } from '../config/env.js';
+
+function isEnabled(flag: unknown): boolean {
+  return String(flag).trim().toLowerCase() === 'true';
+}
+
+function getEnabledAgentChoices(): string[] {
+  const enabled: string[] = [];
+  if (isEnabled(env.ENABLE_COPILOT)) enabled.push('copilot');
+  if (isEnabled(env.ENABLE_GEMINI)) enabled.push('gemini');
+  if (isEnabled(env.ENABLE_CLAUDE)) enabled.push('claude');
+  if (isEnabled(env.ENABLE_OPENCODE)) enabled.push('opencode');
+  if (isEnabled(env.ENABLE_CODEX)) enabled.push('codex');
+  return enabled.length > 0 ? enabled : AGENT_SELECTION_VALUES.filter((agent) => agent !== 'auto');
+}
 
 // ============================================================================
 // task_create
@@ -160,7 +176,7 @@ export async function handleTaskCreate(
         error: 'AMBIGUOUS_AGENT_SELECTION',
         message: errorMessage,
         instruction: 'You MUST NOT auto-select an agent. Stop and ask the user for clarification using ask_user.',
-        choices: ['copilot', 'gemini', 'codex']
+        choices: getEnabledAgentChoices(),
       };
       const response = {
         success: true, // Return true so LLM processes the output naturally

@@ -75,6 +75,13 @@ export class SessionStore {
   }
 
   /**
+   * Returns configured SQLite path for this store instance.
+   */
+  getPath(): string {
+    return this.dbPath;
+  }
+
+  /**
    * Initializes database connection, schema, and prepared statements.
    */
   async init(): Promise<void> {
@@ -187,10 +194,24 @@ export class SessionStore {
    * Converts session row payload into in-memory session object.
    */
   private rowToSession(row: SessionRow): Session {
-    const session = JSON.parse(row.data) as Session;
-    // Ensure timestamps are synced
-    session.lastActivityAt = row.last_activity_at;
-    return session;
+    try {
+      const session = JSON.parse(row.data) as Session;
+      // Ensure timestamps are synced
+      session.lastActivityAt = row.last_activity_at;
+      return session;
+    } catch (error) {
+      logger.error('Failed to parse session row JSON; rebuilding safe fallback session', {
+        sessionId: row.id,
+        userId: row.user_id,
+        error,
+      });
+
+      const fallback = createSession(row.user_id);
+      fallback.id = row.id;
+      fallback.createdAt = row.created_at;
+      fallback.lastActivityAt = row.last_activity_at;
+      return fallback;
+    }
   }
 
   /**
@@ -506,6 +527,25 @@ let storeInstance: SessionStore | null = null;
 export function getSessionStore(dbPath?: string): SessionStore {
   if (!storeInstance) {
     storeInstance = new SessionStore(dbPath);
+    return storeInstance;
   }
+
+  if (dbPath && dbPath !== storeInstance.getPath()) {
+    throw new Error(
+      `SessionStore singleton already initialized for ${storeInstance.getPath()}. ` +
+      'Call resetSessionStoreForTests() before requesting a different dbPath.'
+    );
+  }
+
   return storeInstance;
+}
+
+/**
+ * Resets the store singleton to support isolated tests.
+ */
+export function resetSessionStoreForTests(): void {
+  if (storeInstance) {
+    storeInstance.close();
+  }
+  storeInstance = null;
 }

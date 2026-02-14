@@ -255,6 +255,22 @@ describe('Handler — Message Flow', () => {
     expect(responses[0]).toContain('/help');
   });
 
+  it('clears the delayed thinking timer when processMessage throws', async () => {
+    vi.useFakeTimers();
+    try {
+      const onProgress = vi.fn().mockResolvedValue(undefined);
+      vi.mocked(processMessage).mockRejectedValueOnce(new Error('API timeout'));
+
+      await handleMessage('user1', 'do something', onProgress);
+      vi.advanceTimersByTime(4000);
+      await Promise.resolve();
+
+      expect(onProgress).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // ─── Session lifecycle ───────────────────────────────────────────
 
   it('should get or create a session for the user', async () => {

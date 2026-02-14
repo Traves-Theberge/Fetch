@@ -17,6 +17,8 @@ The Bridge exposes an HTTP API on port 8765.
 | `DELETE` | `/api/sessions/:id` | bearer token | Delete one session |
 | `POST` | `/api/sessions/:id/clear` | bearer token | Clear one session history |
 
+Session ID grammar for `:id`: `^[A-Za-z0-9_-]+$`
+
 ### GET /api/status
 
 Returns system health and WhatsApp connection state.
@@ -30,7 +32,20 @@ Returns system health and WhatsApp connection state.
   "qrUrl": null,
   "uptime": 3600,
   "messageCount": 42,
-  "lastError": null
+  "lastError": null,
+  "version": "0.0.47",
+  "notificationMetrics": {
+    "total": 120,
+    "templateEphemeral": 70,
+    "llmRewriteSuccess": 28,
+    "templateFallback": 22,
+    "rewriteAttempts": 50,
+    "rewriteDisabled": 0,
+    "rewriteTimeouts": 1,
+    "rewriteErrors": 3,
+    "sanitizeRejects": 4,
+    "duplicateSuppressions": 12
+  }
 }
 ```
 
@@ -43,6 +58,7 @@ Returns system health and WhatsApp connection state.
 | `messageCount` | number | Messages processed this session |
 | `lastError` | `string`\|`null` | Most recent error message |
 | `version` | `string` | Running application version |
+| `notificationMetrics` | `object` | Notification rewrite/template counters for operational telemetry |
 
 ### GET /api/sessions
 

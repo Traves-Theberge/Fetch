@@ -16,7 +16,6 @@ import type {
   HarnessConfig,
   HarnessExecution,
   HarnessResult,
-  HarnessOutputEventType,
   HarnessOutputEvent,
   HarnessEvent,
   HarnessEventType,
@@ -34,6 +33,9 @@ import type {
  * into typed harness events.
  */
 export class HarnessExecutor extends EventEmitter {
+  private static readonly TERMINAL_RETENTION_TTL_MS = 15 * 60 * 1000;
+  private static readonly MAX_TERMINAL_EXECUTIONS = 200;
+
   /** Active executions */
   private executions: Map<HarnessId, HarnessExecution> = new Map();
 
@@ -85,6 +87,9 @@ export class HarnessExecutor extends EventEmitter {
     agent: AgentType,
     config: HarnessConfig
   ): Promise<HarnessResult> {
+    this.pruneTerminalExecutions();
+
+    const adapter = getRegistryAdapter(agent);
     const pool = getHarnessPool();
 
     // 1. Acquire instance (manages concurrency)
@@ -132,29 +137,80 @@ export class HarnessExecutor extends EventEmitter {
 
     // 3. Setup event listeners
     const spawner = pool.getSpawner();
+    let recentOutput = '';
+    const streamBuffers: Record<'stdout' | 'stderr', string> = { stdout: '', stderr: '' };
+
+    const processOutputLine = (line: string, stream: 'stdout' | 'stderr'): void => {
+      const timestamp = new Date().toISOString();
+      const trimmedLine = line.trimEnd();
+      const outputEvent: HarnessOutputEvent = {
+        type: stream,
+        data: trimmedLine,
+        line: trimmedLine,
+        timestamp,
+      };
+      execution.events.push(outputEvent);
+      this.emitHarnessEvent('harness:output', harnessId, taskId, outputEvent);
+
+      // Keep a bounded tail for adapter-level question detection.
+      recentOutput = `${recentOutput}\n${trimmedLine}`;
+      if (recentOutput.length > 12000) {
+        recentOutput = recentOutput.slice(-12000);
+      }
+
+      const eventType = adapter.parseOutputLine(trimmedLine);
+      if (eventType === 'question') {
+        const question = adapter.detectQuestion(recentOutput) ?? trimmedLine;
+        this.updateStatus(harnessId, 'waiting_input');
+        this.emitHarnessEvent('harness:question', harnessId, taskId, { question, line: trimmedLine });
+        return;
+      }
+
+      if (eventType === 'progress') {
+        this.emitHarnessEvent('harness:progress', harnessId, taskId, { message: trimmedLine, line: trimmedLine });
+      }
+
+      const fileOps = adapter.extractFileOperations(trimmedLine);
+      if (fileOps.created.length || fileOps.modified.length || fileOps.deleted.length) {
+        this.emitHarnessEvent('harness:file_op', harnessId, taskId, fileOps);
+      }
+    };
 
     const outputHandler = (event: { id: HarnessId, type: string, data: string }) => {
       if (event.id === harnessId) {
+        const stream = event.type === 'stderr' ? 'stderr' : 'stdout';
+
         // Log output for debugging (INFO level to force visibility)
-        if (event.type === 'stderr') {
+        if (stream === 'stderr') {
           logger.info(`[${harnessId}] stderr: ${event.data.trim()}`);
         } else {
           logger.info(`[${harnessId}] stdout: ${event.data.trim()}`);
         }
 
-        const timestamp = new Date().toISOString();
-        const outputEvent: HarnessOutputEvent = {
-          type: event.type as HarnessOutputEventType,
-          data: event.data,
-          timestamp
-        };
-        execution.events.push(outputEvent);
-        this.emitHarnessEvent('harness:output', harnessId, taskId, outputEvent);
+        // Convert stream chunks into complete lines so adapters can parse reliably.
+        const normalizedChunk = event.data.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        streamBuffers[stream] += normalizedChunk;
+
+        const lines = streamBuffers[stream].split('\n');
+        streamBuffers[stream] = lines.pop() ?? '';
+        for (const line of lines) {
+          processOutputLine(line, stream);
+        }
       }
     };
 
     const statusHandler = (event: { id: HarnessId, status: HarnessStatus }) => {
       if (event.id === harnessId) {
+        if (['completed', 'failed', 'killed'].includes(event.status)) {
+          // Flush any trailing partial line before terminal state.
+          for (const stream of ['stdout', 'stderr'] as const) {
+            const tail = streamBuffers[stream];
+            if (tail.length > 0) {
+              processOutputLine(tail, stream);
+              streamBuffers[stream] = '';
+            }
+          }
+        }
         this.updateStatus(harnessId, event.status);
       }
     };
@@ -332,6 +388,10 @@ export class HarnessExecutor extends EventEmitter {
     const execution = this.executions.get(harnessId);
     if (execution) {
       execution.status = status;
+      if (['completed', 'failed', 'killed'].includes(status) && !execution.completedAt) {
+        execution.completedAt = new Date().toISOString();
+        setImmediate(() => this.pruneTerminalExecutions());
+      }
     }
   }
 
@@ -365,6 +425,41 @@ export class HarnessExecutor extends EventEmitter {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Prunes old terminal executions to keep in-memory history bounded.
+   */
+  private pruneTerminalExecutions(): void {
+    const now = Date.now();
+    const terminalEntries = Array.from(this.executions.entries())
+      .filter(([, execution]) => ['completed', 'failed', 'killed'].includes(execution.status));
+
+    for (const [id, execution] of terminalEntries) {
+      const endedAtMs = execution.completedAt
+        ? new Date(execution.completedAt).getTime()
+        : new Date(execution.startedAt).getTime();
+      if (now - endedAtMs > HarnessExecutor.TERMINAL_RETENTION_TTL_MS) {
+        this.executions.delete(id);
+      }
+    }
+
+    const retainedTerminal = Array.from(this.executions.entries())
+      .filter(([, execution]) => ['completed', 'failed', 'killed'].includes(execution.status))
+      .sort((a, b) => {
+        const aEnded = a[1].completedAt ? new Date(a[1].completedAt).getTime() : new Date(a[1].startedAt).getTime();
+        const bEnded = b[1].completedAt ? new Date(b[1].completedAt).getTime() : new Date(b[1].startedAt).getTime();
+        return aEnded - bEnded;
+      });
+
+    if (retainedTerminal.length <= HarnessExecutor.MAX_TERMINAL_EXECUTIONS) {
+      return;
+    }
+
+    const overflow = retainedTerminal.length - HarnessExecutor.MAX_TERMINAL_EXECUTIONS;
+    for (const [id] of retainedTerminal.slice(0, overflow)) {
+      this.executions.delete(id);
+    }
   }
 }
 

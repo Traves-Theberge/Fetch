@@ -87,11 +87,13 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
     }
 
     const files = findResult.stdout.trim().split('\n').filter(f => f.length > 0);
+    const orderedFiles = Array.from(new Set(files))
+      .sort((a, b) => normalizeRepoPath(a).localeCompare(normalizeRepoPath(b)));
     logger.debug(`🔍 Found ${files.length} relevant files for map`);
 
     // 2. Process up to top N files to keep context manageable
     const entries: RepoMapEntry[] = [];
-    const processingFiles = files.slice(0, maxFiles);
+    const processingFiles = orderedFiles.slice(0, maxFiles);
 
     for (const file of processingFiles) {
       // Read first 10KB of the file for symbols
@@ -114,6 +116,10 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
     logger.error('Failed to generate repo-map', error);
     return 'Failed to generate repository map.';
   }
+}
+
+function normalizeRepoPath(file: string): string {
+  return file.startsWith('./') ? file.slice(2) : file;
 }
 
 /** Formats entries into grouped text while enforcing `maxOutputChars`. */

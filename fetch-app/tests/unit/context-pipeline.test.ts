@@ -190,6 +190,7 @@ describe('Context Pipeline: Compaction', () => {
     const mockStore = {
       init: vi.fn(),
       getOrCreate: vi.fn(),
+      getById: vi.fn().mockResolvedValue(undefined),
       update: vi.fn(),
       clear: vi.fn(),
       delete: vi.fn(),
@@ -216,6 +217,7 @@ describe('Context Pipeline: Compaction', () => {
     const mockStore = {
       init: vi.fn(),
       getOrCreate: vi.fn(),
+      getById: vi.fn().mockResolvedValue(undefined),
       update: vi.fn(),
       clear: vi.fn(),
       delete: vi.fn(),

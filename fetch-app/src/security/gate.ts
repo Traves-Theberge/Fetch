@@ -73,6 +73,16 @@ export class SecurityGate {
   }
 
   /**
+   * Releases gate-managed resources.
+   */
+  async shutdown(): Promise<void> {
+    if (this.whitelist) {
+      await this.whitelist.shutdown();
+      this.whitelist = null;
+    }
+  }
+
+  /**
    * Returns true when message starts with the `@fetch` trigger.
    */
   hasFetchTrigger(messageBody: string): boolean {

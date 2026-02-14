@@ -11,6 +11,8 @@ import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 
 let openaiClient: OpenAI | null = null;
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /** Returns a cached OpenAI client configured for OpenRouter vision requests. */
 function getClient(): OpenAI {
@@ -38,6 +40,7 @@ export async function analyzeImage(
   context: string = ''
 ): Promise<string> {
   try {
+    validateImageInput(base64Data, mimeType);
     const client = getClient();
     
     logger.info(`🖼️ Analyzing image (${(base64Data.length / 1024 / 1.33).toFixed(1)} KB)...`);
@@ -77,6 +80,9 @@ Instructions:
     
     return result;
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Invalid image input:')) {
+      throw error;
+    }
     logger.error('Failed to analyze image', error);
     throw new Error('Image analysis failed. Please try again or describe the problem in text.');
   }
@@ -85,4 +91,25 @@ Instructions:
 /** Returns `true` when vision requests can be made. */
 export function isVisionAvailable(): boolean {
   return !!env.OPENROUTER_API_KEY;
+}
+
+function validateImageInput(base64Data: string, mimeType: string): void {
+  if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    throw new Error(`Invalid image input: unsupported mime type "${mimeType}"`);
+  }
+
+  const normalized = base64Data.replace(/\s+/g, '');
+  if (normalized.length === 0) {
+    throw new Error('Invalid image input: empty image payload');
+  }
+
+  const decodedBytes = estimateBase64SizeBytes(normalized);
+  if (decodedBytes > MAX_IMAGE_BYTES) {
+    throw new Error(`Invalid image input: payload too large (${decodedBytes} bytes, max ${MAX_IMAGE_BYTES})`);
+  }
+}
+
+function estimateBase64SizeBytes(base64Data: string): number {
+  const padding = base64Data.endsWith('==') ? 2 : base64Data.endsWith('=') ? 1 : 0;
+  return Math.floor((base64Data.length * 3) / 4) - padding;
 }

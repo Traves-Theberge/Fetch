@@ -33,6 +33,7 @@ import { logger } from '../utils/logger.js';
 export class SessionManager {
   private store: SessionStore;
   private compactionFailures: Map<string, number> = new Map();
+  private sessionWriteQueues: Map<string, Promise<void>> = new Map();
 
   constructor(store?: SessionStore) {
     this.store = store || getSessionStore();
@@ -72,7 +73,9 @@ export class SessionManager {
 
 
   async updateSession(session: Session): Promise<void> {
-    await this.store.update(session);
+    await this.withSessionWriteLock(session.id, async () => {
+      await this.store.update(session);
+    });
   }
 
   /**
@@ -104,12 +107,19 @@ export class SessionManager {
    * Appends user message and triggers background compaction check.
    */
   async addUserMessage(session: Session, content: string): Promise<Message> {
-    const message = createMessage('user', content);
-    session.messages.push(message);
-    await this.store.update(session);
+    const message = await this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const created = createMessage('user', content);
+      current.messages.push(created);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+      return created;
+    });
 
     // Compact if message count exceeds threshold
-    this.compactIfNeeded(session).then(() => {
+    this.withSessionWriteLock(session.id, async () => {
+      await this.compactIfNeededInternal(session.id, session);
+    }).then(() => {
       this.compactionFailures.delete(session.id);
     }).catch(err => {
       const count = (this.compactionFailures.get(session.id) ?? 0) + 1;
@@ -128,10 +138,14 @@ export class SessionManager {
    * Appends assistant message to session history.
    */
   async addAssistantMessage(session: Session, content: string): Promise<Message> {
-    const message = createMessage('assistant', content);
-    session.messages.push(message);
-    await this.store.update(session);
-    return message;
+    return this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const message = createMessage('assistant', content);
+      current.messages.push(message);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+      return message;
+    });
   }
 
   /**
@@ -142,15 +156,19 @@ export class SessionManager {
     content: string | null,
     toolCalls: Array<{ id: string; name: string; arguments: string }>
   ): Promise<Message> {
-    const message = createMessage(
-      'assistant',
-      content || '',
-      undefined,
-      toolCalls.map(tc => ({ id: tc.id, name: tc.name, arguments: tc.arguments }))
-    );
-    session.messages.push(message);
-    await this.store.update(session);
-    return message;
+    return this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const message = createMessage(
+        'assistant',
+        content || '',
+        undefined,
+        toolCalls.map(tc => ({ id: tc.id, name: tc.name, arguments: tc.arguments }))
+      );
+      current.messages.push(message);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+      return message;
+    });
   }
 
   /**
@@ -162,18 +180,22 @@ export class SessionManager {
     content?: string,
     toolCallId?: string
   ): Promise<Message> {
-    const message = createMessage(
-      'tool',
-      content || `Tool: ${toolCall.name}`,
-      toolCall
-    );
-    // Override the auto-generated ID with the tool_call_id for proper pairing
-    if (toolCallId) {
-      message.id = toolCallId;
-    }
-    session.messages.push(message);
-    await this.store.update(session);
-    return message;
+    return this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const message = createMessage(
+        'tool',
+        content || `Tool: ${toolCall.name}`,
+        toolCall
+      );
+      // Override the auto-generated ID with the tool_call_id for proper pairing
+      if (toolCallId) {
+        message.id = toolCallId;
+      }
+      current.messages.push(message);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+      return message;
+    });
   }
 
   // ============================================================================
@@ -184,6 +206,13 @@ export class SessionManager {
    * Compacts session history when message count exceeds threshold.
    */
   async compactIfNeeded(session: Session): Promise<void> {
+    await this.withSessionWriteLock(session.id, async () => {
+      await this.compactIfNeededInternal(session.id, session);
+    });
+  }
+
+  private async compactIfNeededInternal(sessionId: string, fallbackSession?: Session): Promise<void> {
+    const session = await this.getLatestSessionOrFallback(fallbackSession, sessionId);
     if (session.messages.length <= pipeline.compactionThreshold) return;
 
     const keep = pipeline.historyWindow;
@@ -226,6 +255,9 @@ export class SessionManager {
     session.messages = recentMessages;
 
     await this.store.update(session);
+    if (fallbackSession) {
+      this.syncSessionReference(fallbackSession, session);
+    }
     logger.info('Compacted session', {
       sessionId: session.id,
       removed: oldMessages.length,
@@ -296,9 +328,13 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
    * Stores latest repo map snapshot on session.
    */
   async updateRepoMap(session: Session, repoMap: string): Promise<void> {
-    session.repoMap = repoMap;
-    session.repoMapUpdatedAt = new Date().toISOString();
-    await this.store.update(session);
+    await this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      current.repoMap = repoMap;
+      current.repoMapUpdatedAt = new Date().toISOString();
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+    });
     logger.debug('Updated repo map', { sessionId: session.id });
   }
 
@@ -336,6 +372,42 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
     return this.store.recallMemories(sessionId, query, limit ?? pipeline.recallLimit);
   }
 
+  private async withSessionWriteLock<T>(sessionId: string, work: () => Promise<T>): Promise<T> {
+    const previous = this.sessionWriteQueues.get(sessionId) ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(work);
+    const settled = run.then(() => undefined, () => undefined);
+    this.sessionWriteQueues.set(sessionId, settled);
+
+    try {
+      return await run;
+    } finally {
+      if (this.sessionWriteQueues.get(sessionId) === settled) {
+        this.sessionWriteQueues.delete(sessionId);
+      }
+    }
+  }
+
+  private async getLatestSessionOrFallback(fallback: Session | undefined, sessionId?: string): Promise<Session> {
+    const id = sessionId ?? fallback?.id;
+    if (!id) {
+      throw new Error('Session id is required');
+    }
+
+    const current = await this.store.getById(id);
+    if (current) {
+      return current;
+    }
+    if (fallback) {
+      return fallback;
+    }
+    throw new Error(`Session not found: ${id}`);
+  }
+
+  private syncSessionReference(target: Session, source: Session): void {
+    if (target === source) return;
+    Object.assign(target, source);
+  }
+
 }
 
 
@@ -355,7 +427,10 @@ export async function getSessionManager(): Promise<SessionManager> {
     await instance.init();
     managerInstance = instance;
     return instance;
-  })();
+  })().catch((error) => {
+    initPromise = null;
+    throw error;
+  });
 
   return initPromise;
 }

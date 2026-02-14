@@ -5,9 +5,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleWebFetch, handleWebSearch } from '../../src/tools/web.js';
 
+const lookupMock = vi.fn();
+
+vi.mock('dns/promises', () => ({
+  lookup: (...args: unknown[]) => lookupMock(...args),
+}));
+
 describe('Web Tools', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    lookupMock.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
     global.fetch = vi.fn().mockImplementation(async (input) => {
       const url = input.toString();
       if (url.includes('example.com')) {
@@ -30,6 +37,15 @@ describe('Web Tools', () => {
       }
       if (url.includes('searxng')) {
         throw new TypeError('fetch failed');
+      }
+      if (url.includes('redirect.local')) {
+        return {
+          ok: false,
+          status: 302,
+          statusText: 'Found',
+          headers: { get: (name: string) => name.toLowerCase() === 'location' ? 'http://10.0.0.1/secret' : '' },
+          text: async () => '',
+        };
       }
       return { ok: false, status: 404 };
     });
@@ -94,6 +110,25 @@ describe('Web Tools', () => {
 
     it('should block private/internal URLs (IPv6 link-local fe80::)', async () => {
       const result = await handleWebFetch({ url: 'http://[fe80::1]:8080' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Blocked');
+    });
+
+    it('should block hostnames that resolve to private IPs', async () => {
+      lookupMock.mockResolvedValueOnce([{ address: '10.0.0.7', family: 4 }]);
+      const result = await handleWebFetch({ url: 'https://example.com' });
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Blocked');
+    });
+
+    it('should block redirect chains that target private/internal addresses', async () => {
+      lookupMock.mockImplementation(async (hostname: string) => {
+        if (hostname === 'redirect.local') return [{ address: '93.184.216.34', family: 4 }];
+        if (hostname === '10.0.0.1') return [{ address: '10.0.0.1', family: 4 }];
+        return [{ address: '93.184.216.34', family: 4 }];
+      });
+
+      const result = await handleWebFetch({ url: 'https://redirect.local/start' });
       expect(result.success).toBe(false);
       expect(result.error).toContain('Blocked');
     });

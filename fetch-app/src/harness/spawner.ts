@@ -21,15 +21,16 @@ import { logger } from '../utils/logger.js';
  */
 export function redactCommandArgs(args: string[]): string[] {
   const redacted = [...args];
-  const sensitiveKeys = ['API_KEY', 'TOKEN', 'SECRET'];
+  const sensitiveKeys = ['api_key', 'token', 'secret'];
 
   for (let i = 0; i < redacted.length; i++) {
     // Check for -e KEY=VALUE pattern
     if (redacted[i] === '-e' && i + 1 < redacted.length) {
       const envVar = redacted[i + 1];
-      const [key, _] = envVar.split('=');
+      const [key] = envVar.split('=');
+      const keyLower = key.toLowerCase();
 
-      if (sensitiveKeys.some(s => key.includes(s))) {
+      if (sensitiveKeys.some(s => keyLower.includes(s))) {
         redacted[i + 1] = `${key}=REDACTED`;
       }
     }
@@ -38,6 +39,9 @@ export function redactCommandArgs(args: string[]): string[] {
 }
 
 export class HarnessSpawner extends EventEmitter {
+  private static readonly TERMINAL_RETENTION_TTL_MS = 15 * 60 * 1000;
+  private static readonly MAX_TERMINAL_INSTANCES = 200;
+
   private instances: Map<HarnessId, HarnessInstance> = new Map();
   private processes: Map<HarnessId, ChildProcess> = new Map();
   private timers: Map<HarnessId, ReturnType<typeof setTimeout>> = new Map();
@@ -46,6 +50,8 @@ export class HarnessSpawner extends EventEmitter {
    * Spawns one harness process and tracks its runtime state.
    */
   public async spawn(config: SpawnConfig): Promise<HarnessInstance> {
+    this.pruneTerminalInstances();
+
     const id = `hrn_${nanoid(8)}` as HarnessId;
 
     // Create instance record
@@ -174,12 +180,17 @@ export class HarnessSpawner extends EventEmitter {
       child.stdout?.removeAllListeners('data');
       child.stderr?.removeAllListeners('data');
 
-      const finalStatus = code === 0 ? 'completed' : 'failed';
+      // Preserve explicit killed terminal state set by kill()/timeout.
+      const finalStatus = instance.status === 'killed'
+        ? 'killed'
+        : (code === 0 ? 'completed' : 'failed');
       instance.status = finalStatus;
+      instance.endedAt = Date.now();
       this.processes.delete(id);
 
       this.emit('status', { id, status: finalStatus, code });
       logger.info(`Harness ${id} exited with code ${code}`);
+      setImmediate(() => this.pruneTerminalInstances());
     });
   }
 
@@ -232,6 +243,8 @@ export class HarnessSpawner extends EventEmitter {
       clearTimeout(timer);
     }
     this.timers.clear();
+    this.instances.clear();
+    this.processes.clear();
     this.removeAllListeners();
   }
 
@@ -285,5 +298,34 @@ export class HarnessSpawner extends EventEmitter {
       };
       this.on('status', handler);
     });
+  }
+
+  /**
+   * Prunes old terminal instance records to keep memory bounded.
+   */
+  private pruneTerminalInstances(): void {
+    const now = Date.now();
+    const terminalEntries = Array.from(this.instances.entries())
+      .filter(([, instance]) => ['completed', 'failed', 'killed'].includes(instance.status));
+
+    for (const [id, instance] of terminalEntries) {
+      const endedAt = instance.endedAt ?? instance.startTime;
+      if (now - endedAt > HarnessSpawner.TERMINAL_RETENTION_TTL_MS) {
+        this.instances.delete(id);
+      }
+    }
+
+    const retainedTerminal = Array.from(this.instances.entries())
+      .filter(([, instance]) => ['completed', 'failed', 'killed'].includes(instance.status))
+      .sort((a, b) => (a[1].endedAt ?? a[1].startTime) - (b[1].endedAt ?? b[1].startTime));
+
+    if (retainedTerminal.length <= HarnessSpawner.MAX_TERMINAL_INSTANCES) {
+      return;
+    }
+
+    const overflow = retainedTerminal.length - HarnessSpawner.MAX_TERMINAL_INSTANCES;
+    for (const [id] of retainedTerminal.slice(0, overflow)) {
+      this.instances.delete(id);
+    }
   }
 }

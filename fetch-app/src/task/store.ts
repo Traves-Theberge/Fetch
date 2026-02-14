@@ -87,7 +87,15 @@ export class TaskStore {
     await this.ensureInitialized();
     
     const rows = this.db!.prepare('SELECT data FROM tasks').all() as { data: string }[];
-    return rows.map(row => JSON.parse(row.data) as Task);
+    const tasks: Task[] = [];
+    for (const row of rows) {
+      try {
+        tasks.push(JSON.parse(row.data) as Task);
+      } catch (error) {
+        logger.error('Skipping malformed task row during loadAllTasks', { error });
+      }
+    }
+    return tasks;
   }
 
   /** Stores current active task id in metadata table. */

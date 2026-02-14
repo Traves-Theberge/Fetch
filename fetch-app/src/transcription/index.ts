@@ -6,20 +6,26 @@
  * @module transcription/index
  */
 
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { execFile } from 'child_process';
 import { writeFile, unlink, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger.js';
 
-const execAsync = promisify(exec);
+function execFileAsync(file: string, args: string[], options?: { timeout?: number }): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, options ?? {}, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve({ stdout: stdout ?? '', stderr: stderr ?? '' });
+    });
+  });
+}
 
-/** Path to the whisper model */
 import { env } from '../config/env.js';
-
-const WHISPER_MODEL = env.WHISPER_MODEL;
 
 /** Path to whisper-cpp binary */
 const WHISPER_BIN = '/usr/local/bin/whisper-cpp';
@@ -36,8 +42,15 @@ interface TranscriptionResult {
 
 /** Converts an input file to 16kHz mono WAV for whisper.cpp. */
 async function convertToWav(inputPath: string, outputPath: string): Promise<void> {
-  const cmd = `ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${outputPath}" -y 2>/dev/null`;
-  await execAsync(cmd);
+  await execFileAsync('ffmpeg', [
+    '-i', inputPath,
+    '-ar', '16000',
+    '-ac', '1',
+    '-c:a', 'pcm_s16le',
+    '-loglevel', 'error',
+    outputPath,
+    '-y',
+  ]);
 }
 
 /** Transcribes an audio buffer with local whisper.cpp and returns text + detected language. */
@@ -56,12 +69,19 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string = 'a
     // Convert to 16kHz mono WAV (required by whisper.cpp)
     await convertToWav(inputPath, wavPath);
     
+    const modelPath = env.WHISPER_MODEL;
+    if (!modelPath || !existsSync(modelPath)) {
+      throw new Error('Whisper model path is missing or does not exist');
+    }
+
     // Run whisper.cpp transcription
     // -nt = no timestamps, -np = no progress, -ml 1 = single segment
-    // We capture stderr to detect language
-    const cmd = `${WHISPER_BIN} -m ${WHISPER_MODEL} -f "${wavPath}" -nt -np --output-txt -of "${outputPath}"`;
-    
-    const { stderr } = await execAsync(cmd, { timeout: 60000 }); // 60s timeout
+    // We capture stderr to detect language.
+    const { stderr } = await execFileAsync(
+      WHISPER_BIN,
+      ['-m', modelPath, '-f', wavPath, '-nt', '-np', '--output-txt', '-of', outputPath],
+      { timeout: 60000 }
+    ); // 60s timeout
     
     // Read the output text file
     const text = (await readFile(`${outputPath}.txt`, 'utf-8')).trim();

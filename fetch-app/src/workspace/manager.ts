@@ -8,6 +8,7 @@
  */
 
 import { EventEmitter } from 'events';
+import path from 'path';
 import { logger } from '../utils/logger.js';
 import { pipeline } from '../config/pipeline.js';
 import { dockerExec, getWorkspacePath, isKennelRunning } from '../utils/docker.js';
@@ -1114,6 +1115,22 @@ export class WorkspaceManager extends EventEmitter {
   // Workspace Deletion
   // ==========================================================================
 
+  /** Normalizes user path input into an absolute path under the workspace root. */
+  private resolveWorkspaceTargetPath(workspaceRoot: string, targetPath: string): string {
+    const normalizedInput = targetPath.replace(/\\/g, '/');
+    return normalizedInput.startsWith('/')
+      ? path.posix.normalize(normalizedInput)
+      : path.posix.resolve(workspaceRoot, normalizedInput);
+  }
+
+  /** Ensures a target path is contained by the workspace root boundary. */
+  private isPathWithinWorkspace(workspaceRoot: string, targetPath: string): boolean {
+    const normalizedRoot = path.posix.normalize(workspaceRoot).replace(/\/+$/, '');
+    const normalizedTarget = path.posix.normalize(targetPath);
+    if (normalizedTarget === normalizedRoot) return true;
+    return normalizedTarget.startsWith(`${normalizedRoot}/`);
+  }
+
   /**
    * Delete a workspace
    *
@@ -1164,14 +1181,8 @@ export class WorkspaceManager extends EventEmitter {
 
     const wsRoot = getWorkspacePath(workspaceId);
 
-    // Ensure the path is relative to wsRoot if it's not already absolute
-    let absolutePath = filePath;
-    if (!filePath.startsWith('/')) {
-      absolutePath = `${wsRoot}/${filePath}`;
-    }
-
-    // Security: Ensure the path is still within the workspace base
-    if (!absolutePath.startsWith(wsRoot)) {
+    const absolutePath = this.resolveWorkspaceTargetPath(wsRoot, filePath);
+    if (!this.isPathWithinWorkspace(wsRoot, absolutePath)) {
       throw new Error(`Security breach: Attempted to delete outside workspace! Path: ${absolutePath}`);
     }
 
@@ -1198,14 +1209,8 @@ export class WorkspaceManager extends EventEmitter {
 
     const wsRoot = getWorkspacePath(workspaceId);
 
-    // Ensure the path is relative to wsRoot if it's not already absolute
-    let absolutePath = dirPath;
-    if (!dirPath.startsWith('/')) {
-      absolutePath = `${wsRoot}/${dirPath}`;
-    }
-
-    // Security: Ensure the path is still within the workspace base
-    if (!absolutePath.startsWith(wsRoot)) {
+    const absolutePath = this.resolveWorkspaceTargetPath(wsRoot, dirPath);
+    if (!this.isPathWithinWorkspace(wsRoot, absolutePath)) {
       throw new Error(`Security breach: Attempted to delete outside workspace! Path: ${absolutePath}`);
     }
 

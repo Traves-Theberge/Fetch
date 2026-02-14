@@ -170,6 +170,23 @@ describe('TaskManager', () => {
     });
   });
 
+  describe('Initialization Health', () => {
+    it('reports healthy persistence after successful init', async () => {
+      const manager = await createInitializedManager();
+      expect(manager.isPersistenceHealthy()).toBe(true);
+      expect(manager.getPersistenceInitError()).toBeNull();
+    });
+
+    it('reports degraded persistence when init fails', async () => {
+      mockStore.init.mockRejectedValueOnce(new Error('db offline'));
+      const manager = new TaskManager();
+      await manager.init();
+
+      expect(manager.isPersistenceHealthy()).toBe(false);
+      expect(manager.getPersistenceInitError()).toContain('db offline');
+    });
+  });
+
   // ==========================================================================
   // State Transitions
   // ==========================================================================

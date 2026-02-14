@@ -20,18 +20,33 @@ const execAsync = promisify(exec);
  *
  * @returns `true` when reset succeeds
  */
-async function resetToCommit(commitSha: string): Promise<boolean> {
+async function resetToCommit(commitSha: string, cwd: string): Promise<boolean> {
   if (!/^[0-9a-f]{7,40}$/i.test(commitSha)) {
     logger.error('Invalid git commit SHA', { commitSha });
     return false;
   }
+
   try {
-    await execAsync(`git reset --hard ${commitSha}`);
-    return true;
+    // Validate that cwd is an actual git work tree before attempting reset.
+    await execAsync('git rev-parse --is-inside-work-tree', { cwd });
   } catch (error) {
-    logger.error('Git reset failed', { error, commitSha });
+    logger.error('Git repository validation failed for undo all', { error, cwd });
     return false;
   }
+
+  try {
+    await execAsync(`git reset --hard ${commitSha}`, { cwd });
+    return true;
+  } catch (error) {
+    logger.error('Git reset failed', { error, commitSha, cwd });
+    return false;
+  }
+}
+
+/** Resolves the preferred git working directory for undo operations. */
+function resolveGitWorkingDirectory(session: Session): string {
+  const currentPath = session.currentProject?.path?.trim();
+  return currentPath && currentPath.length > 0 ? currentPath : process.cwd();
 }
 
 /**
@@ -87,7 +102,8 @@ export async function handleUndoAll(
   }
 
   try {
-    const result = await resetToCommit(session.gitStartCommit);
+    const cwd = resolveGitWorkingDirectory(session);
+    const result = await resetToCommit(session.gitStartCommit, cwd);
     if (result) {
       return {
         handled: true,
@@ -100,5 +116,8 @@ export async function handleUndoAll(
     logger.error('Undo all failed', { error });
   }
 
-  return { handled: true, responses: ['Failed to undo all. Try manual git reset.'] };
+  return {
+    handled: true,
+    responses: ['Failed to undo all. Ensure a valid git workspace is selected, then try again.'],
+  };
 }

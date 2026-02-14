@@ -95,6 +95,17 @@ export class RateLimiter {
     this.timestamps.clear();
   }
 
+  /**
+   * Stops eviction timer and clears limiter state.
+   */
+  shutdown(): void {
+    if (this.evictionTimer) {
+      clearInterval(this.evictionTimer);
+      this.evictionTimer = null;
+    }
+    this.clearAll();
+  }
+
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------

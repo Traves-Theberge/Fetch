@@ -88,7 +88,10 @@ export async function initializeHandler(): Promise<void> {
 
       // Notify WhatsApp with persona
       if (sendWhatsApp) {
-        const notification = await formatNotification('task:started', { goal });
+        const notification = await formatNotification('task:started', {
+          goal,
+          scopeKey: session.id,
+        });
         await sendWhatsApp(session.userId, `🐕 ${notification}`);
       }
     } catch (err) {
@@ -133,6 +136,7 @@ export async function initializeHandler(): Promise<void> {
           filesModified: task.result?.filesModified,
           filesDeleted: task.result?.filesDeleted,
           durationSec,
+          scopeKey: session.id,
         });
         await sendWhatsApp(session.userId, `🐕 ✅ ${notification}`);
       }
@@ -160,7 +164,10 @@ export async function initializeHandler(): Promise<void> {
 
       // Send WhatsApp notification
       if (sendWhatsApp) {
-        const notification = await formatNotification('task:failed', { error: error ?? 'Unknown error' });
+        const notification = await formatNotification('task:failed', {
+          error: error ?? 'Unknown error',
+          scopeKey: session.id,
+        });
         await sendWhatsApp(session.userId, `🐕 ❌ ${notification}`);
       }
     } catch (err) {
@@ -224,25 +231,36 @@ export async function handleMessage(
     // Process with agent
     // Add a "thinking" message if it takes more than 3 seconds on the first try
     let initialSent = false;
+    let settled = false;
     const thinkingTimer = setTimeout(() => {
-      if (!initialSent && onProgress) {
+      if (!initialSent && !settled && onProgress) {
         import('../agent/core.js').then(({ generateProgressMessage }) => {
           return generateProgressMessage(message, 1);
         }).then((progressMessage) => {
-          return onProgress(progressMessage);
+          if (!settled) {
+            return onProgress(progressMessage);
+          }
+          return Promise.resolve();
         }).then(() => {
-          initialSent = true;
+          if (!settled) {
+            initialSent = true;
+          }
         }).catch(err => {
           logger.warn('Thinking timer callback failed', err);
         });
       }
     }, 3000);
 
-    const response = await processMessage(message, session, (text) => {
-      initialSent = true; // Any progress (even from retry) suppresses the initial timer
-      return onProgress ? onProgress(text) : Promise.resolve();
-    });
-    clearTimeout(thinkingTimer);
+    let response: AgentResponse;
+    try {
+      response = await processMessage(message, session, (text) => {
+        initialSent = true; // Any progress (even from retry) suppresses the initial timer
+        return onProgress ? onProgress(text) : Promise.resolve();
+      });
+    } finally {
+      settled = true;
+      clearTimeout(thinkingTimer);
+    }
 
     // Build response array
     // If a task was started, suppress the LLM's conversational response —

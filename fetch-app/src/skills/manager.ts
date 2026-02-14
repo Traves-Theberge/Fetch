@@ -24,6 +24,15 @@ const DEFAULT_SKILL_CONFIG: SkillConfig = {
   disabledSkills: [],
 };
 
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 export class SkillManager {
   private skills: Map<string, Skill> = new Map();
   private config: SkillConfig;
@@ -93,11 +102,15 @@ export class SkillManager {
       
       const skill = await loadSkill(dirPath, false); // User skill
       if (skill) {
-          if (await checkRequirements(skill.requirements)) {
+          if (await this.isSkillAvailable(skill)) {
               this.skills.set(skill.id, skill);
               logger.info(`Skill loaded/reloaded: ${skill.id}`);
           } else {
-               logger.warn(`Skill ${skill.id} requirements not met, skipping.`);
+               if (this.skills.delete(skill.id)) {
+                 logger.info(`Skill removed after reload because it is now unavailable: ${skill.id}`);
+               } else {
+                 logger.warn(`Skill ${skill.id} unavailable, skipping.`);
+               }
           }
       }
   }
@@ -140,15 +153,7 @@ export class SkillManager {
       }
     }
 
-    // Verify requirements for matched skills (filter out incompatible ones)
-    const validMatches: Skill[] = [];
-    for (const skill of matches) {
-      if (await checkRequirements(skill.requirements)) {
-        validMatches.push(skill);
-      }
-    }
-
-    return validMatches;
+    return matches;
   }
 
   /**
@@ -172,8 +177,12 @@ export class SkillManager {
           const skill = await loadSkill(skillDir, isBuiltin);
           
           if (skill) {
-            this.skills.set(skill.id, skill);
-            logger.debug(`Loaded skill: ${skill.id}`, { isBuiltin });
+            if (await this.isSkillAvailable(skill)) {
+              this.skills.set(skill.id, skill);
+              logger.debug(`Loaded skill: ${skill.id}`, { isBuiltin });
+            } else {
+              logger.debug(`Skipped unavailable skill: ${skill.id}`, { isBuiltin });
+            }
           }
         }
       }
@@ -205,13 +214,13 @@ export class SkillManager {
     let summary = '<available_skills>\n';
     
     for (const skill of enabledSkills) {
-      summary += `  <skill id="${skill.id}">\n`;
-      summary += `    <name>${skill.name}</name>\n`;
-      summary += `    <description>${skill.description}</description>\n`;
+      summary += `  <skill id="${escapeXml(skill.id)}">\n`;
+      summary += `    <name>${escapeXml(skill.name)}</name>\n`;
+      summary += `    <description>${escapeXml(skill.description)}</description>\n`;
       if (skill.triggers.length > 0) {
-        summary += `    <triggers>${skill.triggers.join(', ')}</triggers>\n`;
+        summary += `    <triggers>${escapeXml(skill.triggers.join(', '))}</triggers>\n`;
       }
-      summary += `    <location>${skill.sourcePath}/SKILL.md</location>\n`;
+      summary += `    <location>${escapeXml(skill.sourcePath)}/SKILL.md</location>\n`;
       summary += `  </skill>\n`;
     }
     
@@ -226,14 +235,24 @@ export class SkillManager {
     if (matchedSkills.length === 0) return '';
 
     const blocks = matchedSkills.map(skill => {
-      return `<activated_skill name="${skill.name}">
+      return `<activated_skill name="${escapeXml(skill.name)}">
   <instructions>
-${skill.instructions}
+${escapeXml(skill.instructions)}
   </instructions>
 </activated_skill>`;
     });
 
     return `\n## Activated Skill Instructions\n\nThe following skills matched this request. Follow their specialized guidance:\n\n${blocks.join('\n\n')}`;
+  }
+
+  private async isSkillAvailable(skill: Skill): Promise<boolean> {
+    if (!skill.enabled) {
+      return false;
+    }
+    if (this.config.disabledSkills.includes(skill.id)) {
+      return false;
+    }
+    return checkRequirements(skill.requirements);
   }
 }
 

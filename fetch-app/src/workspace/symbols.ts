@@ -122,6 +122,19 @@ export function extractSymbols(content: string, fileName: string): SymbolInfo[] 
     }
   }
 
-  // Sort and deduplicate
-  return symbols.sort((a, b) => a.name.localeCompare(b.name));
+  // Sort and deduplicate by (name, type)
+  const deduped = new Map<string, SymbolInfo>();
+  for (const symbol of symbols) {
+    const key = `${symbol.name}:${symbol.type}`;
+    if (!deduped.has(key)) {
+      deduped.set(key, symbol);
+    }
+  }
+
+  return Array.from(deduped.values())
+    .sort((a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) return byName;
+      return a.type.localeCompare(b.type);
+    });
 }

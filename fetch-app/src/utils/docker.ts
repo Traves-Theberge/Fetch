@@ -150,6 +150,7 @@ export async function dockerExec(
     env = {},
     timeoutMs = DEFAULT_TIMEOUT_MS,
     user = 'root',
+    stdin = false,
   } = options;
 
   const container = await getKennelContainer();
@@ -177,12 +178,17 @@ export async function dockerExec(
     let stdout = '';
     let stderr = '';
     let finished = false;
+    let execStream: NodeJS.ReadWriteStream | null = null;
 
     // Timeout handler
     const timeout = setTimeout(() => {
       if (!finished) {
         finished = true;
         logger.warn('Docker exec timed out', { command, timeoutMs });
+        void terminateExecOnTimeout(container, exec, command);
+        if (execStream && typeof execStream.destroy === 'function') {
+          execStream.destroy();
+        }
         resolve({
           exitCode: 124, // Timeout exit code
           stdout,
@@ -192,7 +198,7 @@ export async function dockerExec(
       }
     }, timeoutMs);
 
-    exec.start({ hijack: true, stdin: false }, (err, stream) => {
+    exec.start({ hijack: true, stdin }, (err, stream) => {
       if (err) {
         clearTimeout(timeout);
         if (!finished) {
@@ -220,6 +226,7 @@ export async function dockerExec(
         }
         return;
       }
+      execStream = stream;
 
       // Demux stdout and stderr
       const stdoutStream = new Writable({
@@ -294,6 +301,7 @@ export async function dockerExecStream(
     env = {},
     timeoutMs = DEFAULT_TIMEOUT_MS,
     user = 'root',
+    stdin = false,
   } = options;
 
   const container = await getKennelContainer();
@@ -311,15 +319,20 @@ export async function dockerExecStream(
 
   return new Promise<number>((resolve) => {
     let finished = false;
+    let execStream: NodeJS.ReadWriteStream | null = null;
 
     const timeout = setTimeout(() => {
       if (!finished) {
         finished = true;
+        void terminateExecOnTimeout(container, exec, command);
+        if (execStream && typeof execStream.destroy === 'function') {
+          execStream.destroy();
+        }
         resolve(124);
       }
     }, timeoutMs);
 
-    exec.start({ hijack: true, stdin: false }, (err, stream) => {
+    exec.start({ hijack: true, stdin }, (err, stream) => {
       if (err || !stream) {
         clearTimeout(timeout);
         if (!finished) {
@@ -328,6 +341,7 @@ export async function dockerExecStream(
         }
         return;
       }
+      execStream = stream;
 
       const stdoutStream = new Writable({
         write(chunk, _encoding, callback) {
@@ -375,4 +389,33 @@ export function getWorkspacePath(workspaceName: string): string {
   // Sanitize workspace name to prevent path traversal
   const safeName = workspaceName.replace(/[^a-zA-Z0-9._-]/g, '');
   return `${DEFAULT_WORKDIR}/${safeName}`;
+}
+
+async function terminateExecOnTimeout(
+  container: Docker.Container,
+  exec: Docker.Exec,
+  command: string
+): Promise<void> {
+  try {
+    const inspectData = await exec.inspect() as { Pid?: number | null };
+    const pid = inspectData.Pid;
+    if (!pid || pid <= 1) {
+      logger.warn('Docker exec timeout: unable to resolve process pid for cancellation', { command });
+      return;
+    }
+
+    const killer = await container.exec({
+      Cmd: ['sh', '-lc', `kill -TERM ${pid} >/dev/null 2>&1 || true; sleep 0.2; kill -KILL ${pid} >/dev/null 2>&1 || true`],
+      AttachStdout: false,
+      AttachStderr: false,
+      WorkingDir: DEFAULT_WORKDIR,
+      User: 'root',
+    });
+
+    await new Promise<void>((resolve) => {
+      killer.start({ hijack: true, stdin: false }, () => resolve());
+    });
+  } catch (error) {
+    logger.warn('Failed to terminate timed-out docker exec process', { command, error });
+  }
 }

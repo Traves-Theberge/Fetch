@@ -24,6 +24,7 @@ type NotificationEvent = 'task:started' | 'task:completed' | 'task:failed' | 'ta
 
 interface StartedData {
   goal: string;
+  scopeKey?: string;
 }
 
 interface CompletedData {
@@ -32,24 +33,54 @@ interface CompletedData {
   filesModified?: string[];
   filesDeleted?: string[];
   durationSec?: number;
+  scopeKey?: string;
 }
 
 interface FailedData {
   error: string;
   goal?: string;
+  scopeKey?: string;
 }
 
 interface ProgressData {
   message: string;
   action?: string;
+  scopeKey?: string;
 }
 
 type NotificationData = StartedData | CompletedData | FailedData | ProgressData;
+type RewriteOutcomeReason = 'success' | 'disabled' | 'timeout' | 'error' | 'sanitize_reject';
 
-const NOTIFICATION_TIMEOUT_MS = 2000;
+export interface NotificationMetrics {
+  total: number;
+  templateEphemeral: number;
+  llmRewriteSuccess: number;
+  templateFallback: number;
+  rewriteAttempts: number;
+  rewriteDisabled: number;
+  rewriteTimeouts: number;
+  rewriteErrors: number;
+  sanitizeRejects: number;
+  duplicateSuppressions: number;
+}
+
 const MAX_NOTIFICATION_CHARS = 500;
 const MAX_NOTIFICATION_LINES = 4;
-const lastTemplateIndexByEvent = new Map<NotificationEvent, number>();
+const TEMPLATE_REPEAT_TTL_MS = 5 * 60 * 1000;
+const MAX_TEMPLATE_CACHE_ENTRIES = 500;
+const lastTemplateIndexByScopeAndEvent = new Map<string, { index: number; updatedAt: number }>();
+const metrics: NotificationMetrics = {
+  total: 0,
+  templateEphemeral: 0,
+  llmRewriteSuccess: 0,
+  templateFallback: 0,
+  rewriteAttempts: 0,
+  rewriteDisabled: 0,
+  rewriteTimeouts: 0,
+  rewriteErrors: 0,
+  sanitizeRejects: 0,
+  duplicateSuppressions: 0,
+};
 
 // ============================================================================
 // Template Pools
@@ -108,13 +139,18 @@ function getNotificationClient(): OpenAI {
  * Attempt bounded LLM rewrite for completion/failure notifications.
  * Returns `null` when rewrite is disabled, fails, times out, or is invalid.
  */
-async function llmNotification(event: NotificationEvent, data: NotificationData): Promise<string | null> {
-  if (process.env.FETCH_NOTIFICATION_REWRITE === 'false') {
-    return null;
+async function llmNotification(
+  event: NotificationEvent,
+  data: NotificationData
+): Promise<{ text: string | null; reason: RewriteOutcomeReason }> {
+  if (!pipeline.notificationRewriteEnabled) {
+    return { text: null, reason: 'disabled' };
   }
 
   try {
-    const voiceTone = getIdentityManager().getVoiceTone();
+    const identityManager = getIdentityManager();
+    await identityManager.whenReady();
+    const voiceTone = identityManager.getVoiceTone();
 
     let userPrompt: string;
     if (event === 'task:completed') {
@@ -145,15 +181,23 @@ async function llmNotification(event: NotificationEvent, data: NotificationData)
     });
 
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Notification LLM timeout')), NOTIFICATION_TIMEOUT_MS)
+      setTimeout(() => reject(new Error('Notification LLM timeout')), pipeline.notificationRewriteTimeoutMs)
     );
 
     const response = await Promise.race([request, timeout]);
     const candidate = response.choices[0]?.message?.content?.trim() ?? '';
-    return sanitizeNotification(candidate);
+    const sanitized = sanitizeNotification(candidate);
+    if (!sanitized) {
+      return { text: null, reason: 'sanitize_reject' };
+    }
+    return { text: sanitized, reason: 'success' };
   } catch (err) {
     logger.debug('LLM notification generation failed, falling back to template', { error: err });
-    return null;
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('Notification LLM timeout')) {
+      return { text: null, reason: 'timeout' };
+    }
+    return { text: null, reason: 'error' };
   }
 }
 
@@ -180,27 +224,59 @@ function sanitizeNotification(candidate: string): string | null {
   return text;
 }
 
-function pickRandomForEvent<T>(event: NotificationEvent, arr: T[]): T {
+function pruneTemplateCache(nowMs: number): void {
+  for (const [key, entry] of lastTemplateIndexByScopeAndEvent.entries()) {
+    if (nowMs - entry.updatedAt > TEMPLATE_REPEAT_TTL_MS) {
+      lastTemplateIndexByScopeAndEvent.delete(key);
+    }
+  }
+
+  if (lastTemplateIndexByScopeAndEvent.size <= MAX_TEMPLATE_CACHE_ENTRIES) {
+    return;
+  }
+
+  const overflow = lastTemplateIndexByScopeAndEvent.size - MAX_TEMPLATE_CACHE_ENTRIES;
+  const oldest = Array.from(lastTemplateIndexByScopeAndEvent.entries())
+    .sort((a, b) => a[1].updatedAt - b[1].updatedAt)
+    .slice(0, overflow);
+  for (const [key] of oldest) {
+    lastTemplateIndexByScopeAndEvent.delete(key);
+  }
+}
+
+function pickRandomForEvent<T>(event: NotificationEvent, arr: T[], scopeKey?: string): T {
   if (arr.length === 1) return arr[0];
 
-  const prev = lastTemplateIndexByEvent.get(event);
+  const scope = scopeKey?.trim() || 'global';
+  const cacheKey = `${scope}|${event}`;
+  const nowMs = Date.now();
+  pruneTemplateCache(nowMs);
+
+  const prev = lastTemplateIndexByScopeAndEvent.get(cacheKey)?.index;
   let idx = Math.floor(Math.random() * arr.length);
   if (prev !== undefined && idx === prev) {
+    metrics.duplicateSuppressions++;
     idx = (idx + 1 + Math.floor(Math.random() * (arr.length - 1))) % arr.length;
   }
 
-  lastTemplateIndexByEvent.set(event, idx);
+  lastTemplateIndexByScopeAndEvent.set(cacheKey, { index: idx, updatedAt: nowMs });
   return arr[idx];
 }
 
 function templateNotification(event: NotificationEvent, data: NotificationData): string {
+  const scopeKey = (
+    ('scopeKey' in data && typeof data.scopeKey === 'string')
+      ? data.scopeKey
+      : undefined
+  );
+
   switch (event) {
     case 'task:started':
-      return pickRandomForEvent(event, STARTED_TEMPLATES)(data as StartedData);
+      return pickRandomForEvent(event, STARTED_TEMPLATES, scopeKey)(data as StartedData);
     case 'task:progress':
-      return pickRandomForEvent(event, PROGRESS_TEMPLATES)(data as ProgressData);
+      return pickRandomForEvent(event, PROGRESS_TEMPLATES, scopeKey)(data as ProgressData);
     case 'task:failed':
-      return pickRandomForEvent(event, ERROR_TEMPLATES)(data as FailedData);
+      return pickRandomForEvent(event, ERROR_TEMPLATES, scopeKey)(data as FailedData);
     case 'task:completed': {
       // Fallback template for completed (used when LLM fails)
       const d = data as CompletedData;
@@ -233,13 +309,50 @@ function templateNotification(event: NotificationEvent, data: NotificationData):
  * @returns Notification text without transport-specific prefixing
  */
 export async function formatNotification(event: NotificationEvent, data: NotificationData): Promise<string> {
+  metrics.total++;
+
   // LLM path for important messages
   if (event === 'task:completed' || event === 'task:failed') {
+    metrics.rewriteAttempts++;
     const llmResult = await llmNotification(event, data);
-    if (llmResult) return llmResult;
+    if (llmResult.reason === 'disabled') metrics.rewriteDisabled++;
+    if (llmResult.reason === 'timeout') metrics.rewriteTimeouts++;
+    if (llmResult.reason === 'error') metrics.rewriteErrors++;
+    if (llmResult.reason === 'sanitize_reject') metrics.sanitizeRejects++;
+    if (llmResult.text) {
+      metrics.llmRewriteSuccess++;
+      return llmResult.text;
+    }
+    metrics.templateFallback++;
     // Fall through to template on LLM failure
+    return templateNotification(event, data);
   }
 
   // Template path for ephemeral messages and LLM fallback
+  metrics.templateEphemeral++;
   return templateNotification(event, data);
+}
+
+/**
+ * Returns a snapshot of notification formatter runtime metrics.
+ */
+export function getNotificationMetrics(): NotificationMetrics {
+  return { ...metrics };
+}
+
+/**
+ * Resets runtime metrics and template anti-repeat cache. Test helper.
+ */
+export function resetNotificationMetricsForTests(): void {
+  metrics.total = 0;
+  metrics.templateEphemeral = 0;
+  metrics.llmRewriteSuccess = 0;
+  metrics.templateFallback = 0;
+  metrics.rewriteAttempts = 0;
+  metrics.rewriteDisabled = 0;
+  metrics.rewriteTimeouts = 0;
+  metrics.rewriteErrors = 0;
+  metrics.sanitizeRejects = 0;
+  metrics.duplicateSuppressions = 0;
+  lastTemplateIndexByScopeAndEvent.clear();
 }

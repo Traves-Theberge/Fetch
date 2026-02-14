@@ -110,6 +110,7 @@ vi.mock('../../src/session/manager.js', () => ({
 // Mock Identity Manager
 vi.mock('../../src/identity/manager.js', () => ({
   getIdentityManager: () => ({
+    whenReady: vi.fn().mockResolvedValue(undefined),
     buildSystemPrompt: vi.fn().mockReturnValue('You are Fetch, a helpful coding assistant.'),
   }),
 }));

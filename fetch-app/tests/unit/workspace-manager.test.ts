@@ -293,4 +293,36 @@ describe('WorkspaceManager', () => {
       expect(result.error).toContain('not found');
     });
   });
+
+  describe('Delete Path Security', () => {
+    it('blocks file_delete traversal outside workspace root', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      await expect(manager.deleteFile('test-project', '../secrets.txt')).rejects.toThrow('outside workspace');
+      expect(dockerUtils.dockerExec).not.toHaveBeenCalledWith('rm', expect.any(Array));
+    });
+
+    it('blocks absolute sibling-prefix path escape attempts', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      await expect(manager.deleteDirectory('test-project', '/workspace/test-project-evil/src')).rejects.toThrow('outside workspace');
+      expect(dockerUtils.dockerExec).not.toHaveBeenCalledWith('rm', expect.any(Array));
+    });
+  });
 });

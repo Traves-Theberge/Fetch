@@ -145,25 +145,47 @@ export class ToolRegistry {
 
   private async loadCustomTool(filePath: string) {
     if (!filePath.endsWith('.json')) return;
+    const previousName = this.customToolFiles.get(filePath);
 
-    const def = await loadToolDefinition(filePath);
-    if (!def) return;
+    try {
+      const def = await loadToolDefinition(filePath);
+      if (!def) {
+        if (previousName) {
+          this.tools.delete(previousName);
+          this.customToolFiles.delete(filePath);
+          logger.info(`Custom tool unloaded due to invalid definition: ${previousName}`);
+        }
+        return;
+      }
 
-    const schema = buildToolSchema(def);
-    const handler = this.createShellHandler(def);
+      if (previousName && previousName !== def.name) {
+        this.tools.delete(previousName);
+        logger.info(`Custom tool renamed: ${previousName} -> ${def.name}`);
+      }
 
-    const tool: OrchestratorTool = {
-      name: def.name,
-      description: def.description,
-      danger: def.danger,
-      schema,
-      handler,
-      isCustom: true
-    };
+      const schema = buildToolSchema(def);
+      const handler = this.createShellHandler(def);
 
-    this.register(tool);
-    this.customToolFiles.set(filePath, def.name);
-    logger.info(`Custom tool loaded: ${tool.name}`);
+      const tool: OrchestratorTool = {
+        name: def.name,
+        description: def.description,
+        danger: def.danger,
+        schema,
+        handler,
+        isCustom: true
+      };
+
+      this.register(tool);
+      this.customToolFiles.set(filePath, def.name);
+      logger.info(`Custom tool loaded: ${tool.name}`);
+    } catch (error) {
+      logger.error(`Failed to reload custom tool: ${filePath}`, { error });
+      if (previousName) {
+        this.tools.delete(previousName);
+        this.customToolFiles.delete(filePath);
+        logger.info(`Custom tool unloaded after reload failure: ${previousName}`);
+      }
+    }
   }
 
   private unloadCustomTool(filePath: string) {
@@ -217,6 +239,14 @@ export class ToolRegistry {
       ToolRegistry.instance = new ToolRegistry();
     }
     return ToolRegistry.instance;
+  }
+
+  /** Closes custom-tool watchers and releases watcher resources. */
+  public async shutdown(): Promise<void> {
+    for (const watcher of this.watchers) {
+      await watcher.close();
+    }
+    this.watchers = [];
   }
 
   /** Registers one tool definition (insert/replace by tool name). */

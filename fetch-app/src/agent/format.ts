@@ -18,7 +18,7 @@ import { VERSION, env } from '../config/env.js';
  * @returns Formatted status message
  */
 export async function formatStatus(session: Session): Promise<string> {
-  let message = `🐕 *FETCH SYSTEM REPORT* (v${VERSION})\n`;
+  let message = `🐕 *FETCH SYSTEM REPORT* (${VERSION})\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   // Active project
   message += `📂 *PROJECT CONTEXT*\n`;
@@ -63,7 +63,7 @@ export async function formatStatus(session: Session): Promise<string> {
  * @returns Formatted command/tool overview
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch v${VERSION} — AI Coding Assistant*
+  return `🐕 *Fetch ${VERSION} — AI Coding Assistant*
 
 *Slash commands:*
 /stop - Cancel running task

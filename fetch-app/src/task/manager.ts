@@ -65,6 +65,8 @@ export class TaskManager extends EventEmitter {
 
   /** Persistence store */
   private store: TaskStore;
+  private persistenceHealthy: boolean = true;
+  private persistenceInitError: string | null = null;
 
   constructor(store?: TaskStore) {
     super();
@@ -82,11 +84,15 @@ export class TaskManager extends EventEmitter {
       }
 
       this.currentTaskId = await this.store.loadCurrentTaskId();
+      this.persistenceHealthy = true;
+      this.persistenceInitError = null;
 
       logger.info(`TaskManager initialized with ${loadedTasks.length} tasks`, {
         currentTaskId: this.currentTaskId
       });
     } catch (error) {
+      this.persistenceHealthy = false;
+      this.persistenceInitError = error instanceof Error ? error.message : String(error);
       logger.error('Failed to initialize TaskManager', { error });
       // Don't throw, just start with empty state if DB fails
     }
@@ -372,6 +378,16 @@ export class TaskManager extends EventEmitter {
     if (!this.currentTaskId) return false;
     const task = this.tasks.get(this.currentTaskId);
     return task !== undefined && isActiveStatus(task.status);
+  }
+
+  /** Returns whether persistence initialized successfully for this process run. */
+  isPersistenceHealthy(): boolean {
+    return this.persistenceHealthy;
+  }
+
+  /** Returns the initialization error string when persistence is degraded. */
+  getPersistenceInitError(): string | null {
+    return this.persistenceInitError;
   }
 
   // ==========================================================================

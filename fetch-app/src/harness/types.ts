@@ -52,8 +52,11 @@ export interface HarnessOutputEvent {
   /** Event type */
   type: HarnessOutputEventType;
 
-  /** Event data (output text or parsed content) */
+  /** Event data (line text for output events) */
   data: string;
+
+  /** Backward-compatible alias used by task integration output forwarding. */
+  line?: string;
 
   /** ISO timestamp when event occurred */
   timestamp: string;
@@ -103,6 +106,7 @@ export interface HarnessInstance {
   id: HarnessId;
   status: HarnessStatus;
   startTime: number;
+  endedAt?: number;
   pid?: number;
   stdout: string[];
   stderr: string[];

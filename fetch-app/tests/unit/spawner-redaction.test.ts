@@ -21,6 +21,12 @@ describe('redactCommandArgs', () => {
         expect(redactCommandArgs(input)).toEqual(expected);
     });
 
+    it('should redact lowercase and mixed-case secret keys', () => {
+        const input = ['-e', 'openai_api_key=sk-123', '-e', 'Api_Token=abc', 'cmd'];
+        const expected = ['-e', 'openai_api_key=REDACTED', '-e', 'Api_Token=REDACTED', 'cmd'];
+        expect(redactCommandArgs(input)).toEqual(expected);
+    });
+
     it('should not redact non-sensitive args', () => {
         const input = ['exec', '-w', '/workspace', '-e', 'CI=true', 'cmd'];
         expect(redactCommandArgs(input)).toEqual(input);

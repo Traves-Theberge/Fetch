@@ -11,8 +11,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Mocks ───────────────────────────────────────────────────────────
 
 // Use vi.hoisted to make mockCreate available at mock-factory time
-const { mockCreate } = vi.hoisted(() => ({
+const { mockCreate, pipelineMock } = vi.hoisted(() => ({
   mockCreate: vi.fn(),
+  pipelineMock: {
+    notificationModel: 'test/model',
+    notificationMaxTokens: 150,
+    notificationTemperature: 0.7,
+    notificationRewriteEnabled: true,
+    notificationRewriteTimeoutMs: 2000,
+  },
 }));
 
 vi.mock('openai', () => ({
@@ -33,15 +40,12 @@ vi.mock('../../src/config/env.js', () => ({
 }));
 
 vi.mock('../../src/config/pipeline.js', () => ({
-  pipeline: {
-    notificationModel: 'test/model',
-    notificationMaxTokens: 150,
-    notificationTemperature: 0.7,
-  },
+  pipeline: pipelineMock,
 }));
 
 vi.mock('../../src/identity/manager.js', () => ({
   getIdentityManager: vi.fn().mockReturnValue({
+    whenReady: vi.fn().mockResolvedValue(undefined),
     getVoiceTone: vi.fn().mockReturnValue('Warm and eager'),
   }),
 }));
@@ -57,13 +61,19 @@ vi.mock('../../src/utils/logger.js', () => ({
 
 // ── Import after mocks ──────────────────────────────────────────────
 
-import { formatNotification } from '../../src/agent/notifications.js';
+import {
+  formatNotification,
+  getNotificationMetrics,
+  resetNotificationMetricsForTests,
+} from '../../src/agent/notifications.js';
 
 // ── Tests ───────────────────────────────────────────────────────────
 
 describe('Notification Formatter', () => {
   beforeEach(() => {
     mockCreate.mockReset();
+    resetNotificationMetricsForTests();
+    pipelineMock.notificationRewriteEnabled = true;
   });
 
   // ─── task:started (template path) ─────────────────────────────
@@ -88,6 +98,29 @@ describe('Notification Formatter', () => {
         results.add(result);
       }
       expect(results.size).toBeGreaterThanOrEqual(2);
+    });
+
+    it('scopes anti-repeat selection per session key', async () => {
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+
+      const firstSessionFirst = await formatNotification('task:started', {
+        goal: 'Scoped variation test',
+        scopeKey: 'session-a',
+      });
+      const firstSessionSecond = await formatNotification('task:started', {
+        goal: 'Scoped variation test',
+        scopeKey: 'session-a',
+      });
+      const secondSessionFirst = await formatNotification('task:started', {
+        goal: 'Scoped variation test',
+        scopeKey: 'session-b',
+      });
+
+      expect(firstSessionFirst).not.toEqual(firstSessionSecond);
+      expect(secondSessionFirst).toEqual(firstSessionFirst);
+      const metrics = getNotificationMetrics();
+      expect(metrics.duplicateSuppressions).toBeGreaterThan(0);
+      randomSpy.mockRestore();
     });
   });
 
@@ -131,6 +164,9 @@ describe('Notification Formatter', () => {
       expect(result).toContain('Added error handling to API endpoints');
       expect(result).toContain('3 modified');
       expect(result).toContain('45s');
+      const metrics = getNotificationMetrics();
+      expect(metrics.rewriteAttempts).toBe(1);
+      expect(metrics.templateFallback).toBe(1);
     });
 
     it('should fall back to template when LLM fails', async () => {
@@ -146,6 +182,9 @@ describe('Notification Formatter', () => {
       expect(result).toContain('Added auth module');
       expect(result).toContain('2 modified');
       expect(result).toContain('30s');
+      const metrics = getNotificationMetrics();
+      expect(metrics.rewriteErrors).toBe(1);
+      expect(metrics.templateFallback).toBe(1);
     });
 
     it('should fall back to template when LLM returns empty', async () => {
@@ -159,6 +198,9 @@ describe('Notification Formatter', () => {
 
       expect(result).toBeTruthy();
       expect(result).toContain('Updated config');
+      const metrics = getNotificationMetrics();
+      expect(metrics.rewriteAttempts).toBe(1);
+      expect(metrics.templateFallback).toBe(1);
     });
 
     it('should include file counts in template fallback', async () => {
@@ -195,6 +237,9 @@ describe('Notification Formatter', () => {
       // If LLM succeeds, we get the LLM text. If not, we get a template with the error.
       expect(result).toBeTruthy();
       expect(result.length).toBeGreaterThan(10);
+      const metrics = getNotificationMetrics();
+      expect(metrics.rewriteAttempts).toBe(1);
+      expect(metrics.llmRewriteSuccess + metrics.templateFallback).toBe(1);
     });
 
     it('should fall back to template when LLM fails', async () => {
@@ -219,6 +264,22 @@ describe('Notification Formatter', () => {
         results.add(result);
       }
       expect(results.size).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('rewrite flag', () => {
+    it('uses template fallback and increments disabled metric when rewrite is disabled', async () => {
+      pipelineMock.notificationRewriteEnabled = false;
+
+      const result = await formatNotification('task:completed', {
+        summary: 'Done',
+      });
+
+      expect(result).toContain('Done');
+      const metrics = getNotificationMetrics();
+      expect(metrics.rewriteDisabled).toBe(1);
+      expect(metrics.templateFallback).toBe(1);
+      expect(metrics.llmRewriteSuccess).toBe(0);
     });
   });
 });

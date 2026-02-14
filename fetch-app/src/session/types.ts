@@ -203,13 +203,41 @@ export interface Session {
 /**
  * Generates a short random identifier.
  */
-export function generateId(length: number = 8): string {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+type IdGenerator = (length?: number) => string;
+
+const DEFAULT_ID_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789';
+
+function randomIdGenerator(length: number = 8): string {
   let result = '';
   for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += DEFAULT_ID_CHARS.charAt(Math.floor(Math.random() * DEFAULT_ID_CHARS.length));
   }
   return result;
+}
+
+let idGenerator: IdGenerator = randomIdGenerator;
+
+/**
+ * Overrides the runtime ID generator.
+ *
+ * Useful for deterministic tests that assert session/message IDs.
+ */
+export function setIdGenerator(generator: IdGenerator): void {
+  idGenerator = generator;
+}
+
+/**
+ * Restores the default random ID generator.
+ */
+export function resetIdGenerator(): void {
+  idGenerator = randomIdGenerator;
+}
+
+/**
+ * Generates an identifier using the active generator strategy.
+ */
+export function generateId(length: number = 8): string {
+  return idGenerator(length);
 }
 
 /**

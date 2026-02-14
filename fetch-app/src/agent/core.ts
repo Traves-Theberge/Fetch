@@ -366,6 +366,8 @@ async function handleWithTools(
   const registry = getToolRegistry();
   const tools = registry.toOpenAIFormat();
   const toolCalls: ToolCallRecord[] = [];
+  const identityManager = getIdentityManager();
+  await identityManager.whenReady();
 
   // Match skills against this message and build activated context
   const skillManager = getSkillManager();
@@ -378,7 +380,7 @@ async function handleWithTools(
   const history = buildMessageHistory(session);
 
   // On retry (including 400 bad request), simplify context to avoid repeating the same oversized payload
-  let finalHistory = attempt > 1
+  const finalHistory = attempt > 1
     ? history.slice(-4) // Keep last 4 messages to ensure tool_call + tool_result pairs are preserved
     : history;
 
@@ -396,7 +398,7 @@ async function handleWithTools(
 
   // Build messages
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: getIdentityManager().buildSystemPrompt(activatedContext, sessionContext) },
+    { role: 'system', content: identityManager.buildSystemPrompt(activatedContext, sessionContext) },
     ...finalHistory,
     { role: 'user', content: message },
   ];
@@ -597,7 +599,7 @@ async function handleWithTools(
             const updatedContext = await buildContextSection(session);
             messages[0] = {
               role: 'system',
-              content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+              content: identityManager.buildSystemPrompt(activatedContext, updatedContext),
             };
             logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
           }
@@ -632,7 +634,7 @@ async function handleWithTools(
             const updatedContext = await buildContextSection(session);
             messages[0] = {
               role: 'system',
-              content: getIdentityManager().buildSystemPrompt(activatedContext, updatedContext),
+              content: identityManager.buildSystemPrompt(activatedContext, updatedContext),
             };
             logger.info('System prompt rebuilt after workspace creation', { project: created.name });
           }
@@ -816,7 +818,7 @@ function buildMessageHistory(
   session: Session,
   maxMessages = pipeline.historyWindow
 ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
-  let recent = session.messages.slice(-maxMessages);
+  const recent = session.messages.slice(-maxMessages);
 
   // SANITY CHECK: Ensure we didn't slice in the middle of a tool output pair
   // If the first message is a tool output, we must include its parent assistant message
@@ -984,7 +986,7 @@ function generateFactualProgressMessage(userMessage: string, attempt: number = 1
  */
 async function rewriteProgressMessageBounded(factual: string): Promise<string> {
   // Kill switch for reliability/debugging.
-  if (process.env.FETCH_PROGRESS_REWRITE === 'false') {
+  if (!pipeline.progressRewriteEnabled) {
     return factual;
   }
 
@@ -1015,7 +1017,7 @@ async function rewriteProgressMessageBounded(factual: string): Promise<string> {
 
     // Bound latency for progress updates.
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('Progress rewrite timeout')), 1500);
+      setTimeout(() => reject(new Error('Progress rewrite timeout')), pipeline.progressRewriteTimeoutMs);
     });
 
     const response = await Promise.race([rewritePromise, timeoutPromise]);

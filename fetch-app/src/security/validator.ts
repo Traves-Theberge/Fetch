@@ -101,9 +101,17 @@ export function validateInput(input: string): ValidationResult {
  * Sanitizes relative file paths to reduce traversal and invalid-character risks.
  */
 export function sanitizePath(path: string): string {
-  return path
-    .replace(/\.\./g, '')           // Remove parent directory references
-    .replace(/\/+/g, '/')           // Collapse multiple slashes
-    .replace(/^\//, '')             // Remove leading slash
-    .replace(/[<>:"|?*]/g, '');     // Remove invalid characters
+  let normalized = path
+    .replace(/\\/g, '/')            // Normalize Windows separators
+    .replace(/^[a-zA-Z]:/, '')      // Strip drive letter prefixes (C:, D:, ...)
+    .replace(/^\/\/[^/]+\/[^/]+/, ''); // Strip UNC host/share prefixes
+
+  const parts = normalized
+    .split('/')
+    .filter((segment) => segment !== '' && segment !== '.' && segment !== '..')
+    .map((segment) => segment.replace(/[<>:"|?*]/g, ''))
+    .filter((segment) => segment.length > 0);
+
+  normalized = parts.join('/').replace(/\/+/g, '/');
+  return normalized.replace(/^\/+/, '');
 }

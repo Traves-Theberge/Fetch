@@ -105,6 +105,18 @@ describe('Input Validator', () => {
     it('should remove special characters', () => {
       expect(sanitizePath('file<>:"|?*name.txt')).toBe('filename.txt');
     });
+
+    it('should normalize Windows backslash traversal', () => {
+      expect(sanitizePath('..\\..\\src\\index.ts')).toBe('src/index.ts');
+    });
+
+    it('should strip Windows drive-letter absolute paths', () => {
+      expect(sanitizePath('C:\\Users\\dev\\project\\src\\main.ts')).toBe('Users/dev/project/src/main.ts');
+    });
+
+    it('should strip UNC share prefixes', () => {
+      expect(sanitizePath('\\\\server\\share\\repo\\app.ts')).toBe('repo/app.ts');
+    });
   });
 });
 
@@ -166,6 +178,14 @@ describe('RateLimiter', () => {
     expect(limiter.getRemaining('user1')).toBe(3);
     expect(limiter.getRemaining('user2')).toBe(3);
   });
+
+  it('should shutdown and clear timer/state', () => {
+    limiter.isAllowed('user1');
+    limiter.shutdown();
+    expect(limiter.getRemaining('user1')).toBe(3);
+    const internals = limiter as unknown as { evictionTimer: ReturnType<typeof setInterval> | null };
+    expect(internals.evictionTimer).toBeNull();
+  });
 });
 
 // ── SecurityGate tests ───────────────────────────────────────────────────────
@@ -180,6 +200,7 @@ vi.mock('../../src/security/whitelist.js', () => ({
     add: vi.fn(),
     remove: vi.fn(),
     list: () => ['15559999999'],
+    shutdown: vi.fn(),
   })),
 }));
 

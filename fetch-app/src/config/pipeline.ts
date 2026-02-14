@@ -19,6 +19,7 @@ import { env } from './env.js';
 type PipelineDef =
   | { type: 'int'; key: string; fallback: number }
   | { type: 'float'; key: string; fallback: number }
+  | { type: 'bool'; key: string; fallback: boolean }
   | { type: 'str'; key: string; fallback: string }
   | { type: 'ints'; key: string; fallback: number[] }
   | { type: 'envStr'; key: string; envFallbackKey: string; fallback: string };
@@ -38,6 +39,10 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
   notificationModel: { type: 'envStr', key: 'FETCH_NOTIFICATION_MODEL', envFallbackKey: 'SUMMARY_MODEL', fallback: 'openai/gpt-4o-mini' },
   notificationMaxTokens: { type: 'int', key: 'FETCH_NOTIFICATION_MAX_TOKENS', fallback: 150 },
   notificationTemperature: { type: 'float', key: 'FETCH_NOTIFICATION_TEMPERATURE', fallback: 0.7 },
+  notificationRewriteEnabled: { type: 'bool', key: 'FETCH_NOTIFICATION_REWRITE', fallback: true },
+  notificationRewriteTimeoutMs: { type: 'int', key: 'FETCH_NOTIFICATION_REWRITE_TIMEOUT_MS', fallback: 2000 },
+  progressRewriteEnabled: { type: 'bool', key: 'FETCH_PROGRESS_REWRITE', fallback: true },
+  progressRewriteTimeoutMs: { type: 'int', key: 'FETCH_PROGRESS_REWRITE_TIMEOUT_MS', fallback: 1500 },
 
   // ─── Agent LLM ────────────────────────────────────────────
   maxToolCalls: { type: 'int', key: 'FETCH_MAX_TOOL_CALLS', fallback: 5 },
@@ -116,6 +121,13 @@ function resolve(def: PipelineDef): unknown {
       const parsed = parseFloat(v);
       return Number.isNaN(parsed) ? def.fallback : parsed;
     }
+    case 'bool': {
+      if (v === undefined || v === '') return def.fallback;
+      const normalized = v.trim().toLowerCase();
+      if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+      if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+      return def.fallback;
+    }
     case 'str': {
       return v !== undefined && v !== '' ? v : def.fallback;
     }
@@ -145,6 +157,10 @@ interface PipelineConfig {
   notificationModel: string;
   notificationMaxTokens: number;
   notificationTemperature: number;
+  notificationRewriteEnabled: boolean;
+  notificationRewriteTimeoutMs: number;
+  progressRewriteEnabled: boolean;
+  progressRewriteTimeoutMs: number;
   maxToolCalls: number;
   toolMaxTokens: number;
   toolTemperature: number;

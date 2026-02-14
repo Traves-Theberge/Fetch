@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  v0.0.47
+  v0.0.48
 ```
 
 **Unleash Multi-agent orchestration.**
@@ -26,7 +26,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)](https://typescriptlang.org)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docker.com)
-[![Tests](https://img.shields.io/badge/Tests-360_passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-450_passing-brightgreen)]()
 
 </div>
 
@@ -106,8 +106,15 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
 - **Bounded Status Rewrites** &mdash; Progress and completion/failure text can be LLM-rewritten with timeout/sanitizer guards and template fallback
 - **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
+- **P0 Reliability Hardening** &mdash; Explicit git undo workspace validation, safe timer cleanup, parsed harness progress/question/file-op events, and normalized output-event contracts
+- **P1 Reliability Hardening** &mdash; Unified session-id API validation, kill-state precedence in spawner, and resilient whitelist/identity reload paths
+- **P2 Reliability Hardening** &mdash; Session-scoped notification anti-repeat with TTL, bounded harness retention, identity readiness contract, Windows/backslash path normalization, singleton-reset hooks, and test-injectable session ID generation
+- **Session Consistency Hardening** &mdash; Per-session write queues protect compaction/message persistence ordering; session manager init is retry-safe after transient failures
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context
+- **Notification Telemetry** &mdash; `/api/status` includes notification path/fallback counters for rewrite/template observability
+- **Deterministic Repo Context** &mdash; Repo-map file selection is now stable before truncation, reducing context churn between runs
 - **42 Tunable Parameters** &mdash; `FETCH_*` env vars control the pipeline via live-reading config proxies; runtime reloads apply without restart
+- **Rewrite Feature Flags** &mdash; `FETCH_NOTIFICATION_REWRITE`/`FETCH_PROGRESS_REWRITE` and timeout envs bound micro-rewriter behavior with deterministic fallback
 
 </td>
 <td width="50%" valign="top">
@@ -116,12 +123,18 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 - **29 Orchestrator Tools** &mdash; Workspace management, task lifecycle, GitHub ops, web fetch, web search, browser automation
 - **Web Fetch & Search** &mdash; Readability + Turndown for pages, self-hosted SearXNG for search (no API keys)
+- **Web Fetch SSRF Guards** &mdash; DNS-resolved private IP blocking and redirect-hop validation for `web_fetch`
 - **Browser Automation** &mdash; Headless Chromium via Playwright with accessibility tree snapshots
 - **Voice & Vision** &mdash; Voice notes transcribed via whisper.cpp, image analysis via vision model
+- **Vision Guardrails** &mdash; MIME allowlist and payload-size caps are enforced before outbound vision requests
+- **Safe Transcription Execution** &mdash; whisper/ffmpeg invocation now uses argument-safe process execution with model-path existence checks
 - **GitHub Auto-Sync** &mdash; Commits, pushes, and auto-creates repos on workspace creation
 - **Skills Framework** &mdash; Teach new capabilities by dropping Markdown into `data/skills/`
+- **Skills Runtime Safety** &mdash; Requirement-gated registration keeps summary/match behavior consistent, removes stale unavailable skills on reload, and escapes activated-skill blocks
 - **Skill-to-Tool Mapping** &mdash; Built-in skills are aligned to concrete tool modules; see `docs/markdown/SKILLS_GUIDE.md` and `docs/markdown/API_REFERENCE.md`
 - **Tool Contract Source** &mdash; `fetch-app/src/validation/tools.ts` is the canonical tool name/argument surface
+- **Action-Specific Browser Validation** &mdash; `browser_action` now enforces required fields per action mode (`click` and `type`)
+- **Custom Tool Reload Safety** &mdash; File-based custom tools now validate strictly on load/reload and remove stale renamed/invalid entries
 - **Subsystem Ownership Maps** &mdash; `docs/markdown/API_REFERENCE.md` tracks tool, workspace, vision, and support-module ownership
 
 </td>
@@ -136,11 +149,15 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 - **Dynamic Identity** &mdash; Hot-reloaded personality from Markdown files
 - **Crash Recovery** &mdash; State persisted to SQLite, resumes after restart
+- **Persistence Corruption Guardrails** &mdash; Session/task stores now tolerate malformed persisted rows with safe fallback/skip behavior
+- **Task Persistence Health Signal** &mdash; Task manager tracks whether persistence init succeeded and exposes degraded init error state
 - **Status & Admin API** &mdash; Bridge exposes `/api/status`, `/api/health`, and admin-protected control/session endpoints
 - **Robust WhatsApp Transport** &mdash; Event deduplication, voice/image preprocessing, reaction handling, and auto-reconnect backoff
 - **10 Project Types** &mdash; Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET with framework, package manager, and test runner profiling
 - **Narrative Tool Outputs** &mdash; All tool results are human-readable text for better LLM reasoning, with structured metadata for state sync
 - **Docker Hardening** &mdash; Healthchecks, resource limits, log rotation, shell injection prevention
+- **Docker Timeout Control** &mdash; Timed-out exec paths attempt in-container process termination; stdin option behavior now matches API contract
+- **Graceful Teardown Coverage** &mdash; Shutdown now tears down security timers and file watchers (skills, identity, custom tools, whitelist)
 
 </td>
 <td width="50%" valign="top">
@@ -246,7 +263,7 @@ npm install          # install dependencies
 npm run dev          # run with ts-node (ESM)
 npm run build        # compile TypeScript to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (355 passing)
+npm run test:run     # all tests (450 passing)
 npm run test:unit    # unit tests only
 ```
 

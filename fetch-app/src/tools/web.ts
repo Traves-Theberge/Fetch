@@ -9,6 +9,8 @@
 import { JSDOM } from 'jsdom';
 import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
+import { lookup } from 'dns/promises';
+import net from 'net';
 import { pipeline } from '../config/pipeline.js';
 import {
   WebFetchInputSchema,
@@ -37,6 +39,8 @@ const BLOCKED_HOSTS = [
   /^\[?fe80:/i,
 ];
 
+const MAX_REDIRECTS = 5;
+
 // Shared turndown instance
 const turndown = new TurndownService({
   headingStyle: 'atx',
@@ -58,26 +62,50 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
   const { url, selector } = parseResult.data as WebFetchInput;
 
   try {
-    // Security: block private/internal URLs
-    const parsed = new URL(url);
-    const hostname = parsed.hostname;
-    if (BLOCKED_HOSTS.some((re) => re.test(hostname))) {
-      return { success: false, output: '', error: 'Blocked: cannot fetch private/internal URLs', duration: Date.now() - start };
-    }
+    // Security: allow only public http(s) URLs and re-check each redirect hop.
+    await assertPublicUrl(url);
 
     // Fetch with timeout and redirect limit
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let currentUrl = url;
+    let response: Response | null = null;
 
-    const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: {
-        'User-Agent': 'Fetch-Bot/1.0 (AI Assistant; +https://github.com/fetch)',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      },
-    });
-    clearTimeout(timeout);
+    try {
+      for (let redirectCount = 0; redirectCount <= MAX_REDIRECTS; redirectCount += 1) {
+        await assertPublicUrl(currentUrl);
+        response = await fetch(currentUrl, {
+          signal: controller.signal,
+          redirect: 'manual',
+          headers: {
+            'User-Agent': 'Fetch-Bot/1.0 (AI Assistant; +https://github.com/fetch)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        });
+
+        const status = response.status;
+        if (status < 300 || status >= 400) {
+          break;
+        }
+
+        const location = response.headers.get('location');
+        if (!location) {
+          return { success: false, output: '', error: 'Redirect response missing Location header', duration: Date.now() - start };
+        }
+
+        if (redirectCount >= MAX_REDIRECTS) {
+          return { success: false, output: '', error: `Too many redirects (max ${MAX_REDIRECTS})`, duration: Date.now() - start };
+        }
+
+        currentUrl = new URL(location, currentUrl).toString();
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    if (!response) {
+      return { success: false, output: '', error: 'No response received', duration: Date.now() - start };
+    }
 
     if (!response.ok) {
       return { success: false, output: '', error: `HTTP ${response.status}: ${response.statusText}`, duration: Date.now() - start };
@@ -91,9 +119,9 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
       const truncated = html.slice(0, MAX_CONTENT_LENGTH);
       return {
         success: true,
-        output: JSON.stringify({ url, contentType: 'json', content: truncated }, null, 2),
+        output: JSON.stringify({ url: currentUrl, contentType: 'json', content: truncated }, null, 2),
         duration: Date.now() - start,
-        metadata: { tool: 'web_fetch', url, length: truncated.length },
+        metadata: { tool: 'web_fetch', url: currentUrl, length: truncated.length },
       };
     }
 
@@ -101,14 +129,14 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
       const truncated = html.slice(0, MAX_CONTENT_LENGTH);
       return {
         success: true,
-        output: JSON.stringify({ url, contentType: 'text', content: truncated }, null, 2),
+        output: JSON.stringify({ url: currentUrl, contentType: 'text', content: truncated }, null, 2),
         duration: Date.now() - start,
-        metadata: { tool: 'web_fetch', url, length: truncated.length },
+        metadata: { tool: 'web_fetch', url: currentUrl, length: truncated.length },
       };
     }
 
     // HTML: extract readable content
-    const dom = new JSDOM(html, { url });
+    const dom = new JSDOM(html, { url: currentUrl });
 
     let content: string;
     if (selector) {
@@ -147,6 +175,7 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
       success: true,
       output: JSON.stringify({
         url,
+        finalUrl: currentUrl,
         title,
         content: truncated,
         truncated: wasTruncated,
@@ -154,7 +183,7 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
       }, null, 2),
       summary,
       duration: Date.now() - start,
-      metadata: { tool: 'web_fetch', url, title, length: truncated.length, truncated: wasTruncated },
+      metadata: { tool: 'web_fetch', url: currentUrl, title, length: truncated.length, truncated: wasTruncated },
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -162,6 +191,59 @@ export async function handleWebFetch(input: unknown): Promise<ToolResult> {
       return { success: false, output: '', error: `Request timed out after ${FETCH_TIMEOUT_MS / 1000}s`, duration: Date.now() - start };
     }
     return { success: false, output: '', error: message, duration: Date.now() - start };
+  }
+}
+
+function isBlockedIp(address: string): boolean {
+  const family = net.isIP(address);
+  if (family === 4) {
+    const [a, b] = address.split('.').map((n) => Number(n));
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    return false;
+  }
+
+  if (family === 6) {
+    const normalized = address.toLowerCase();
+    if (normalized === '::1' || normalized === '::') return true;
+    if (normalized.startsWith('fe80:')) return true;
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+    return false;
+  }
+
+  return false;
+}
+
+async function assertPublicUrl(rawUrl: string): Promise<void> {
+  const parsed = new URL(rawUrl);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('Blocked: only http/https URLs are allowed');
+  }
+  await assertPublicHostname(parsed.hostname);
+}
+
+async function assertPublicHostname(hostname: string): Promise<void> {
+  if (BLOCKED_HOSTS.some((re) => re.test(hostname))) {
+    throw new Error('Blocked: cannot fetch private/internal URLs');
+  }
+
+  if (net.isIP(hostname) > 0) {
+    if (isBlockedIp(hostname)) {
+      throw new Error('Blocked: hostname resolves to private/internal IP');
+    }
+    return;
+  }
+
+  const resolved = await lookup(hostname, { all: true, verbatim: true });
+  if (resolved.length === 0) {
+    throw new Error('Blocked: could not resolve hostname');
+  }
+  if (resolved.some((record) => isBlockedIp(record.address))) {
+    throw new Error('Blocked: hostname resolves to private/internal IP');
   }
 }
 
