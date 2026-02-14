@@ -178,7 +178,7 @@ export async function dockerExec(
     let stdout = '';
     let stderr = '';
     let finished = false;
-    let execStream: NodeJS.ReadWriteStream | null = null;
+    let execStream: any = null;
 
     // Timeout handler
     const timeout = setTimeout(() => {
@@ -319,7 +319,7 @@ export async function dockerExecStream(
 
   return new Promise<number>((resolve) => {
     let finished = false;
-    let execStream: NodeJS.ReadWriteStream | null = null;
+    let execStream: any = null;
 
     const timeout = setTimeout(() => {
       if (!finished) {

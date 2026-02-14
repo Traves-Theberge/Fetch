@@ -2,6 +2,7 @@
 package components
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -74,33 +75,34 @@ func (m *Menu) SelectedItem() MenuItem {
 func (m *Menu) ViewCompact() string {
 	var b strings.Builder
 
-	badgeStyle := lipgloss.NewStyle().
-		Foreground(theme.TextMuted).
-		Italic(true)
-
 	for i, item := range m.Items {
 		var line string
+		label := fmt.Sprintf("%s %s", item.Icon, item.Label)
 
 		if item.Disabled {
-			disabledStyle := lipgloss.NewStyle().
-				Foreground(theme.TextMuted).
-				PaddingLeft(4)
-			line = disabledStyle.Render(item.Icon + " " + item.Label)
+			line = "   " + theme.MenuItemDisabled.Render(label)
 		} else if i == m.Cursor {
-			selectedStyle := lipgloss.NewStyle().
-				Foreground(theme.Primary).
-				Bold(true)
-			line = selectedStyle.Render("▸ " + item.Icon + " " + item.Label)
+			line = theme.MenuCursorPrefix.Render(" ▸ ") + theme.MenuSelectedItem.Render(label)
 		} else {
-			normalStyle := lipgloss.NewStyle().
-				Foreground(theme.TextPrimary).
-				PaddingLeft(2)
-			line = normalStyle.Render("  " + item.Icon + " " + item.Label)
+			line = "   " + theme.MenuItem.Render(label)
 		}
 
-		// Add badge if set
 		if item.Badge != "" {
-			line += " " + badgeStyle.Render(item.Badge)
+			if m.Width > 0 {
+				rowWidth := m.Width - 3
+				if rowWidth < 0 {
+					rowWidth = 0
+				}
+				labelWidth := lipgloss.Width(label)
+				badgeWidth := lipgloss.Width(item.Badge)
+				pad := rowWidth - labelWidth - badgeWidth
+				if pad < 1 {
+					pad = 1
+				}
+				line += strings.Repeat(" ", pad) + theme.MenuItemBadge.Render(item.Badge)
+			} else {
+				line += " " + theme.MenuItemBadge.Render(item.Badge)
+			}
 		}
 
 		b.WriteString(line)

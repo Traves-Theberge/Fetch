@@ -1590,13 +1590,7 @@ func (m model) renderMenuPanel() string {
 	// Update badges with live state
 	m.buildMenuBadges()
 
-	// Menu title
-	menuTitle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(theme.Secondary).
-		Background(theme.Surface).
-		Padding(0, 1).
-		Render("✨ Main Menu ✨")
+	menuTitle := theme.MenuPanelTitle.Render("✨ Main Menu ✨")
 
 	return "  " + menuTitle + "\n" + m.mainMenu.ViewCompact()
 }
@@ -1687,14 +1681,12 @@ func (m model) viewConfig() string {
 		// Tab bar
 		tabGeneral := "  General  "
 		tabAdvanced := "  Advanced  "
-		activeTabStyle := lipgloss.NewStyle().Bold(true).Foreground(theme.Primary).Background(theme.Surface).Padding(0, 1)
-		inactiveTabStyle := lipgloss.NewStyle().Foreground(theme.TextMuted).Padding(0, 1)
 		if m.configEditor != nil && m.configEditor.Mode() == config.ModeAdvanced {
-			tabGeneral = inactiveTabStyle.Render(tabGeneral)
-			tabAdvanced = activeTabStyle.Render(tabAdvanced)
+			tabGeneral = theme.SettingsTabInactive.Render(tabGeneral)
+			tabAdvanced = theme.SettingsTabActive.Render(tabAdvanced)
 		} else {
-			tabGeneral = activeTabStyle.Render(tabGeneral)
-			tabAdvanced = inactiveTabStyle.Render(tabAdvanced)
+			tabGeneral = theme.SettingsTabActive.Render(tabGeneral)
+			tabAdvanced = theme.SettingsTabInactive.Render(tabAdvanced)
 		}
 		tabBar := "   " + tabGeneral + " " + tabAdvanced + "\n\n"
 
@@ -1773,19 +1765,17 @@ func (m model) viewHarnessAuth() string {
 	content.WriteString(fmt.Sprintf("   %s\n\n",
 		theme.Subtitle.Render(fmt.Sprintf("%d authenticated, %d enabled", authCount, enabledCount))))
 
-	inputStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
-
 	for i, hs := range m.harnessStatuses {
 		// Cursor prefix
 		prefix := "   "
 		if i == m.harnessCursor {
-			prefix = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true).Render(" ▸ ")
+			prefix = theme.MenuCursorPrefix.Render(" ▸ ")
 		}
 
 		// Status indicator
 		var statusBadge string
 		if !hs.installed {
-			statusBadge = lipgloss.NewStyle().Foreground(theme.TextMuted).Render("◌ Not Installed")
+			statusBadge = theme.HarnessStatusMuted.Render("◌ Not Installed")
 		} else if hs.apiKey != "" {
 			statusBadge = theme.StatusSuccess.Render("● Authenticated (Key Configured)")
 		} else if hs.authed {
@@ -1795,17 +1785,15 @@ func (m model) viewHarnessAuth() string {
 		}
 
 		// Enable badge
-		enableBadge := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("✗ Disabled")
+		enableBadge := theme.HarnessStatusMuted.Render("✗ Disabled")
 		if hs.enabled {
 			enableBadge = theme.StatusSuccess.Render("✓ Enabled")
 		}
 
 		// Name styling
-		var nameStyle lipgloss.Style
+		nameStyle := theme.HarnessRow
 		if i == m.harnessCursor {
-			nameStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
-		} else {
-			nameStyle = theme.Value
+			nameStyle = theme.HarnessRowSelected
 		}
 
 		// Pad name to align badges
@@ -1823,7 +1811,7 @@ func (m model) viewHarnessAuth() string {
 					for j, acct := range hs.ghAccounts {
 						acctPrefix := detailIndent + "  "
 						if j == hs.ghCursor {
-							acctPrefix = detailIndent + lipgloss.NewStyle().Foreground(theme.Secondary).Render("› ")
+							acctPrefix = detailIndent + theme.HarnessSelectedAccountPrefix.Render("› ")
 						}
 						badge := ""
 						if acct.active {
@@ -1842,26 +1830,26 @@ func (m model) viewHarnessAuth() string {
 				}
 
 				// API key field
-				apiDisplay := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("(not set)")
+				apiDisplay := theme.HarnessStatusMuted.Render("(not set)")
 				if hs.apiKey != "" {
 					masked := strings.Repeat("•", min(len(hs.apiKey), 16))
 					if len(hs.apiKey) > 4 {
 						masked = strings.Repeat("•", min(len(hs.apiKey)-4, 16)) + hs.apiKey[len(hs.apiKey)-4:]
 					}
-					apiDisplay = lipgloss.NewStyle().Foreground(theme.TextMuted).Render(masked)
+					apiDisplay = theme.HarnessStatusMuted.Render(masked)
 				}
 				if m.harnessEditing && m.harnessEditField == "apikey" {
-					apiDisplay = inputStyle.Render(m.harnessEditBuffer + "█")
+					apiDisplay = theme.HarnessInput.Render(m.harnessEditBuffer + "█")
 				}
 				content.WriteString(detailIndent + theme.Subtitle.Render(apiLabel+": ") + apiDisplay + "\n")
 
 				// Model field
-				modelDisplay := lipgloss.NewStyle().Foreground(theme.TextMuted).Render("(default)")
+				modelDisplay := theme.HarnessStatusMuted.Render("(default)")
 				if hs.model != "" {
 					modelDisplay = theme.Value.Render(hs.model)
 				}
 				if m.harnessEditing && m.harnessEditField == "model" {
-					modelDisplay = inputStyle.Render(m.harnessEditBuffer + "█")
+					modelDisplay = theme.HarnessInput.Render(m.harnessEditBuffer + "█")
 				}
 				content.WriteString(detailIndent + theme.Subtitle.Render("Model: ") + modelDisplay + "\n")
 			}

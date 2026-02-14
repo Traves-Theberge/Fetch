@@ -130,3 +130,67 @@ var SelectorModality = lipgloss.NewStyle().
 var SelectorToolsBadge = lipgloss.NewStyle().
 	Foreground(Success).
 	Bold(true)
+
+// ===== MENU & SETTINGS STYLES =====
+
+// MenuPanelTitle is the shared title pill for menu panels.
+var MenuPanelTitle = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(Secondary).
+	Background(Surface).
+	Padding(0, 1)
+
+// MenuCursorPrefix is the active row marker.
+var MenuCursorPrefix = lipgloss.NewStyle().
+	Foreground(Primary).
+	Bold(true)
+
+// MenuSelectedItem is used for selected menu rows.
+var MenuSelectedItem = lipgloss.NewStyle().
+	Foreground(Primary).
+	Bold(true)
+
+// MenuItem is used for normal menu rows.
+var MenuItem = lipgloss.NewStyle().
+	Foreground(TextPrimary)
+
+// MenuItemDisabled is used for unavailable menu rows.
+var MenuItemDisabled = lipgloss.NewStyle().
+	Foreground(TextMuted)
+
+// MenuItemBadge is used for lightweight status badges on menu rows.
+var MenuItemBadge = lipgloss.NewStyle().
+	Foreground(TextMuted).
+	Italic(true)
+
+// SettingsTabActive is the selected tab in settings views.
+var SettingsTabActive = lipgloss.NewStyle().
+	Bold(true).
+	Foreground(Primary).
+	Background(Surface).
+	Padding(0, 1)
+
+// SettingsTabInactive is the non-selected tab in settings views.
+var SettingsTabInactive = lipgloss.NewStyle().
+	Foreground(TextMuted).
+	Padding(0, 1)
+
+// HarnessRowSelected is the selected harness name style.
+var HarnessRowSelected = lipgloss.NewStyle().
+	Foreground(Primary).
+	Bold(true)
+
+// HarnessRow is the default harness name style.
+var HarnessRow = Value
+
+// HarnessStatusMuted is for neutral harness status labels.
+var HarnessStatusMuted = lipgloss.NewStyle().
+	Foreground(TextMuted)
+
+// HarnessSelectedAccountPrefix is for selected GitHub account pointer.
+var HarnessSelectedAccountPrefix = lipgloss.NewStyle().
+	Foreground(Secondary)
+
+// HarnessInput is for in-place harness text editing.
+var HarnessInput = lipgloss.NewStyle().
+	Foreground(TextPrimary)
