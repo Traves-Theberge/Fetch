@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Setup-mode bridge bootstrap** — Bridge now starts the status API before strict env gating and stays alive in setup mode when required keys are missing, allowing TUI configuration without crash-looping.
+- **TUI config input UX** — Manager config editor now accepts pasted multi-character input for fields like API keys and phone numbers.
+- **TUI project-dir resolution** — Manager now resolves the real Fetch project root more reliably (including installed `~/.fetch/repo` layouts), so Start/Stop/Restart actions target the correct compose project.
+- **Installer/setup token provisioning** — `scripts/install.sh` and `fetch setup` now auto-generate `ADMIN_TOKEN` when missing; `.env.example` now includes `ADMIN_TOKEN`.
+- **Status API admin auth behavior** — Protected status/session/config routes now support local admin access when `ADMIN_TOKEN` is intentionally unset, preventing TUI session/config 401 drift.
+- **CLI update ergonomics** — `fetch self update` now accepts `--manifest-url <url>` directly.
+- **CLI version reporting** — Installer writes `.fetch-install-meta` and `fetch self version` now falls back to installed metadata when `.git` is unavailable (tarball installs).
+- **Release/update manifest corrections** — `v0.0.52` manifest metadata was refreshed to point to current archive commits and checksums used by `fetch self update`.
 - **Version bump** — Bumped project/runtime package versions to `v0.0.52`.
 
 ## [0.0.51] - 2026-02-14
