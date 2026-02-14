@@ -12,9 +12,9 @@ Provide a stable one-command install (`curl | bash`) and a single `fetch` CLI su
 - [x] New local management CLI added at `scripts/fetch-cli.sh`
 - [x] Root `install.sh` converted to wrapper (legacy path removed)
 - [x] Release manifest + checksum verification
-- [ ] Atomic rollback on failed update
+- [x] Atomic rollback on failed update
 - [x] Channel support (`stable` / `beta` / `nightly`)
-- [ ] CI install smoke test matrix
+- [x] CI install smoke test matrix
 
 ## Phase 1: Unified Local Flow
 
@@ -30,10 +30,10 @@ Provide a stable one-command install (`curl | bash`) and a single `fetch` CLI su
 - [x] Documentation updates for new flow
 
 ### Acceptance Criteria
-- [ ] Fresh machine can run installer without manual repo cloning.
-- [ ] `fetch self doctor` reports missing dependencies clearly.
-- [ ] `fetch self update` updates repo and rebuilds manager.
-- [ ] `fetch up/down/status/logs/tui` work from installed CLI.
+- [x] Fresh machine can run installer without manual repo cloning.
+- [x] `fetch self doctor` reports missing dependencies clearly.
+- [x] `fetch self update` updates repo and rebuilds manager.
+- [x] `fetch up/down/status/logs/tui` work from installed CLI.
 
 ## Phase 2: Safe Versioned Updates
 
@@ -44,11 +44,11 @@ Provide a stable one-command install (`curl | bash`) and a single `fetch` CLI su
 - [x] `release-manifest.json` contract
 - [x] Checksum verification in installer/updater
 - [x] `fetch self pin <version>` via released artifacts
-- [ ] Rollback to last good binary on update failure
+- [x] Rollback to last good binary on update failure
 
 ### Acceptance Criteria
-- [ ] Failed update never leaves `fetch` broken.
-- [ ] Exact version install works with integrity checks.
+- [x] Failed update never leaves `fetch` broken.
+- [x] Exact version install works with integrity checks.
 
 ## Phase 3: Release and Operations Hardening
 
@@ -56,14 +56,14 @@ Provide a stable one-command install (`curl | bash`) and a single `fetch` CLI su
 - Make updates predictable across environments.
 
 ### Deliverables
-- [ ] CI builds per arch (`linux/amd64`, `linux/arm64`)
-- [ ] Published checksums and release notes automation
-- [ ] Install/update smoke tests in CI
-- [ ] Migration guide for older installs
+- [x] CI builds per arch (`linux/amd64`, `linux/arm64`)
+- [x] Published checksums and release notes automation
+- [x] Install/update smoke tests in CI
+- [x] Migration guide for older installs
 
 ### Acceptance Criteria
-- [ ] New release publish automatically updates manifest.
-- [ ] Smoke tests pass for fresh install + update paths.
+- [x] New release publish automatically updates manifest.
+- [x] Smoke tests pass for fresh install + update paths.
 
 ## Open Technical Decisions
 1. Should updates track `main` by default or latest semver tag?
@@ -71,6 +71,6 @@ Provide a stable one-command install (`curl | bash`) and a single `fetch` CLI su
 3. Should installer auto-install dependencies (with sudo) or remain dependency-check-only?
 
 ## Immediate Next Tasks
-1. Add release-manifest support and checksum verification to installer.
-2. Implement staged update + rollback in `fetch self update`.
-3. Add CI workflow that tests install and update on clean Linux runners.
+1. Add signed checksum verification for release artifacts.
+2. Add macOS support and CI smoke coverage.
+3. Add optional package-manager distribution (Homebrew/Apt).

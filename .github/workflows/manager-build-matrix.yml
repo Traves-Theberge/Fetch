@@ -1,0 +1,42 @@
+name: Manager Build Matrix
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build manager
+        working-directory: manager
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          VERSION="$(cat ../VERSION)"
+          COMMIT="${GITHUB_SHA}"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-X github.com/fetch/manager/internal/components.version=${VERSION} -X github.com/fetch/manager/internal/components.gitCommit=${COMMIT} -X github.com/fetch/manager/internal/components.buildDate=${DATE}"
+
+          go build -ldflags "$LDFLAGS" -o "fetch-manager-linux-${GOARCH}" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fetch-manager-linux-${{ matrix.goarch }}
+          path: manager/fetch-manager-linux-${{ matrix.goarch }}

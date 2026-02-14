@@ -12,6 +12,7 @@ Installer behavior:
 - Creates `.env` from `.env.example` if missing
 - Resolves target release from `release-manifest.json`
 - Verifies downloaded release archive with SHA-256 before install
+- Uses staged activation with rollback to previous install if post-install steps fail
 - Builds `manager/fetch-manager` if Go is installed
 
 ## Prerequisites
@@ -61,6 +62,21 @@ If you previously ran a repo-local install, run:
 ```
 
 This updates symlinks and keeps your existing repo/config.
+
+### Migration from older repo-local installs
+
+If your old setup lived in `~/fetch` (or another custom path), migrate to the managed layout:
+
+```bash
+FETCH_HOME=~/.fetch ./scripts/install.sh --ref main
+```
+
+Then verify:
+
+```bash
+fetch self version
+fetch self doctor
+```
 
 ## Fork/Enterprise Override (Optional)
 

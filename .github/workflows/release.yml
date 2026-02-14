@@ -1,0 +1,153 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-manifest:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      commit: ${{ steps.meta.outputs.commit }}
+      archive_url: ${{ steps.meta.outputs.archive_url }}
+      archive_sha: ${{ steps.meta.outputs.archive_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build release manifest payload
+        id: meta
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          COMMIT="${GITHUB_SHA}"
+          ARCHIVE_URL="https://codeload.github.com/${GITHUB_REPOSITORY}/tar.gz/${TAG}"
+
+          curl -fsSL "$ARCHIVE_URL" -o /tmp/fetch-src.tar.gz
+          ARCHIVE_SHA="$(sha256sum /tmp/fetch-src.tar.gz | awk '{print $1}')"
+
+          cat > /tmp/release-manifest.json <<JSON
+          {
+            "schemaVersion": 1,
+            "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "defaultChannel": "stable",
+            "channels": {
+              "stable": "${TAG}",
+              "beta": "${TAG}",
+              "nightly": "${TAG}"
+            },
+            "releases": {
+              "${TAG}": {
+                "gitRef": "${COMMIT}",
+                "archive": {
+                  "url": "${ARCHIVE_URL}",
+                  "sha256": "${ARCHIVE_SHA}"
+                }
+              }
+            }
+          }
+          JSON
+
+          cp /tmp/release-manifest.json "$GITHUB_WORKSPACE/release-manifest.generated.json"
+
+          {
+            echo "tag=${TAG}"
+            echo "commit=${COMMIT}"
+            echo "archive_url=${ARCHIVE_URL}"
+            echo "archive_sha=${ARCHIVE_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update manifest on main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git checkout -B main origin/main
+
+          cp "$GITHUB_WORKSPACE/release-manifest.generated.json" release-manifest.json
+
+          if git diff --quiet -- release-manifest.json; then
+            echo "Manifest unchanged; no commit needed"
+            exit 0
+          fi
+
+          git add release-manifest.json
+          git commit -m "chore(release): update manifest for ${GITHUB_REF_NAME}"
+          git push origin HEAD:main
+
+      - name: Upload generated manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest.generated.json
+
+  build-manager:
+    runs-on: ubuntu-latest
+    needs: prepare-manifest
+    strategy:
+      fail-fast: false
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build manager archive
+        working-directory: manager
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          COMMIT="${GITHUB_SHA}"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-X github.com/fetch/manager/internal/components.version=${VERSION} -X github.com/fetch/manager/internal/components.gitCommit=${COMMIT} -X github.com/fetch/manager/internal/components.buildDate=${DATE}"
+
+          BIN="fetch-manager-linux-${GOARCH}"
+          go build -ldflags "$LDFLAGS" -o "$BIN" .
+          tar -czf "${BIN}.tar.gz" "$BIN"
+
+      - name: Upload manager archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: manager-archives-${{ matrix.goarch }}
+          path: manager/fetch-manager-linux-${{ matrix.goarch }}.tar.gz
+
+  publish-release:
+    runs-on: ubuntu-latest
+    needs: [prepare-manifest, build-manager]
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Prepare release files
+        run: |
+          set -euo pipefail
+          cp dist/release-manifest/release-manifest.generated.json dist/release-manifest.json
+          find dist -type f -name '*.tar.gz' -print0 | sort -z | xargs -0 sha256sum > dist/checksums.txt
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/**/*.tar.gz
+            dist/checksums.txt
+            dist/release-manifest.json

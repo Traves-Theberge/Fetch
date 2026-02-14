@@ -18,6 +18,8 @@ BIN_DIR="${BIN_DIR:-$DEFAULT_BIN_DIR}"
 REPO_DIR="${REPO_DIR:-}"
 SKIP_BUILD=0
 WITH_HARNESS_UPDATE=0
+ACTIVATED_BACKUP_DIR=""
+NEW_INSTALL_ACTIVATED=0
 
 usage() {
   cat <<USAGE
@@ -213,9 +215,9 @@ install_from_archive() {
   fi
 
   if [[ -n "$backup_dir" && -d "$backup_dir" ]]; then
-    rm -rf "$backup_dir"
+    ACTIVATED_BACKUP_DIR="$backup_dir"
   fi
-
+  NEW_INSTALL_ACTIVATED=1
   rm -rf "$tmp_dir"
   log "Installed Fetch $version"
 }
@@ -258,25 +260,58 @@ else
   trap - EXIT
 fi
 
-mkdir -p "$REPO_DIR/data" "$REPO_DIR/workspace" "$REPO_DIR/config/github" "$REPO_DIR/config/claude"
+post_install_steps() {
+  mkdir -p "$REPO_DIR/data" "$REPO_DIR/workspace" "$REPO_DIR/config/github" "$REPO_DIR/config/claude"
 
-if [[ "$SKIP_BUILD" -eq 0 ]]; then
-  if command -v go >/dev/null 2>&1; then
-    log "Building manager binary"
-    chmod +x "$REPO_DIR/scripts/build_manager.sh"
-    (cd "$REPO_DIR" && ./scripts/build_manager.sh)
-  else
-    log "Go not found; skipped manager build"
+  if [[ "$SKIP_BUILD" -eq 0 ]]; then
+    if command -v go >/dev/null 2>&1; then
+      log "Building manager binary"
+      chmod +x "$REPO_DIR/scripts/build_manager.sh"
+      (cd "$REPO_DIR" && ./scripts/build_manager.sh)
+    else
+      log "Go not found; skipped manager build"
+    fi
   fi
+
+  if [[ "$WITH_HARNESS_UPDATE" -eq 1 && -x "$REPO_DIR/scripts/update_harnesses.sh" ]]; then
+    log "Updating harness dependencies"
+    (cd "$REPO_DIR" && ./scripts/update_harnesses.sh)
+  fi
+
+  chmod +x "$REPO_DIR/scripts/fetch-cli.sh"
+  ln -sf "$REPO_DIR/scripts/fetch-cli.sh" "$BIN_DIR/fetch"
+}
+
+rollback_if_needed() {
+  if [[ "$NEW_INSTALL_ACTIVATED" -ne 1 ]]; then
+    return 0
+  fi
+  if [[ -z "$ACTIVATED_BACKUP_DIR" || ! -d "$ACTIVATED_BACKUP_DIR" ]]; then
+    return 0
+  fi
+
+  log "Post-install step failed; restoring previous installation"
+  local failed_dir
+  failed_dir="${REPO_DIR}.failed.$(date +%s)"
+  if [[ -d "$REPO_DIR" ]]; then
+    mv "$REPO_DIR" "$failed_dir" || true
+  fi
+  mv "$ACTIVATED_BACKUP_DIR" "$REPO_DIR"
+  log "Rollback complete"
+}
+
+set +e
+post_install_steps
+POST_INSTALL_RC=$?
+set -e
+if [[ "$POST_INSTALL_RC" -ne 0 ]]; then
+  rollback_if_needed
+  fail "Install failed during post-install steps"
 fi
 
-if [[ "$WITH_HARNESS_UPDATE" -eq 1 && -x "$REPO_DIR/scripts/update_harnesses.sh" ]]; then
-  log "Updating harness dependencies"
-  (cd "$REPO_DIR" && ./scripts/update_harnesses.sh)
+if [[ -n "$ACTIVATED_BACKUP_DIR" && -d "$ACTIVATED_BACKUP_DIR" ]]; then
+  rm -rf "$ACTIVATED_BACKUP_DIR"
 fi
-
-chmod +x "$REPO_DIR/scripts/fetch-cli.sh"
-ln -sf "$REPO_DIR/scripts/fetch-cli.sh" "$BIN_DIR/fetch"
 
 installed_version="unknown"
 if [[ -f "$REPO_DIR/VERSION" ]]; then

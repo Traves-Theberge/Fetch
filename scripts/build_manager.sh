@@ -1,12 +1,15 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 # Go to manager directory
 cd "$(dirname "$0")/../manager"
 
 # Read version from root VERSION file
 VERSION=$(cat ../VERSION)
-COMMIT=$(git rev-parse HEAD)
+COMMIT="unknown"
+if git rev-parse HEAD >/dev/null 2>&1; then
+  COMMIT=$(git rev-parse HEAD)
+fi
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 echo "🏗️  Building Fetch Manager ${VERSION}..."

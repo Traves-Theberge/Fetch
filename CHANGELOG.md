@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Production doc cleanup** — Removed personal attribution/footer text, corrected legacy service placeholders, and tightened setup wording.
 - **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.
 - **Repo slug centralization** — Installer/update scripts now derive canonical URLs from `FETCH_REPO_SLUG` (with optional `FETCH_MANIFEST_URL` override) instead of duplicating hardcoded repo strings.
+- **Installer rollback safety** — `scripts/install.sh` now keeps a pre-update backup until post-install steps succeed and restores the previous install on failure.
+- **CI install/update smoke coverage** — Added GitHub Actions workflow that validates installer syntax, local manifest install, `self doctor`, `self pin`, and `self update`.
+- **CI manager cross-arch builds** — Added GitHub Actions matrix build for `linux/amd64` and `linux/arm64` manager binaries on PR/push.
+- **Release automation** — Added tag-triggered release workflow that builds manager archives, publishes checksums + release notes, and updates `release-manifest.json` on `main`.
 
 ### Documentation
 

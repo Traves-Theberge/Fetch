@@ -1,0 +1,72 @@
+name: Install/Update Smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shell syntax checks
+        run: |
+          bash -n install.sh scripts/install.sh scripts/fetch-cli.sh
+
+      - name: Build local test manifest and archive
+        run: |
+          set -euo pipefail
+          TMP_DIR="$(mktemp -d)"
+          ARCHIVE_PATH="$TMP_DIR/fetch-src.tar.gz"
+          PREFIX="Fetch-smoke/"
+
+          git archive --format=tar.gz --prefix="$PREFIX" HEAD > "$ARCHIVE_PATH"
+          SHA="$(sha256sum "$ARCHIVE_PATH" | awk '{print $1}')"
+
+          cat > "$TMP_DIR/release-manifest.json" <<JSON
+          {
+            "schemaVersion": 1,
+            "defaultChannel": "stable",
+            "channels": {
+              "stable": "vtest"
+            },
+            "releases": {
+              "vtest": {
+                "gitRef": "${GITHUB_SHA}",
+                "archive": {
+                  "url": "file://${ARCHIVE_PATH}",
+                  "sha256": "${SHA}"
+                }
+              }
+            }
+          }
+          JSON
+
+          echo "TMP_DIR=$TMP_DIR" >> "$GITHUB_ENV"
+
+      - name: Install from local manifest
+        run: |
+          set -euo pipefail
+          TEST_HOME="$TMP_DIR/home"
+          TEST_BIN="$TMP_DIR/bin"
+          mkdir -p "$TEST_HOME" "$TEST_BIN"
+
+          scripts/install.sh \
+            --manifest-url "file://$TMP_DIR/release-manifest.json" \
+            --home "$TEST_HOME/.fetch" \
+            --bin-dir "$TEST_BIN" \
+            --skip-build
+
+          "$TEST_BIN/fetch" self doctor
+          FETCH_MANIFEST_URL="file://$TMP_DIR/release-manifest.json" "$TEST_BIN/fetch" self version
+
+      - name: Pin and update from manifest
+        run: |
+          set -euo pipefail
+          TEST_BIN="$TMP_DIR/bin"
+
+          FETCH_MANIFEST_URL="file://$TMP_DIR/release-manifest.json" "$TEST_BIN/fetch" self pin vtest
+          FETCH_MANIFEST_URL="file://$TMP_DIR/release-manifest.json" "$TEST_BIN/fetch" self update --channel stable

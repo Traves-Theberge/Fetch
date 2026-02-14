@@ -28,6 +28,8 @@ Thumbs.db
 # Logs
 *.log
 logs/
+!manager/internal/logs/
+!manager/internal/logs/*.go
 
 # Build artifacts
 *.tgz

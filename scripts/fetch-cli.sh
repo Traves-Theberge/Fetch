@@ -3,7 +3,9 @@
 
 set -euo pipefail
 
-SCRIPT_PATH="${BASH_SOURCE[0]}"
+INVOKED_PATH="${BASH_SOURCE[0]}"
+INVOKED_DIR="$(cd "$(dirname "$INVOKED_PATH")" && pwd)"
+SCRIPT_PATH="$INVOKED_PATH"
 if command -v readlink >/dev/null 2>&1; then
   RESOLVED="$(readlink -f "$SCRIPT_PATH" 2>/dev/null || true)"
   if [[ -n "${RESOLVED:-}" ]]; then
@@ -13,7 +15,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 FETCH_HOME_DEFAULT="${HOME}/.fetch"
-BIN_DIR_DEFAULT="${HOME}/.local/bin"
+BIN_DIR_DEFAULT="$INVOKED_DIR"
 FETCH_REPO_SLUG="${FETCH_REPO_SLUG:-Traves-Theberge/Fetch}"
 
 FETCH_HOME="${FETCH_HOME:-$FETCH_HOME_DEFAULT}"
@@ -176,7 +178,8 @@ self_update() {
     --manifest-url "$MANIFEST_URL" \
     --channel "$channel" \
     --home "$FETCH_HOME" \
-    --bin-dir "$BIN_DIR"
+    --bin-dir "$BIN_DIR" \
+    --repo-dir "$REPO_DIR"
 
   echo "[fetch] update complete"
   self_version
@@ -195,7 +198,8 @@ self_pin() {
     --manifest-url "$MANIFEST_URL" \
     --version "$version" \
     --home "$FETCH_HOME" \
-    --bin-dir "$BIN_DIR"
+    --bin-dir "$BIN_DIR" \
+    --repo-dir "$REPO_DIR"
 
   echo "[fetch] pin complete"
   self_version
