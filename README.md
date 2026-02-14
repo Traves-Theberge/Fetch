@@ -16,7 +16,7 @@
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
   ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
 
-  v0.0.46
+  v0.0.47
 ```
 
 **Unleash Multi-agent orchestration.**
@@ -48,7 +48,7 @@ flowchart LR
         direction TB
         Security["Security Gate\nWhitelist + Rate Limit"]
         Safety["Safety Gate\n8 Escape Commands"]
-        LLM["LLM + 28 Tools"]
+        LLM["LLM + 29 Tools"]
         State["Session / Task / State\nSQLite"]
         Security --> Safety --> LLM
         LLM --- State
@@ -104,21 +104,25 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 - **LLM-First** &mdash; Every message hits the LLM with all 29 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** &mdash; `/stop` `/undo` `/clear` `/help` `/status` `/version` `/usage` `/trust` are deterministic and bypass the LLM
 - **Live Context** &mdash; System prompt rebuilds after every state-changing tool call
+- **Bounded Status Rewrites** &mdash; Progress and completion/failure text can be LLM-rewritten with timeout/sanitizer guards and template fallback
 - **Five Harnesses** &mdash; Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
 - **Structured Memory** &mdash; BM25-style keyword recall, chained compaction summaries, cross-session context
-- **42 Tunable Parameters** &mdash; `FETCH_*` env vars control the entire pipeline, no code changes needed
+- **42 Tunable Parameters** &mdash; `FETCH_*` env vars control the pipeline via live-reading config proxies; runtime reloads apply without restart
 
 </td>
 <td width="50%" valign="top">
 
 ### Tools & Capabilities
 
-- **28 Orchestrator Tools** &mdash; Workspace management, task lifecycle, GitHub ops, web fetch, web search, browser automation
+- **29 Orchestrator Tools** &mdash; Workspace management, task lifecycle, GitHub ops, web fetch, web search, browser automation
 - **Web Fetch & Search** &mdash; Readability + Turndown for pages, self-hosted SearXNG for search (no API keys)
 - **Browser Automation** &mdash; Headless Chromium via Playwright with accessibility tree snapshots
 - **Voice & Vision** &mdash; Voice notes transcribed via whisper.cpp, image analysis via vision model
 - **GitHub Auto-Sync** &mdash; Commits, pushes, and auto-creates repos on workspace creation
 - **Skills Framework** &mdash; Teach new capabilities by dropping Markdown into `data/skills/`
+- **Skill-to-Tool Mapping** &mdash; Built-in skills are aligned to concrete tool modules; see `docs/markdown/SKILLS_GUIDE.md` and `docs/markdown/API_REFERENCE.md`
+- **Tool Contract Source** &mdash; `fetch-app/src/validation/tools.ts` is the canonical tool name/argument surface
+- **Subsystem Ownership Maps** &mdash; `docs/markdown/API_REFERENCE.md` tracks tool, workspace, vision, and support-module ownership
 
 </td>
 </tr>
@@ -132,6 +136,8 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 
 - **Dynamic Identity** &mdash; Hot-reloaded personality from Markdown files
 - **Crash Recovery** &mdash; State persisted to SQLite, resumes after restart
+- **Status & Admin API** &mdash; Bridge exposes `/api/status`, `/api/health`, and admin-protected control/session endpoints
+- **Robust WhatsApp Transport** &mdash; Event deduplication, voice/image preprocessing, reaction handling, and auto-reconnect backoff
 - **10 Project Types** &mdash; Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET with framework, package manager, and test runner profiling
 - **Narrative Tool Outputs** &mdash; All tool results are human-readable text for better LLM reasoning, with structured metadata for state sync
 - **Docker Hardening** &mdash; Healthchecks, resource limits, log rotation, shell injection prevention
@@ -208,17 +214,17 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameter
 | [Commands](docs/markdown/COMMANDS.md) | Safety escapes and usage |
 | [Configuration](docs/markdown/CONFIGURATION.md) | Env vars and config files |
 | [Architecture](docs/markdown/ARCHITECTURE.md) | System design and data flow |
-| [Harness System](docs/markdown/HARNESS_SYSTEM.md) | CLI adapter lifecycle |
+| [Harness System](docs/markdown/HARNESS_SYSTEM.md) | CLI adapter lifecycle and source responsibility index |
 
 </td>
 <td>
 
 | Guide | Description |
 |:------|:------------|
-| [Identity System](docs/markdown/IDENTITY_SYSTEM.md) | Dynamic persona and directives |
-| [Skills Guide](docs/markdown/SKILLS_GUIDE.md) | Building skill plugins |
+| [Identity System](docs/markdown/IDENTITY_SYSTEM.md) | Dynamic persona, prompt assembly, and identity/security source responsibilities |
+| [Skills Guide](docs/markdown/SKILLS_GUIDE.md) | Building skill plugins and keeping them aligned with live tools |
 | [Context Pipeline](docs/markdown/CONTEXT_PIPELINE.md) | Memory, compaction, prompt assembly |
-| [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite persistence and shutdown |
+| [State Management](docs/markdown/STATE_MANAGEMENT.md) | SQLite session/task persistence and source responsibility index |
 | [API Reference](docs/markdown/API_REFERENCE.md) | Tool interfaces and endpoints |
 | [Testing Guide](docs/markdown/TESTING_GUIDE.md) | Verification checklist |
 | [Changelog](CHANGELOG.md) | Version history |
@@ -243,6 +249,8 @@ npm run lint         # eslint
 npm run test:run     # all tests (355 passing)
 npm run test:unit    # unit tests only
 ```
+
+Manual verification scripts (not CI tests): `fetch-app/scripts/manual/README.md`
 
 </details>
 

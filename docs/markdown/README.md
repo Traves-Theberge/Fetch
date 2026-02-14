@@ -49,13 +49,14 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 - **LLM-First** — Every message goes directly to the LLM with all 29 tools. No pre-classification, no regex routing
 - **8 Safety Escapes** — `/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust` are deterministic
 - **Live Context** — System prompt rebuilt after every state-changing tool call
+- **Bounded Status Rewrites** — Progress and completion/failure text can be LLM-rewritten with timeout/sanitizer guards and template fallback
 - **Five Harnesses** — Claude Code, Gemini CLI, Copilot CLI, OpenCode, Codex with process lifecycle management
 - **Structured Memory** — Cross-session recall with BM25-style keyword matching, chained compaction summaries
-- **Pipeline Tuning** — 42 parameters via `FETCH_*` env vars, no code changes needed
+- **Pipeline Tuning** — 42 parameters via `FETCH_*` env vars, resolved through live-reading config proxies
 
 **Tools & Capabilities**
 
-- **27 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
+- **29 Orchestrator Tools** — Workspace management, task lifecycle, GitHub operations, web fetch, web search, browser automation
 - **Web Fetch & Search** — Readability + Turndown for pages, self-hosted SearXNG for search (no API keys)
 - **Browser Automation** — Headless Chromium via Playwright with accessibility tree snapshots
 - **Voice & Vision** — Voice notes transcribed via whisper.cpp, image analysis via vision model
@@ -65,7 +66,12 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 
 - **Dynamic Identity** — Hot-reloaded personality from Markdown files in `data/identity/`
 - **Skills Framework** — Teach new capabilities by adding Markdown to `data/skills/`
+- **Skill-to-Tool Mapping** — Built-in skills map to concrete tool modules (see Skills Guide + API Reference ownership tables)
+- **Tool Contract Source** — `fetch-app/src/validation/tools.ts` defines the canonical tool name/argument surface
+- **Subsystem Ownership Maps** — API Reference tracks tool, workspace, vision, and supporting module ownership
 - **Crash Recovery** — State persisted to SQLite, resumes after restart
+- **Status & Admin API** — Bridge exposes `/api/status`, `/api/health`, and admin-protected control/session endpoints
+- **Robust WhatsApp Transport** — Event deduplication, voice/image preprocessing, reaction handling, and auto-reconnect backoff
 - **10 Project Types** — Auto-detects Node, TypeScript, Python, Rust, Go, Java, Ruby, PHP, .NET
 - **Docker Hardening** — Healthchecks, resource limits, log rotation, shell injection prevention
 
@@ -99,11 +105,11 @@ See [Setup Guide](SETUP_GUIDE.md) for full instructions.
 | [Commands](COMMANDS.md) | Safety escapes and usage examples |
 | [Configuration](CONFIGURATION.md) | Environment variables and config files |
 | [Architecture](ARCHITECTURE.md) | System design, data flow, concurrency patterns |
-| [Harness System](HARNESS_SYSTEM.md) | CLI adapter lifecycle and process management |
-| [Identity System](IDENTITY_SYSTEM.md) | Dynamic persona, directives, and CLI config templates |
-| [Skills Guide](SKILLS_GUIDE.md) | Building and loading skill plugins |
+| [Harness System](HARNESS_SYSTEM.md) | CLI adapter lifecycle, process management, and source responsibility index |
+| [Identity System](IDENTITY_SYSTEM.md) | Dynamic persona, prompt assembly, and identity/security source responsibility index |
+| [Skills Guide](SKILLS_GUIDE.md) | Building/loading skills and keeping skill instructions aligned with live tools |
 | [Context Pipeline](CONTEXT_PIPELINE.md) | Message windowing, compaction, prompt assembly |
-| [State Management](STATE_MANAGEMENT.md) | SQLite persistence, singleton patterns, shutdown |
+| [State Management](STATE_MANAGEMENT.md) | SQLite session/task persistence and source responsibility index |
 | [API Reference](API_REFERENCE.md) | Tool interfaces and HTTP endpoints |
 | [Changelog](../../CHANGELOG.md) | Version history and release notes |
 
@@ -128,6 +134,8 @@ go build -o fetch-manager .
 docker compose down            # stop
 docker logs -f fetch-bridge    # bridge logs
 ```
+
+Manual verification scripts (not CI tests): `../../fetch-app/scripts/manual/README.md`
 
 ## License
 

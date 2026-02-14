@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Manual verification scripts moved** — Ad-hoc root verification scripts were reorganized into `fetch-app/scripts/manual/` to separate manual checks from Vitest CI coverage.
+- **Import path fixes for moved scripts** — Updated manual script imports to reference `fetch-app/src/*` from their new location.
+
+### Removed
+
+- **Legacy JS duplicates** — Removed `fetch-app/error-handling-verify.js` and `fetch-app/interaction-tool-verify.js` to eliminate redundant, non-CI script variants.
+
+### Documentation
+
+- Added `fetch-app/scripts/manual/README.md` with run commands, prerequisites, and side-effect warnings (notably GitHub remote operations).
+- Updated root and docs readmes to point contributors to manual verification scripts separately from automated test commands.
+
 ## [0.0.47] - 2026-02-13
 
 ### Security

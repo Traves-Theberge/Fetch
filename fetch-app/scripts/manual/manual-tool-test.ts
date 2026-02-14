@@ -3,16 +3,14 @@ import {
     handleWorkspaceList,
     handleWorkspaceCreate,
     handleWorkspaceSelect,
-    handleWorkspaceStatus,
     handleWorkspaceDelete
-} from './src/tools/workspace.js';
+} from '../../src/tools/workspace.js';
 import {
     handleTaskCreate,
     handleTaskStatus,
     handleTaskCancel
-} from './src/tools/task.js';
-import { workspaceManager } from './src/workspace/manager.js';
-import { logger } from './src/utils/logger.js';
+} from '../../src/tools/task.js';
+import { workspaceManager } from '../../src/workspace/manager.js';
 
 // DO NOT silence the logger
 // logger.silent = true;

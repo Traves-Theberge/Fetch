@@ -5,9 +5,8 @@ import {
     handleWorkspaceSelect,
     handleWorkspaceCreate,
     handleWorkspaceDelete
-} from './src/tools/workspace.js';
-import { workspaceManager } from './src/workspace/manager.js';
-import { logger } from './src/utils/logger.js';
+} from '../../src/tools/workspace.js';
+import { workspaceManager } from '../../src/workspace/manager.js';
 
 async function verifyGitHubTools() {
     console.log('🐕 Starting GitHub Tool Verification...\n');
@@ -46,7 +45,7 @@ async function verifyGitHubTools() {
         // 3. Sync (Unpushed commit)
         console.log('\n--- 3. workspace_sync (with unpushed commit) ---');
         // Manual commit in kennel
-        const { dockerExec } = await import('./src/utils/docker.js');
+        const { dockerExec } = await import('../../src/utils/docker.js');
         const wsPath = `/workspace/${testWs}`;
         await dockerExec('git', ['-C', wsPath, 'commit', '--allow-empty', '-m', 'Manual verification commit']);
 

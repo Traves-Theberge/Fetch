@@ -1,8 +1,7 @@
 
-import { handleAskUser, handleReportProgress } from './src/tools/interaction.js';
-import { handleTaskCreate, handleTaskStatus } from './src/tools/task.js';
-import { handleWorkspaceSelect } from './src/tools/workspace.js';
-import { getTaskManager } from './src/task/manager.js';
+import { handleAskUser, handleReportProgress } from '../../src/tools/interaction.js';
+import { handleTaskCreate, handleTaskStatus } from '../../src/tools/task.js';
+import { handleWorkspaceSelect } from '../../src/tools/workspace.js';
 
 async function verifyInteractionTools() {
     console.log('🐕 Starting Section 4: Interaction Tools Verification...\n');
