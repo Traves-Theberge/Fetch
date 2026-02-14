@@ -953,7 +953,12 @@ func startFetchCmd() tea.Cmd {
 	return func() tea.Msg {
 		err := docker.StartServices()
 		if err != nil {
-			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to start: %v", err)}
+			msg := fmt.Sprintf("Failed to start: %v", err)
+			errText := strings.ToLower(err.Error())
+			if strings.Contains(errText, "permission denied") && strings.Contains(errText, "docker.sock") {
+				msg = "Failed to start: docker permission denied.\nRun:\n  sudo systemctl enable --now docker\n  sudo usermod -aG docker $USER\n  newgrp docker"
+			}
+			return actionResultMsg{success: false, message: msg}
 		}
 		return actionResultMsg{success: true, message: "✅ Fetch services started!"}
 	}

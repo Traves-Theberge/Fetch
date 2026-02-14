@@ -32,6 +32,21 @@ Required on host:
 - `curl`
 - `docker` + `docker compose` plugin
 
+Docker permission check (required before `fetch up`):
+
+```bash
+docker ps
+```
+
+If it fails with `permission denied`:
+
+```bash
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+newgrp docker
+docker ps
+```
+
 Optional:
 - `go` (required for manager rebuilds)
 - `node` + `npm` (required to install/update harness CLIs)

@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Install/update docs refreshed** — Updated README and setup docs to use curl installer and `fetch self` workflows.
 - **Harness install docs linked** — Added direct official install/setup links for Copilot CLI, Claude Code, Gemini CLI, OpenCode, Codex, plus Node/npm prerequisite links.
 - **Doctor prerequisite checks expanded** — `fetch self doctor` now reports missing `node`/`npm` as optional warnings for harness CLI installation.
+- **Doctor Docker-access remediation** — `fetch self doctor` now checks `docker ps` permissions and prints exact `systemctl/usermod/newgrp` fix commands when daemon access fails.
 - **TUI in-app update action** — Main menu now includes `Update Fetch`, which runs `fetch self update` from the manager and exits on successful completion so the operator can relaunch on the updated install.
+- **TUI start error guidance** — Start Fetch now detects Docker socket permission-denied failures and returns actionable remediation commands in the TUI error message.
 - **Backup cleanup resilience** — Installer no longer fails the update when removing old backup directories hits permission-denied files; it logs a warning and continues.
 - **Production doc cleanup** — Removed personal attribution/footer text, corrected legacy service placeholders, and tightened setup wording.
 - **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.

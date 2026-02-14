@@ -30,6 +30,16 @@ sudo usermod -aG docker $USER
 newgrp docker
 docker --version
 docker compose version
+docker ps
+```
+
+If `docker ps` fails with `permission denied`, run:
+
+```bash
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+newgrp docker
+docker ps
 ```
 
 ### 3. Install Go (recommended)

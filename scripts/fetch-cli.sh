@@ -112,6 +112,7 @@ cmd_tui() {
 self_doctor() {
   local missing=0
   local optional_missing=0
+  local docker_perm_issue=0
   echo "[fetch] doctor: checking environment"
 
   for c in git curl docker tar sha256sum python3; do
@@ -127,6 +128,17 @@ self_doctor() {
     echo "  ✅ docker compose"
   else
     echo "  ❌ docker compose plugin (missing)"
+    missing=1
+  fi
+
+  if docker ps >/dev/null 2>&1; then
+    echo "  ✅ docker daemon access"
+  else
+    echo "  ❌ docker daemon access (permission denied or daemon not running)"
+    echo "     fix: sudo systemctl enable --now docker"
+    echo "          sudo usermod -aG docker \$USER"
+    echo "          newgrp docker"
+    docker_perm_issue=1
     missing=1
   fi
 
@@ -162,6 +174,9 @@ self_doctor() {
     return 0
   fi
 
+  if [[ $docker_perm_issue -eq 1 ]]; then
+    echo "[fetch] doctor: docker access check failed (see fix commands above)"
+  fi
   echo "[fetch] doctor: issues found"
   return 1
 }
