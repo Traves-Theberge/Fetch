@@ -1,20 +1,13 @@
-```
-  ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀    ███████╗███████╗████████╗ ██████╗██╗  ██╗
-  ⠀⠀⠀⠺⣇⠀⠀⠀⠀⠀⠀⠀⠘⣿⠀⠀⠘⣻⣻⡆⠀⠀⠙⠦⣄⣀⠀⠀⠀⠀    ██╔════╝██╔════╝╚══██╔══╝██╔════╝██║  ██║
-  ⠀⠀⠀⢰⡟⢷⡄⠀⠀⠀⠀⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⢻⠶⢤⡀    █████╗  █████╗     ██║   ██║     ███████║
-  ⠀⠀⠀⣾⣇⠀⠻⣄⠀⠀⠀⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣀⣴⣿    ██╔══╝  ██╔══╝     ██║   ██║     ██╔══██║
-  ⠀⠀⢸⡟⠻⣆⠀⠈⠳⢄⡀⠀⠀⡼⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠶⠶⢤⣬⡿⠁    ██║     ███████╗   ██║   ╚██████╗██║  ██║
-  ⠀⢀⣿⠃⠀⠹⣆⠀⠀⠀⠙⠓⠿⢧⡀⠀⢠⡴⣶⣶⣒⣋⣀⣀⣤⣶⣶⠟⠁⠀    ╚═╝     ╚══════╝   ╚═╝    ╚═════╝╚═╝  ╚═╝
-  ⠀⣼⡏⠀⠀⠀⠙⠀⠀⠀⠀⠀⠀⠀⠙⠳⠶⠤⠵⣶⠒⠚⠻⠿⠋⠁⠀⠀⠀⠀
-  ⢰⣿⡇⠀⠀⠀⠀⠀⠀⠀⣆⠀⠀⠀⠀⠀⠀⠀⢠⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀    Your Faithful Code Companion
-  ⢿⡿⠁⠀⠀⠀⠀⠀⠀⠀⠘⣦⡀⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀   
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣷⡄⠀⠀⠀⠀⣿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⡀⠀⠀⠀⢸⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀
-  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀
+# Fetch
 
-  v0.0.48
+Your faithful code companion.
+
+```text
+  ______    ______  __________  ______   __    __
+ / ____/   / ____/ / ____/ __/ / ____/  / /   / /
+/ /_      / __/   / /   / /_  / /      / /   / /
+\__ \    / /___  / /___/ __/ / /___   / /___/ /___
+___/ /   \____/  \____/_/    \____/  /_____/_____/
 ```
 
 **Unleash Multi-agent orchestration.**
@@ -34,45 +27,13 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 
 ## How It Works
 
-```mermaid
-flowchart LR
-    subgraph WhatsApp
-        User["You send a message"]
-    end
-
-    subgraph Bridge["Bridge (Node.js)"]
-        direction TB
-        Security["Security Gate\nWhitelist + Rate Limit"]
-        Safety["Safety Gate\n8 Escape Commands"]
-        LLM["LLM + 29 Tools"]
-        State["Session / Task / State\nSQLite"]
-        Security --> Safety --> LLM
-        LLM --- State
-    end
-
-    subgraph Kennel["Kennel (Ubuntu)"]
-        direction TB
-        Claude["Claude Code"]
-        Gemini["Gemini CLI"]
-        Copilot["Copilot CLI"]
-        OpenCode["OpenCode"]
-        Codex["Codex"]
-        Playwright["Playwright + Chromium"]
-        Workspace["/workspace (mounted)"]
-    end
-
-    subgraph Search["SearXNG"]
-        SearX["Meta Search Engine\nGoogle, DuckDuckGo, Bing\nWikipedia, GitHub, npm"]
-    end
-
-    User -->|"WhatsApp message"| Security
-    LLM -->|"docker exec"| Kennel
-    LLM -->|"web_search"| SearX
-    Kennel -->|"results"| LLM
-    LLM -->|"response"| User
-```
-
-> **The flow:** Message arrives on WhatsApp &rarr; Security Gate checks sender &rarr; Safety Gate intercepts escape commands &rarr; LLM decides what to do with 29 tools available &rarr; For coding tasks, a CLI agent spawns in the Kennel via `docker exec` &rarr; Results sent back via WhatsApp.
+1. You send a message on WhatsApp.
+2. Bridge receives it and runs Security Gate checks (whitelist + rate limits).
+3. Safety commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) are handled deterministically.
+4. Other requests go to the LLM with all available tools.
+5. For coding tasks, Bridge starts a harness inside Kennel via `docker exec`.
+6. If web search is needed, Bridge queries SearXNG.
+7. Results are returned to WhatsApp.
 
 <br>
 
