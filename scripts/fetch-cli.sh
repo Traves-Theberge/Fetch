@@ -435,6 +435,7 @@ self_update() {
   need_repo
   local channel="stable"
   local manifest_url="$MANIFEST_URL"
+  local manifest_override=0
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -452,6 +453,7 @@ self_update() {
           exit 1
         }
         manifest_url="$2"
+        manifest_override=1
         shift 2
         ;;
       *)
@@ -460,6 +462,19 @@ self_update() {
         ;;
     esac
   done
+
+  # Avoid stale raw.githubusercontent branch caching by pinning to the current
+  # main commit when using the default manifest source.
+  if [[ $manifest_override -eq 0 ]]; then
+    local main_sha=""
+    if main_sha="$(curl -fsSL "https://api.github.com/repos/${FETCH_REPO_SLUG}/commits/main" \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sha",""))' 2>/dev/null)"; then
+      if [[ "$main_sha" =~ ^[0-9a-f]{40}$ ]]; then
+        manifest_url="https://raw.githubusercontent.com/${FETCH_REPO_SLUG}/${main_sha}/release-manifest.json"
+        echo "[fetch] using pinned manifest commit: ${main_sha:0:7}"
+      fi
+    fi
+  fi
 
   echo "[fetch] updating from channel: $channel"
   "$REPO_DIR/scripts/install.sh" \

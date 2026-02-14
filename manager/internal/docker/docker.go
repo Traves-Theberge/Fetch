@@ -25,6 +25,20 @@ func StartServices() error {
 	cmd.Dir = paths.ProjectDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		outText := string(output)
+		// Recover from stale manually-created containers with fixed names.
+		if strings.Contains(outText, `container name "/fetch-`) && strings.Contains(outText, "already in use by container") {
+			cleanup := exec.Command("docker", "rm", "-f", "fetch-bridge", "fetch-kennel", "searxng")
+			cleanup.CombinedOutput() // Best-effort cleanup.
+
+			retry := exec.Command("docker", "compose", "up", "-d")
+			retry.Dir = paths.ProjectDir
+			retryOutput, retryErr := retry.CombinedOutput()
+			if retryErr == nil {
+				return nil
+			}
+			return fmt.Errorf("%v: %s", retryErr, string(retryOutput))
+		}
 		return fmt.Errorf("%v: %s", err, string(output))
 	}
 	return nil
@@ -32,7 +46,7 @@ func StartServices() error {
 
 // StopServices stops all Fetch Docker services.
 func StopServices() error {
-	cmd := exec.Command("docker", "compose", "down")
+	cmd := exec.Command("docker", "compose", "down", "--remove-orphans")
 	cmd.Dir = paths.ProjectDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {

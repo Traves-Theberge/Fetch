@@ -17,7 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Installer/setup token provisioning** — `scripts/install.sh` and `fetch setup` now auto-generate `ADMIN_TOKEN` when missing; `.env.example` now includes `ADMIN_TOKEN`.
 - **Status API admin auth behavior** — Protected status/session/config routes now support local admin access when `ADMIN_TOKEN` is intentionally unset, preventing TUI session/config 401 drift.
 - **CLI update ergonomics** — `fetch self update` now accepts `--manifest-url <url>` directly.
+- **CLI update cache hardening** — `fetch self update` now auto-pins the manifest to the current `main` commit SHA (via GitHub API) to avoid stale `raw` branch-cache responses.
 - **CLI version reporting** — Installer writes `.fetch-install-meta` and `fetch self version` now falls back to installed metadata when `.git` is unavailable (tarball installs).
+- **TUI Docker lifecycle resilience** — Manager start flow now self-recovers from stale container-name collisions (`fetch-bridge`, `fetch-kennel`, `searxng`) and stop flow now uses `docker compose down --remove-orphans`.
 - **Release/update manifest corrections** — `v0.0.52` manifest metadata was refreshed to point to current archive commits and checksums used by `fetch self update`.
 - **Version bump** — Bumped project/runtime package versions to `v0.0.52`.
 
