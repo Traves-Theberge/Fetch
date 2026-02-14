@@ -79,7 +79,10 @@ Set at minimum:
 ```env
 OWNER_PHONE_NUMBER=15551234567
 OPENROUTER_API_KEY=sk-or-...
+ADMIN_TOKEN=replace-with-long-random-token
 ```
+
+`ADMIN_TOKEN` is strongly recommended for TUI Global Sessions and admin API actions. Without an explicit token, session management can fail after restarts due to token rotation.
 
 Optional GitHub repo sync without Copilot:
 
@@ -108,6 +111,7 @@ Set your critical variables:
 ```env
 OWNER_PHONE_NUMBER=15551234567
 OPENROUTER_API_KEY=sk-or-...
+ADMIN_TOKEN=replace-with-long-random-token
 ```
 
 ### 3. Authenticate Harnesses (Optional)

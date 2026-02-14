@@ -299,13 +299,13 @@ Manages `data/whitelist.json` — the list of phone numbers allowed to use `@fet
 
 ---
 
----
-
 ### Session History
 
 Allows you to browse past conversation histories, view full message transcripts, and manage session lifecycle.
 
 **Why:** Reviewing past tasks or cleaning up old sessions is essential for maintaining an organized workspace.
+
+**Requirement:** Set `ADMIN_TOKEN` in `~/.fetch/repo/.env`. The manager uses that token for `/api/sessions*`; if it is missing/mismatched you will see unauthorized (`401`) errors.
 
 **Controls (Session List):**
 

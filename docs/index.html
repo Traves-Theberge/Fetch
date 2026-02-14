@@ -28,7 +28,7 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <a href="#" class="logo" onclick="loadDoc('README.md'); return false;">
+        <a href="#" class="logo" onclick="loadDoc('DOCUMENTATION.md'); return false;">
           <pre class="logo-ascii">⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⢀⣴⠟⠉⠀⠀⢠⡄⠀⠀⠀⠀⠀⠉⠙⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⢀⡴⠛⠁⠀⠀⠀⠀⠘⣷⣴⠏⠀⠀⣠⡄⠀⠀⢨⡇⠀⠀⠀⠀⠀⠀⠀
@@ -52,24 +52,41 @@
       </div>
 
       <nav class="sidebar-nav">
-        <!-- Getting Started -->
+        <!-- Start Here -->
         <div class="nav-section">
-          <div class="nav-section-title">Getting Started</div>
+          <div class="nav-section-title">Start Here</div>
           <ul class="nav-list">
             <li class="nav-item">
-              <a href="#" class="nav-link active" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
-                <span class="nav-link-icon">📖</span> Overview
+              <a href="#" class="nav-link active" data-doc="DOCUMENTATION.md"
+                onclick="loadDoc('DOCUMENTATION.md'); return false;">
+                <span class="nav-link-icon">📚</span> Documentation Index
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="DOCUMENTATION.md"
-                onclick="loadDoc('DOCUMENTATION.md'); return false;">
-                <span class="nav-link-icon">📚</span> Full Documentation
+              <a href="#" class="nav-link" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
+                <span class="nav-link-icon">📖</span> Overview
               </a>
             </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="SETUP_GUIDE.md" onclick="loadDoc('SETUP_GUIDE.md'); return false;">
                 <span class="nav-link-icon">🚀</span> Setup Guide
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="INSTALL_UPDATE.md"
+                onclick="loadDoc('INSTALL_UPDATE.md'); return false;">
+                <span class="nav-link-icon">⬆️</span> Install &amp; Update
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="UNINSTALL.md" onclick="loadDoc('UNINSTALL.md'); return false;">
+                <span class="nav-link-icon">🗑️</span> Uninstall
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="SECURITY_RUNBOOK.md"
+                onclick="loadDoc('SECURITY_RUNBOOK.md'); return false;">
+                <span class="nav-link-icon">🔐</span> Security Runbook
               </a>
             </li>
             <li class="nav-item">
@@ -85,38 +102,14 @@
           </ul>
         </div>
 
-        <!-- Using Fetch -->
+        <!-- Operations -->
         <div class="nav-section">
-          <div class="nav-section-title">Using Fetch</div>
+          <div class="nav-section-title">Operations</div>
           <ul class="nav-list">
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="CONFIGURATION.md"
                 onclick="loadDoc('CONFIGURATION.md'); return false;">
                 <span class="nav-link-icon">⚙️</span> Configuration
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="AGENTIC_WORKFLOW.md"
-                onclick="loadDoc('AGENTIC_WORKFLOW.md'); return false;">
-                <span class="nav-link-icon">🤖</span> Agentic Workflow
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CONTEXT_PIPELINE.md"
-                onclick="loadDoc('CONTEXT_PIPELINE.md'); return false;">
-                <span class="nav-link-icon">🧠</span> Context Pipeline
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="IDENTITY_SYSTEM.md"
-                onclick="loadDoc('IDENTITY_SYSTEM.md'); return false;">
-                <span class="nav-link-icon">🐕</span> Identity & Agents
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="SKILLS_GUIDE.md"
-                onclick="loadDoc('SKILLS_GUIDE.md'); return false;">
-                <span class="nav-link-icon">🎯</span> Skills Guide
               </a>
             </li>
             <li class="nav-item">
@@ -128,10 +121,16 @@
           </ul>
         </div>
 
-        <!-- Internals (Advanced) -->
+        <!-- Internals -->
         <div class="nav-section">
-          <div class="nav-section-title">Internals (Advanced)</div>
+          <div class="nav-section-title">Internals</div>
           <ul class="nav-list">
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="ARCHITECTURE.md"
+                onclick="loadDoc('ARCHITECTURE.md'); return false;">
+                <span class="nav-link-icon">🏗️</span> Architecture
+              </a>
+            </li>
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="SYSTEMS_DEEP_DIVE.md"
                 onclick="loadDoc('SYSTEMS_DEEP_DIVE.md'); return false;">
@@ -139,9 +138,9 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="ARCHITECTURE.md"
-                onclick="loadDoc('ARCHITECTURE.md'); return false;">
-                <span class="nav-link-icon">🏗️</span> Architecture
+              <a href="#" class="nav-link" data-doc="CONTEXT_PIPELINE.md"
+                onclick="loadDoc('CONTEXT_PIPELINE.md'); return false;">
+                <span class="nav-link-icon">🧠</span> Context Pipeline
               </a>
             </li>
             <li class="nav-item">
@@ -157,6 +156,25 @@
               </a>
             </li>
             <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="IDENTITY_SYSTEM.md"
+                onclick="loadDoc('IDENTITY_SYSTEM.md'); return false;">
+                <span class="nav-link-icon">🐕</span> Identity &amp; Agents
+              </a>
+            </li>
+            <li class="nav-item">
+              <a href="#" class="nav-link" data-doc="SKILLS_GUIDE.md"
+                onclick="loadDoc('SKILLS_GUIDE.md'); return false;">
+                <span class="nav-link-icon">🎯</span> Skills Guide
+              </a>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Reference -->
+        <div class="nav-section">
+          <div class="nav-section-title">Reference</div>
+          <ul class="nav-list">
+            <li class="nav-item">
               <a href="#" class="nav-link" data-doc="API_REFERENCE.md"
                 onclick="loadDoc('API_REFERENCE.md'); return false;">
                 <span class="nav-link-icon">🔌</span> API Reference
@@ -170,8 +188,9 @@
           </ul>
         </div>
 
-        <!-- Changelog -->
+        <!-- Release Notes -->
         <div class="nav-section">
+          <div class="nav-section-title">Release Notes</div>
           <ul class="nav-list">
             <li class="nav-item">
               <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
@@ -187,7 +206,7 @@
           <span id="themeLabel">🌙 Dark Mode</span>
           <span id="themeIcon">☀️</span>
         </button>
-        <div class="sidebar-version">Fetch v0.0.45</div>
+        <div class="sidebar-version">Fetch v0.0.51</div>
       </div>
     </aside>
 
@@ -207,7 +226,7 @@
 
   <!-- Footer -->
   <footer class="docs-footer">
-    <span>Fetch v0.0.45 — Your Faithful Code Companion</span>
+    <span>Fetch v0.0.51 — Your Faithful Code Companion</span>
     <a href="https://github.com/Traves-Theberge/Fetch" target="_blank" rel="noopener">GitHub</a>
   </footer>
 
@@ -233,7 +252,7 @@
     });
 
     // State
-    let currentDoc = 'README.md';
+    let currentDoc = 'DOCUMENTATION.md';
     let isDark = true;
     let tocObserver = null;
 
@@ -307,7 +326,7 @@
           <h1>Error Loading Document</h1>
           <p>Sorry, the requested document could not be loaded.</p>
           <pre style="background: rgba(255,0,0,0.1); padding: 10px; border-radius: 4px;">${error.message}</pre>
-          <p><a href="#" onclick="loadDoc('README.md'); return false;">Return to Overview</a></p>
+          <p><a href="#" onclick="loadDoc('DOCUMENTATION.md'); return false;">Return to Docs Index</a></p>
         `;
       }
     }
@@ -557,7 +576,7 @@
       if (hash) {
         loadDoc(hash + '.md');
       } else {
-        loadDoc('README.md');
+        loadDoc('DOCUMENTATION.md');
       }
     });
 

@@ -4,10 +4,10 @@ This is the master documentation index for Fetch.
 
 ## Getting Started
 
-- [Overview](../../README.md) — What Fetch is and how it works
+- [Overview](README.md) — Canonical root README pointer (single source of truth)
 - [Setup Guide](SETUP_GUIDE.md) — Installation, configuration, first run
-- [Install & Update](INSTALL_UPDATE.md) — Curl install, self-update, and version pinning
-- [Uninstall Guide](UNINSTALL.md) — Remove Fetch from host and optional Docker cleanup
+- [Install & Update](INSTALL_UPDATE.md) — Canonical lifecycle guide (install, update, uninstall)
+- [Uninstall Guide](UNINSTALL.md) — Pointer to Install & Update uninstall section
 - [Security Runbook](SECURITY_RUNBOOK.md) — Production hardening and incident checklist
 - [TUI Guide](TUI_GUIDE.md) — Using the Manager terminal interface
 - [Commands](COMMANDS.md) — Safety escapes, natural language patterns, orchestrator tools
@@ -23,14 +23,14 @@ This is the master documentation index for Fetch.
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
-- **[Agentic Workflow](AGENTIC_WORKFLOW.md)** - Logic flow and LLM autonomy.
+- **[Agentic Workflow](AGENTIC_WORKFLOW.md)** - Pointer to merged workflow section in Systems Deep Dive.
 - **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot/OpenCode/Codex).
 - **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.
 - **[Context Pipeline](CONTEXT_PIPELINE.md)** - Memory, sliding windows, and compaction.
 
 ## Project Health
 
-- [Changelog](../../CHANGELOG.md) — Version history
+- [Changelog](CHANGELOG.md) — Canonical root changelog pointer (single source of truth)
 
 ---
 

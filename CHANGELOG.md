@@ -1651,7 +1651,7 @@ Major prompt engineering improvements to make Fetch a better companion.
 - `CORE_IDENTITY` - Enhanced personality with "good sniffer dog" metaphor
 - `UNDERSTANDING_PATTERNS` - Smart interpretation of vague requests
 - `CAPABILITIES` - Clear, scannable list of what Fetch can do
-- [docs/PROMPT_ENGINEERING.md](docs/PROMPT_ENGINEERING.md) - Complete prompt engineering guide
+- [docs/markdown/CONTEXT_PIPELINE.md](docs/markdown/CONTEXT_PIPELINE.md) - Prompt/context pipeline guide
 
 **Ethical Guidelines:**
 

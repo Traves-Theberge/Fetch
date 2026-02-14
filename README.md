@@ -257,7 +257,7 @@ npm install          # install dependencies
 npm run dev          # run with ts-node (ESM)
 npm run build        # compile TypeScript to dist/
 npm run lint         # eslint
-npm run test:run     # all tests (450 passing)
+npm run test:run     # run full test suite
 npm run test:unit    # unit tests only
 ```
 

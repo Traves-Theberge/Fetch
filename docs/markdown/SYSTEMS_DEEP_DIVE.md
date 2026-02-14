@@ -13,6 +13,23 @@ Message arrives
     → Response sent back via WhatsApp
 ```
 
+## Agentic Workflow (Merged)
+
+Fetch runs a ReAct-style agent loop:
+
+1. Read current state (identity, context, session history, active workspace/task).
+2. Decide whether to answer directly, call tools, or delegate to a harness.
+3. Execute actions and persist tool call/results.
+4. Rebuild prompt context after state-changing actions.
+5. Repeat until the request is complete, then return final response.
+
+Autonomy rules keep behavior practical:
+
+- Act when intent is clear.
+- Prefer actions over unnecessary clarification.
+- Use `ask_user` only when critical information is missing.
+- Ask for harness preference when multiple enabled agents are plausible.
+
 ---
 
 ## 1. Identity (Who Fetch Is)

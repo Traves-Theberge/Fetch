@@ -175,7 +175,8 @@ Deletes a session by ID. Requires authentication.
 
 Clears message history for one session. Requires authentication.
 
-The `ADMIN_TOKEN` is auto-generated on startup and logged to console if not set explicitly via `ADMIN_TOKEN`.
+The `ADMIN_TOKEN` can be auto-generated on startup when not set explicitly.
+For stable manager/TUI session operations, set `ADMIN_TOKEN` in `.env` so the manager and bridge always use the same token across restarts.
 
 ---
 
@@ -738,16 +739,20 @@ The `autonomyLevel` field flows from the session's preferences through the tool 
 
 ```typescript
 interface Session {
-  id: string;                    // ses_<timestamp>
-  userId: string;                // Phone number
-  metadata: SessionMetadata;     // Created/updated timestamps
-  messages: Message[];           // Conversation history
-  project: ProjectContext | null;// Active project
-  activeFiles: string[];         // Files in context
-  repoMap: string | null;        // Cached repo map
-  preferences: UserPreferences;  // Autonomy, verbose, autocommit
-  activeTaskId: string | null;   // Currently running task
-  gitStartCommit: string | null; // Commit SHA for undo boundary
+  id: string;                         // Session ID
+  userId: string;                     // WhatsApp JID
+  metadata: Record<string, any>;      // Flexible metadata blob
+  messages: Message[];                // Conversation history
+  currentProject: ProjectContext | null; // Active project
+  availableProjects: string[];        // Known workspace names
+  activeFiles: string[];              // Files in context
+  repoMap: string | null;             // Cached repo map
+  repoMapUpdatedAt: string | null;    // Repo map timestamp
+  preferences: UserPreferences;       // Autonomy, verbose, autocommit
+  activeTaskId: string | null;        // Currently running task
+  gitStartCommit: string | null;      // Commit SHA for undo boundary
+  createdAt: string;
+  lastActivityAt: string;
 }
 ```
 
