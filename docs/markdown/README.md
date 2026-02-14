@@ -100,6 +100,12 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 # Install Fetch
 curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
 
+# Ensure fetch is on PATH (installer auto-updates your shell profile)
+export PATH="$HOME/.local/bin:$PATH"
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
+# echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc  # zsh
+# fish_add_path $HOME/.local/bin                           # fish
+
 # Validate host setup
 fetch self doctor
 
@@ -122,6 +128,7 @@ See [Setup Guide](SETUP_GUIDE.md) for full instructions.
 |-------|-------------|
 | [Setup Guide](SETUP_GUIDE.md) | Installation and first run |
 | [Install & Update](INSTALL_UPDATE.md) | Bootstrap installer and self-update CLI |
+| [Uninstall Guide](UNINSTALL.md) | Remove Fetch CLI, repo data, and optional Docker artifacts |
 | [TUI Guide](TUI_GUIDE.md) | Manager terminal interface |
 | [Commands](COMMANDS.md) | Safety escapes and usage examples |
 | [Configuration](CONFIGURATION.md) | Environment variables and config files |

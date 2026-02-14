@@ -6,6 +6,16 @@
 curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
 ```
 
+The installer now auto-updates your shell profile PATH when needed.
+If `fetch` is not found in your current shell, run:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
+# echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc  # zsh
+# fish_add_path $HOME/.local/bin                           # fish
+```
+
 Installer behavior:
 - Installs Fetch under `~/.fetch/repo`
 - Creates `~/.local/bin/fetch` symlink
@@ -93,3 +103,7 @@ You can also override the manifest endpoint directly:
 export FETCH_MANIFEST_URL="https://raw.githubusercontent.com/your-org/Fetch/main/release-manifest.json"
 fetch self update
 ```
+
+## Uninstall
+
+See [Uninstall Guide](UNINSTALL.md) for full removal steps.

@@ -10,6 +10,73 @@
 
 > **Note:** The canonical installer is `scripts/install.sh` (also accessible through root `install.sh` wrapper).
 
+## Raspberry Pi (Ubuntu 64-bit) Quick Setup
+
+Use this flow on a Raspberry Pi running Ubuntu Server/Desktop 64-bit.
+
+### 1. Prepare the host
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y git curl ca-certificates gnupg lsb-release tar python3 python3-pip
+```
+
+### 2. Install Docker + Compose plugin
+
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+newgrp docker
+docker --version
+docker compose version
+```
+
+### 3. Install Go (recommended)
+
+```bash
+sudo apt install -y golang-go
+go version
+```
+
+### 4. Install Fetch
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
+```
+
+### 5. Ensure `fetch` is on your PATH
+
+Installer auto-updates PATH in your shell profile when needed. If current shell has not reloaded yet:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+which fetch
+```
+
+### 6. Configure and start
+
+```bash
+nano ~/.fetch/repo/.env
+fetch self doctor
+fetch up
+fetch tui
+```
+
+Set at minimum:
+
+```env
+OWNER_PHONE_NUMBER=15551234567
+OPENROUTER_API_KEY=sk-or-...
+```
+
+Optional GitHub repo sync without Copilot:
+
+```env
+GH_TOKEN=ghp_xxx
+ENABLE_COPILOT=false
+```
+
 ## Installation
 
 ### 1. Install
@@ -152,3 +219,5 @@ Pin to a specific released version:
 ```bash
 fetch self pin <version>
 ```
+
+Uninstall instructions: [Uninstall Guide](UNINSTALL.md)

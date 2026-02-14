@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.
 - **Repo slug centralization** — Installer/update scripts now derive canonical URLs from `FETCH_REPO_SLUG` (with optional `FETCH_MANIFEST_URL` override) instead of duplicating hardcoded repo strings.
 - **Installer rollback safety** — `scripts/install.sh` now keeps a pre-update backup until post-install steps succeed and restores the previous install on failure.
+- **Installer PATH onboarding** — Installer now auto-adds the CLI bin directory to shell profile PATH files (bash/zsh/fish/profile fallback) and prints immediate-shell fallback instructions.
+- **Installer CLI activation hardening** — Install now fails if Fetch CLI script is missing and validates symlink/`fetch help` before reporting success.
 - **CI install/update smoke coverage** — Added GitHub Actions workflow that validates installer syntax, local manifest install, `self doctor`, `self pin`, and `self update`.
 - **CI manager cross-arch builds** — Added GitHub Actions matrix build for `linux/amd64` and `linux/arm64` manager binaries on PR/push.
 - **Release automation** — Added tag-triggered release workflow that builds manager archives, publishes checksums + release notes, and updates `release-manifest.json` on `main`.
@@ -27,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added `INSTALL_UPDATE_PLAN.md` to track install/update modernization phases and acceptance criteria.
 - Added `docs/markdown/INSTALL_UPDATE.md` runbook for install, update, pin, and legacy migration.
+- Added `docs/markdown/UNINSTALL.md` with default uninstall, optional Docker purge, and shell PATH cleanup steps.
 
 ## [0.0.48] - 2026-02-14
 

@@ -150,13 +150,19 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 # 1. Install Fetch CLI
 curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
 
-# 2. Verify environment
+# 2. Ensure fetch is on PATH (installer auto-updates your shell profile)
+export PATH="$HOME/.local/bin:$PATH"
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
+# echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc  # zsh
+# fish_add_path $HOME/.local/bin                           # fish
+
+# 3. Verify environment
 fetch self doctor
 
-# 3. Configure
+# 4. Configure
 nano ~/.fetch/repo/.env
 
-# 4. Start services + open TUI
+# 5. Start services + open TUI
 fetch up
 fetch tui
 ```
@@ -199,6 +205,7 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameter
 |:------|:------------|
 | [Setup Guide](docs/markdown/SETUP_GUIDE.md) | Installation and first run |
 | [Install & Update](docs/markdown/INSTALL_UPDATE.md) | Curl install, self-update, pinning |
+| [Uninstall Guide](docs/markdown/UNINSTALL.md) | Clean removal and optional full purge |
 | [TUI Guide](docs/markdown/TUI_GUIDE.md) | Manager terminal interface |
 | [Commands](docs/markdown/COMMANDS.md) | Safety escapes and usage |
 | [Configuration](docs/markdown/CONFIGURATION.md) | Env vars and config files |

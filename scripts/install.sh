@@ -20,6 +20,8 @@ SKIP_BUILD=0
 WITH_HARNESS_UPDATE=0
 ACTIVATED_BACKUP_DIR=""
 NEW_INSTALL_ACTIVATED=0
+PATH_UPDATED=0
+PATH_UPDATE_NOTE=""
 
 usage() {
   cat <<USAGE
@@ -44,6 +46,19 @@ fail() { printf "[fetch-installer] ERROR: %s\n" "$*" >&2; exit 1; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
+}
+
+append_line_if_missing() {
+  local file="$1"
+  local line="$2"
+  local match="$3"
+  mkdir -p "$(dirname "$file")"
+  touch "$file"
+  if grep -Fq "$match" "$file"; then
+    return 0
+  fi
+  printf "\n%s\n" "$line" >> "$file"
+  return 0
 }
 
 while [[ $# -gt 0 ]]; do
@@ -278,8 +293,23 @@ post_install_steps() {
     (cd "$REPO_DIR" && ./scripts/update_harnesses.sh)
   fi
 
-  chmod +x "$REPO_DIR/scripts/fetch-cli.sh"
-  ln -sf "$REPO_DIR/scripts/fetch-cli.sh" "$BIN_DIR/fetch"
+  local cli_src="$REPO_DIR/scripts/fetch-cli.sh"
+  if [[ ! -f "$cli_src" && -f "$REPO_DIR/fetch-cli.sh" ]]; then
+    cli_src="$REPO_DIR/fetch-cli.sh"
+  fi
+
+  if [[ ! -f "$cli_src" ]]; then
+    log "Missing Fetch CLI script in installed release."
+    log "Expected '$REPO_DIR/scripts/fetch-cli.sh' (or legacy '$REPO_DIR/fetch-cli.sh')."
+    return 1
+  fi
+
+  chmod +x "$cli_src" || return 1
+  ln -sf "$cli_src" "$BIN_DIR/fetch" || return 1
+  [[ -L "$BIN_DIR/fetch" ]] || return 1
+  [[ -e "$BIN_DIR/fetch" ]] || return 1
+
+  "$BIN_DIR/fetch" help >/dev/null 2>&1 || return 1
 }
 
 rollback_if_needed() {
@@ -318,6 +348,32 @@ if [[ -f "$REPO_DIR/VERSION" ]]; then
   installed_version="$(tr -d '[:space:]' < "$REPO_DIR/VERSION")"
 fi
 
+path_has_bin=0
+case ":${PATH:-}:" in
+  *":$BIN_DIR:"*) path_has_bin=1 ;;
+esac
+
+if [[ "$path_has_bin" -ne 1 ]]; then
+  if [[ -n "${BASH_VERSION:-}" || "${SHELL:-}" == *"bash" ]]; then
+    append_line_if_missing "$HOME/.bashrc" "export PATH=\"$BIN_DIR:\$PATH\"" "$BIN_DIR"
+    PATH_UPDATED=1
+    PATH_UPDATE_NOTE="Updated ~/.bashrc"
+  elif [[ -n "${ZSH_VERSION:-}" || "${SHELL:-}" == *"zsh" ]]; then
+    append_line_if_missing "$HOME/.zshrc" "export PATH=\"$BIN_DIR:\$PATH\"" "$BIN_DIR"
+    PATH_UPDATED=1
+    PATH_UPDATE_NOTE="Updated ~/.zshrc"
+  elif [[ "${SHELL:-}" == *"fish" ]]; then
+    append_line_if_missing "$HOME/.config/fish/config.fish" "fish_add_path $BIN_DIR" "$BIN_DIR"
+    PATH_UPDATED=1
+    PATH_UPDATE_NOTE="Updated ~/.config/fish/config.fish"
+  else
+    # Best-effort fallback for unknown shells.
+    append_line_if_missing "$HOME/.profile" "export PATH=\"$BIN_DIR:\$PATH\"" "$BIN_DIR"
+    PATH_UPDATED=1
+    PATH_UPDATE_NOTE="Updated ~/.profile"
+  fi
+fi
+
 cat <<NEXT
 
 [fetch-installer] Installation complete.
@@ -326,9 +382,32 @@ cat <<NEXT
   CLI:     $BIN_DIR/fetch
 
 Next:
-  1) Add '$BIN_DIR' to PATH if needed
-  2) Configure: $REPO_DIR/.env
-  3) Validate:  fetch self doctor
-  4) Start:     fetch up
-  5) TUI:       fetch tui
+  1) Configure: $REPO_DIR/.env
+  2) Validate:  fetch self doctor
+  3) Start:     fetch up
+  4) TUI:       fetch tui
 NEXT
+
+if [[ "$path_has_bin" -ne 1 ]]; then
+  if [[ "$PATH_UPDATED" -eq 1 ]]; then
+    cat <<PATH_UPDATED_HELP
+
+[fetch-installer] $PATH_UPDATE_NOTE with '$BIN_DIR'.
+Open a new shell (or run the command below) before using 'fetch':
+  export PATH="$BIN_DIR:\$PATH"
+PATH_UPDATED_HELP
+  else
+    cat <<PATH_HELP
+
+[fetch-installer] '$BIN_DIR' is not on your current PATH.
+Add it once, then open a new shell:
+
+  bash: echo 'export PATH="$BIN_DIR:\$PATH"' >> ~/.bashrc
+  zsh:  echo 'export PATH="$BIN_DIR:\$PATH"' >> ~/.zshrc
+  fish: fish_add_path $BIN_DIR
+
+Or for this shell only:
+  export PATH="$BIN_DIR:\$PATH"
+PATH_HELP
+  fi
+fi
