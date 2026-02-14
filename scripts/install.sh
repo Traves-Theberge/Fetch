@@ -402,6 +402,26 @@ rollback_if_needed() {
   log "Rollback complete"
 }
 
+cleanup_backup_dir() {
+  local backup_dir="$1"
+  [[ -n "$backup_dir" && -d "$backup_dir" ]] || return 0
+
+  if rm -rf "$backup_dir" 2>/dev/null; then
+    return 0
+  fi
+
+  if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+    if sudo rm -rf "$backup_dir" 2>/dev/null; then
+      log "Removed backup directory '$backup_dir' using sudo."
+      return 0
+    fi
+  fi
+
+  log "Warning: failed to remove backup directory '$backup_dir' (permission issue)."
+  log "You can remove it manually later with: sudo rm -rf '$backup_dir'"
+  return 1
+}
+
 set +e
 post_install_steps
 POST_INSTALL_RC=$?
@@ -411,12 +431,7 @@ if [[ "$POST_INSTALL_RC" -ne 0 ]]; then
   fail "Install failed during post-install steps"
 fi
 
-if [[ -n "$ACTIVATED_BACKUP_DIR" && -d "$ACTIVATED_BACKUP_DIR" ]]; then
-  if ! rm -rf "$ACTIVATED_BACKUP_DIR"; then
-    log "Warning: failed to remove backup directory '$ACTIVATED_BACKUP_DIR' (permission issue)."
-    log "You can remove it manually later with: sudo rm -rf '$ACTIVATED_BACKUP_DIR'"
-  fi
-fi
+cleanup_backup_dir "$ACTIVATED_BACKUP_DIR" || true
 
 installed_version="unknown"
 if [[ -f "$REPO_DIR/VERSION" ]]; then

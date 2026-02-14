@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.55] - 2026-02-14
+
+### Changed
+
+- **Installer backup cleanup automation** — Installer now attempts automatic backup-directory cleanup silently, and when root-owned files block removal it retries with non-interactive `sudo` (when available) before falling back to a manual cleanup hint.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.55`.
+
 ## [0.0.54] - 2026-02-14
 
 ### Changed
