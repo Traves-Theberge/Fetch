@@ -21,13 +21,15 @@ var (
 
 // isFetchProject returns true if the given directory looks like the Fetch project root.
 func isFetchProject(dir string) bool {
-	// Must contain docker-compose.yml or .env — the two files Fetch always has
-	for _, marker := range []string{"docker-compose.yml", ".env", "fetch-app"} {
-		if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
-			return true
-		}
+	// A valid root needs both compose + app source markers.
+	// Checking .env alone is too broad (many directories may contain one).
+	if _, err := os.Stat(filepath.Join(dir, "docker-compose.yml")); err != nil {
+		return false
 	}
-	return false
+	if _, err := os.Stat(filepath.Join(dir, "fetch-app")); err != nil {
+		return false
+	}
+	return true
 }
 
 // resolveProjectDir determines the Fetch project root directory.
@@ -60,9 +62,25 @@ func resolveProjectDir() string {
 		if isFetchProject(exeDir) {
 			return exeDir
 		}
+		// Installed binaries usually live under <project>/manager
+		if parent := filepath.Dir(exeDir); isFetchProject(parent) {
+			return parent
+		}
 	}
 
-	// 5. Fallback to cwd
+	// 5. Common install locations
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, candidate := range []string{
+			filepath.Join(home, ".fetch", "repo"),
+			filepath.Join(home, "Projects", "Fetch"),
+		} {
+			if isFetchProject(candidate) {
+				return candidate
+			}
+		}
+	}
+
+	// 6. Fallback to cwd
 	if cwd, err := os.Getwd(); err == nil {
 		return cwd
 	}

@@ -27,7 +27,6 @@
  */
 
 import http from 'http';
-import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
@@ -96,8 +95,15 @@ const startTime = Date.now();
 /** Callback for logout action */
 let logoutCallback: (() => Promise<void>) | null = null;
 
-/** Admin token for protected endpoints (logout) */
-const ADMIN_TOKEN = env.ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
+/** Optional admin token for protected endpoints (logout/config/session APIs). */
+const ADMIN_TOKEN = env.ADMIN_TOKEN || '';
+
+/** Returns true when request is authorized for admin-only endpoints. */
+function isAdminAuthorized(req: http.IncomingMessage): boolean {
+  // If ADMIN_TOKEN is unset, allow local TUI/admin workflows without token wiring.
+  if (!ADMIN_TOKEN) return true;
+  return req.headers.authorization === `Bearer ${ADMIN_TOKEN}`;
+}
 
 /**
  * Register callback used by `POST /api/logout`.
@@ -192,8 +198,7 @@ export function startStatusServer(): void {
     if (req.method === 'POST' && url === '/api/logout') {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -214,8 +219,7 @@ export function startStatusServer(): void {
     if (req.method === 'POST' && url === '/api/config/reload') {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -334,8 +338,7 @@ export function startStatusServer(): void {
     if (req.method === 'GET' && url === '/api/sessions') {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -369,8 +372,7 @@ export function startStatusServer(): void {
     if (req.method === 'GET' && url.startsWith('/api/sessions/')) {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -412,8 +414,7 @@ export function startStatusServer(): void {
     if (req.method === 'DELETE' && url.startsWith('/api/sessions/')) {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -455,8 +456,7 @@ export function startStatusServer(): void {
     if (req.method === 'POST' && url.startsWith('/api/sessions/') && url.endsWith('/clear')) {
       res.setHeader('Content-Type', 'application/json');
 
-      const authHeader = req.headers.authorization;
-      if (!authHeader || authHeader !== `Bearer ${ADMIN_TOKEN}`) {
+      if (!isAdminAuthorized(req)) {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
@@ -498,9 +498,7 @@ export function startStatusServer(): void {
   server.listen(PORT, '0.0.0.0', () => {
     logger.info(`Status API listening on port ${PORT}`);
     logger.info(`Documentation available at http://localhost:${PORT}/docs`);
-    if (!env.ADMIN_TOKEN) {
-      logger.info(`Admin token (auto-generated): ${ADMIN_TOKEN}`);
-    }
+    if (!env.ADMIN_TOKEN) logger.info('Admin token not set; admin endpoints allow local access.');
   });
 
   server.on('error', (err) => {
