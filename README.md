@@ -177,24 +177,28 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 ## Quick Start
 
 ```bash
-# 1. Clone
-git clone https://github.com/Traves-Theberge/Fetch.git
-cd Fetch
+# 1. Install Fetch CLI
+curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
 
-# 2. Install (Auto-installs Docker, Go, Node.js, and Harnesses)
-chmod +x install.sh
-sudo ./install.sh
+# 2. Verify environment
+fetch self doctor
 
 # 3. Configure
-cp .env.example .env
-nano .env
+nano ~/.fetch/repo/.env
 
-# 4. Launch Manager
-cd manager
-./fetch-manager
+# 4. Start services + open TUI
+fetch up
+fetch tui
 ```
 
-> **Note:** The `install.sh` script automates dependency checks and harness updates. For manual control, you can still use `./setup-dev.sh` and `./deploy.sh`.
+Common update commands:
+
+```bash
+fetch self update
+fetch self update --channel beta
+fetch self version
+fetch self pin <version>
+```
 
 <details>
 <summary><strong>Required Environment Variables</strong></summary>
@@ -207,6 +211,7 @@ cd manager
 | `OWNER_PHONE_NUMBER` | Your WhatsApp number in E.164 format (e.g. `15551234567`) |
 
 Add these to `.env` in the project root before running `deploy.sh`.
+For GitHub repo operations without Copilot, set `GH_TOKEN` and keep `ENABLE_COPILOT=false`.
 
 See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameters.
 
@@ -223,6 +228,7 @@ See [Configuration](docs/markdown/CONFIGURATION.md) for all 42 tunable parameter
 | Guide | Description |
 |:------|:------------|
 | [Setup Guide](docs/markdown/SETUP_GUIDE.md) | Installation and first run |
+| [Install & Update](docs/markdown/INSTALL_UPDATE.md) | Curl install, self-update, pinning |
 | [TUI Guide](docs/markdown/TUI_GUIDE.md) | Manager terminal interface |
 | [Commands](docs/markdown/COMMANDS.md) | Safety escapes and usage |
 | [Configuration](docs/markdown/CONFIGURATION.md) | Env vars and config files |
@@ -299,6 +305,6 @@ docker logs -f fetch-bridge    # stream bridge logs (QR code appears here)
 
 <div align="center">
 
-**MIT License** &bull; Built by [Traves Theberge](https://github.com/Traves-Theberge)
+**MIT License**
 
 </div>

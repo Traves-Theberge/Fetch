@@ -4,7 +4,7 @@
 #          sudo systemctl enable fetch
 #          sudo systemctl start fetch
 #
-# Adjust WorkingDirectory to your Fetch installation path.
+# Replace __FETCH_DIR__ and __FETCH_USER__ before installing.
 
 [Unit]
 Description=Fetch - Your Faithful Code Companion
@@ -14,10 +14,10 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/home/pi/fetch
+WorkingDirectory=__FETCH_DIR__
 ExecStart=/usr/bin/docker compose up -d
 ExecStop=/usr/bin/docker compose down
-User=pi
+User=__FETCH_USER__
 Group=docker
 
 [Install]

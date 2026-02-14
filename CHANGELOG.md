@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- No unreleased changes yet.
+- **Installer flow unified** — Removed legacy root installer logic and made `install.sh` a wrapper to `scripts/install.sh`.
+- **New bootstrap installer** — Added `scripts/install.sh` for user-mode install/update wiring and `fetch` CLI symlink setup.
+- **Unified local management CLI** — Added `scripts/fetch-cli.sh` with `self doctor|update|pin|version` and `up|down|restart|status|logs|tui` commands.
+- **Manifest-driven updates** — Added `release-manifest.json` and wired installer/update flows to resolve channel/version targets from manifest metadata.
+- **Checksum verification** — Installer now verifies SHA-256 checksums for downloaded release archives before activation.
+- **Install/update docs refreshed** — Updated README and setup docs to use curl installer and `fetch self` workflows.
+- **Production doc cleanup** — Removed personal attribution/footer text, corrected legacy service placeholders, and tightened setup wording.
+- **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.
+- **Repo slug centralization** — Installer/update scripts now derive canonical URLs from `FETCH_REPO_SLUG` (with optional `FETCH_MANIFEST_URL` override) instead of duplicating hardcoded repo strings.
+
+### Documentation
+
+- Added `INSTALL_UPDATE_PLAN.md` to track install/update modernization phases and acceptance criteria.
+- Added `docs/markdown/INSTALL_UPDATE.md` runbook for install, update, pin, and legacy migration.
 
 ## [0.0.48] - 2026-02-14
 
@@ -779,7 +792,7 @@ Fetch gains 6 new tools for web content retrieval, search, and browser automatio
   - Added visibility into Harness host-mounts (`~/.config/gh`, `~/.gemini`, etc.) and Adapter logic.
   - Corrected Mermaid syntax errors in `STATE_MANAGEMENT.md` (ER diagrams) and `ARCHITECTURE.md`.
 - **Capability Scanner RFC**:
-  - Published [`RFC_CAPABILITY_SCANNER.md`](file:///home/traves/.gemini/antigravity/brain/2cbdcc8b-17f8-4427-80b0-a0229793ba9e/RFC_CAPABILITY_SCANNER.md) proposing a shift from static project detection to a weighted Capability scoring system.
+  - Published `RFC_CAPABILITY_SCANNER.md` proposing a shift from static project detection to a weighted Capability scoring system.
 
 ### 🧹 Fixes & Alignment
 

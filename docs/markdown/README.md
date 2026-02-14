@@ -95,21 +95,22 @@ Fetch is the Alpha of your AI workforce. Acting as the Pack Leader, it chats wit
 ## Quick Start
 
 ```bash
-# Prerequisites: Node.js 20+, Docker, Go 1.21+
-./setup-dev.sh
+# Install Fetch
+curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
 
-# Or manually:
-cd fetch-app && npm install && npm run build
-cd manager && go build -o fetch-manager .
+# Validate host setup
+fetch self doctor
 
-# Start everything
-./deploy.sh
+# Configure
+nano ~/.fetch/repo/.env
 
-# Scan the QR code from bridge logs
-docker logs -f fetch-bridge
+# Start + open TUI
+fetch up
+fetch tui
 ```
 
 Required env vars: `OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`
+For GitHub repo operations without Copilot, set `GH_TOKEN` and keep `ENABLE_COPILOT=false`.
 
 See [Setup Guide](SETUP_GUIDE.md) for full instructions.
 
@@ -118,6 +119,7 @@ See [Setup Guide](SETUP_GUIDE.md) for full instructions.
 | Guide | Description |
 |-------|-------------|
 | [Setup Guide](SETUP_GUIDE.md) | Installation and first run |
+| [Install & Update](INSTALL_UPDATE.md) | Bootstrap installer and self-update CLI |
 | [TUI Guide](TUI_GUIDE.md) | Manager terminal interface |
 | [Commands](COMMANDS.md) | Safety escapes and usage examples |
 | [Configuration](CONFIGURATION.md) | Environment variables and config files |

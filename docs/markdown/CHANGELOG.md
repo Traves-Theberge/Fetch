@@ -587,7 +587,7 @@ Fetch gains 6 new tools for web content retrieval, search, and browser automatio
   - Added visibility into Harness host-mounts (`~/.config/gh`, `~/.gemini`, etc.) and Adapter logic.
   - Corrected Mermaid syntax errors in `STATE_MANAGEMENT.md` (ER diagrams) and `ARCHITECTURE.md`.
 - **Capability Scanner RFC**:
-  - Published [`RFC_CAPABILITY_SCANNER.md`](file:///home/traves/.gemini/antigravity/brain/2cbdcc8b-17f8-4427-80b0-a0229793ba9e/RFC_CAPABILITY_SCANNER.md) proposing a shift from static project detection to a weighted Capability scoring system.
+  - Published `RFC_CAPABILITY_SCANNER.md` proposing a shift from static project detection to a weighted Capability scoring system.
 
 ### 🧹 Fixes & Alignment
 

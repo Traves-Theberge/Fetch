@@ -8,26 +8,21 @@
 | OpenRouter Key | — | Required for LLM access ([openrouter.ai](https://openrouter.ai)) |
 | WhatsApp Account| — | Required for primary interface |
 
-> **Note:** The `install.sh` script handles the installation of Docker, Go, Node.js, and GitHub CLI for you.
+> **Note:** The canonical installer is `scripts/install.sh` (also accessible through root `install.sh` wrapper).
 
 ## Installation
 
-### 1. clone & Install
-
-The automated installer sets up all dependencies (Docker, Go, Node.js v20, gh), builds the Manager TUI, and installs the `fetch` systemd service.
+### 1. Install
 
 ```bash
-git clone https://github.com/Traves-Theberge/Fetch.git
-cd Fetch
-chmod +x install.sh
-sudo ./install.sh
+curl -fsSL https://raw.githubusercontent.com/Traves-Theberge/Fetch/main/scripts/install.sh | bash
+fetch self doctor
 ```
 
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
-nano .env
+nano ~/.fetch/repo/.env
 ```
 
 Set your critical variables:
@@ -41,21 +36,20 @@ OPENROUTER_API_KEY=sk-or-...
 
 Fetch uses CLI tools on your host for AI coding tasks. You should authenticate the ones you plan to use:
 
-- **GitHub Copilot**: `gh auth login`
+- **GitHub CLI (repo sync, optional Copilot)**: `gh auth login`
 - **Claude Code**: `claude login`
 - **Gemini CLI**: Set `GEMINI_API_KEY` in `.env`
 - **OpenCode**: `opencode auth login`
 - **Codex**: `codex login`
 
-The Manager TUI's **🐕 Harnesses** screen can helps manage this state.
+The Manager TUI's **🐕 Harnesses** screen helps manage this state.
 
 ### 4. Start Fetch
 
 Use the Manager TUI to manage the system.
 
 ```bash
-cd manager
-./fetch-manager
+fetch tui
 ```
 
 Select **🚀 Start Fetch** to launch the Docker containers.
@@ -90,6 +84,7 @@ If you set `GH_TOKEN` in your `.env`, the Kennel container automatically configu
 - **`workspace_sync`** — Commits and pushes changes to the remote
 
 No manual `gh auth login` is needed inside the container.
+You can keep GitHub repo operations enabled while setting `ENABLE_COPILOT=false`.
 
 ## Docker Architecture
 
@@ -144,25 +139,16 @@ Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** edito
 
 ## Updating
 
-Fetch now supports automated updates via the Manager TUI.
+Use the Fetch CLI:
 
-1. **Pull changes**:
+```bash
+fetch self update
+fetch self update --channel beta
+fetch self version
+```
 
-    ```bash
-    git pull
-    ```
+Pin to a specific released version:
 
-2. **Launch Manager**:
-
-    ```bash
-    cd manager
-    ./fetch-manager
-    ```
-
-3. **Auto-Update**:
-    The Manager will detect the new version and automatically:
-    - Install/Update global harness dependencies (Claude, Gemini, etc.).
-    - Rebuild Docker containers.
-    - Update the internal version state.
-
-You will see a status message: `✅ Harnesses updated to latest version`.
+```bash
+fetch self pin <version>
+```
