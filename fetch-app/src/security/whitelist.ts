@@ -1,39 +1,11 @@
 /**
- * @fileoverview Whitelist Store - Zero Trust Bonding
- * 
- * Manages the list of trusted phone numbers that can interact with Fetch.
- * The owner is always exempt from whitelist checks (handled in SecurityGate).
- * 
+ * @fileoverview Persistent trusted-number store used by security gate checks.
+ *
+ * Sources:
+ * - `TRUSTED_PHONE_NUMBERS` env var
+ * - `data/whitelist.json` for runtime persisted entries
+ *
  * @module security/whitelist
- * @see {@link WhitelistStore} - Main whitelist class
- * 
- * ## Data Sources
- * 
- * 1. Environment: TRUSTED_PHONE_NUMBERS (comma-separated, loaded at startup)
- * 2. File: data/whitelist.json (runtime additions, persisted)
- * 
- * ## Security Model
- * 
- * "Fetch is loyal to his owner and people his owner explicitly trusts."
- * - Owner is ALWAYS allowed (not stored here, checked in SecurityGate)
- * - Only explicitly whitelisted numbers can use @fetch
- * - Silent drops for unauthorized (no information leakage)
- * 
- * @example
- * ```typescript
- * const whitelist = await getWhitelistStore();
- * 
- * // Check if number is trusted
- * if (whitelist.has('15551234567')) {
- *   // Allow access
- * }
- * 
- * // Owner adds trusted number
- * whitelist.add('15559876543');
- * 
- * // Owner removes trusted number
- * whitelist.remove('15559876543');
- * ```
  */
 
 import { promises as fs } from 'fs';
@@ -67,12 +39,7 @@ interface WhitelistData {
 // =============================================================================
 
 /**
- * Manages trusted phone numbers for Zero Trust Bonding.
- * 
- * Phone numbers are normalized (digits only) for consistent matching.
- * Data persists across restarts via JSON file.
- * 
- * @class
+ * In-memory + persisted store of trusted phone numbers.
  */
 export class WhitelistStore {
   /** In-memory set of trusted numbers */
@@ -91,8 +58,7 @@ export class WhitelistStore {
   private suppressReload = false;
 
   /**
-   * Initialize the whitelist store.
-   * Loads from environment and file, then watches for external changes.
+   * Initializes store by loading env/file data and starting file watcher.
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -114,8 +80,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Load trusted numbers from TRUSTED_PHONE_NUMBERS environment variable.
-   * Format: comma-separated phone numbers (e.g., "15551234567,15559876543")
+   * Loads trusted numbers from `TRUSTED_PHONE_NUMBERS`.
    */
   private loadFromEnv(): void {
     const envNumbers = env.TRUSTED_PHONE_NUMBERS;
@@ -137,7 +102,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Load trusted numbers from persistent JSON file.
+   * Loads trusted numbers from persistent JSON file.
    */
   private async loadFromFile(): Promise<void> {
     try {
@@ -163,8 +128,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Watch whitelist.json for external changes (e.g. TUI adding numbers).
-   * Reloads the in-memory set when the file changes on disk.
+   * Watches whitelist file and reloads in-memory data on external updates.
    */
   private setupWatcher(): void {
     try {
@@ -200,8 +164,8 @@ export class WhitelistStore {
   }
 
   /**
-   * Persist current whitelist to JSON file.
-   * Serialized via persistLock to prevent concurrent writes.
+   * Persists current whitelist state to disk.
+   * Writes are serialized via `persistLock`.
    */
   private async persist(): Promise<void> {
     this.persistLock = this.persistLock.then(() => this.doPersist());
@@ -209,7 +173,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Internal persistence implementation.
+   * Internal write implementation for serialized persistence.
    */
   private async doPersist(): Promise<void> {
     try {
@@ -238,7 +202,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Normalize a phone number (remove all non-digit characters).
+   * Normalizes phone number input to digits only.
    * 
    * @param phoneNumber - Raw phone number input
    * @returns Normalized digits-only string
@@ -248,7 +212,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Add a phone number to the whitelist.
+   * Adds a phone number to trusted list and persists change.
    * 
    * @param phoneNumber - Phone number to add
    * @returns true if added, false if already existed
@@ -274,7 +238,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Remove a phone number from the whitelist.
+   * Removes a phone number from trusted list and persists change.
    * 
    * @param phoneNumber - Phone number to remove
    * @returns true if removed, false if not found
@@ -295,7 +259,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Check if a phone number is in the whitelist.
+   * Returns true when a phone number is trusted.
    * 
    * @param phoneNumber - Phone number to check
    * @returns true if trusted
@@ -306,7 +270,7 @@ export class WhitelistStore {
   }
 
   /**
-   * Get all trusted numbers.
+   * Returns sorted trusted numbers.
    * 
    * @returns Array of trusted phone numbers (normalized)
    */
@@ -315,15 +279,14 @@ export class WhitelistStore {
   }
 
   /**
-   * Get count of trusted numbers.
+   * Returns trusted-number count.
    */
   count(): number {
     return this.trustedNumbers.size;
   }
 
   /**
-   * Clear all trusted numbers (use with caution!).
-   * Owner is unaffected as they're checked separately.
+   * Clears trusted numbers and persists change.
    */
   async clear(): Promise<void> {
     this.trustedNumbers.clear();
@@ -340,8 +303,7 @@ let whitelistStore: WhitelistStore | null = null;
 let whitelistInitPromise: Promise<WhitelistStore> | null = null;
 
 /**
- * Get the singleton whitelist store instance.
- * Initializes on first call.
+ * Returns whitelist singleton, initializing on first access.
  */
 export async function getWhitelistStore(): Promise<WhitelistStore> {
   if (whitelistStore) return whitelistStore;
@@ -358,8 +320,7 @@ export async function getWhitelistStore(): Promise<WhitelistStore> {
 }
 
 /**
- * Get the whitelist store without initialization check.
- * Only use after initialization is guaranteed.
+ * Returns whitelist singleton without initialization side effects.
  */
 export function getWhitelistStoreSync(): WhitelistStore | null {
   return whitelistStore;

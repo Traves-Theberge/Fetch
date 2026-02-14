@@ -1,9 +1,8 @@
 /**
- * @fileoverview Repository Map Generation
- * 
- * Generates a concise map of the repository structure including 
- * key symbols for improved agent context.
- * 
+ * @fileoverview Repository map generation for prompt context.
+ *
+ * Produces a compact file/symbol summary under a configurable output budget.
+ *
  * @module workspace/repo-map
  */
 
@@ -12,18 +11,13 @@ import { logger } from '../utils/logger.js';
 import { extractSymbols, type SymbolInfo } from './symbols.js';
 import type { ProjectType } from './types.js';
 
-/**
- * Repository map entry for a file
- */
+/** One repo-map entry for a source file. */
 export interface RepoMapEntry {
   path: string;
   symbols: SymbolInfo[];
 }
 
-/**
- * Options for repo map generation
- */
-/** File extensions to search per project type */
+/** File extensions scanned per detected project type. */
 const EXTENSION_MAP: Record<ProjectType, string[]> = {
   node:       ['*.ts', '*.tsx', '*.js', '*.jsx'],
   typescript: ['*.ts', '*.tsx', '*.js', '*.jsx'],
@@ -37,6 +31,7 @@ const EXTENSION_MAP: Record<ProjectType, string[]> = {
   unknown:    ['*.ts', '*.tsx', '*.js', '*.jsx', '*.py', '*.go', '*.rs', '*.java', '*.rb', '*.php', '*.cs'],
 };
 
+/** Options that control repo-map depth, file count, and output budget. */
 export interface RepoMapOptions {
   maxFiles?: number;
   exclude?: string[];
@@ -47,13 +42,7 @@ export interface RepoMapOptions {
   projectType?: ProjectType;
 }
 
-/**
- * Generate a concise repository map for a workspace
- * 
- * @param workspacePath - Path to the workspace in container
- * @param options - Generation options
- * @returns Formatted repository map string
- */
+/** Builds a repo map string for one workspace path. */
 export async function generateRepoMap(workspacePath: string, options: RepoMapOptions = {}): Promise<string> {
   try {
     logger.info(`🗺️ Generating repo-map for ${workspacePath}...`);
@@ -127,9 +116,7 @@ export async function generateRepoMap(workspacePath: string, options: RepoMapOpt
   }
 }
 
-/**
- * Format repo map entries into a readable string, respecting a character budget
- */
+/** Formats entries into grouped text while enforcing `maxOutputChars`. */
 function formatRepoMap(entries: RepoMapEntry[], maxOutputChars: number = 3000): string {
   if (entries.length === 0) return 'No symbols found.';
 

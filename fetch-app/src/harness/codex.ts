@@ -1,44 +1,9 @@
 /**
- * @fileoverview OpenAI Codex CLI harness adapter
+ * @fileoverview Harness adapter for OpenAI Codex CLI.
  *
- * Implements the HarnessAdapter interface for OpenAI Codex CLI.
- * Codex is a Rust-based open-source coding agent invoked with
- * `codex exec --json --ephemeral --full-auto "prompt"`.
+ * Uses JSONL output mode for structured event parsing.
  *
  * @module harness/codex
- * @see {@link HarnessAdapter} - Adapter interface
- * @see {@link HarnessExecutor} - Execution engine
- *
- * ## Codex CLI Usage
- *
- * ```bash
- * # Non-interactive headless mode (JSON Lines output)
- * codex exec --json --ephemeral --full-auto "Add dark mode to the settings page"
- *
- * # With model override
- * codex exec --json --ephemeral --full-auto --model o4-mini "..."
- * ```
- *
- * ## Output Format (JSON Lines on stdout)
- *
- * Each line is a JSON object with a `type` field:
- * - `thread.started` — Session created
- * - `turn.started` / `turn.completed` / `turn.failed` — Execution lifecycle
- * - `item.started` / `item.updated` / `item.completed` — Granular actions
- *   Item types: agent_message, reasoning, command, file_change, plan
- * - `error` — Stream-level error
- *
- * stderr receives progress/debug info; stdout receives only the final
- * agent message in default mode, or JSONL events with --json.
- *
- * ## Authentication
- *
- * Two auth methods (both supported):
- * 1. **ChatGPT OAuth** — `codex login` on host, tokens cached in `~/.codex/auth.json`
- *    (mounted read-only into kennel container). Uses ChatGPT Plus/Team quota.
- *    For headless hosts: `codex login --device-auth`
- * 2. **API Key** — Set `CODEX_API_KEY` or `OPENAI_API_KEY` env var.
- *    Uses standard OpenAI API billing.
  */
 
 import type { AgentType } from '../task/types.js';
@@ -55,12 +20,12 @@ import { AbstractHarnessAdapter } from './base.js';
 // ============================================================================
 
 /**
- * Codex CLI executable name
+ * Codex CLI executable.
  */
 const CODEX_COMMAND = 'codex';
 
 /**
- * Default Codex CLI arguments for headless execution
+ * Base args for headless non-interactive execution.
  */
 const DEFAULT_ARGS = [
   'exec',           // Non-interactive execution subcommand
@@ -70,32 +35,32 @@ const DEFAULT_ARGS = [
 ];
 
 /**
- * Pattern for Codex JSONL turn completion
+ * JSONL marker: turn completed.
  */
 const TURN_COMPLETED_PATTERN = /"type"\s*:\s*"turn\.completed"/;
 
 /**
- * Pattern for Codex JSONL turn failure
+ * JSONL marker: turn failed.
  */
 const TURN_FAILED_PATTERN = /"type"\s*:\s*"turn\.failed"/;
 
 /**
- * Pattern for Codex JSONL item events (progress)
+ * JSONL marker: item lifecycle events.
  */
 const ITEM_PATTERN = /"type"\s*:\s*"item\.(started|completed|updated)"/;
 
 /**
- * Pattern for file_change item type
+ * JSONL marker: file change item.
  */
 const FILE_CHANGE_PATTERN = /"type"\s*:\s*"file_change"/;
 
 /**
- * Pattern for error events
+ * JSONL marker: stream error event.
  */
 const ERROR_PATTERN = /"type"\s*:\s*"error"/;
 
 /**
- * Fallback file operation patterns (non-JSON stderr output)
+ * Fallback file operation pattern for plain text output.
  */
 const FILE_EDIT_PATTERN = /^(Edited|Created|Deleted|Modified|Wrote)\s+(.+)$/m;
 
@@ -104,33 +69,16 @@ const FILE_EDIT_PATTERN = /^(Edited|Created|Deleted|Modified|Wrote)\s+(.+)$/m;
 // ============================================================================
 
 /**
- * OpenAI Codex CLI adapter
- *
- * Implements the HarnessAdapter interface for Codex CLI.
- * Uses JSON Lines (`--json`) output for structured event parsing.
- *
- * @example
- * ```typescript
- * const adapter = new CodexAdapter();
- *
- * const config = adapter.buildConfig(
- *   'Add dark mode',
- *   '/workspace/my-project',
- *   300000
- * );
- *
- * // config.command = 'codex'
- * // config.args = ['exec', '--json', '--ephemeral', '--full-auto', 'Add dark mode']
- * ```
+ * Adapter for Codex CLI behavior and JSONL output parsing.
  */
 export class CodexAdapter extends AbstractHarnessAdapter {
   /**
-   * Agent type this adapter handles
+   * Agent type handled by this adapter.
    */
   readonly agent: AgentType = 'codex';
 
   /**
-   * Build execution configuration for a task
+   * Builds process config for one task execution.
    *
    * @param goal - Task goal/prompt
    * @param workspacePath - Working directory
@@ -177,10 +125,7 @@ export class CodexAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Parse output line to detect special events
-   *
-   * Codex with --json outputs JSON Lines. Each line is parsed
-   * to detect turn lifecycle events, item progress, and errors.
+   * Parses one output line into a harness event type.
    *
    * @param line - Raw output line (JSONL or stderr text)
    * @returns Event type or null
@@ -216,9 +161,7 @@ export class CodexAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Codex-specific question pattern
-   * In --full-auto mode, Codex doesn't ask questions.
-   * But plan items could be interpreted as progress.
+   * Codex runs in full-auto mode and does not emit interactive prompts.
    */
   protected getAdapterQuestionPattern(): RegExp | null {
     return null; // --full-auto mode auto-approves everything
@@ -227,10 +170,7 @@ export class CodexAdapter extends AbstractHarnessAdapter {
   // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
-   * Extract file operations from output
-   *
-   * Parses Codex JSONL output to find file_change events,
-   * falling back to plain text patterns.
+   * Extracts file operations from JSONL, with plain-text fallback.
    *
    * @param output - Full output buffer
    * @returns Object with created, modified, deleted files
@@ -305,10 +245,7 @@ export class CodexAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Extract summary from Codex output
-   *
-   * Looks for agent_message items in JSONL output,
-   * then falls back to base class extraction.
+   * Extracts a summary from JSONL agent messages with base fallback.
    */
   extractSummary(output: string): string {
     // Try to find the last agent_message in JSONL output
@@ -334,7 +271,7 @@ export class CodexAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Progress pattern for summary paragraph filtering
+   * Progress matcher used by base summary extractor.
    */
   protected getProgressPattern(): RegExp {
     return ITEM_PATTERN;
@@ -346,6 +283,6 @@ export class CodexAdapter extends AbstractHarnessAdapter {
 // ============================================================================
 
 /**
- * Global Codex adapter instance
+ * Singleton Codex adapter.
  */
 export const codexAdapter = new CodexAdapter();

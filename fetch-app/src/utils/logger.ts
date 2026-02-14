@@ -1,60 +1,23 @@
 /**
- * @fileoverview Fetch Bridge Logger
- * 
- * Clean, human-readable logging with colors, icons, and structured output.
- * Provides visual formatting for terminal output.
- * 
+ * @fileoverview Terminal logger with level filtering and structured payload support.
+ *
+ * Writes colored, timestamped logs and supports `LOG_LEVEL` filtering.
+ *
  * @module utils/logger
- * @see {@link logger} - Main logger instance
- * 
- * ## Log Levels
- * 
- * | Level | Icon | Color | Use Case |
- * |-------|------|-------|----------|
- * | debug | 🔍 | gray | Development details |
- * | info | 📘 | blue | General information |
- * | warn | ⚠️ | yellow | Warnings |
- * | error | ❌ | red | Errors |
- * | success | ✅ | green | Success messages |
- * | message | 💬 | cyan | User messages |
- * 
- * ## Usage
- * 
- * ```typescript
- * import { logger } from './logger.js';
- * 
- * logger.info('Server started', { port: 3000 });
- * logger.error('Connection failed', error);
- * logger.success('Task completed');
- * 
- * // Section headers
- * logger.section('Configuration');
- * logger.divider();
- * ```
- * 
- * ## Output Format
- * 
- * ```
- * 14:30:45 📘 Server started {"port":3000}
- * 14:30:46 ❌ Connection failed Error message
- * ```
  */
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-/**
- * Available log levels.
- * @typedef {string} LogLevel
- */
+/** Supported log levels. */
 type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'success' | 'message';
 
 // =============================================================================
 // ANSI COLORS
 // =============================================================================
 
-/** ANSI color codes for terminal output */
+/** ANSI color codes used by log output helpers. */
 const colors = {
   reset: '\x1b[0m',
   dim: '\x1b[2m',
@@ -71,7 +34,7 @@ const colors = {
   gray: '\x1b[90m',
 };
 
-/** Configuration for each log level */
+/** Display configuration by log level. */
 const levelConfig: Record<LogLevel, { icon: string; color: string; label: string }> = {
   debug:   { icon: '🔍', color: colors.gray,    label: 'DEBUG' },
   info:    { icon: '📘', color: colors.blue,    label: 'INFO ' },
@@ -85,11 +48,7 @@ const levelConfig: Record<LogLevel, { icon: string; color: string; label: string
 // HELPER FUNCTIONS
 // =============================================================================
 
-/**
- * Formats current time as HH:MM:SS.
- * @returns {string} Formatted time string
- * @private
- */
+/** Formats current time as `HH:MM:SS`. */
 function formatTime(): string {
   const now = new Date();
   const h = now.getHours().toString().padStart(2, '0');
@@ -164,7 +123,7 @@ function log(level: LogLevel, message: string, data?: unknown): void {
   }
 }
 
-// Utility: print a section header
+/** Prints a formatted section banner to stdout. */
 function section(title: string): void {
   const line = '─'.repeat(48);
   console.log(`\n${colors.cyan}┌${line}┐${colors.reset}`);
@@ -172,7 +131,7 @@ function section(title: string): void {
   console.log(`${colors.cyan}└${line}┘${colors.reset}`);
 }
 
-// Utility: print a divider
+/** Prints a horizontal divider line. */
 function divider(): void {
   console.log(`${colors.dim}${'─'.repeat(50)}${colors.reset}`);
 }

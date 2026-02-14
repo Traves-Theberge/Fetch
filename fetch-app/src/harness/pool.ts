@@ -1,7 +1,5 @@
 /**
- * @fileoverview Harness Pool
- *
- * Manages concurrent harness executions with queueing and limits.
+ * @fileoverview Concurrency-limited harness execution pool with FIFO queueing.
  */
 
 import { EventEmitter } from 'events';
@@ -59,8 +57,8 @@ export class HarnessPool extends EventEmitter {
     this.spawner.on('output', (event) => this.emit('output', event));
   }
 
-  /**
-   * Acquire a harness instance (spawns or queues)
+/**
+   * Acquires a harness instance immediately or queues until capacity is available.
    */
   public async acquire(spawnConfig: Omit<SpawnConfig, 'timeoutMs'> & { timeoutMs?: number }): Promise<HarnessInstance> {
     const config: SpawnConfig = {
@@ -81,8 +79,8 @@ export class HarnessPool extends EventEmitter {
     return this.spawner.spawn(config);
   }
 
-  /**
-   * Process the next item in the queue
+/**
+   * Dequeues and spawns the next waiting request when a slot is free.
    */
   private async processQueue(): Promise<void> {
     const running = this.spawner.listRunning().length;
@@ -102,8 +100,8 @@ export class HarnessPool extends EventEmitter {
     }
   }
 
-  /**
-   * Get pool statistics
+/**
+   * Returns current pool metrics.
    */
   public getStats() {
     return {
@@ -113,16 +111,16 @@ export class HarnessPool extends EventEmitter {
     };
   }
 
-  /**
-   * Set concurrency limit
+/**
+   * Updates max concurrency and triggers queue processing.
    */
   public setMaxConcurrent(max: number): void {
     this.config.maxConcurrent = max;
     this.processQueue(); // We might have opened slots
   }
 
-  /**
-   * Graceful shutdown — kill all processes, reject queued items, remove listeners
+/**
+   * Kills running processes, rejects queued work, and clears listeners.
    */
   public shutdown(): void {
     this.spawner.shutdown();

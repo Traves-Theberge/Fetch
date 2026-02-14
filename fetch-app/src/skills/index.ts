@@ -1,7 +1,8 @@
 /**
- * @fileoverview Skills Module — Barrel
+ * @fileoverview Public exports for the skills subsystem.
  *
- * Re-exports the public API for the skills subsystem.
+ * Re-exports runtime types and manager accessors used by prompt assembly
+ * and message handling code.
  *
  * @module skills
  */

@@ -1,8 +1,7 @@
 /**
- * @fileoverview Harness Spawner
+ * @fileoverview Low-level process spawner for harness commands.
  *
- * Manages the lifecycle of individual harness processes.
- * Responsible for spawning, monitoring, and killing processes.
+ * Handles process start, stream forwarding, timeout, and termination.
  */
 
 import { spawn, ChildProcess } from 'child_process';
@@ -18,7 +17,7 @@ import { logger } from '../utils/logger.js';
 
 
 /**
- * Redact sensitive information from command arguments for logging
+ * Redacts sensitive values in `docker exec -e KEY=VALUE` argument lists.
  */
 export function redactCommandArgs(args: string[]): string[] {
   const redacted = [...args];
@@ -44,7 +43,7 @@ export class HarnessSpawner extends EventEmitter {
   private timers: Map<HarnessId, ReturnType<typeof setTimeout>> = new Map();
 
   /**
-   * Spawn a new harness process
+   * Spawns one harness process and tracks its runtime state.
    */
   public async spawn(config: SpawnConfig): Promise<HarnessInstance> {
     const id = `hrn_${nanoid(8)}` as HarnessId;
@@ -135,7 +134,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Setup stdout/stderr listeners
+   * Attaches stdout/stderr/close handlers for one spawned process.
    */
   private setupStreams(id: HarnessId, child: ChildProcess): void {
     const instance = this.instances.get(id);
@@ -185,7 +184,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Send input to a running harness process stdin
+   * Writes input to process stdin when writable.
    */
   public sendInput(id: HarnessId, data: string): boolean {
     const child = this.processes.get(id);
@@ -197,7 +196,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Kill a specific instance
+   * Sends SIGTERM to one running harness instance.
    */
   public kill(id: HarnessId): boolean {
     const child = this.processes.get(id);
@@ -216,7 +215,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Kill all running instances. Used during graceful shutdown.
+   * Sends SIGTERM to all running harness instances.
    */
   public killAll(): void {
     for (const id of this.processes.keys()) {
@@ -225,7 +224,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Graceful shutdown — kill all processes and clean up
+   * Stops all instances, clears timers, and removes listeners.
    */
   public shutdown(): void {
     this.killAll();
@@ -237,7 +236,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Handle timeout
+   * Handles timeout expiration for a tracked harness instance.
    */
   private timeout(id: HarnessId): void {
     // If the timer was already cleared by the close handler, skip — process already settled (#6)
@@ -252,14 +251,14 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Get instance details
+   * Returns tracked instance state by id.
    */
   public getInstance(id: HarnessId): HarnessInstance | undefined {
     return this.instances.get(id);
   }
 
   /**
-   * List all running instances
+   * Lists instances currently running or waiting for input.
    */
   public listRunning(): HarnessInstance[] {
     return Array.from(this.instances.values())
@@ -267,7 +266,7 @@ export class HarnessSpawner extends EventEmitter {
   }
 
   /**
-   * Wait for an instance to complete
+   * Resolves when a harness instance reaches a terminal state.
    */
   public async waitFor(id: HarnessId): Promise<HarnessInstance> {
     const instance = this.instances.get(id);

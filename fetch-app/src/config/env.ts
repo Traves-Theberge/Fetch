@@ -1,28 +1,12 @@
 /**
- * @fileoverview Centralized environment configuration
+ * @fileoverview Environment variable access and startup validation.
  *
- * Single source of truth for all environment variables used by Fetch.
- * Validated at import time using Zod schemas.
+ * This module provides:
+ * - Zod schema validation for required/optional env vars
+ * - runtime `env` proxy for live `process.env` reads with defaults
+ * - exported `VERSION` value resolved from the project version source
  *
  * @module config/env
- *
- * ## Environment Variables
- *
- * | Variable              | Required | Default                      | Description                                    |
- * |-----------------------|----------|------------------------------|------------------------------------------------|
- * | OPENROUTER_API_KEY    | Yes      | —                            | API key for OpenRouter LLM access              |
- * | OWNER_PHONE_NUMBER    | Yes      | —                            | WhatsApp owner phone number (security gate)    |
- * | AGENT_MODEL           | No       | openai/gpt-4o-mini           | Model for the core agent loop                  |
- * | SUMMARY_MODEL         | No       | openai/gpt-4o-mini           | Model for conversation summarization           |
- * | VISION_MODEL          | No       | openai/gpt-4o-mini           | Model for image analysis                       |
- * | WHISPER_MODEL         | No       | /app/models/ggml-tiny.bin    | Path to whisper-cpp model binary               |
- * | WORKSPACE_ROOT        | No       | /workspace                   | Root directory for project operations          |
- * | DATA_DIR              | No       | (auto-resolved)              | Override for data directory path                |
- * | DATABASE_PATH         | No       | <DATA_DIR>/sessions.db       | Path to sessions SQLite database               |
- * | TASKS_DB_PATH         | No       | <DATA_DIR>/tasks.db          | Path to tasks SQLite database                  |
- * | LOG_LEVEL             | No       | debug                        | Minimum log level (debug/info/warn/error)      |
- * | ADMIN_TOKEN           | No       | (auto-generated)             | Bearer token for /api/logout endpoint          |
- * | TRUSTED_PHONE_NUMBERS | No       | (empty)                      | Comma-separated trusted phone numbers          |
  */
 
 import { z } from 'zod';
@@ -102,7 +86,7 @@ const DEFAULTS: Partial<Record<string, string>> = {
 
 import { getVersion } from '../utils/version.js';
 
-/** Single source of truth for the application version string. */
+/** Application version string used by user-facing command/format output. */
 export const VERSION = getVersion();
 
 // ============================================================================
@@ -112,17 +96,11 @@ export const VERSION = getVersion();
 type EnvConfig = z.infer<typeof EnvSchema>;
 
 /**
- * Live-reading environment proxy.
+ * Environment accessor proxy.
  *
- * Reads `process.env` on every access so runtime changes (e.g. test
- * `beforeEach` overrides) are reflected immediately. Applies defaults
- * for optional variables.
- *
- * Import this instead of reading `process.env` directly:
- * ```typescript
- * import { env } from '../config/env.js';
- * const key = env.OPENROUTER_API_KEY;
- * ```
+ * Reads `process.env` on each property access and applies defaults from
+ * `DEFAULTS` when a value is unset. This keeps runtime config reloads and
+ * test-time overrides visible without re-importing the module.
  */
 export const env = new Proxy({} as EnvConfig, {
   get(_target, prop: string) {
@@ -137,8 +115,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 /**
- * Validate all required env vars are present (Zod).
- * Call once at startup — logs a structured error on failure.
+ * Validate environment values against `EnvSchema`.
+ *
+ * @returns Validation status and missing/invalid keys
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
   // Construct an object with all values (process.env + DEFAULTS)

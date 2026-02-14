@@ -1,20 +1,10 @@
 /**
- * @fileoverview Workspace management
+ * @fileoverview Workspace lifecycle and git/GitHub operations.
  *
- * The WorkspaceManager handles workspace discovery, selection, and status.
- * Workspaces are project directories mounted into the Kennel container.
+ * Manages workspace discovery, selection, metadata/profile loading, and
+ * repo actions executed inside Kennel.
  *
  * @module workspace/manager
- * @see {@link Workspace} - Workspace entity
- * @see {@link dockerExec} - Container command execution
- *
- * ## Overview
- *
- * The WorkspaceManager:
- * - Lists available workspaces
- * - Tracks the active workspace
- * - Detects project types (node, python, rust, go)
- * - Gets git status for repositories
  */
 
 import { EventEmitter } from 'events';
@@ -62,26 +52,7 @@ const PROJECT_INDICATORS: Record<ProjectType, string[]> = {
 // WorkspaceManager Class
 // ============================================================================
 
-/**
- * Workspace manager
- *
- * Manages workspace discovery, selection, and status.
- *
- * @example
- * ```typescript
- * const manager = new WorkspaceManager();
- *
- * // List workspaces
- * const result = await manager.listWorkspaces();
- * console.log(result.workspaces);
- *
- * // Select a workspace
- * await manager.selectWorkspace('my-project');
- *
- * // Get workspace status
- * const status = await manager.getWorkspaceStatus();
- * ```
- */
+/** In-process workspace service used by tools and handler flows. */
 export class WorkspaceManager extends EventEmitter {
   /** Currently active workspace ID */
   private activeWorkspaceId: WorkspaceId | null = null;
@@ -1546,7 +1517,5 @@ export class WorkspaceManager extends EventEmitter {
 // Singleton Instance
 // ============================================================================
 
-/**
- * Global workspace manager instance
- */
+/** Singleton workspace manager instance. */
 export const workspaceManager = new WorkspaceManager();

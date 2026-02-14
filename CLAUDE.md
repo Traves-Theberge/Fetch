@@ -83,7 +83,7 @@ Every WhatsApp message follows a single path — no pre-classification or intent
 ```
 handler/index.ts          ← WhatsApp message entry point (+ error sanitization, response dedup)
   → security/             ← whitelist (hot-reload), rate limiter, input validation
-  → commands/parser.ts    ← slash command extraction (pre-LLM)
+  → commands/parser.ts    ← pre-LLM deterministic command router
   → agent/core.ts         ← LLM orchestration loop + circuit breaker
     → tools/registry.ts   ← singleton registry, Zod validation, OpenAI format export
     → harness/executor.ts ← spawns CLI processes, streams output, detects events

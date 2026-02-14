@@ -1,15 +1,9 @@
 /**
- * @fileoverview Interaction tools
+ * @fileoverview Interaction tool handlers.
  *
- * Tool handlers for user interaction during task execution.
+ * Handles user clarification and progress updates for active tasks.
  *
  * @module tools/interaction
- * @see {@link TaskManager} - Task progress updates
- *
- * ## Tools
- *
- * - `ask_user` - Ask user a question
- * - `report_progress` - Report task progress
  */
 
 import { getTaskManager } from '../task/manager.js';
@@ -27,24 +21,9 @@ import type { TaskId } from '../task/types.js';
 // ============================================================================
 
 /**
- * Ask user a question
+ * Stores a task question and transitions task state to `waiting_input`.
  *
- * Pauses task execution and sends a question to the user via WhatsApp.
- * The task will wait until the user responds via task_respond.
- *
- * Note: This is typically called internally by the harness when
- * the coding agent asks a question.
- *
- * @param input - Tool input with question and optional choices
- * @returns Acknowledgment that question was sent
- *
- * @example
- * ```typescript
- * const result = await handleAskUser({
- *   question: 'Should I use TypeScript or JavaScript?',
- *   options: ['TypeScript', 'JavaScript']
- * });
- * ```
+ * Auto-approves low-value confirmation prompts when autonomy mode allows it.
  */
 // Patterns that indicate the LLM is asking an unnecessary confirmation
 // instead of just doing the work. These get auto-approved at higher autonomy levels.
@@ -157,26 +136,7 @@ export async function handleAskUser(
 // report_progress
 // ============================================================================
 
-/**
- * Report task progress
- *
- * Updates the task progress with a message and optional percentage.
- * Progress updates are sent to the user via WhatsApp.
- *
- * Note: This is typically called internally by the harness when
- * it detects progress in the coding agent's output.
- *
- * @param input - Tool input with progress message and optional percent
- * @returns Acknowledgment that progress was updated
- *
- * @example
- * ```typescript
- * const result = await handleReportProgress({
- *   message: 'Implementing API endpoints',
- *   percent: 50
- * });
- * ```
- */
+/** Appends one progress record to the current active task. */
 export async function handleReportProgress(
   input: unknown
 ): Promise<ToolResult> {
@@ -259,9 +219,7 @@ export async function handleReportProgress(
 // Tool Registry Integration
 // ============================================================================
 
-/**
- * Interaction tool definitions for registry
- */
+/** Interaction tool entries consumed by the central registry. */
 export const interactionTools = {
   ask_user: {
     name: 'ask_user',

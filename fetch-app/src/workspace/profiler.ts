@@ -1,13 +1,9 @@
 /**
- * @fileoverview Project Profiler — Rich project detection
+ * @fileoverview Workspace project-profile detection.
  *
- * Enriches basic project type detection with framework, package manager,
- * test runner, entry points, and language-specific context. Uses the same
- * `dockerExec` pattern as `detectProjectType()` in workspace/manager.ts.
+ * Builds framework/package-manager/test-runner metadata for one workspace.
  *
  * @module workspace/profiler
- * @see {@link ProjectProfile} — Output type
- * @see {@link WorkspaceManager} — Consumer
  */
 
 import { dockerExec } from '../utils/docker.js';
@@ -159,13 +155,7 @@ const DEFAULT_BUILD_COMMANDS: Partial<Record<ProjectType, string>> = {
 // Main Export
 // ============================================================================
 
-/**
- * Build a rich project profile by probing files in the container.
- *
- * @param path - Absolute workspace path inside the kennel container
- * @param projectType - Already-detected primary project type
- * @returns Populated ProjectProfile
- */
+/** Probes a workspace and returns an enriched `ProjectProfile`. */
 export async function buildProjectProfile(
   path: string,
   projectType: ProjectType
@@ -393,10 +383,7 @@ async function detectBuildCommand(
 // Helpers
 // ============================================================================
 
-/**
- * Read dependencies from the project manifest.
- * Returns a flat object of dep names for fast lookup.
- */
+/** Reads manifest dependencies and returns a flat lookup map. */
 async function readManifestDeps(
   path: string,
   projectType: ProjectType

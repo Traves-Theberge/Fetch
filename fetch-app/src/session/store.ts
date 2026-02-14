@@ -1,44 +1,13 @@
 /**
- * @fileoverview Session Store - SQLite Persistent Storage
- * 
- * Provides persistent storage for sessions using better-sqlite3.
- * Handles session creation, retrieval, updates, and cleanup.
- * 
+ * @fileoverview SQLite-backed storage for session and memory records.
+ *
+ * Responsibilities:
+ * - initialize schema and prepared statements
+ * - CRUD operations for sessions
+ * - expiry cleanup and pagination
+ * - memory insert/recall operations
+ *
  * @module session/store
- * @see {@link SessionStore} - Main store class
- * @see {@link getSessionStore} - Get singleton instance
- * 
- * ## Storage
- * 
- * - File: `/app/data/sessions.db`
- * - Format: SQLite database
- * - Expiry: Sessions expire after 7 days of inactivity
- * 
- * ## Database Schema
- * 
- * ```sql
- * CREATE TABLE sessions (
- *   id TEXT PRIMARY KEY,
- *   user_id TEXT UNIQUE NOT NULL,
- *   data TEXT NOT NULL,  -- JSON blob
- *   created_at TEXT NOT NULL,
- *   last_activity_at TEXT NOT NULL
- * );
- * CREATE INDEX idx_sessions_user_id ON sessions(user_id);
- * CREATE INDEX idx_sessions_last_activity ON sessions(last_activity_at);
- * ```
- * 
- * @example
- * ```typescript
- * import { SessionStore, getSessionStore } from './store.js';
- * 
- * const store = getSessionStore();
- * await store.init();
- * 
- * const session = await store.getOrCreate('user123');
- * session.messages.push(newMessage);
- * await store.update(session);
- * ```
  */
 
 import Database from 'better-sqlite3';
@@ -58,10 +27,10 @@ import { SESSIONS_DB } from '../config/paths.js';
 // CONFIGURATION
 // =============================================================================
 
-/** Default database file path */
+/** Default SQLite file path. */
 const DEFAULT_DB_PATH = SESSIONS_DB;
 
-/** Session expiry time (7 days in milliseconds) */
+/** Session expiry cutoff window (7 days). */
 const SESSION_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 // =============================================================================
@@ -81,19 +50,7 @@ interface SessionRow {
 // =============================================================================
 
 /**
- * Persistent session storage using SQLite.
- * 
- * Provides CRUD operations for sessions with automatic initialization,
- * activity tracking, and expiry cleanup.
- * 
- * @class
- * @example
- * ```typescript
- * const store = new SessionStore('/path/to/sessions.db');
- * await store.init();
- * 
- * const session = await store.getOrCreate('user@phone');
- * ```
+ * Storage adapter over `better-sqlite3` for session persistence.
  */
 export class SessionStore {
   private db: Database.Database | null = null;
@@ -118,7 +75,7 @@ export class SessionStore {
   }
 
   /**
-   * Initialize the database
+   * Initializes database connection, schema, and prepared statements.
    */
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -218,7 +175,7 @@ export class SessionStore {
   }
 
   /**
-   * Ensure store is initialized
+   * Throws when store is not initialized.
    */
   private ensureInitialized(): void {
     if (!this.initialized || !this.db) {
@@ -227,7 +184,7 @@ export class SessionStore {
   }
 
   /**
-   * Convert database row to Session object
+   * Converts session row payload into in-memory session object.
    */
   private rowToSession(row: SessionRow): Session {
     const session = JSON.parse(row.data) as Session;
@@ -237,7 +194,7 @@ export class SessionStore {
   }
 
   /**
-   * Get session by user ID, creating if needed
+   * Returns session by user id, creating and persisting a new one when missing.
    */
   async getOrCreate(userId: string): Promise<Session> {
     this.ensureInitialized();
@@ -297,7 +254,7 @@ export class SessionStore {
   }
 
   /**
-   * Get session by ID
+   * Returns session by session id.
    */
   async getById(sessionId: string): Promise<Session | undefined> {
     this.ensureInitialized();
@@ -306,7 +263,7 @@ export class SessionStore {
   }
 
   /**
-   * Get session by user ID
+   * Returns session by user id.
    */
   async getByUserId(userId: string): Promise<Session | undefined> {
     this.ensureInitialized();
@@ -315,7 +272,7 @@ export class SessionStore {
   }
 
   /**
-   * Update session
+   * Persists updated session payload and bumps activity timestamp.
    */
   async update(session: Session): Promise<void> {
     this.ensureInitialized();
@@ -334,7 +291,7 @@ export class SessionStore {
   }
 
   /**
-   * Delete session
+   * Deletes one session by id.
    */
   async delete(sessionId: string): Promise<boolean> {
     this.ensureInitialized();
@@ -349,7 +306,7 @@ export class SessionStore {
   }
 
   /**
-   * Clear session (reset to fresh state but keep preferences)
+   * Resets session state while preserving identity and preferences.
    */
   async clear(sessionId: string): Promise<Session | undefined> {
     this.ensureInitialized();
@@ -369,7 +326,7 @@ export class SessionStore {
   }
 
   /**
-   * Clean up expired sessions
+   * Deletes expired sessions and returns removed count.
    */
   async cleanup(): Promise<number> {
     this.ensureInitialized();
@@ -385,7 +342,7 @@ export class SessionStore {
   }
 
   /**
-   * Get session count
+   * Returns total persisted session count.
    */
   async count(): Promise<number> {
     this.ensureInitialized();
@@ -394,7 +351,7 @@ export class SessionStore {
   }
 
   /**
-   * List sessions with pagination
+   * Lists sessions ordered by recent activity.
    */
   async list(limit: number = 50, offset: number = 0): Promise<Session[]> {
     this.ensureInitialized();
@@ -407,7 +364,7 @@ export class SessionStore {
   // ===========================================================================
 
   /**
-   * Add a memory entry
+   * Inserts a memory entry for the given session.
    */
   addMemory(
     sessionId: string,
@@ -444,8 +401,7 @@ export class SessionStore {
   }
 
   /**
-   * Recall memories for a session using keyword matching.
-   * Returns top matches ordered by importance and recency.
+   * Recalls session memories using keyword-weighted scoring.
    */
   recallMemories(sessionId: string, query: string, limit: number = 5): MemoryEntry[] {
     this.ensureInitialized();
@@ -504,6 +460,7 @@ export class SessionStore {
     return results;
   }
 
+  /** Converts a memory row into domain memory entity. */
   private rowToMemory(row: {
     id: string;
     session_id: string;
@@ -529,7 +486,7 @@ export class SessionStore {
   }
 
   /**
-   * Close the database connection
+   * Closes database connection and marks store uninitialized.
    */
   close(): void {
     if (this.db) {
@@ -544,7 +501,7 @@ export class SessionStore {
 let storeInstance: SessionStore | null = null;
 
 /**
- * Get the singleton session store instance
+ * Returns process-wide session store singleton.
  */
 export function getSessionStore(dbPath?: string): SessionStore {
   if (!storeInstance) {

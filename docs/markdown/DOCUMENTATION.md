@@ -59,7 +59,7 @@ This is the master documentation index for Fetch.
 | 4 | Input validator | Blocks shell injection, path traversal, null bytes |
 | 5 | Docker isolation | AI CLIs run in sandboxed Kennel container |
 | 6 | Read-only mounts | Auth credentials mounted as read-only volumes |
-| 7 | Admin auth | `/api/logout` requires bearer token |
+| 7 | Admin auth | Admin endpoints (`/api/logout`, `/api/config/reload`, `/api/sessions*`) require bearer token |
 
 ## Harness System
 

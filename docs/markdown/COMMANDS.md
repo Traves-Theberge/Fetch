@@ -25,7 +25,7 @@ These are handled deterministically without an LLM call (<5ms):
 | Command | Aliases | Description |
 |---------|---------|-------------|
 | `/stop` | `stop`, `/cancel` | Cancel the running task immediately |
-| `/undo` | — | Undo last commit (soft git reset). `/undo all` reverts to task start |
+| `/undo` | — | Show manual git commands to revert last commit. `/undo all` reverts to task start |
 | `/clear` | `clear`, `/reset` | Clear conversation history |
 | `/help` | `help`, `/h`, `/?` | Show available commands |
 | `/status` | `status`, `/st` | System and task status |

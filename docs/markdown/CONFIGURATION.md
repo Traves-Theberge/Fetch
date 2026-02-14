@@ -29,7 +29,7 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `DATA_DIR` | string | Override data directory (auto-resolved: `/app/data` in Docker, `./data` or `../data` in local dev) |
 | `DATABASE_PATH` | string | Override sessions database path |
 | `TASKS_DB_PATH` | string | Override tasks database path |
-| `ADMIN_TOKEN` | string | Bearer token for `/api/logout`. Auto-generated if not set |
+| `ADMIN_TOKEN` | string | Bearer token for admin endpoints (`/api/logout`, `/api/config/reload`, `/api/sessions*`). Auto-generated if not set |
 | `TRUSTED_PHONE_NUMBERS` | string | Comma-separated phone numbers for initial whitelist |
 | `GH_TOKEN` | string | GitHub personal access token for workspace sync and repo creation. |
 | `ANTHROPIC_API_KEY` | string | API key for Claude Code harness (if used) |
@@ -37,6 +37,15 @@ All environment variables are validated at startup by a Zod schema in `src/confi
 | `OPENCODE_API_KEY` | string | API key for OpenCode harness (or uses OpenRouter key) |
 | `CODEX_API_KEY` | string | API key for Codex harness (alternative to `codex login` OAuth; or uses `OPENAI_API_KEY`) |
 | `OPENAI_API_KEY` | string | Fallback API key for Codex harness if `CODEX_API_KEY` is not set |
+
+### Runtime Rewrite Toggles (Optional)
+
+These toggles control bounded LLM rewrites for user-facing status text. If disabled, Fetch uses deterministic template output only.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `FETCH_PROGRESS_REWRITE` | string | enabled unless set to `false` | Controls LLM rewriting of progress updates in `agent/core.ts` (hard timeout + sanitizer + template fallback) |
+| `FETCH_NOTIFICATION_REWRITE` | string | enabled unless set to `false` | Controls LLM rewriting for completion/failure notifications in `agent/notifications.ts` (hard timeout + sanitizer + template fallback) |
 
 ### Harness Selection (Feature Flags)
 
@@ -101,15 +110,24 @@ The context pipeline is configured via `config/pipeline.ts` with 42 tunable para
 
 These can also be tuned via the TUI Manager's Pipeline Tuning section.
 
-### Env Proxy Pattern
+### Live Env/Config Access
 
-Environment variables are accessed via a Proxy object that reads `process.env` on every access (not snapshotted at import time). This ensures test overrides work correctly:
+Both config accessors are live-reading proxies:
+
+- `env` (`src/config/env.ts`) for core environment values
+- `pipeline` (`src/config/pipeline.ts`) for `FETCH_*` tunables
+
+They read `process.env` on each access (not snapshotted at import time), so runtime reloads and test overrides are reflected immediately.
+
+Example:
 
 ```typescript
 import { env } from '../config/env.js';
+import { pipeline } from '../config/pipeline.js';
 
 // Reads process.env.AGENT_MODEL live, with Zod-validated defaults
 const model = env.AGENT_MODEL; // 'openai/gpt-4o-mini'
+const maxCalls = pipeline.maxToolCalls; // 5 (default)
 ```
 
 ---
@@ -214,22 +232,22 @@ Skills are Markdown files in `data/skills/` that teach Fetch domain-specific cap
 
 ```markdown
 ---
-name: React Development
-description: Best practices for React component development
-harnessHint: claude
+name: Web Research
+description: Research workflow using Fetch web tools
 triggers:
-  - react
-  - component
-  - jsx
-  - hook
+  - docs
+  - research
+  - look up
+  - search web
 enabled: true
 ---
 
 ## Instructions
 
-When working on React components:
-1. Use functional components with hooks
-2. ...
+When the user asks for references:
+1. Use `web_search` to find candidate sources
+2. Use `web_fetch` to read the selected source content
+3. Summarize findings with source links
 ```
 
 ### Discovery and Activation
@@ -242,7 +260,7 @@ When working on React components:
 Skills are managed through natural language:
 
 - "What skills do you have?" — Lists all skills with enabled/disabled status
-- "Enable the React skill" — Activates a skill
+- "Enable the Web Research skill" — Activates a skill
 - "Disable the Python skill" — Deactivates a skill
 
 ---
@@ -277,10 +295,9 @@ All paths are centralized in `src/config/paths.ts`:
 
 | Constant | Default | Description |
 |----------|---------|-------------|
-| `DATA_DIR` | `./data` | Persistent data root |
-| `SESSIONS_DB` | `./data/sessions.db` | Sessions SQLite database |
-| `TASKS_DB_PATH` | `./data/tasks.db` | Tasks SQLite database |
-| `IDENTITY_DIR` | `./data/identity` | Identity files |
-| `SKILLS_DIR` | `./data/skills` | Skill definitions |
-| `TOOLS_DIR` | `./data/tools` | Custom tool definitions |
-| `WHISPER_BIN` | `/usr/local/bin/whisper-cpp` | Whisper binary path |
+| `DATA_DIR` | Resolved at runtime | Persistent data root (`DATA_DIR` override, then `/app/data`, then local fallbacks) |
+| `SESSIONS_DB` | `<DATA_DIR>/sessions.db` | Sessions SQLite database path (or `DATABASE_PATH` override) |
+| `TASKS_DB` | `<DATA_DIR>/tasks.db` | Tasks SQLite database path (or `TASKS_DB_PATH` override) |
+| `IDENTITY_DIR` | `<DATA_DIR>/identity` | Identity files directory |
+| `SKILLS_DIR` | `<DATA_DIR>/skills` | Skills directory |
+| `TOOLS_DIR` | `<DATA_DIR>/tools` | Custom tool definitions directory |

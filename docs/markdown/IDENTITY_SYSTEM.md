@@ -53,6 +53,28 @@ The prompt **rebuilds automatically** after state-changing tools (`workspace_sel
 
 ---
 
+## Source Responsibility Index
+
+### Identity Modules
+
+| File | Purpose |
+|------|---------|
+| `src/identity/loader.ts` | Parse `COLLAR.md` and `ALPHA.md` into partial identity fields |
+| `src/identity/manager.ts` | Own in-memory identity state, hot-reload watchers, and full system-prompt assembly |
+| `src/identity/types.ts` | Identity type contracts used by loader and manager |
+
+### Security Modules
+
+| File | Purpose |
+|------|---------|
+| `src/security/gate.ts` | Authorize inbound messages using trigger + owner/whitelist checks |
+| `src/security/whitelist.ts` | Persistent trusted-number store (env + JSON file + hot-reload watcher) |
+| `src/security/rateLimiter.ts` | Sliding-window request limits per sender key |
+| `src/security/validator.ts` | Message validation and path sanitization helpers |
+| `src/security/index.ts` | Security module public exports |
+
+---
+
 ## Data Files
 
 ### `data/identity/COLLAR.md` — Fetch's Soul
@@ -109,7 +131,7 @@ When a user requests a coding task, the LLM selects which harness to use based o
 
 1. **Enabled adapters** — Only harnesses toggled on via `ENABLE_CLAUDE`, `ENABLE_GEMINI`, `ENABLE_COPILOT`, `ENABLE_OPENCODE`, `ENABLE_CODEX` are available
 2. **Task context** — The LLM reads the task description and uses its own judgment
-3. **Skill hints** — Activated skills provide `harness_hint` attributes to nudge routing
+3. **Activated skills** — Matched skill instructions guide tool selection and call order
 4. **Ambiguity rule** — If multiple harnesses are enabled and the request is ambiguous, Fetch asks the user before delegating
 
 Manual override is always available: `@fetch use claude: <task>`.

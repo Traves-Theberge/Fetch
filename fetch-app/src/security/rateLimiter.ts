@@ -1,36 +1,9 @@
 /**
- * @fileoverview Rate Limiter - Abuse Prevention
- * 
- * Prevents abuse by limiting requests per time window. Provides defense
- * in depth even with whitelist protection.
- * 
+ * @fileoverview Sliding-window rate limiter for per-sender request control.
+ *
+ * Maintains per-key timestamp buckets and enforces max requests per time window.
+ *
  * @module security/rateLimiter
- * @see {@link RateLimiter} - Main limiter class
- * 
- * ## Algorithm
- * 
- * True sliding window: tracks individual request timestamps per key.
- * On each call, timestamps older than `windowMs` are pruned.
- * A periodic eviction sweep (every 2× windowMs) removes stale keys.
- * 
- * ## Default Limits
- * 
- * - 30 requests per 60 seconds
- * - Configurable via constructor
- * 
- * @example
- * ```typescript
- * const limiter = new RateLimiter(30, 60000); // 30 req/min
- * 
- * if (limiter.isAllowed(userId)) {
- *   // Process request
- * } else {
- *   // Reject: rate limited
- * }
- * 
- * // Check remaining quota
- * const remaining = limiter.getRemaining(userId);
- * ```
  */
 
 import { logger } from '../utils/logger.js';
@@ -40,12 +13,7 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /**
- * Sliding-window rate limiter.
- * 
- * Tracks individual request timestamps per key within configurable
- * time windows for accurate rate enforcement.
- * 
- * @class
+ * Sliding-window limiter implementation.
  */
 export class RateLimiter {
   /** Per-key arrays of request timestamps (epoch ms) */
@@ -83,7 +51,7 @@ export class RateLimiter {
   }
 
   /**
-   * Check if a request should be allowed
+   * Returns true when current request is within limit for the key.
    * @param key - Unique identifier (e.g., phone number)
    * @returns true if allowed, false if rate limited
    */
@@ -106,7 +74,7 @@ export class RateLimiter {
   }
 
   /**
-   * Get remaining requests for a key
+   * Returns remaining quota for the current window.
    */
   getRemaining(key: string): number {
     const ts = this.prune(key);
@@ -114,14 +82,14 @@ export class RateLimiter {
   }
 
   /**
-   * Clear rate limit for a key (useful for testing)
+   * Clears stored timestamps for one key.
    */
   clear(key: string): void {
     this.timestamps.delete(key);
   }
 
   /**
-   * Clear all rate limits
+   * Clears all limiter state.
    */
   clearAll(): void {
     this.timestamps.clear();

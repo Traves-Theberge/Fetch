@@ -1,8 +1,12 @@
 /**
- * @fileoverview Skill Manager
- * 
- * Manages the lifecycle, registry, and retrieval of skills.
- * 
+ * @fileoverview Skill registry, matching, and hot-reload management.
+ *
+ * Responsibilities:
+ * - load built-in and user skills
+ * - watch user skill files for add/change/delete
+ * - match enabled skills to incoming messages
+ * - build prompt-ready summaries and activated instruction blocks
+ *
  * @module skills/manager
  */
 
@@ -31,7 +35,7 @@ export class SkillManager {
   }
 
   /**
-   * Initialize the manager and load all skills
+   * Initializes directories, loads skills, and starts user-skill watcher.
    */
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -54,6 +58,9 @@ export class SkillManager {
     logger.info(`SkillManager initialized. Loaded ${this.skills.size} skills.`);
   }
 
+  /**
+   * Starts chokidar watcher for user skill changes.
+   */
   private setupWatcher(dir: string) {
      try {
          const watcher = chokidar.watch(dir, {
@@ -75,6 +82,9 @@ export class SkillManager {
      }
   }
 
+  /**
+   * Reloads one user skill on file add/change events.
+   */
   private async handleFileChange(filePath: string) {
       if (!filePath.endsWith('SKILL.md')) return;
       
@@ -92,6 +102,9 @@ export class SkillManager {
       }
   }
 
+  /**
+   * Removes skill from registry when its `SKILL.md` is deleted.
+   */
   private handleFileDelete(filePath: string) {
        if (!filePath.endsWith('SKILL.md')) return;
        const dirPath = path.dirname(filePath);
@@ -105,8 +118,7 @@ export class SkillManager {
 
 
   /**
-   * Match skills based on a query/message
-   * Currently implements simple keyword matching on triggers and name
+   * Matches enabled skills using case-insensitive trigger/name substring checks.
    */
   async matchSkills(message: string): Promise<Skill[]> {
     const matches: Skill[] = [];
@@ -140,8 +152,7 @@ export class SkillManager {
   }
 
   /**
-   * Load skills from a specific directory recursively or flat
-   * Structure: dir/SKILL.md or dir/skill-name/SKILL.md
+   * Loads skills from a directory of subfolders containing `SKILL.md`.
    */
   private async loadSkillsFromDir(baseDir: string, isBuiltin: boolean): Promise<void> {
     try {
@@ -171,6 +182,9 @@ export class SkillManager {
     }
   }
 
+  /**
+   * Closes active file watchers.
+   */
   async shutdown(): Promise<void> {
     for (const watcher of this.watchers) {
       await watcher.close();
@@ -179,7 +193,7 @@ export class SkillManager {
   }
 
   /**
-   * Build an XML summary of enabled skills for the system prompt
+   * Builds XML summary of enabled skills for system prompt context.
    */
   buildSkillsSummary(): string {
     const enabledSkills = Array.from(this.skills.values())
@@ -206,16 +220,13 @@ export class SkillManager {
   }
 
   /**
-   * Build activated skill context from matched skills.
-   * Injects the full instruction body for skills that match the user's message.
-   * This is the "Phase 2" of the discovery → activation pattern.
+   * Builds activated skill XML blocks containing full instruction content.
    */
   buildActivatedSkillsContext(matchedSkills: Skill[]): string {
     if (matchedSkills.length === 0) return '';
 
     const blocks = matchedSkills.map(skill => {
-      const harnessAttr = skill.harnessHint ? ` harness_hint="${skill.harnessHint}"` : '';
-      return `<activated_skill name="${skill.name}"${harnessAttr}>
+      return `<activated_skill name="${skill.name}">
   <instructions>
 ${skill.instructions}
   </instructions>
@@ -229,6 +240,9 @@ ${skill.instructions}
 // Singleton
 let instance: SkillManager | null = null;
 
+/**
+ * Returns process-wide `SkillManager` singleton.
+ */
 export function getSkillManager(): SkillManager {
   if (!instance) {
     instance = new SkillManager();

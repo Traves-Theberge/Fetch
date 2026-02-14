@@ -3,6 +3,14 @@ import path from 'path';
 
 let cachedVersion: string | null = null;
 
+/**
+ * Returns the runtime version string with `v` prefix.
+ *
+ * Lookup order:
+ * 1. `VERSION` file in current working directory.
+ * 2. `package.json` version.
+ * 3. Fallback `v0.0.0-unknown`.
+ */
 export function getVersion(): string {
     if (cachedVersion) return cachedVersion;
 
@@ -19,7 +27,7 @@ export function getVersion(): string {
             cachedVersion = fs.readFileSync(versionPath, 'utf8').trim();
             return cachedVersion;
         }
-    } catch (error) {
+    } catch {
         // Ignore error, fallback to package.json
     }
 
@@ -31,7 +39,7 @@ export function getVersion(): string {
             cachedVersion = `v${pkg.version}`;
             return cachedVersion;
         }
-    } catch (error) {
+    } catch {
         // Ignore
     }
 

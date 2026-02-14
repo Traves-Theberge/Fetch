@@ -1,13 +1,7 @@
 /**
- * @fileoverview Harness domain types and interfaces
- *
- * Defines all types related to harness execution.
- * Harnesses are adapters that execute coding tasks via external CLI tools
- * (Claude Code, Gemini CLI, Copilot CLI).
+ * @fileoverview Shared types for harness adapters, process lifecycle, and events.
  *
  * @module harness/types
- * @see {@link HarnessExecutor} - Process management
- * @see {@link Task} - Parent task entity
  */
 
 import type { AgentType, TaskId } from '../task/types.js';
@@ -17,14 +11,7 @@ import type { AgentType, TaskId } from '../task/types.js';
 // ============================================================================
 
 /**
- * Unique identifier for harness executions
- *
- * Format: `hrn_{nanoid(8)}`
- *
- * @example
- * ```typescript
- * const harnessId: HarnessId = 'hrn_Xy7zW9qP';
- * ```
+ * Identifier for a single harness execution.
  */
 export type HarnessId = `hrn_${string}`;
 
@@ -33,16 +20,7 @@ export type HarnessId = `hrn_${string}`;
 // ============================================================================
 
 /**
- * Harness execution status
- *
- * | Status | Description |
- * |--------|-------------|
- * | starting | Process is being spawned |
- * | running | Process is actively executing |
- * | waiting_input | Process is waiting for stdin input |
- * | completed | Process exited successfully (code 0) |
- * | failed | Process exited with error (code != 0) |
- * | killed | Process was terminated by timeout or user |
+ * Lifecycle states for one harness process.
  */
 export type HarnessStatus =
   | 'starting'
@@ -53,16 +31,7 @@ export type HarnessStatus =
   | 'killed';
 
 /**
- * Output event types from harness process
- *
- * | Type | Description |
- * |------|-------------|
- * | stdout | Standard output line |
- * | stderr | Standard error line |
- * | question | Harness is asking a question |
- * | progress | Progress indicator detected |
- * | complete | Task completion detected |
- * | error | Error detected in output |
+ * Parsed output event types emitted from harness execution.
  */
 export type HarnessOutputEventType =
   | 'stdout'
@@ -77,9 +46,7 @@ export type HarnessOutputEventType =
 // ============================================================================
 
 /**
- * Output event from harness process
- *
- * Emitted when the harness produces output or changes state.
+ * One parsed output event from a harness process.
  */
 export interface HarnessOutputEvent {
   /** Event type */
@@ -97,9 +64,7 @@ export interface HarnessOutputEvent {
 // ============================================================================
 
 /**
- * Harness execution configuration
- *
- * Defines how to spawn and manage the harness process.
+ * Process configuration used by the spawner.
  */
 export interface HarnessConfig {
   /** Executable command (e.g., 'claude', 'gemini') */
@@ -118,17 +83,13 @@ export interface HarnessConfig {
   timeoutMs: number;
 
   /**
-   * Docker container name to execute in via `docker exec`.
-   * When set, the spawner wraps the command with:
-   *   docker exec -w <cwd> [-e K=V ...] <container> <command> <args...>
-   * This is the core of the dual-container architecture:
-   * bridge (brain) controls kennel (muscle) via docker exec.
+   * Optional container name for `docker exec` wrapping.
    */
   container?: string;
 }
 
 /**
- * Harness Spawn Configuration
+ * Spawner input config.
  */
 export interface SpawnConfig extends HarnessConfig {
   /** Optional background execution mode */
@@ -136,7 +97,7 @@ export interface SpawnConfig extends HarnessConfig {
 }
 
 /**
- * Running Harness Instance
+ * Runtime state tracked for a spawned harness process.
  */
 export interface HarnessInstance {
   id: HarnessId;
@@ -149,7 +110,7 @@ export interface HarnessInstance {
 }
 
 /**
- * Pool Configuration
+ * Concurrency and timeout defaults for the harness pool.
  */
 export interface PoolConfig {
   maxConcurrent: number;
@@ -157,13 +118,13 @@ export interface PoolConfig {
 }
 
 /**
- * Default timeout for harness execution
+ * Default harness timeout from pipeline configuration.
  */
 import { pipeline } from '../config/pipeline.js';
 export const DEFAULT_HARNESS_TIMEOUT_MS = pipeline.harnessTimeout;
 
 /**
- * Container name for the kennel sandbox
+ * Default kennel container name used by adapters.
  */
 export const KENNEL_CONTAINER = 'fetch-kennel';
 
@@ -172,7 +133,7 @@ export const KENNEL_CONTAINER = 'fetch-kennel';
 // ============================================================================
 
 /**
- * File operations performed by a harness
+ * File paths grouped by change type inferred from harness output.
  */
 export interface FileOperations {
   created: string[];
@@ -181,16 +142,14 @@ export interface FileOperations {
 }
 
 /**
- * Harness adapter interface
- *
- * Each coding agent (Claude, Gemini, Copilot, OpenCode, Codex) implements this interface.
+ * Contract implemented by each CLI-specific harness adapter.
  */
 export interface HarnessAdapter {
   /** Agent type this adapter handles */
   readonly agent: AgentType;
 
   /**
-   * Build the execution configuration for a task
+   * Builds process config for a goal in a workspace.
    *
    * @param goal - The task goal/request
    * @param workspacePath - Absolute path to the workspace
@@ -204,7 +163,7 @@ export interface HarnessAdapter {
   ): HarnessConfig;
 
   /**
-   * Parse a line of output to detect special events
+   * Parses one output line into a structured event type when possible.
    *
    * @param line - Raw output line
    * @returns Parsed event type, or null if regular output
@@ -212,7 +171,7 @@ export interface HarnessAdapter {
   parseOutputLine(line: string): HarnessOutputEventType | null;
 
   /**
-   * Detect if the harness is asking a question
+   * Detects whether current output requires user input.
    *
    * @param output - Recent output buffer
    * @returns The question text if detected, null otherwise
@@ -220,7 +179,7 @@ export interface HarnessAdapter {
   detectQuestion(output: string): string | null;
 
   /**
-   * Format a response to send to the harness stdin
+   * Formats user input before writing to harness stdin.
    *
    * @param response - User's response
    * @returns Formatted response for stdin
@@ -228,7 +187,7 @@ export interface HarnessAdapter {
   formatResponse(response: string): string;
 
   /**
-   * Extract a summary of changes from the harness output
+   * Produces a short textual summary from full output.
    *
    * @param output - Full stdout buffer
    * @returns Summary string or null if none found
@@ -236,7 +195,7 @@ export interface HarnessAdapter {
   extractSummary(output: string): string | null;
 
   /**
-   * Extract file operations from the harness output
+   * Extracts created/modified/deleted paths from full output.
    *
    * @param output - Full stdout buffer
    * @returns List of created, modified, and deleted files
@@ -249,30 +208,7 @@ export interface HarnessAdapter {
 // ============================================================================
 
 /**
- * Harness execution instance
- *
- * Represents a single execution of a harness for a task.
- * One task may have multiple executions if retries occur.
- *
- * @example
- * ```typescript
- * const execution: HarnessExecution = {
- *   id: 'hrn_Xy7zW9qP',
- *   taskId: 'tsk_V1StGXR8_Z',
- *   agent: 'claude',
- *   status: 'running',
- *   pid: 12345,
- *   config: {
- *     command: 'claude',
- *     args: ['--print', '-p', 'Add dark mode...'],
- *     env: {},
- *     cwd: '/workspace/my-project',
- *     timeoutMs: 300000
- *   },
- *   events: [],
- *   startedAt: '2026-02-02T10:00:01.000Z'
- * };
- * ```
+ * Stored execution record for one harness run.
  */
 export interface HarnessExecution {
   /** Unique execution identifier */
@@ -311,7 +247,7 @@ export interface HarnessExecution {
 // ============================================================================
 
 /**
- * Harness event types for pub/sub
+ * Event topics emitted by the harness executor.
  */
 export type HarnessEventType =
   | 'harness:started'
@@ -324,7 +260,7 @@ export type HarnessEventType =
   | 'harness:killed';
 
 /**
- * Harness event payload
+ * Event payload shared across harness event topics.
  */
 export interface HarnessEvent {
   type: HarnessEventType;
@@ -339,14 +275,12 @@ export interface HarnessEvent {
 // ============================================================================
 
 /**
- * Error category for classifying harness failures
+ * Normalized failure category for retry and reporting decisions.
  */
 export type ErrorCategory = 'timeout' | 'network' | 'permission' | 'syntax' | 'process' | 'unknown';
 
 /**
- * Result of a harness execution
- *
- * Returned when the harness completes or fails.
+ * Final result returned by a harness execution.
  */
 export interface HarnessResult {
   /** Whether execution succeeded */

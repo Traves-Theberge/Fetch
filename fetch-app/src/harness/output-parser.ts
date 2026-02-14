@@ -1,37 +1,9 @@
 /**
- * @fileoverview Harness output stream parser
+ * @fileoverview Streaming parser for harness stdout/stderr text.
  *
- * Parses streaming output from harness processes to extract
- * meaningful events like progress updates, questions, and completion.
+ * Emits structured events for questions, progress, file ops, errors, and completion.
  *
  * @module harness/output-parser
- * @see {@link HarnessExecutor} - Uses this for output processing
- *
- * ## Overview
- *
- * The OutputParser:
- * - Buffers streaming output
- * - Detects line boundaries
- * - Identifies special patterns (questions, progress, errors)
- * - Extracts file operations
- * - Generates structured events
- *
- * ## Usage
- *
- * ```typescript
- * const parser = new OutputParser();
- *
- * parser.on('line', (line) => console.log(line));
- * parser.on('question', (q) => console.log('Question:', q));
- * parser.on('progress', (msg) => console.log('Progress:', msg));
- *
- * // Feed data as it arrives
- * parser.write(chunk1);
- * parser.write(chunk2);
- *
- * // Flush remaining buffer
- * parser.flush();
- * ```
  */
 
 import { EventEmitter } from 'events';
@@ -42,7 +14,7 @@ import stripAnsi from 'strip-ansi';
 // ============================================================================
 
 /**
- * Parser event types
+ * Event types emitted by `OutputParser`.
  */
 export type ParserEventType =
   | 'line'        // Complete line received
@@ -53,12 +25,12 @@ export type ParserEventType =
   | 'complete';   // Completion detected
 
 /**
- * File operation type
+ * File operation categories parsed from output text.
  */
 export type FileOperation = 'create' | 'modify' | 'delete';
 
 /**
- * File operation event
+ * Parsed file operation event payload.
  */
 export interface FileOperationEvent {
   operation: FileOperation;
@@ -66,7 +38,7 @@ export interface FileOperationEvent {
 }
 
 /**
- * Progress event
+ * Parsed progress event payload.
  */
 export interface ProgressEvent {
   message: string;
@@ -74,7 +46,7 @@ export interface ProgressEvent {
 }
 
 /**
- * Parser configuration
+ * Parser runtime configuration.
  */
 export interface ParserConfig {
   /** Strip ANSI escape codes */
@@ -84,7 +56,7 @@ export interface ParserConfig {
 }
 
 /**
- * Default parser configuration
+ * Default parser settings.
  */
 const DEFAULT_CONFIG: ParserConfig = {
   stripAnsi: true,
@@ -96,7 +68,7 @@ const DEFAULT_CONFIG: ParserConfig = {
 // ============================================================================
 
 /**
- * Patterns that indicate a question
+ * Patterns used to identify user-input prompts.
  */
 const QUESTION_PATTERNS = [
   /^\s*\?\s+(.+)/,              // ? prefix
@@ -110,7 +82,7 @@ const QUESTION_PATTERNS = [
 ];
 
 /**
- * Patterns that indicate progress
+ * Patterns used to identify progress output.
  */
 const PROGRESS_PATTERNS = [
   /^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s*(.+)$/,     // Spinner
@@ -122,7 +94,7 @@ const PROGRESS_PATTERNS = [
 ];
 
 /**
- * Patterns that indicate file operations
+ * Patterns used to identify file operation lines.
  */
 const FILE_OP_PATTERNS: Array<{ pattern: RegExp; operation: FileOperation }> = [
   { pattern: /^Created?\s+(.+)$/i, operation: 'create' },
@@ -135,7 +107,7 @@ const FILE_OP_PATTERNS: Array<{ pattern: RegExp; operation: FileOperation }> = [
 ];
 
 /**
- * Patterns that indicate errors
+ * Patterns used to identify error lines.
  */
 const ERROR_PATTERNS = [
   /^error:/i,
@@ -150,7 +122,7 @@ const ERROR_PATTERNS = [
 ];
 
 /**
- * Patterns that indicate completion
+ * Patterns used to identify completion lines.
  */
 const COMPLETION_PATTERNS = [
   /^Done\.?$/i,
@@ -166,25 +138,7 @@ const COMPLETION_PATTERNS = [
 // ============================================================================
 
 /**
- * Streaming output parser
- *
- * Parses harness output streams to extract structured events.
- *
- * @example
- * ```typescript
- * const parser = new OutputParser({ agent: 'claude' });
- *
- * parser.on('question', ({ question }) => {
- *   console.log('Question detected:', question);
- * });
- *
- * parser.on('file_op', ({ operation, path }) => {
- *   console.log(`${operation}: ${path}`);
- * });
- *
- * process.stdout.on('data', (chunk) => parser.write(chunk));
- * process.on('exit', () => parser.flush());
- * ```
+ * Parses line-oriented harness output and emits structured events.
  */
 export class OutputParser extends EventEmitter {
   /** Parser configuration */
@@ -203,7 +157,7 @@ export class OutputParser extends EventEmitter {
   private completed: boolean = false;
 
   /**
-   * Create a new output parser
+   * Creates a parser with optional config overrides.
    *
    * @param config - Parser configuration
    */
@@ -217,7 +171,7 @@ export class OutputParser extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Write data to the parser
+   * Appends stream data and processes complete lines.
    *
    * @param data - Data to parse (string or Buffer)
    */
@@ -237,9 +191,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Flush any remaining buffer content
-   *
-   * Call this when the stream ends to process any remaining data.
+   * Processes any buffered trailing content.
    */
   flush(): void {
     if (this.buffer.trim()) {
@@ -249,7 +201,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Reset the parser state
+   * Clears all parser state.
    */
   reset(): void {
     this.buffer = '';
@@ -259,7 +211,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Get all collected lines
+   * Returns all parsed lines.
    *
    * @returns Array of complete lines
    */
@@ -268,7 +220,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Get full output as string
+   * Returns collected output as one string.
    *
    * @returns All output joined with newlines
    */
@@ -277,7 +229,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Get detected file operations
+   * Returns parsed file operation events.
    *
    * @returns Array of file operations
    */
@@ -286,7 +238,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check if completion was detected
+   * Returns true when completion text has been seen.
    *
    * @returns True if completion pattern was found
    */
@@ -295,7 +247,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Find question in recent output
+   * Returns the most recent detected question, if any.
    *
    * @returns Question text if found, null otherwise
    */
@@ -320,7 +272,7 @@ export class OutputParser extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Process buffer for complete lines
+   * Splits buffered text into complete lines and processes each.
    */
   private processBuffer(): void {
     // Split on newlines
@@ -345,7 +297,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Process a single complete line
+   * Stores and classifies one complete output line.
    */
   private processLine(line: string): void {
     // Store line
@@ -363,7 +315,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check for question patterns
+   * Emits `question` when line matches a question pattern.
    */
   private checkQuestion(line: string): void {
     for (const pattern of QUESTION_PATTERNS) {
@@ -377,7 +329,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check for progress patterns
+   * Emits `progress` when line matches a progress pattern.
    */
   private checkProgress(line: string): void {
     for (const pattern of PROGRESS_PATTERNS) {
@@ -400,7 +352,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check for file operation patterns
+   * Emits `file_op` when line matches a file operation pattern.
    */
   private checkFileOp(line: string): void {
     for (const { pattern, operation } of FILE_OP_PATTERNS) {
@@ -419,7 +371,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check for error patterns
+   * Emits `error` when line matches an error pattern.
    */
   private checkError(line: string): void {
     for (const pattern of ERROR_PATTERNS) {
@@ -431,7 +383,7 @@ export class OutputParser extends EventEmitter {
   }
 
   /**
-   * Check for completion patterns
+   * Marks parser completed and emits `complete` when matched.
    */
   private checkCompletion(line: string): void {
     for (const pattern of COMPLETION_PATTERNS) {
@@ -449,7 +401,7 @@ export class OutputParser extends EventEmitter {
 // ============================================================================
 
 /**
- * Extract summary from parsed output
+ * Extracts a summary string from parser output lines.
  *
  * @param parser - Parser with collected output
  * @returns Summary string
@@ -484,7 +436,7 @@ export function extractSummary(parser: OutputParser): string {
 }
 
 /**
- * Create a configured output parser
+ * Creates an output parser with default recommended config.
  *
  * @returns Configured parser with ANSI stripping enabled
  */

@@ -1,13 +1,14 @@
 /**
- * @fileoverview Message Handler
+ * @fileoverview Handles inbound WhatsApp messages and task event notifications.
  *
- * Entry point for incoming WhatsApp messages. Manages session lifecycle,
- * delegates to the agent core (LLM-first single path), and builds
- * WhatsApp-formatted responses.
+ * Responsibilities:
+ * - initialize session/task integrations
+ * - route deterministic slash commands
+ * - delegate regular messages to agent core
+ * - format and return WhatsApp-ready replies
+ * - push proactive task notifications via registered sender
  *
  * @module handler
- * @see {@link handleMessage} - Main message handler
- * @see {@link processMessage} - Agent core (LLM + tools)
  */
 
 import { SessionManager, getSessionManager } from '../session/manager.js';
@@ -22,21 +23,20 @@ import { logger } from '../utils/logger.js';
 // SINGLETON STATE
 // =============================================================================
 
-/** Session manager singleton */
+/** Session manager singleton. */
 let sessionManager: SessionManager | null = null;
 
-/** Task manager singleton */
+/** Task manager singleton. */
 let taskManager: TaskManager | null = null;
 
-/** Initialization flag */
+/** Guard to prevent duplicate initialization. */
 let initialized = false;
 
-/** WhatsApp send callback for proactive messages (task completions, etc.) */
+/** Optional sender used for proactive task notifications. */
 let sendWhatsApp: ((userId: string, text: string) => Promise<void>) | null = null;
 
 /**
- * Register WhatsApp send function for proactive messages.
- * Called by bridge/client.ts during initialization.
+ * Registers a callback used to send proactive WhatsApp messages.
  */
 export function registerWhatsAppSender(fn: (userId: string, text: string) => Promise<void>): void {
   sendWhatsApp = fn;
@@ -48,7 +48,7 @@ export function registerWhatsAppSender(fn: (userId: string, text: string) => Pro
 // =============================================================================
 
 /**
- * Initialize handler components
+ * Initializes handler dependencies and task event listeners once.
  */
 export async function initializeHandler(): Promise<void> {
   if (initialized) return;
@@ -177,7 +177,7 @@ export async function initializeHandler(): Promise<void> {
 // =============================================================================
 
 /**
- * Process an incoming WhatsApp message
+ * Processes one incoming WhatsApp message.
  *
  * @param userId - WhatsApp JID (phone number)
  * @param message - Incoming message text
@@ -227,7 +227,9 @@ export async function handleMessage(
     const thinkingTimer = setTimeout(() => {
       if (!initialSent && onProgress) {
         import('../agent/core.js').then(({ generateProgressMessage }) => {
-          return onProgress(generateProgressMessage(message, 1));
+          return generateProgressMessage(message, 1);
+        }).then((progressMessage) => {
+          return onProgress(progressMessage);
         }).then(() => {
           initialSent = true;
         }).catch(err => {
@@ -272,7 +274,7 @@ export async function handleMessage(
 // =============================================================================
 
 /**
- * Build WhatsApp response array from agent response
+ * Converts an agent response into one or more WhatsApp messages.
  */
 function buildResponses(response: AgentResponse): string[] {
   const responses: string[] = [];
@@ -301,8 +303,7 @@ function buildResponses(response: AgentResponse): string[] {
 // =============================================================================
 
 /**
- * Detect and remove repeated content from LLM responses.
- * Uses sentence-level deduplication — catches both exact and near-duplicate sentences.
+ * Removes obvious repetition loops from model output before sending to users.
  */
 function deduplicateResponse(text: string): string {
   // 1. Exact byte-level repetition (catches copy-paste loops)
@@ -347,8 +348,7 @@ function deduplicateResponse(text: string): string {
 // =============================================================================
 
 /**
- * Sanitize error messages before sending to WhatsApp.
- * Strips API keys, file paths, stack traces, and other internals.
+ * Sanitizes internal error details before returning them to WhatsApp.
  */
 function sanitizeError(error: unknown): string {
   let msg = error instanceof Error ? error.message : String(error);
@@ -378,7 +378,7 @@ function sanitizeError(error: unknown): string {
 // =============================================================================
 
 /**
- * Shutdown handler
+ * Resets handler initialization state.
  */
 export async function shutdown(): Promise<void> {
   logger.info('Shutting down handler...');

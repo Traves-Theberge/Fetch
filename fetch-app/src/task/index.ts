@@ -1,9 +1,9 @@
 /**
- * @fileoverview Task Module Exports
+ * @fileoverview Public exports for the task subsystem.
+ *
+ * Exposes task domain types, lifecycle manager, and harness integration entry points.
  *
  * @module task
- * @see {@link TaskManager} - Task lifecycle management
- * @see {@link TaskIntegration} - Harness integration
  */
 
 // Types

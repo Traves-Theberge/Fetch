@@ -1,12 +1,10 @@
 /**
- * @fileoverview Common Zod validation schemas
+ * @fileoverview Shared Zod primitives used across tool and model validation.
  *
- * Provides reusable validation schemas for IDs, paths, timestamps,
- * and other common data types used throughout Fetch.
+ * Defines common constraints for ids, paths, timestamps, numeric limits, and
+ * common text fields.
  *
  * @module validation/common
- * @see {@link ToolInputSchemas} - Tool-specific schemas
- * @see {@link ModelSchemas} - Data model schemas
  */
 
 import { z } from 'zod';
@@ -39,17 +37,7 @@ export const DEFAULT_TIMEOUT_MS = 300000;
  */
 const NANOID_PATTERN = /^[A-Za-z0-9_-]+$/;
 
-/**
- * Task ID schema
- *
- * Format: `tsk_{nanoid(10)}`
- *
- * @example
- * ```typescript
- * TaskIdSchema.parse('tsk_V1StGXR8_Z'); // OK
- * TaskIdSchema.parse('invalid'); // throws
- * ```
- */
+/** Task id schema: `tsk_<10 nanoid chars>`. */
 export const TaskIdSchema = z
   .string()
   .refine((val) => val.startsWith('tsk_'), {
@@ -62,11 +50,7 @@ export const TaskIdSchema = z
     message: 'Task ID contains invalid characters',
   });
 
-/**
- * Harness ID schema
- *
- * Format: `hrn_{nanoid(8)}`
- */
+/** Harness execution id schema: `hrn_<8 nanoid chars>`. */
 export const HarnessIdSchema = z
   .string()
   .refine((val) => val.startsWith('hrn_'), {
@@ -79,11 +63,7 @@ export const HarnessIdSchema = z
     message: 'Harness ID contains invalid characters',
   });
 
-/**
- * Progress ID schema
- *
- * Format: `prg_{nanoid(8)}`
- */
+/** Progress entry id schema: `prg_<8 nanoid chars>`. */
 export const ProgressIdSchema = z
   .string()
   .refine((val) => val.startsWith('prg_'), {
@@ -100,23 +80,7 @@ export const ProgressIdSchema = z
 // Path Schemas
 // ============================================================================
 
-/**
- * Workspace name schema (safe directory name)
- *
- * Rules:
- * - 1-100 characters
- * - Starts with alphanumeric
- * - Contains only alphanumeric, dot, underscore, hyphen
- * - No path traversal (..)
- * - Automatically lowercased (npm naming restriction)
- *
- * @example
- * ```typescript
- * WorkspaceNameSchema.parse('my-project'); // OK → 'my-project'
- * WorkspaceNameSchema.parse('My-Project'); // OK → 'my-project'
- * WorkspaceNameSchema.parse('../secret'); // throws
- * ```
- */
+/** Workspace name schema used for directory-safe workspace ids. */
 export const WorkspaceNameSchema = z
   .string()
   .min(1, 'Workspace name is required')
@@ -130,20 +94,7 @@ export const WorkspaceNameSchema = z
   })
   .transform((name) => name.toLowerCase());
 
-/**
- * Safe file path schema (within workspace)
- *
- * Rules:
- * - Non-empty
- * - No path traversal (..)
- * - Absolute paths must start with /workspace
- *
- * @example
- * ```typescript
- * SafePathSchema.parse('src/index.ts'); // OK
- * SafePathSchema.parse('../../../etc/passwd'); // throws
- * ```
- */
+/** File path schema constrained to workspace-safe relative/absolute paths. */
 export const SafePathSchema = z
   .string()
   .min(1, 'Path is required')
@@ -200,15 +151,7 @@ export const TimeoutSchema = z
 // Timestamp Schemas
 // ============================================================================
 
-/**
- * ISO 8601 timestamp schema
- *
- * @example
- * ```typescript
- * ISOTimestampSchema.parse('2026-02-02T10:00:00.000Z'); // OK
- * ISOTimestampSchema.parse('invalid'); // throws
- * ```
- */
+/** ISO-8601 UTC timestamp schema. */
 export const ISOTimestampSchema = z.string().datetime({
   message: 'Invalid ISO 8601 timestamp',
 });
@@ -224,12 +167,7 @@ export const NonEmptyStringSchema = z
   .string()
   .min(1, 'Value is required');
 
-/**
- * Goal string schema (for task goals)
- *
- * Rules:
- * - 1-2000 characters
- */
+/** Task goal text schema. */
 export const GoalSchema = z
   .string()
   .min(1, 'Goal is required')
@@ -258,4 +196,3 @@ export const ProgressMessageSchema = z
   .string()
   .min(1, 'Message is required')
   .max(500, 'Message too long (max 500 characters)');
-

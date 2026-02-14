@@ -1,39 +1,14 @@
 /**
- * @fileoverview Session Manager - High-Level Session API
- * 
- * Provides the primary interface for managing user sessions, messages,
- * and repo-map caching. Acts as facade over SessionStore.
- * 
+ * @fileoverview High-level session orchestration API.
+ *
+ * Responsibilities:
+ * - session lifecycle operations over `SessionStore`
+ * - message append operations (user/assistant/tool)
+ * - background compaction of long histories
+ * - repo-map cache freshness checks
+ * - memory add/recall delegation
+ *
  * @module session/manager
- * @see {@link SessionManager} - Main manager class
- * @see {@link SessionStore} - Underlying persistence
- * 
- * ## Responsibilities
- * 
- * - Session lifecycle (create, get, update)
- * - Message management (add user/assistant/tool messages)
- * - Message compaction (LLM-summarize old messages to save context)
- * - Repo-map caching (auto-refresh on staleness)
- * 
- * ## Usage Pattern
- * 
- * ```typescript
- * const manager = new SessionManager();
- * await manager.init();
- * 
- * const session = await manager.getSession('user123');
- * await manager.addUserMessage(session, 'Hello!');
- * ```
- * 
- * ## Message Flow
- * 
- * ```
- * User Input → addUserMessage()
- *      ↓
- * Agent Processing
- *      ↓
- * addAssistantMessage() or addToolMessage()
- * ```
  */
 
 import {
@@ -53,20 +28,7 @@ import { logger } from '../utils/logger.js';
 // =============================================================================
 
 /**
- * High-level manager for user sessions and conversation state.
- * 
- * Provides methods for session CRUD, message persistence,
- * context compaction, and repo-map caching.
- * 
- * @class
- * @example
- * ```typescript
- * const manager = new SessionManager();
- * await manager.init();
- * 
- * const session = await manager.getSession('user123');
- * await manager.addUserMessage(session, 'Fix the bug');
- * ```
+ * Facade over session store with orchestration helpers used by handlers/tools.
  */
 export class SessionManager {
   private store: SessionStore;
@@ -77,35 +39,35 @@ export class SessionManager {
   }
 
   /**
-   * Initialize the session manager
+   * Initializes underlying store.
    */
   async init(): Promise<void> {
     await this.store.init();
   }
 
   /**
-   * Get or create a session for a user
+   * Returns session for user id, creating if missing.
    */
   async getSession(userId: string): Promise<Session> {
     return this.store.getOrCreate(userId);
   }
 
   /**
-   * Alias for getSession (used by handler)
+   * Alias of `getSession` for handler call sites.
    */
   async getOrCreateSession(userId: string): Promise<Session> {
     return this.getSession(userId);
   }
 
   /**
-   * Get session by Session ID
+   * Returns session by session id.
    */
   async getSessionById(sessionId: string): Promise<Session | undefined> {
     return this.store.getById(sessionId);
   }
 
   /**
-   * Update a session
+   * Persists a full session object.
    */
 
 
@@ -114,21 +76,21 @@ export class SessionManager {
   }
 
   /**
-   * List all sessions (paginated)
+   * Lists sessions with pagination.
    */
   async listSessions(limit: number = 50, offset: number = 0): Promise<Session[]> {
     return this.store.list(limit, offset);
   }
 
   /**
-   * Delete a session
+   * Deletes a session by id.
    */
   async deleteSession(sessionId: string): Promise<boolean> {
     return this.store.delete(sessionId);
   }
 
   /**
-   * Clear a session
+   * Clears one session while preserving stable identity/preference fields.
    */
   async clearSession(sessionId: string): Promise<Session | undefined> {
     return this.store.clear(sessionId);
@@ -139,7 +101,7 @@ export class SessionManager {
   // ============================================================================
 
   /**
-   * Add a user message to the session
+   * Appends user message and triggers background compaction check.
    */
   async addUserMessage(session: Session, content: string): Promise<Message> {
     const message = createMessage('user', content);
@@ -163,7 +125,7 @@ export class SessionManager {
   }
 
   /**
-   * Add an assistant message to the session
+   * Appends assistant message to session history.
    */
   async addAssistantMessage(session: Session, content: string): Promise<Message> {
     const message = createMessage('assistant', content);
@@ -173,7 +135,7 @@ export class SessionManager {
   }
 
   /**
-   * Add an assistant message with tool calls (when LLM requests tools)
+   * Appends assistant message containing tool call requests.
    */
   async addAssistantToolCallMessage(
     session: Session,
@@ -192,7 +154,7 @@ export class SessionManager {
   }
 
   /**
-   * Add a tool call message to the session
+   * Appends tool-role message and optionally binds tool call id for pairing.
    */
   async addToolMessage(
     session: Session,
@@ -219,11 +181,7 @@ export class SessionManager {
   // ============================================================================
 
   /**
-   * Compact message history when it exceeds the threshold.
-   *
-   * LLM-summarizes old messages into session.metadata.compactionSummary,
-   * then shrinks the message array to the last `historyWindow` messages.
-   * One summary, refreshed each compaction cycle.
+   * Compacts session history when message count exceeds threshold.
    */
   async compactIfNeeded(session: Session): Promise<void> {
     if (session.messages.length <= pipeline.compactionThreshold) return;
@@ -277,8 +235,7 @@ export class SessionManager {
   }
 
   /**
-   * Generate a compaction summary from a transcript of old messages.
-   * Uses a cheap/fast model to stay within token budget.
+   * Generates LLM summary for compaction transcript.
    */
   private async generateCompactionSummary(transcript: string, session: Session): Promise<string> {
     try {
@@ -336,7 +293,7 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   // ============================================================================
 
   /**
-   * Update the cached repo map
+   * Stores latest repo map snapshot on session.
    */
   async updateRepoMap(session: Session, repoMap: string): Promise<void> {
     session.repoMap = repoMap;
@@ -346,7 +303,7 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   }
 
   /**
-   * Check if repo map needs refresh (older than 5 minutes)
+   * Returns true when repo map is missing or older than configured TTL.
    */
   isRepoMapStale(session: Session): boolean {
     if (!session.repoMapUpdatedAt) return true;
@@ -360,7 +317,7 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   // ============================================================================
 
   /**
-   * Add a memory entry for a session
+   * Adds a memory entry for a session.
    */
   addMemory(
     sessionId: string,
@@ -373,7 +330,7 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   }
 
   /**
-   * Recall memories matching a query for a session
+   * Recalls top matching memories for a query.
    */
   recallMemories(sessionId: string, query: string, limit?: number): MemoryEntry[] {
     return this.store.recallMemories(sessionId, query, limit ?? pipeline.recallLimit);
@@ -387,7 +344,7 @@ let managerInstance: SessionManager | null = null;
 let initPromise: Promise<SessionManager> | null = null;
 
 /**
- * Get the singleton session manager instance
+ * Returns process-wide session manager singleton, initialized on first access.
  */
 export async function getSessionManager(): Promise<SessionManager> {
   if (managerInstance) return managerInstance;

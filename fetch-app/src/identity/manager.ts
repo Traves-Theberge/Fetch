@@ -1,10 +1,11 @@
 /**
- * @fileoverview Identity Manager — Single Source of Truth for System Prompt
+ * @fileoverview Identity manager and system-prompt builder.
  *
- * Manages Fetch's identity lifecycle:
- * - Loads persona from COLLAR.md (system) and ALPHA.md (user)
- * - Builds the complete system prompt (identity + skills + session context)
- * - Hot-reloads on file changes via chokidar watchers
+ * Responsibilities:
+ * - load and merge identity data from markdown files
+ * - expose voice tone for notification formatting
+ * - build the full runtime system prompt
+ * - hot-reload identity files on change
  *
  * @module identity/manager
  */
@@ -56,6 +57,9 @@ export class IdentityManager {
   private loader: IdentityLoader;
   private watchers: ReturnType<typeof chokidar.watch>[] = [];
 
+  /**
+   * Creates singleton state, loads identity once, and starts file watchers.
+   */
   private constructor() {
     this.identity = { ...DEFAULT_IDENTITY }; // Clone
     this.loader = new IdentityLoader(IDENTITY_DIR);
@@ -63,6 +67,9 @@ export class IdentityManager {
     this.setupWatchers(IDENTITY_DIR);
   }
 
+  /**
+   * Starts chokidar watcher for identity file changes.
+   */
   private setupWatchers(dir: string) {
     try {
       const watcher = chokidar.watch(dir, {
@@ -86,6 +93,9 @@ export class IdentityManager {
     }
   }
 
+  /**
+   * Reloads identity data and merges parsed fields into current in-memory identity.
+   */
   public reloadIdentity() {
     this.loader.load().then(loaded => {
 
@@ -111,6 +121,9 @@ export class IdentityManager {
     });
   }
 
+  /**
+   * Stops file watchers and releases watcher resources.
+   */
   public shutdown(): void {
     for (const watcher of this.watchers) {
       watcher.close();
@@ -119,12 +132,15 @@ export class IdentityManager {
   }
 
   /**
-   * Get the current voice tone for use in notification prompts
+   * Returns current voice tone used by notification formatting.
    */
   public getVoiceTone(): string {
     return this.identity.voice.tone;
   }
 
+  /**
+   * Returns the process-wide singleton instance.
+   */
   public static getInstance(): IdentityManager {
     if (!IdentityManager.instance) {
       IdentityManager.instance = new IdentityManager();
@@ -133,10 +149,7 @@ export class IdentityManager {
   }
 
   /**
-   * Build the complete System Prompt for the LLM.
-   * This is the SINGLE source of truth for Fetch's system prompt.
-   * Identity comes from COLLAR.md/ALPHA.md, skills from SkillManager,
-   * session context from the caller.
+   * Builds the full system prompt for the LLM.
    * 
    * @param activatedSkillsContext - Optional pre-built context from matched skills
    * @param sessionContext - Optional pre-built session context (workspace, task, git, etc.)
@@ -144,8 +157,9 @@ export class IdentityManager {
   public buildSystemPrompt(activatedSkillsContext?: string, sessionContext?: string): string {
     const skills = getSkillManager().buildSkillsSummary();
     const date = new Date().toISOString();
+    const hasActivatedSkills = Boolean((activatedSkillsContext || '').trim());
 
-    const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as expert procedural guidance.\n- If no skill applies, proceed with your general knowledge.` : '';
+    const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as procedural guidance for tool selection and call order.\n- If no skill applies, proceed with general tool usage rules.` : '';
 
     let activatedSection = activatedSkillsContext || '';
     let sessionSection = sessionContext || '';
@@ -274,6 +288,13 @@ ${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')
 
 ${capabilitiesSection}
 ${sessionSection}
+${skills ? `\nAVAILABLE SKILLS:\n${skills}${skillGuidance}` : ''}
+${activatedSection}
+
+${hasActivatedSkills ? `SKILL PRIORITY:
+- Activated skills take precedence for tool selection and sequencing.
+- Follow activated skill steps before generic tool heuristics.
+- If activated skills conflict, choose the safer/non-destructive path and ask for clarification when required.` : ''}
 
 TOOL USAGE:
 - ALWAYS use tools to gather real data. NEVER answer from memory or guess about file contents, project state, or git status.
@@ -289,8 +310,6 @@ RESPONSE FORMAT (WhatsApp mobile):
 - Do NOT start your response with 🐕 (it is added automatically by the system)
 
 MODE: Ready. Execute the user's request using tools. Be concise and action-oriented. Do not ask unnecessary questions.
-${skills ? `\nAVAILABLE SKILLS:\n${skills}${skillGuidance}` : ''}
-${activatedSection}
 `.trim();
   }
 

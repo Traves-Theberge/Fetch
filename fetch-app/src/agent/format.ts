@@ -1,11 +1,10 @@
 /**
- * @fileoverview Agent Message Formatting Module
- * 
- * Provides formatting utilities for WhatsApp-friendly message output.
- * 
+ * @fileoverview User-facing formatter utilities for status/help/usage messages.
+ *
+ * This module produces structured text blocks sent directly to WhatsApp.
+ *
  * @module agent/format
- * @see {@link module:agent/whatsapp-format} For low-level WhatsApp formatting utilities
- * @see {@link module:session/types} For Session types
+ * @see {@link module:agent/whatsapp-format} Low-level text wrapping/normalization
  */
 
 import { Session } from '../session/types.js';
@@ -13,13 +12,10 @@ import { getTaskManager } from '../task/manager.js';
 import { VERSION, env } from '../config/env.js';
 
 /**
- * Format session status display.
- * 
- * Creates a comprehensive status message showing current task,
- * user preferences, and active file context.
- * 
- * @param {Session} session - The user session to display
- * @returns {string} Formatted status overview
+ * Build the `/status` response from session and task state.
+ *
+ * @param session - Current user session
+ * @returns Formatted status message
  */
 export async function formatStatus(session: Session): Promise<string> {
   let message = `🐕 *FETCH SYSTEM REPORT* (v${VERSION})\n`;
@@ -62,12 +58,9 @@ export async function formatStatus(session: Session): Promise<string> {
 }
 
 /**
- * Format the help message for v4.0 LLM-first architecture.
- * 
- * Shows only the 8 safety escape commands (deterministic, no LLM)
- * and guides the user toward natural language for everything else.
- * 
- * @returns {string} Formatted help message
+ * Build the `/help` response.
+ *
+ * @returns Formatted command/tool overview
  */
 export function formatHelp(): string {
   return `🐕 *Fetch v${VERSION} — AI Coding Assistant*
@@ -117,11 +110,10 @@ Just describe what you need in plain language! 🐕`;
 
 
 /**
- * Format task status to human-readable form with emoji.
- * 
- * @param {string} status - Task status code
- * @returns {string} Human-readable status with emoji
- * @private
+ * Convert internal task status to a user-facing label.
+ *
+ * @param status - Internal task status value
+ * @returns Human-readable task status
  */
 function formatTaskStatus(status: string): string {
   const statusMap: Record<string, string> = {
@@ -137,12 +129,9 @@ function formatTaskStatus(status: string): string {
 }
 
 /**
- * Format OpenRouter API usage for WhatsApp display.
+ * Build the `/usage` response from OpenRouter account metrics.
  *
- * Calls `GET https://openrouter.ai/api/v1/key` with the configured API key
- * and formats the usage breakdown.
- *
- * @returns Formatted usage message
+ * @returns Formatted usage report, or an actionable error message
  */
 export async function formatUsage(): Promise<string> {
   const apiKey = env.OPENROUTER_API_KEY;

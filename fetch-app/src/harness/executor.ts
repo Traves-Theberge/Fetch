@@ -1,33 +1,7 @@
 /**
- * @fileoverview Harness execution engine
- *
- * The HarnessExecutor manages the spawning and lifecycle of external
- * coding agent processes (Claude CLI, Gemini CLI, Copilot CLI).
+ * @fileoverview Executes harness processes and emits lifecycle/output events.
  *
  * @module harness/executor
- * @see {@link HarnessAdapter} - Agent-specific adapters
- * @see {@link TaskManager} - Task lifecycle
- *
- * ## Overview
- *
- * The HarnessExecutor:
- * - Spawns harness processes with proper configuration
- * - Streams output in real-time
- * - Detects questions and completion
- * - Handles timeouts and errors
- * - Provides stdin for user responses
- *
- * ## Execution Flow
- *
- * ```
- * 1. Build config (from adapter)
- * 2. Spawn process
- * 3. Stream stdout/stderr
- * 4. Parse output for events
- * 5. Handle questions (pause, wait for input)
- * 6. Detect completion
- * 7. Return result
- * ```
  */
 
 import { EventEmitter } from 'events';
@@ -54,27 +28,10 @@ import type {
 // ============================================================================
 
 /**
- * Harness process executor
+ * Runtime coordinator for harness execution.
  *
- * Manages the lifecycle of external coding agent processes.
- * Emits events for output, questions, and completion.
- *
- * @example
- * ```typescript
- * const executor = new HarnessExecutor();
- *
- * executor.on('harness:output', (event) => {
- *   console.log(event.data);
- * });
- *
- * const result = await executor.execute(taskId, adapter, {
- *   command: 'claude',
- *   args: ['--print', '-p', 'Add tests'],
- *   env: {},
- *   cwd: '/workspace/my-project',
- *   timeoutMs: 300000
- * });
- * ```
+ * Tracks active executions in memory and proxies pool/spawner events
+ * into typed harness events.
  */
 export class HarnessExecutor extends EventEmitter {
   /** Active executions */
@@ -85,7 +42,7 @@ export class HarnessExecutor extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Execute a harness for a task
+   * Executes an agent task by resolving adapter config and running it.
    *
    * @param taskId - Parent task ID
    * @param agent - Agent type to execute
@@ -116,7 +73,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Execute a harness with explicit configuration
+   * Executes a harness with an already-built process configuration.
    *
    * @param taskId - Parent task ID
    * @param agent - Agent type
@@ -264,7 +221,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Send input to a waiting harness
+   * Sends user input to a harness waiting on stdin.
    *
    * @param harnessId - Harness ID
    * @param input - Input to send
@@ -300,7 +257,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Graceful shutdown — clear all state and remove listeners
+   * Clears in-memory execution state and removes executor listeners.
    */
   public shutdown(): void {
     this.executions.clear();
@@ -308,7 +265,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Kill a running harness
+   * Requests process termination for a running harness.
    *
    * @param harnessId - Harness ID
    * @param signal - Signal to send (default: SIGTERM)
@@ -332,7 +289,7 @@ export class HarnessExecutor extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Get a harness execution by ID
+   * Returns execution record for a harness id.
    *
    * @param harnessId - Harness ID
    * @returns Execution or undefined
@@ -342,7 +299,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Get harness execution for a task
+   * Returns the most recent execution for a task id.
    *
    * @param taskId - Task ID
    * @returns Most recent execution for task, or undefined
@@ -354,7 +311,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Check if a harness is running
+   * Returns true when execution state is active.
    *
    * @param harnessId - Harness ID
    * @returns True if running
@@ -369,7 +326,7 @@ export class HarnessExecutor extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Update execution status
+   * Updates execution status in local state.
    */
   private updateStatus(harnessId: HarnessId, status: HarnessStatus): void {
     const execution = this.executions.get(harnessId);
@@ -379,7 +336,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Emit harness event
+   * Emits a typed harness event and a wildcard mirror event.
    */
   private emitHarnessEvent(
     type: HarnessEventType,
@@ -399,7 +356,7 @@ export class HarnessExecutor extends EventEmitter {
   }
 
   /**
-   * Get an active execution by task ID
+   * Returns the active running execution for a task, if any.
    */
   getActiveExecution(taskId: TaskId): HarnessExecution | undefined {
     for (const execution of this.executions.values()) {
@@ -416,12 +373,12 @@ export class HarnessExecutor extends EventEmitter {
 // ============================================================================
 
 /**
- * Global harness executor instance
+ * Singleton executor instance.
  */
 export const harnessExecutor = new HarnessExecutor();
 
 /**
- * Get the harness executor singleton
+ * Returns the singleton executor.
  */
 export function getHarnessExecutor(): HarnessExecutor {
   return harnessExecutor;
@@ -432,10 +389,7 @@ export function getHarnessExecutor(): HarnessExecutor {
 // ============================================================================
 
 /**
- * Enrich a task goal with project profile context
- *
- * Appends a structured project context section so the harness
- * agent understands the project's language, framework, and tooling.
+ * Appends project profile metadata to a goal before delegation.
  */
 function enrichGoalWithProfile(goal: string, profile: ProjectProfile): string {
   const lines: string[] = [goal, '', '--- Project Context ---'];
@@ -453,7 +407,7 @@ function enrichGoalWithProfile(goal: string, profile: ProjectProfile): string {
 // ============================================================================
 
 /**
- * Classify a harness error into a category for downstream handling
+ * Classifies harness failures into normalized error categories.
  */
 function classifyError(
   instance: { status: string; stderr: string[] },

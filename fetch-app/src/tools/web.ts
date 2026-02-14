@@ -1,12 +1,9 @@
 /**
- * @fileoverview Web tools — fetch and search
+ * @fileoverview Web fetch and search tool handlers.
  *
- * Tool handlers for web content retrieval and search.
- * - `web_fetch`  — Fetches a URL and extracts readable content as markdown
- * - `web_search` — Searches the web via SearXNG (self-hosted meta search)
+ * Implements public web retrieval (`web_fetch`) and SearXNG search (`web_search`).
  *
  * @module tools/web
- * @see {@link ToolRegistry} - Tool registration
  */
 
 import { JSDOM } from 'jsdom';
@@ -28,9 +25,7 @@ import type { ToolResult } from './types.js';
 const MAX_CONTENT_LENGTH = 50_000;
 const FETCH_TIMEOUT_MS = 30_000;
 
-/**
- * Blocked hostname patterns (private networks, localhost)
- */
+/** Host patterns blocked to reduce private-network fetch risk. */
 const BLOCKED_HOSTS = [
   /^localhost$/i,
   /^127\.\d+\.\d+\.\d+$/,

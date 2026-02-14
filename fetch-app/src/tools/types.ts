@@ -1,5 +1,5 @@
 /**
- * @fileoverview Tool Type Definitions
+ * @fileoverview Shared tool execution contracts.
  * @module tools/types
  */
 
@@ -7,9 +7,7 @@
 // Tool Context
 // ============================================================================
 
-/**
- * Context passed through tool execution pipeline
- */
+/** Per-call context passed from agent loop into tool handlers. */
 export interface ToolContext {
   /** Session ID for session-aware tools */
   sessionId?: string;
@@ -21,9 +19,7 @@ export interface ToolContext {
 // Tool Result
 // ============================================================================
 
-/**
- * Result returned from a tool execution.
- */
+/** Standard return shape from all tool handlers. */
 export interface ToolResult {
   /** Whether the tool executed successfully */
   success: boolean;
@@ -43,10 +39,7 @@ export interface ToolResult {
 // Danger Level
 // ============================================================================
 
-/**
- * Danger level classification for tool operations.
- * Controls whether user approval is required before execution.
- */
+/** Risk classification used for orchestration/safety policy. */
 export enum DangerLevel {
   /** No risk — read-only or informational */
   SAFE = 'safe',

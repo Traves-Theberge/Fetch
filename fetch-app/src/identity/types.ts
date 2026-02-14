@@ -1,14 +1,12 @@
 /**
- * @fileoverview Identity System Types
- *
- * Defines the personality and directives used by the
- * Identity Manager to build the system prompt.
- *
- * - {@link AgentIdentity} — Fetch's core persona (loaded from COLLAR.md + ALPHA.md)
+ * @fileoverview Identity data types used by the prompt builder.
  *
  * @module identity/types
  */
 
+/**
+ * Canonical in-memory identity model used to render the system prompt.
+ */
 export interface AgentIdentity {
   name: string;
   role: string;

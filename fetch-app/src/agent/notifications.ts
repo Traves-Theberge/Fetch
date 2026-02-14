@@ -1,12 +1,13 @@
 /**
- * @fileoverview Hybrid LLM/Template Notification Formatter
+ * @fileoverview Notification formatter for task lifecycle events.
  *
- * Generates varied, persona-aware notifications for task events.
- * Uses LLM for important messages (completion, failure) and
- * lightweight template pools for ephemeral ones (started, progress).
+ * Strategy:
+ * - `task:completed` / `task:failed`: template base + optional bounded LLM rewrite
+ * - `task:started` / `task:progress`: template pools with anti-repeat selection
+ * - all rewrite failures/timeouts fall back to deterministic templates
  *
  * @module agent/notifications
- * @see {@link formatNotification} - Main entry point
+ * @see {@link formatNotification} Main entry point
  */
 
 import OpenAI from 'openai';
@@ -44,6 +45,11 @@ interface ProgressData {
 }
 
 type NotificationData = StartedData | CompletedData | FailedData | ProgressData;
+
+const NOTIFICATION_TIMEOUT_MS = 2000;
+const MAX_NOTIFICATION_CHARS = 500;
+const MAX_NOTIFICATION_LINES = 4;
+const lastTemplateIndexByEvent = new Map<NotificationEvent, number>();
 
 // ============================================================================
 // Template Pools
@@ -86,11 +92,27 @@ const ERROR_TEMPLATES: Array<(data: FailedData) => string> = [
 // LLM Path
 // ============================================================================
 
+let notificationClient: OpenAI | null = null;
+
+function getNotificationClient(): OpenAI {
+  if (!notificationClient) {
+    notificationClient = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: env.OPENROUTER_API_KEY,
+    });
+  }
+  return notificationClient;
+}
+
 /**
- * Generate a notification using a cheap LLM call.
- * Used for completion and failure messages that benefit from natural language.
+ * Attempt bounded LLM rewrite for completion/failure notifications.
+ * Returns `null` when rewrite is disabled, fails, times out, or is invalid.
  */
 async function llmNotification(event: NotificationEvent, data: NotificationData): Promise<string | null> {
+  if (process.env.FETCH_NOTIFICATION_REWRITE === 'false') {
+    return null;
+  }
+
   try {
     const voiceTone = getIdentityManager().getVoiceTone();
 
@@ -109,25 +131,26 @@ async function llmNotification(event: NotificationEvent, data: NotificationData)
       userPrompt = `Task failed.\nError: ${d.error}\n${d.goal ? 'Goal was: ' + d.goal : ''}`.trim();
     }
 
-    const client = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: env.OPENROUTER_API_KEY,
-    });
-
-    const response = await client.chat.completions.create({
+    const request = getNotificationClient().chat.completions.create({
       model: pipeline.notificationModel,
       max_tokens: pipeline.notificationMaxTokens,
       temperature: pipeline.notificationTemperature,
       messages: [
         {
           role: 'system',
-          content: `You are writing a short WhatsApp notification (2-4 lines max) for a coding task result. Voice: ${voiceTone}. Be concise, informative, and natural. Include key facts (what changed, duration). If the task failed, state the specific technical reason (e.g., "Network timeout", "Syntax error"). Do NOT use generic phrases like "unexpected process error" or "something went wrong". No markdown headers. Use bold (*text*) sparingly for key items. Do NOT start with an emoji.`,
+          content: `You are writing a short WhatsApp notification (2-4 lines max) for a coding task result. Voice: ${voiceTone}. Be concise, informative, and natural. Use only facts from the user message and do not invent details. Include key facts (what changed, duration). If the task failed, state the specific technical reason (e.g., "Network timeout", "Syntax error"). Do NOT use generic phrases like "unexpected process error" or "something went wrong". No markdown headers. Use bold (*text*) sparingly for key items. Do NOT start with an emoji.`,
         },
         { role: 'user', content: userPrompt },
       ],
     });
 
-    return response.choices[0]?.message?.content?.trim() || null;
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Notification LLM timeout')), NOTIFICATION_TIMEOUT_MS)
+    );
+
+    const response = await Promise.race([request, timeout]);
+    const candidate = response.choices[0]?.message?.content?.trim() ?? '';
+    return sanitizeNotification(candidate);
   } catch (err) {
     logger.debug('LLM notification generation failed, falling back to template', { error: err });
     return null;
@@ -138,18 +161,46 @@ async function llmNotification(event: NotificationEvent, data: NotificationData)
 // Template Path
 // ============================================================================
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
+function sanitizeNotification(candidate: string): string | null {
+  if (!candidate) return null;
+
+  let text = candidate.replace(/\r\n/g, '\n');
+  text = text.replace(/[ \t]+/g, ' ').trim();
+  text = text.replace(/^#{1,6}\s+/gm, '');
+  text = text.replace(/^\s*[-*]\s+/gm, '');
+  text = text.replace(/^["'`]+|["'`]+$/g, '');
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  if (!text) return null;
+  const lines = text.split('\n').slice(0, MAX_NOTIFICATION_LINES);
+  text = lines.join('\n').trim();
+
+  if (!text || text.length > MAX_NOTIFICATION_CHARS) return null;
+
+  return text;
+}
+
+function pickRandomForEvent<T>(event: NotificationEvent, arr: T[]): T {
+  if (arr.length === 1) return arr[0];
+
+  const prev = lastTemplateIndexByEvent.get(event);
+  let idx = Math.floor(Math.random() * arr.length);
+  if (prev !== undefined && idx === prev) {
+    idx = (idx + 1 + Math.floor(Math.random() * (arr.length - 1))) % arr.length;
+  }
+
+  lastTemplateIndexByEvent.set(event, idx);
+  return arr[idx];
 }
 
 function templateNotification(event: NotificationEvent, data: NotificationData): string {
   switch (event) {
     case 'task:started':
-      return pickRandom(STARTED_TEMPLATES)(data as StartedData);
+      return pickRandomForEvent(event, STARTED_TEMPLATES)(data as StartedData);
     case 'task:progress':
-      return pickRandom(PROGRESS_TEMPLATES)(data as ProgressData);
+      return pickRandomForEvent(event, PROGRESS_TEMPLATES)(data as ProgressData);
     case 'task:failed':
-      return pickRandom(ERROR_TEMPLATES)(data as FailedData);
+      return pickRandomForEvent(event, ERROR_TEMPLATES)(data as FailedData);
     case 'task:completed': {
       // Fallback template for completed (used when LLM fails)
       const d = data as CompletedData;
@@ -174,12 +225,12 @@ function templateNotification(event: NotificationEvent, data: NotificationData):
 /**
  * Format a notification for a task event.
  *
- * Uses LLM for completion/failure (important, worth the latency),
- * templates for started/progress (ephemeral, needs to be instant).
+ * This function always returns a usable message. If LLM rewriting is
+ * unavailable, it falls back to template output.
  *
  * @param event - The task event type
  * @param data - Event-specific data
- * @returns Formatted notification string (without leading emoji prefix)
+ * @returns Notification text without transport-specific prefixing
  */
 export async function formatNotification(event: NotificationEvent, data: NotificationData): Promise<string> {
   // LLM path for important messages

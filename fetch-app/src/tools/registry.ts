@@ -1,12 +1,10 @@
 /**
- * @fileoverview Tool Registry
+ * @fileoverview Tool registry and execution entry point.
+ *
+ * Maintains the in-process registry for built-in and custom tools, validates
+ * input arguments, executes handlers, and exposes OpenAI-compatible schemas.
+ *
  * @module tools/registry
- *
- * Singleton registry for orchestrator tools. Includes:
- * - Built-in tools (workspace, task, interaction) registered at construction
- * - Custom tools loaded from data/tools/*.json with hot-reload via chokidar
- *
- * Tools delegate actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
  */
 
 import { z } from 'zod';
@@ -80,9 +78,7 @@ import { TOOLS_DIR } from '../config/paths.js';
 // Internal Types
 // ============================================================================
 
-/**
- * Tool definition for Orchestrator
- */
+/** Internal tool registration record used by the registry. */
 export interface OrchestratorTool {
   /** Tool name */
   name: string; // broadened from ToolName for custom tools
@@ -98,9 +94,7 @@ export interface OrchestratorTool {
   isCustom?: boolean;
 }
 
-/**
- * Tool handler signature
- */
+/** Async tool handler signature used by built-in and custom tools. */
 export type ToolHandler = (input: unknown, context?: ToolContext) => Promise<ToolResult>;
 
 // ============================================================================
@@ -225,40 +219,30 @@ export class ToolRegistry {
     return ToolRegistry.instance;
   }
 
-  /**
-   * Register a single tool
-   */
+  /** Registers one tool definition (insert/replace by tool name). */
   public register(tool: OrchestratorTool): void {
     this.tools.set(tool.name, tool);
     logger.debug(`Registered tool: ${tool.name}`);
   }
 
-  /**
-   * Register multiple tools
-   */
+  /** Registers a dictionary of tools. */
   public registerAll(tools: Record<string, OrchestratorTool>): void {
     for (const tool of Object.values(tools)) {
       this.register(tool);
     }
   }
 
-  /**
-   * Get a tool by name
-   */
+  /** Returns one tool by name, if registered. */
   public get(name: string): OrchestratorTool | undefined {
     return this.tools.get(name);
   }
 
-  /**
-   * List all registered tools
-   */
+  /** Returns all currently registered tools. */
   public list(): OrchestratorTool[] {
     return Array.from(this.tools.values());
   }
 
-  /**
-   * Export tools to OpenAI format
-   */
+  /** Returns registered tools in OpenAI function-calling format. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   public toOpenAIFormat(): any[] {
     const result = Array.from(this.tools.values()).map(tool => _mapToOpenAIFunction(tool));
@@ -281,12 +265,7 @@ export class ToolRegistry {
 
   private _schemaLogged = false;
 
-  /**
-   * Execute a tool by name with arguments
-   * @param name - Tool name
-   * @param args - Tool arguments
-   * @param context - Optional execution context (sessionId, etc.)
-   */
+  /** Validates input and executes a registered tool handler by name. */
   public async execute(name: string, args: unknown, context?: ToolContext): Promise<ToolResult> {
     const tool = this.tools.get(name);
     logger.info(`ToolRegistry.execute called: ${name}`, { found: !!tool, hasHandler: !!tool?.handler });
@@ -442,9 +421,7 @@ function zodToJsonSchema(schema: z.ZodSchema): Record<string, unknown> {
   return { type: 'object', properties: {} };
 }
 
-/**
- * Unwrap Zod wrapper types (default, optional, nullable) to get the core type
- */
+/** Unwraps default/optional/nullable wrappers to reach core Zod type. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function unwrapZodType(schema: any): any {
   let current = schema;
@@ -459,10 +436,7 @@ function unwrapZodType(schema: any): any {
   return schema;
 }
 
-/**
- * Convert a Zod type to JSON Schema type descriptor.
- * Reads description from the outermost schema (which is where .describe() attaches in Zod v4).
- */
+/** Converts one Zod field schema into JSON-schema-like descriptor. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function zodTypeToJsonSchema(innerSchema: any, outerSchema?: any): Record<string, unknown> {
   const base: Record<string, unknown> = {};
@@ -492,4 +466,3 @@ function zodTypeToJsonSchema(innerSchema: any, outerSchema?: any): Record<string
 }
 
 export const getToolRegistry = () => ToolRegistry.getInstance();
-

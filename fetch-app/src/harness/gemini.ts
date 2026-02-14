@@ -1,33 +1,7 @@
 /**
- * @fileoverview Gemini CLI harness adapter
- *
- * Implements the HarnessAdapter interface for Gemini CLI.
- * Gemini CLI is invoked with `gemini -p "prompt"` for non-interactive use.
+ * @fileoverview Harness adapter for Gemini CLI.
  *
  * @module harness/gemini
- * @see {@link HarnessAdapter} - Adapter interface
- * @see {@link HarnessExecutor} - Execution engine
- *
- * ## Gemini CLI Usage
- *
- * ```bash
- * # Non-interactive mode
- * gemini -p "Add dark mode to the settings page"
- *
- * # With model selection
- * gemini --model gemini-2.0-flash -p "..."
- *
- * # With sandbox disabled for full file access
- * gemini --sandbox=none -p "..."
- * ```
- *
- * ## Output Patterns
- *
- * Gemini CLI outputs include:
- * - Progress indicators: `Analyzing...`, `Working...`
- * - File operations: `[Created] src/file.ts`
- * - Questions: `> Should I continue?`
- * - Completion: Summary of changes
  */
 
 import type { AgentType } from '../task/types.js';
@@ -44,34 +18,34 @@ import { AbstractHarnessAdapter } from './base.js';
 // ============================================================================
 
 /**
- * Gemini CLI executable name
+ * Gemini CLI executable.
  */
 const GEMINI_COMMAND = 'gemini';
 
 /**
- * Default Gemini CLI arguments
+ * Base args for non-interactive execution.
  */
 const DEFAULT_ARGS = [
   '--sandbox=none',    // Full file system access
 ];
 
 /**
- * Pattern for Gemini questions
+ * Gemini prompt/question line pattern.
  */
 const QUESTION_PATTERN = /^>\s*(.+\?)\s*$/m;
 
 /**
- * Pattern for file operations
+ * File operation line pattern.
  */
 const FILE_OP_PATTERN = /^\[(Created|Modified|Deleted|Updated)\]\s+(.+)$/m;
 
 /**
- * Pattern for progress indicators
+ * Progress line pattern.
  */
 const PROGRESS_PATTERN = /^(Analyzing|Working|Generating|Reading|Writing)\.\.\./m;
 
 /**
- * Patterns for completion
+ * Completion markers.
  */
 const COMPLETION_PATTERNS = [
   /^Done\.?$/im,
@@ -82,7 +56,7 @@ const COMPLETION_PATTERNS = [
 ];
 
 /**
- * Pattern for errors
+ * Error line marker.
  */
 const ERROR_PATTERN = /^Error:\s+(.+)$/m;
 
@@ -91,32 +65,16 @@ const ERROR_PATTERN = /^Error:\s+(.+)$/m;
 // ============================================================================
 
 /**
- * Gemini CLI adapter
- *
- * Implements the HarnessAdapter interface for Gemini CLI.
- *
- * @example
- * ```typescript
- * const adapter = new GeminiAdapter();
- *
- * const config = adapter.buildConfig(
- *   'Add dark mode',
- *   '/workspace/my-project',
- *   300000
- * );
- *
- * // config.command = 'gemini'
- * // config.args = ['--sandbox=none', '-p', 'Add dark mode']
- * ```
+ * Adapter for Gemini CLI behavior and output parsing.
  */
 export class GeminiAdapter extends AbstractHarnessAdapter {
   /**
-   * Agent type this adapter handles
+   * Agent type handled by this adapter.
    */
   readonly agent: AgentType = 'gemini';
 
   /**
-   * Build execution configuration for a task
+   * Builds process config for one task execution.
    *
    * @param goal - Task goal/prompt
    * @param workspacePath - Working directory
@@ -157,7 +115,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Parse output line to detect special events
+   * Parses one output line into a harness event type.
    *
    * @param line - Raw output line
    * @returns Event type or null
@@ -193,14 +151,14 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Gemini-specific question pattern: `> Should I continue?`
+   * Adapter-specific question matcher.
    */
   protected getAdapterQuestionPattern(): RegExp {
     return QUESTION_PATTERN;
   }
 
   /**
-   * Gemini extends base question detection with choose/select/pick patterns
+   * Adds Gemini-specific selection prompts on top of base detection.
    */
   detectQuestion(output: string): string | null {
     const base = super.detectQuestion(output);
@@ -220,9 +178,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
   // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
-   * Extract file operations from output
-   *
-   * Parses Gemini output to find which files were modified.
+   * Extracts created/modified/deleted files from full output.
    *
    * @param output - Full output buffer
    * @returns Object with created, modified, deleted files
@@ -263,7 +219,7 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Progress pattern for summary paragraph filtering
+   * Progress matcher used by base summary extractor.
    */
   protected getProgressPattern(): RegExp {
     return PROGRESS_PATTERN;
@@ -277,7 +233,6 @@ export class GeminiAdapter extends AbstractHarnessAdapter {
 // ============================================================================
 
 /**
- * Global Gemini adapter instance
+ * Singleton Gemini adapter.
  */
 export const geminiAdapter = new GeminiAdapter();
-

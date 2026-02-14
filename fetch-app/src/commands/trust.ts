@@ -1,8 +1,8 @@
 /**
- * @fileoverview Trust Command — Owner-Only Whitelist Management
+ * @fileoverview Owner-only trusted-number command handlers.
  *
- * Allows the owner to add, remove, and list trusted phone numbers
- * directly from WhatsApp. Non-owner users are rejected.
+ * Implements `/trust` subcommands for whitelist management:
+ * `add`, `remove|rm`, `list|ls`.
  *
  * @module commands/trust
  */
@@ -14,7 +14,7 @@ import { logger } from '../utils/logger.js';
 import type { CommandResult } from './types.js';
 
 /**
- * Check if the session belongs to the owner.
+ * Check whether the current session user is the configured owner.
  */
 function isOwner(session: Session): boolean {
   const ownerNumber = env.OWNER_PHONE_NUMBER?.replace(/\D/g, '') || '';
@@ -23,11 +23,11 @@ function isOwner(session: Session): boolean {
 }
 
 /**
- * Handle /trust command with subcommands: add, remove, list.
- * Owner-only — non-owners receive a rejection message.
+ * Handle `/trust` command and subcommands.
  *
  * @param argString - The arguments after `/trust` (e.g. "add 15551234567")
- * @param session - Current session (used for owner check)
+ * @param session - Current session for owner authorization
+ * @returns Command result with formatted response text
  */
 export async function handleTrust(
   argString: string,

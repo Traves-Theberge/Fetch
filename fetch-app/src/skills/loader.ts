@@ -1,9 +1,9 @@
 /**
- * @fileoverview Skill Loader
- * 
- * Parses SKILL.md files to load skills into the system.
- * Handles parsing frontmatter, validating requirements, and validation.
- * 
+ * @fileoverview Skill file parser and requirement checker.
+ *
+ * Reads `SKILL.md` files, parses frontmatter/instructions, and returns
+ * normalized `Skill` objects for registration by `SkillManager`.
+ *
  * @module skills/loader
  */
 
@@ -14,7 +14,7 @@ import { logger } from '../utils/logger.js';
 import type { Skill, SkillRequirements } from './types.js';
 
 /**
- * Expected frontmatter structure in SKILL.md
+ * Expected frontmatter shape in `SKILL.md`.
  */
 interface SkillFrontmatter {
   name: string;
@@ -23,12 +23,11 @@ interface SkillFrontmatter {
   triggers?: string[];
   requirements?: SkillRequirements;
   enabled?: boolean;
-  harnessHint?: string;
 }
 
 /**
- * Load a skill from a directory containing a SKILL.md file
- * 
+ * Loads and parses a skill from a directory containing `SKILL.md`.
+ *
  * @param dirPath - Path to directory containing SKILL.md
  * @param isBuiltin - Whether this is a built-in skill
  * @returns Parsed Skill object or null if invalid
@@ -69,7 +68,6 @@ export async function loadSkill(dirPath: string, isBuiltin: boolean = false): Pr
       sourcePath: dirPath,
       isBuiltin,
       enabled: frontmatter.enabled !== false, // Default to true
-      harnessHint: frontmatter.harnessHint,
     };
 
     return skill;
@@ -81,8 +79,8 @@ export async function loadSkill(dirPath: string, isBuiltin: boolean = false): Pr
 }
 
 /**
- * Check if a skill's requirements are met
- * 
+ * Validates platform and environment-variable requirements.
+ *
  * @param reqs - Skill requirements
  * @returns true if all requirements met
  */

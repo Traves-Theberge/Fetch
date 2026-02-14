@@ -1,12 +1,9 @@
 /**
- * @fileoverview Centralized Path Configuration
- * 
- * Single source of truth for all data directory paths.
- * Resolves correctly in both Docker (WORKDIR=/app, volume at /app/data)
- * and local development (CWD=fetch-app/, data at ../data/).
- * 
- * Priority: DATA_DIR env var > /app/data (Docker) > ./data (local fallback)
- * 
+ * @fileoverview Path constants for persistent runtime data.
+ *
+ * This module resolves the data root and derived file/directory paths used by
+ * sessions, tasks, identity, skills, and custom tools.
+ *
  * @module config/paths
  */
 
@@ -15,11 +12,14 @@ import fs from 'fs';
 import { env } from './env.js';
 
 /**
- * Resolve the root data directory.
- * 
- * In Docker: WORKDIR is /app, volume mounted at /app/data → resolves to /app/data
- * In development: CWD is fetch-app/, data is at ../data/ → resolves to ../data
- * Override: Set DATA_DIR env var to force a specific path
+ * Resolve the persistent data directory.
+ *
+ * Resolution order:
+ * 1) `DATA_DIR` env override
+ * 2) `/app/data` (Docker volume mount)
+ * 3) `<cwd>/data`
+ * 4) `<cwd>/../data`
+ * 5) fallback to `<cwd>/data`
  */
 function resolveDataDir(): string {
   // Explicit override
@@ -49,20 +49,20 @@ function resolveDataDir(): string {
   return cwdData;
 }
 
-/** Root data directory — all persistent data lives here */
+/** Root directory for persistent runtime data. */
 export const DATA_DIR = resolveDataDir();
 
-/** Identity configuration files (COLLAR.md, ALPHA.md) */
+/** Directory containing identity markdown files. */
 export const IDENTITY_DIR = path.join(DATA_DIR, 'identity');
 
-/** User-created skills (each skill is a directory with SKILL.md) */
+/** Directory containing user-defined skills. */
 export const SKILLS_DIR = path.join(DATA_DIR, 'skills');
 
-/** Custom tool definitions (*.json files) */
+/** Directory containing custom tool definition JSON files. */
 export const TOOLS_DIR = path.join(DATA_DIR, 'tools');
 
-/** Sessions database */
+/** Absolute path to sessions SQLite database file. */
 export const SESSIONS_DB = env.DATABASE_PATH || path.join(DATA_DIR, 'sessions.db');
 
-/** Tasks database */
+/** Absolute path to tasks SQLite database file. */
 export const TASKS_DB = env.TASKS_DB_PATH || path.join(DATA_DIR, 'tasks.db');

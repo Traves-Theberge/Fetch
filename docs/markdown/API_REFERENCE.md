@@ -4,6 +4,19 @@
 
 The Bridge exposes an HTTP API on port 8765.
 
+### Endpoint Summary
+
+| Method | Path | Auth | Purpose |
+|-------|------|------|---------|
+| `GET` | `/api/status` | none | Current bridge status payload |
+| `GET` | `/api/health` | none | Lightweight health probe |
+| `POST` | `/api/logout` | bearer token | Disconnect WhatsApp session |
+| `POST` | `/api/config/reload` | bearer token | Reload mounted `.env` values into runtime env |
+| `GET` | `/api/sessions` | bearer token | List sessions (summary view) |
+| `GET` | `/api/sessions/:id` | bearer token | Retrieve one full session |
+| `DELETE` | `/api/sessions/:id` | bearer token | Delete one session |
+| `POST` | `/api/sessions/:id/clear` | bearer token | Clear one session history |
+
 ### GET /api/status
 
 Returns system health and WhatsApp connection state.
@@ -29,28 +42,66 @@ Returns system health and WhatsApp connection state.
 | `uptime` | number | Seconds since start |
 | `messageCount` | number | Messages processed this session |
 | `lastError` | `string`\|`null` | Most recent error message |
+| `version` | `string` | Running application version |
 
-### GET /api/sessions/:id
+### GET /api/sessions
 
-Returns the full message history for a specific session.
+Returns summarized session metadata.
+
+**Headers:**
+
+```
+Authorization: Bearer <ADMIN_TOKEN>
+```
 
 **Response:**
 
 ```json
 {
-  "id": "ses_1739572800",
-  "messages": [
+  "success": true,
+  "sessions": [
     {
-      "role": "user",
-      "content": "List my workspaces",
-      "timestamp": "2024-02-14T22:40:00Z"
-    },
-    {
-      "role": "assistant",
-      "content": "You have 3 workspaces: fetch-bridge, fetch-manager, and kennels.",
-      "timestamp": "2024-02-14T22:40:02Z"
+      "id": "ses_abc123",
+      "userId": "15551234567@c.us",
+      "messageCount": 42,
+      "lastActivityAt": "2026-02-13T15:40:00.000Z",
+      "createdAt": "2026-02-13T14:00:00.000Z",
+      "activeProject": "fetch-app"
     }
   ]
+}
+```
+
+### GET /api/sessions/:id
+
+Returns the full message history for a specific session.
+
+**Headers:**
+
+```
+Authorization: Bearer <ADMIN_TOKEN>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "session": {
+    "id": "ses_1739572800",
+    "messages": [
+      {
+        "role": "user",
+        "content": "List my workspaces",
+        "timestamp": "2024-02-14T22:40:00Z"
+      },
+      {
+        "role": "assistant",
+        "content": "You have 3 workspaces: fetch-bridge, fetch-manager, and kennels.",
+        "timestamp": "2024-02-14T22:40:02Z"
+      }
+    ]
+  }
 }
 ```
 
@@ -80,7 +131,35 @@ Authorization: Bearer <ADMIN_TOKEN>
 
 **Response:** `{ "success": true }`
 
-The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via the `ADMIN_TOKEN` environment variable.
+### POST /api/config/reload
+
+Reloads mounted `.env` values into process environment. Requires authentication.
+
+**Headers:**
+
+```
+Authorization: Bearer <ADMIN_TOKEN>
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "updatedKeys": ["FETCH_RATE_LIMIT_MAX", "ENABLE_BROWSER"],
+  "message": "2 key(s) updated"
+}
+```
+
+### DELETE /api/sessions/:id
+
+Deletes a session by ID. Requires authentication.
+
+### POST /api/sessions/:id/clear
+
+Clears message history for one session. Requires authentication.
+
+The `ADMIN_TOKEN` is auto-generated on startup and logged to console if not set explicitly via `ADMIN_TOKEN`.
 
 ---
 
@@ -89,6 +168,40 @@ The `ADMIN_TOKEN` is auto-generated on startup and logged to console, or set via
 These are the 29 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 > **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
+
+### Tool Module Ownership
+
+Use this table when updating behavior so docs stay aligned with the implementation.
+
+| Tool Category | Source Module |
+|---------------|---------------|
+| Workspace (`workspace_*`, `file_delete`, `folder_delete`) | `fetch-app/src/tools/workspace.ts` |
+| Task (`task_*`) | `fetch-app/src/tools/task.ts` |
+| Interaction (`ask_user`, `report_progress`) | `fetch-app/src/tools/interaction.ts` |
+| GitHub (`github_*`) | `fetch-app/src/tools/github.ts` |
+| Web (`web_fetch`, `web_search`) | `fetch-app/src/tools/web.ts` |
+| Browser (`browser_*`) | `fetch-app/src/tools/browser.ts` |
+
+The registry entry point is `fetch-app/src/tools/registry.ts`, and input schemas are defined in `fetch-app/src/validation/tools.ts`.
+
+### Supporting Module Ownership
+
+| Responsibility | Source Module |
+|---------------|---------------|
+| Shared validation primitives (ids, paths, limits) | `fetch-app/src/validation/common.ts` |
+| Tool input schemas (canonical tool-name/arg contract) | `fetch-app/src/validation/tools.ts` |
+| Kennel Docker command execution | `fetch-app/src/utils/docker.ts` |
+| Runtime version lookup | `fetch-app/src/utils/version.ts` |
+| Task/progress id generation | `fetch-app/src/utils/id.ts` |
+| Bridge logging + log-level filtering | `fetch-app/src/utils/logger.ts` |
+| Voice-note transcription (`whisper-cpp`) | `fetch-app/src/transcription/index.ts` |
+| Image analysis (vision model calls) | `fetch-app/src/vision/index.ts` |
+| Workspace lifecycle + git/GitHub operations | `fetch-app/src/workspace/manager.ts` |
+| Project profile detection (framework/package manager/test runner) | `fetch-app/src/workspace/profiler.ts` |
+| Repository map generation (context summary) | `fetch-app/src/workspace/repo-map.ts` |
+| Language symbol extraction for repo-map | `fetch-app/src/workspace/symbols.ts` |
+| Workspace domain contracts | `fetch-app/src/workspace/types.ts` |
+| Bridge bootstrap/shutdown orchestration | `fetch-app/src/index.ts` |
 
 ### Workspace Tools (9)
 

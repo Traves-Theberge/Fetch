@@ -1,12 +1,14 @@
 /**
- * @fileoverview WhatsApp-Friendly Formatting
- * 
- * Formats agent responses for optimal WhatsApp mobile display.
- * Converts markdown headers, wraps long lines, and truncates
- * messages to fit mobile screen constraints.
+ * @fileoverview WhatsApp output text normalizer.
+ *
+ * Applies lightweight transformations for mobile readability:
+ * - markdown header conversion
+ * - whitespace cleanup
+ * - line wrapping
+ * - length truncation
  * 
  * @module agent/whatsapp-format
- * @see {@link formatForWhatsApp} - Main formatting entry point
+ * @see {@link formatForWhatsApp} Main formatting entry point
  */
 
 // =============================================================================
@@ -32,13 +34,10 @@ const MAX_MESSAGE_LENGTH = pipeline.whatsappMaxLength;
 // =============================================================================
 
 /**
- * Formats text for WhatsApp display.
- * 
- * Converts markdown headers to emoji-prefixed bold text and
- * wraps long lines for mobile readability.
+ * Format text for WhatsApp transport/display constraints.
  * 
  * @param text - Raw text to format
- * @returns WhatsApp-formatted text
+ * @returns Normalized text ready for WhatsApp send
  */
 export function formatForWhatsApp(text: string): string {
   // Replace markdown headers with emoji
@@ -68,8 +67,7 @@ export function formatForWhatsApp(text: string): string {
 // =============================================================================
 
 /**
- * Wraps long lines at word boundaries.
- * Preserves code-like lines (starting with space/tab or containing backticks).
+ * Wrap long lines at word boundaries while avoiding code-like lines.
  */
 function wrapLongLines(text: string, maxLength: number): string {
   return text.split('\n').map(line => {

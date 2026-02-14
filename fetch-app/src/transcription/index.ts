@@ -1,10 +1,8 @@
 /**
- * @fileoverview Local Transcription Service
- * 
- * Provides audio-to-text transcription using local whisper.cpp.
- * 100% free, no API costs - runs entirely in the Docker container.
- * Used for processing WhatsApp voice notes (PTT).
- * 
+ * @fileoverview Voice note transcription helpers.
+ *
+ * Converts WhatsApp audio to WAV and runs local `whisper-cpp`.
+ *
  * @module transcription/index
  */
 
@@ -29,31 +27,20 @@ const WHISPER_BIN = '/usr/local/bin/whisper-cpp';
 /** Temp directory for audio files */
 const TEMP_DIR = '/tmp';
 
-/**
- * Transcription result returned by {@link transcribeAudio}.
- */
+/** Result returned by `transcribeAudio`. */
 interface TranscriptionResult {
   text: string;
   language?: string;
   duration?: number;
 }
 
-/**
- * Convert audio buffer to WAV format using ffmpeg
- * whisper.cpp requires 16kHz mono WAV
- */
+/** Converts an input file to 16kHz mono WAV for whisper.cpp. */
 async function convertToWav(inputPath: string, outputPath: string): Promise<void> {
   const cmd = `ffmpeg -i "${inputPath}" -ar 16000 -ac 1 -c:a pcm_s16le "${outputPath}" -y 2>/dev/null`;
   await execAsync(cmd);
 }
 
-/**
- * Transcribe audio data to text using local whisper.cpp
- * 
- * @param audioBuffer - The audio data as a Buffer
- * @param fileName - Original filename (helps with mime-type detection)
- * @returns Transcribed text (cleaned and trimmed)
- */
+/** Transcribes an audio buffer with local whisper.cpp and returns text + detected language. */
 export async function transcribeAudio(audioBuffer: Buffer, fileName: string = 'audio.ogg'): Promise<TranscriptionResult> {
   const id = randomUUID().slice(0, 8);
   const inputPath = join(TEMP_DIR, `voice-${id}.ogg`);
@@ -101,10 +88,7 @@ export async function transcribeAudio(audioBuffer: Buffer, fileName: string = 'a
   }
 }
 
-/**
- * Check if the transcription service is available.
- * Verifies that both the whisper-cpp binary and the model file exist.
- */
+/** Returns `true` when whisper binary and model file are both present. */
 export function isTranscriptionAvailable(): boolean {
   return existsSync(WHISPER_BIN) && existsSync(env.WHISPER_MODEL);
 }

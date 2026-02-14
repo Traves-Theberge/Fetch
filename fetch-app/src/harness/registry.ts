@@ -1,16 +1,7 @@
 /**
- * @fileoverview Harness Registry
- *
- * Central registry for managing harness adapters.
- * Provides access to Claude, Gemini, Copilot, OpenCode, and Codex adapters.
+ * @fileoverview In-memory registry for harness adapters.
  *
  * @module harness/registry
- * @see {@link HarnessAdapter} - Adapter interface
- * @see {@link ClaudeAdapter} - Claude Code adapter
- * @see {@link GeminiAdapter} - Gemini CLI adapter
- * @see {@link CopilotAdapter} - GitHub Copilot CLI adapter
- * @see {@link OpenCodeAdapter} - OpenCode CLI adapter
- * @see {@link CodexAdapter} - OpenAI Codex CLI adapter
  */
 
 import type { AgentType } from '../task/types.js';
@@ -27,7 +18,7 @@ import { logger } from '../utils/logger.js';
 // ============================================================================
 
 /**
- * Map of agent types to their adapters
+ * Map of agent type to adapter instance.
  */
 const adapters = new Map<AgentType, HarnessAdapter>();
 adapters.set('claude', claudeAdapter);
@@ -41,17 +32,11 @@ adapters.set('codex', codexAdapter);
 // ============================================================================
 
 /**
- * Get adapter for a specific agent type
+ * Returns adapter for the requested agent.
  *
  * @param agent - Agent type
  * @returns Harness adapter
- * @throws Error if no adapter found for agent type
- *
- * @example
- * ```typescript
- * const adapter = getAdapter('claude');
- * const config = adapter.buildConfig('Add dark mode', '/workspace/project', 300000);
- * ```
+ * @throws Error when agent is not registered
  */
 export function getAdapter(agent: AgentType): HarnessAdapter {
   const adapter = adapters.get(agent);
@@ -62,7 +47,7 @@ export function getAdapter(agent: AgentType): HarnessAdapter {
 }
 
 /**
- * Check if an adapter exists for an agent type
+ * Returns true when an adapter is registered for the agent.
  *
  * @param agent - Agent type to check
  * @returns True if adapter exists
@@ -72,7 +57,7 @@ export function hasAdapter(agent: AgentType): boolean {
 }
 
 /**
- * List all available agent types
+ * Lists registered agent types.
  *
  * @returns Array of available agent types
  */
@@ -81,7 +66,7 @@ export function listAgents(): AgentType[] {
 }
 
 /**
- * Get all adapters
+ * Lists all registered adapters.
  *
  * @returns Array of all harness adapters
  */
@@ -90,9 +75,7 @@ export function getAllAdapters(): HarnessAdapter[] {
 }
 
 /**
- * Register a custom adapter
- *
- * Allows registering additional adapters at runtime.
+ * Registers or replaces an adapter at runtime.
  *
  * @param adapter - Harness adapter to register
  */
@@ -105,10 +88,7 @@ export function registerAdapter(adapter: HarnessAdapter): void {
 }
 
 /**
- * Get default agent type
- *
- * Returns 'claude' as the default, as it's the most capable
- * for direct code modification tasks.
+ * Returns the default agent used when no explicit selection is made.
  *
  * @returns Default agent type
  */

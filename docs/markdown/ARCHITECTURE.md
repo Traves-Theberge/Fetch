@@ -106,7 +106,20 @@ flowchart TD
 
     %% Result Loop
     Sandbox --> TaskResult[Task Result]
-    TaskResult --> Bridge
+    TaskResult --> StatusEvent[Task/Progress Event]
+
+    %% Status text rendering (bounded rewrite path)
+    subgraph Status_Rendering [Status Text Rendering]
+        direction LR
+        Tpl[Template Base] --> Rewrite[Bounded LLM Rewrite]
+        Rewrite --> Sanitize[Sanitizer]
+        Sanitize --> OutText[Notification/Progress Text]
+        Rewrite -.timeout/error/invalid.-> TplFallback[Template Fallback]
+        TplFallback --> OutText
+    end
+
+    StatusEvent --> Tpl
+    OutText --> Bridge
 
     %% Configuration & Identity (Host Mounts)
     subgraph HostConfig ["User Identity & Config (Host Mounts)"]
@@ -141,7 +154,8 @@ flowchart TD
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
 8. `task_create` tool spawns a CLI process in the Kennel container via `docker exec`
-9. Response is formatted and sent back via WhatsApp
+9. Task/progress status text is rendered through a bounded path: template base → optional LLM rewrite → sanitizer, with automatic template fallback on timeout/error/invalid output
+10. Response is formatted and sent back via WhatsApp
 
 ## Boot Sequence
 
@@ -207,7 +221,7 @@ src/
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
 ├── bridge/
-│   └── client.ts         # WhatsApp client, QR auth, reconnection (exponential backoff)
+│   └── client.ts         # WhatsApp client, security gating, event dedup, media preprocessing, reconnection
 ├── security/
 │   ├── index.ts          # Barrel exports
 │   ├── gate.ts           # @fetch trigger + phone authorization
@@ -217,15 +231,15 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 29 tools
-│   ├── notifications.ts  # Hybrid LLM/template notification formatter
+│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 29 tools, bounded progress rewrite fallback
+│   ├── notifications.ts  # Hybrid LLM/template notifications with timeout + sanitizer + template fallback
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders (profile-aware workspace context)
 │   └── whatsapp-format.ts # WhatsApp-specific formatting
 ├── commands/
 │   ├── index.ts          # Barrel exports
-│   ├── parser.ts         # Safety gate — 8 deterministic escape commands
-│   ├── task.ts           # /stop, /undo handlers (kill task, git reset)
+│   ├── parser.ts         # Pre-LLM deterministic command router
+│   ├── task.ts           # /stop, /undo, /undo all handlers
 │   ├── trust.ts          # /trust handler — owner-only whitelist management
 │   └── types.ts          # Command result types
 ├── harness/
@@ -251,7 +265,7 @@ src/
 │   ├── loader.ts         # Parse SKILL.md frontmatter (gray-matter)
 │   ├── manager.ts        # Skill discovery, activation, management
 │   ├── types.ts          # Skill, SkillConfig, SkillRequirements
-│   └── builtin/          # 7 built-in skills (git, docker, testing, etc.)
+│   └── builtin/          # 7 built-in skills aligned to tool workflows (workspace/task/github/web/browser/interaction/meta)
 ├── session/
 │   ├── manager.ts        # Session CRUD, messages, compaction with failure tracking, repo-map cache
 │   ├── store.ts          # SQLite persistence (sessions.db, WAL mode), promise-lock singleton

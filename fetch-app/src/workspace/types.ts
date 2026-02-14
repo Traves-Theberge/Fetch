@@ -1,55 +1,30 @@
 /**
- * @fileoverview Workspace domain types and interfaces
+ * @fileoverview Workspace domain model types.
  *
- * Defines all types related to workspace management in Fetch.
- * Workspaces are project directories mounted into the Kennel container.
+ * Shared contracts for workspace metadata, git status, events, and profiles.
  *
  * @module workspace/types
- * @see {@link WorkspaceManager} - Workspace operations
  */
 
 // ============================================================================
 // ID Types
 // ============================================================================
 
-/**
- * Workspace identifier
- *
- * This is the directory name of the workspace, not a generated ID.
- *
- * @example
- * ```typescript
- * const workspaceId: WorkspaceId = 'my-react-app';
- * ```
- */
+/** Workspace identifier (directory name under `/workspace`). */
 export type WorkspaceId = string;
 
 // ============================================================================
 // Enums (as union types)
 // ============================================================================
 
-/**
- * Detected project type
- *
- * | Type | Detection Method |
- * |------|------------------|
- * | node | package.json exists |
- * | python | requirements.txt, pyproject.toml, or setup.py |
- * | rust | Cargo.toml exists |
- * | go | go.mod exists |
- * | unknown | None of the above |
- */
+/** Supported project-type classifications used across workspace services. */
 export type ProjectType = 'node' | 'typescript' | 'python' | 'rust' | 'go' | 'java' | 'ruby' | 'php' | 'dotnet' | 'unknown';
 
 // ============================================================================
 // Git Types
 // ============================================================================
 
-/**
- * Git repository status
- *
- * Provides information about the current state of a git repository.
- */
+/** Snapshot of git state for one workspace. */
 export interface GitStatus {
   /** Current branch name */
   branch: string;
@@ -86,32 +61,7 @@ export interface GitStatus {
 // Main Workspace Entity
 // ============================================================================
 
-/**
- * Workspace entity
- *
- * Represents a project directory available for task execution.
- *
- * @example
- * ```typescript
- * const workspace: Workspace = {
- *   id: 'my-react-app',
- *   name: 'My React App',
- *   path: '/workspace/my-react-app',
- *   projectType: 'node',
- *   git: {
- *     branch: 'main',
- *     dirty: true,
- *     ahead: 2,
- *     behind: 0,
- *     modifiedFiles: ['src/App.tsx'],
- *     stagedFiles: [],
- *     untrackedFiles: ['TODO.md']
- *   },
- *   isActive: true,
- *   lastAccessedAt: '2026-02-02T10:00:00.000Z'
- * };
- * ```
- */
+/** Full workspace record cached and returned by `WorkspaceManager`. */
 export interface Workspace {
   /** Workspace identifier (directory name) */
   id: WorkspaceId;
@@ -148,27 +98,7 @@ export interface Workspace {
 // Project Profile
 // ============================================================================
 
-/**
- * Rich project profile for language-aware context
- *
- * Enriches basic ProjectType detection with framework, package manager,
- * test runner, entry points, and build/test commands.
- *
- * @example
- * ```typescript
- * const profile: ProjectProfile = {
- *   type: 'typescript',
- *   language: 'TypeScript',
- *   framework: 'nextjs',
- *   packageManager: 'pnpm',
- *   testRunner: 'vitest',
- *   testCommand: 'pnpm vitest run',
- *   buildCommand: 'pnpm build',
- *   entryPoints: ['src/index.ts'],
- *   description: 'A Next.js application',
- * };
- * ```
- */
+/** Enriched project metadata used for prompt/context quality. */
 export interface ProjectProfile {
   /** Primary detected project type */
   type: ProjectType;
@@ -194,11 +124,7 @@ export interface ProjectProfile {
 // Workspace List Types
 // ============================================================================
 
-/**
- * Workspace summary (for list display)
- *
- * Lighter-weight version of Workspace for listing.
- */
+/** Lightweight workspace summary for list responses. */
 export interface WorkspaceSummary {
   /** Workspace identifier */
   id: WorkspaceId;
@@ -219,9 +145,7 @@ export interface WorkspaceSummary {
   dirty?: boolean;
 }
 
-/**
- * Workspace list result
- */
+/** Result envelope for workspace list operations. */
 export interface WorkspaceListResult {
   /** List of workspaces */
   workspaces: WorkspaceSummary[];
@@ -237,9 +161,7 @@ export interface WorkspaceListResult {
 // Workspace Events
 // ============================================================================
 
-/**
- * Workspace event types
- */
+/** Workspace event names emitted by `WorkspaceManager`. */
 export type WorkspaceEventType =
   | 'workspace:selected'
   | 'workspace:created'
@@ -248,9 +170,7 @@ export type WorkspaceEventType =
   | 'workspace:scaffolding'
   | 'workspace:synced';
 
-/**
- * Workspace event payload
- */
+/** Event payload emitted from workspace lifecycle actions. */
 export interface WorkspaceEvent {
   type: WorkspaceEventType;
   workspaceId: WorkspaceId;

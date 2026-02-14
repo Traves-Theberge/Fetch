@@ -1,48 +1,9 @@
 /**
- * @fileoverview Docker execution utilities
+ * @fileoverview Docker exec helpers for the Kennel container.
  *
- * Provides utilities for executing commands inside the Kennel Docker container.
- * The Kennel container is where coding agents (Claude, Gemini, Copilot) run
- * with access to the mounted workspace.
+ * Provides status checks plus buffered and streamed command execution.
  *
  * @module utils/docker
- * @see {@link HarnessExecutor} - Uses this for container execution
- *
- * ## Architecture
- *
- * ```
- * ┌─────────────────────────────────────────┐
- * │           Bridge Container              │
- * │  ┌─────────────────────────────────┐   │
- * │  │         Fetch App               │   │
- * │  │   (calls dockerExec)            │   │
- * │  └─────────────────────────────────┘   │
- * └─────────────────────┬───────────────────┘
- *                       │ docker exec
- *                       ▼
- * ┌─────────────────────────────────────────┐
- * │           Kennel Container              │
- * │  ┌─────────────────────────────────┐   │
- * │  │    Claude / Gemini / Copilot    │   │
- * │  │       (coding agents)           │   │
- * │  └─────────────────────────────────┘   │
- * │                                         │
- * │  /workspace ← mounted from host         │
- * └─────────────────────────────────────────┘
- * ```
- *
- * ## Usage
- *
- * ```typescript
- * import { dockerExec, isKennelRunning } from './utils/docker.js';
- *
- * // Check if Kennel is available
- * if (await isKennelRunning()) {
- *   // Execute command in Kennel
- *   const result = await dockerExec('ls', ['-la', '/workspace']);
- *   console.log(result.stdout);
- * }
- * ```
  */
 
 import Docker from 'dockerode';
@@ -54,28 +15,20 @@ import { KENNEL_CONTAINER } from '../harness/types.js';
 // Constants
 // ============================================================================
 
-/**
- * Name of the Kennel container — re-exported from shared constant
- */
+/** Kennel container name. */
 const KENNEL_CONTAINER_NAME = KENNEL_CONTAINER;
 
-/**
- * Default execution timeout (5 minutes)
- */
+/** Default command timeout (ms). */
 const DEFAULT_TIMEOUT_MS = 300000;
 
-/**
- * Default working directory in container
- */
+/** Default working directory in Kennel. */
 const DEFAULT_WORKDIR = '/workspace';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-/**
- * Docker execution options
- */
+/** Options for one Docker command execution. */
 export interface DockerExecOptions {
   /** Working directory inside container */
   cwd?: string;
@@ -89,9 +42,7 @@ export interface DockerExecOptions {
   stdin?: boolean;
 }
 
-/**
- * Docker execution result
- */
+/** Result from one Docker command execution. */
 export interface DockerExecResult {
   /** Exit code */
   exitCode: number;
@@ -103,9 +54,7 @@ export interface DockerExecResult {
   timedOut: boolean;
 }
 
-/**
- * Container status information
- */
+/** Current status for the Kennel container. */
 export interface ContainerStatus {
   /** Whether container exists */
   exists: boolean;
@@ -121,18 +70,10 @@ export interface ContainerStatus {
 // Docker Client
 // ============================================================================
 
-/**
- * Docker client instance
- *
- * Connects via the Docker socket.
- */
+/** Lazy Docker client (socket: `/var/run/docker.sock`). */
 let dockerClient: Docker | null = null;
 
-/**
- * Get or create the Docker client
- *
- * @returns Docker client
- */
+/** Returns a cached Docker client instance. */
 function getDocker(): Docker {
   if (!dockerClient) {
     dockerClient = new Docker({
@@ -146,11 +87,7 @@ function getDocker(): Docker {
 // Container Management
 // ============================================================================
 
-/**
- * Get the Kennel container status
- *
- * @returns Container status
- */
+/** Returns whether the Kennel container exists and is running. */
 export async function getKennelStatus(): Promise<ContainerStatus> {
   try {
     const docker = getDocker();
@@ -176,22 +113,13 @@ export async function getKennelStatus(): Promise<ContainerStatus> {
   }
 }
 
-/**
- * Check if the Kennel container is running
- *
- * @returns True if Kennel is running
- */
+/** Convenience check for Kennel running state. */
 export async function isKennelRunning(): Promise<boolean> {
   const status = await getKennelStatus();
   return status.running;
 }
 
-/**
- * Get the Kennel container
- *
- * @returns Container instance
- * @throws Error if container not found or not running
- */
+/** Returns the running Kennel container or throws a descriptive error. */
 async function getKennelContainer(): Promise<Docker.Container> {
   const docker = getDocker();
   const status = await getKennelStatus();
@@ -211,24 +139,7 @@ async function getKennelContainer(): Promise<Docker.Container> {
 // Command Execution
 // ============================================================================
 
-/**
- * Execute a command in the Kennel container
- *
- * @param command - Command to execute
- * @param args - Command arguments
- * @param options - Execution options
- * @returns Execution result
- *
- * @example
- * ```typescript
- * const result = await dockerExec('claude', ['--print', '-p', 'Add tests']);
- * if (result.exitCode === 0) {
- *   console.log('Success:', result.stdout);
- * } else {
- *   console.error('Failed:', result.stderr);
- * }
- * ```
- */
+/** Executes a command in Kennel and returns captured stdout/stderr plus exit state. */
 export async function dockerExec(
   command: string,
   args: string[] = [],
@@ -370,16 +281,7 @@ export async function dockerExec(
   });
 }
 
-/**
- * Execute a command and stream output
- *
- * @param command - Command to execute
- * @param args - Command arguments
- * @param onStdout - Stdout callback
- * @param onStderr - Stderr callback
- * @param options - Execution options
- * @returns Exit code
- */
+/** Executes a command in Kennel and streams output through callbacks. */
 export async function dockerExecStream(
   command: string,
   args: string[],
@@ -468,12 +370,7 @@ export async function dockerExecStream(
   });
 }
 
-/**
- * Get workspace path for a project
- *
- * @param workspaceName - Workspace name
- * @returns Full path inside container
- */
+/** Returns sanitized workspace path under `/workspace`. */
 export function getWorkspacePath(workspaceName: string): string {
   // Sanitize workspace name to prevent path traversal
   const safeName = workspaceName.replace(/[^a-zA-Z0-9._-]/g, '');

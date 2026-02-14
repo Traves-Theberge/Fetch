@@ -1,39 +1,7 @@
 /**
- * @fileoverview GitHub Copilot CLI harness adapter
- *
- * Implements the HarnessAdapter interface for GitHub Copilot CLI.
- * Copilot CLI is invoked via `gh copilot suggest` or `gh copilot explain`.
+ * @fileoverview Harness adapter for GitHub Copilot CLI.
  *
  * @module harness/copilot
- * @see {@link HarnessAdapter} - Adapter interface
- * @see {@link HarnessExecutor} - Execution engine
- *
- * ## Copilot CLI Usage
- *
- * ```bash
- * # Suggest code changes
- * gh copilot suggest "Add dark mode to the settings page"
- *
- * # Explain code
- * gh copilot explain "What does this function do?"
- *
- * # Get shell command suggestions
- * gh copilot suggest -t shell "find large files"
- * ```
- *
- * ## Output Patterns
- *
- * Copilot CLI outputs include:
- * - Suggestions: `Suggestion: ...`
- * - Explanations: `Explanation: ...`
- * - Commands: `$ command`
- * - Completion: End of output
- *
- * ## Limitations
- *
- * Note: GitHub Copilot CLI is primarily a suggestion/explanation tool,
- * not a direct code modification tool like Claude Code. It may require
- * additional processing to apply suggestions.
  */
 
 import type { AgentType } from '../task/types.js';
@@ -50,19 +18,19 @@ import { env } from '../config/env.js';
 // ============================================================================
 
 /**
- * Copilot CLI command (via GitHub CLI extension)
+ * Copilot CLI command via `gh`.
  */
 const COPILOT_COMMAND = 'gh';
 
 /**
- * Default Copilot CLI arguments
+ * Base args for Copilot execution.
  */
 const DEFAULT_ARGS = [
   'copilot',
 ];
 
 /**
- * Pattern for questions/prompts
+ * Question/prompt line pattern.
  */
 const QUESTION_PATTERN = /^(?:>|→)\s*(.+\?)\s*$/m;
 
@@ -72,34 +40,16 @@ const QUESTION_PATTERN = /^(?:>|→)\s*(.+\?)\s*$/m;
 // ============================================================================
 
 /**
- * GitHub Copilot CLI adapter
- *
- * Implements the HarnessAdapter interface for GitHub Copilot CLI.
- * Note that Copilot CLI works differently than Claude Code - it provides
- * suggestions rather than direct file modifications.
- *
- * @example
- * ```typescript
- * const adapter = new CopilotAdapter();
- *
- * const config = adapter.buildConfig(
- *   'Add dark mode',
- *   '/workspace/my-project',
- *   300000
- * );
- *
- * // config.command = 'gh'
- * // config.args = ['copilot', 'suggest', '-t', 'code', 'Add dark mode']
- * ```
+ * Adapter for Copilot CLI behavior and output parsing.
  */
 export class CopilotAdapter extends AbstractHarnessAdapter {
   /**
-   * Agent type this adapter handles
+   * Agent type handled by this adapter.
    */
   readonly agent: AgentType = 'copilot';
 
   /**
-   * Build execution configuration for a task
+   * Builds process config for one task execution.
    *
    * @param goal - Task goal/prompt
    * @param workspacePath - Working directory
@@ -144,26 +94,25 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Parse output line to detect special events
+   * Parses one output line into a harness event type.
    *
    * @param line - Raw output line
    * @returns Event type or null
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseOutputLine(_line: string): HarnessOutputEventType | null {
     // Treat everything as stdout for new CLI
     return 'stdout';
   }
 
   /**
-   * Copilot-specific question pattern: `> or → prompt`
+   * Adapter-specific question matcher.
    */
   protected getAdapterQuestionPattern(): RegExp {
     return QUESTION_PATTERN;
   }
 
   /**
-   * Copilot extends base question detection with selection prompts
+   * Adds Copilot-specific selection prompt detection.
    */
   detectQuestion(output: string): string | null {
     const base = super.detectQuestion(output);
@@ -183,9 +132,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
   // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
-   * Extract suggestions from Copilot output
-   *
-   * Parses Copilot output to find code suggestions.
+   * Extracts suggestion lines from Copilot output.
    *
    * @param output - Full output buffer
    * @returns Array of suggestions
@@ -203,7 +150,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Extract shell commands from Copilot output
+   * Extracts shell command suggestions from Copilot output.
    *
    * @param output - Full output buffer
    * @returns Array of suggested commands
@@ -220,10 +167,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Extract summary from Copilot output
-   *
-   * Copilot-specific: checks for suggestions, explanations, and commands
-   * before falling back to the base summary extraction.
+   * Returns a summary string, preferring parsed command output.
    */
   extractSummary(output: string): string {
     // Check for commands
@@ -237,9 +181,7 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Extract file operations from Copilot output
-   *
-   * Gh-copilot doesn't perform file operations directly.
+   * Returns empty file operation sets for Copilot output.
    *
    * @param _output - Full output buffer
    * @returns Object with created, modified, deleted files
@@ -259,7 +201,6 @@ export class CopilotAdapter extends AbstractHarnessAdapter {
 // ============================================================================
 
 /**
- * Global Copilot adapter instance
+ * Singleton Copilot adapter.
  */
 export const copilotAdapter = new CopilotAdapter();
-

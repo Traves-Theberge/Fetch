@@ -1,17 +1,10 @@
 /**
- * @fileoverview Task tools
+ * @fileoverview Task lifecycle tool handlers.
  *
- * Tool handlers for task lifecycle operations.
+ * Provides create/status/cancel/respond operations backed by task manager
+ * and task integration services.
  *
  * @module tools/task
- * @see {@link TaskManager} - Task lifecycle management
- *
- * ## Tools
- *
- * - `task_create` - Create a new task
- * - `task_status` - Get task status
- * - `task_cancel` - Cancel a running task
- * - `task_respond` - Respond to task question
  */
 
 import { getTaskManager } from '../task/manager.js';
@@ -37,23 +30,9 @@ import { logger } from '../utils/logger.js';
 // ============================================================================
 
 /**
- * Create a new task
+ * Creates and starts a task execution flow for the selected workspace.
  *
- * Creates a task for a coding agent to execute. The task is queued
- * and starts execution when resources are available.
- *
- * @param input - Tool input with goal and optional constraints
- * @param sessionId - Session ID for the task (required)
- * @returns Created task details
- *
- * @example
- * ```typescript
- * const result = await handleTaskCreate({
- *   goal: 'Add error handling to the API endpoints',
- *   agent: 'claude',
- *   workspace: 'my-project'
- * }, 'ses_abc123');
- * ```
+ * Handles goal framing, task creation, and background execution kickoff.
  */
 export async function handleTaskCreate(
   input: unknown,
@@ -207,20 +186,7 @@ export async function handleTaskCreate(
 // task_status
 // ============================================================================
 
-/**
- * Get task status
- *
- * Returns the current status of a task including progress,
- * any pending questions, and execution details.
- *
- * @param input - Tool input with optional task ID
- * @returns Task status details
- *
- * @example
- * ```typescript
- * const result = await handleTaskStatus({ taskId: 'tsk_abc123' });
- * ```
- */
+/** Returns status for the given task id or current active task. */
 export async function handleTaskStatus(
   input: unknown
 ): Promise<ToolResult> {
@@ -304,22 +270,7 @@ export async function handleTaskStatus(
 // task_cancel
 // ============================================================================
 
-/**
- * Cancel a task
- *
- * Cancels a running or queued task. If the task is actively
- * executing, the harness process will be terminated.
- *
- * @param input - Tool input with task ID
- * @returns Cancellation result
- *
- * @example
- * ```typescript
- * const result = await handleTaskCancel({
- *   taskId: 'tsk_abc123'
- * });
- * ```
- */
+/** Cancels an active task and stops associated execution state. */
 export async function handleTaskCancel(
   input: unknown
 ): Promise<ToolResult> {
@@ -391,22 +342,7 @@ export async function handleTaskCancel(
 // task_respond
 // ============================================================================
 
-/**
- * Respond to a task question
- *
- * Provides an answer to a question asked by the coding agent
- * during task execution. This unblocks the agent to continue.
- *
- * @param input - Tool input with response and optional task ID
- * @returns Response acknowledgment
- *
- * @example
- * ```typescript
- * const result = await handleTaskRespond({
- *   response: 'Yes, please use TypeScript'
- * });
- * ```
- */
+/** Sends user input back to a task waiting in `waiting_input` state. */
 export async function handleTaskRespond(
   input: unknown
 ): Promise<ToolResult> {
@@ -499,9 +435,7 @@ export async function handleTaskRespond(
 // Tool Registry Integration
 // ============================================================================
 
-/**
- * Task tool definitions for registry
- */
+/** Task tool entries consumed by the central registry. */
 export const taskTools = {
   task_create: {
     name: 'task_create',

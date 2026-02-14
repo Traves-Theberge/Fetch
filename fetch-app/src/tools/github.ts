@@ -1,22 +1,10 @@
 /**
- * @fileoverview GitHub tools
+ * @fileoverview GitHub tool handlers.
  *
- * Tool handlers for GitHub operations (PRs, issues, branches, CI, search).
- * All commands execute inside the fetch-kennel container via `dockerExec`.
+ * Wraps workspace GitHub operations for pull requests, issues, branches,
+ * workflow status, and repository search.
  *
  * @module tools/github
- * @see {@link WorkspaceManager} - Backend GitHub methods
- *
- * ## Tools
- *
- * - `github_pr_create`    - Create a pull request
- * - `github_pr_list`      - List pull requests
- * - `github_pr_view`      - View a specific pull request
- * - `github_issue_create` - Create a GitHub issue
- * - `github_issue_list`   - List issues
- * - `github_branch_create`- Create a new branch
- * - `github_action_status`- Get GitHub Actions status
- * - `github_search_repos` - Search GitHub repositories
  */
 
 import { workspaceManager } from '../workspace/manager.js';

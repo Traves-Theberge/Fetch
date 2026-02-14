@@ -1,35 +1,13 @@
 /**
- * @fileoverview Pipeline Configuration — Single Source of Truth
+ * @fileoverview Runtime pipeline configuration resolver.
  *
- * Centralizes every tunable parameter for the Fetch context pipeline.
- * Every value has a sane default. Override any value via env vars
- * (`FETCH_<CATEGORY>_<PARAM>`) for quick tuning without code changes.
- *
- * All consumers import `pipeline` from here — no magic numbers anywhere else.
- *
- * ## Hot-Reload Support
- *
- * This module uses a Proxy to read `process.env` on every access.
- * When the TUI config editor saves changes and triggers a hot-reload,
- * updates to `process.env` are immediately reflected — no restart needed.
- *
- * ## Data Flow
- *
- * ```
- * TUI Config Editor → .env file → Docker Mount → reload API → process.env → pipeline.* → all consumers
- * ```
- *
- * ## Quick Tuning (docker-compose.yml)
- *
- * ```yaml
- * environment:
- *   - FETCH_HISTORY_WINDOW=30        # Longer conversations
- *   - FETCH_CHAT_MAX_TOKENS=200      # Cheaper models
- *   - FETCH_RATE_LIMIT_MAX=60        # High-traffic
- * ```
+ * Defines all `FETCH_*` tunables and exposes a typed `pipeline` object that:
+ * - reads current `process.env` values on access
+ * - parses/coerces values by expected type
+ * - falls back to defaults when unset/invalid
  *
  * @module config/pipeline
- * @see {@link env} — Core env vars (API keys, models, paths)
+ * @see {@link env} Core non-`FETCH_*` env access
  */
 
 import { env } from './env.js';
@@ -122,8 +100,7 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
 // =============================================================================
 
 /**
- * Resolve a pipeline definition to its current value from process.env.
- * Called fresh on every property access for hot-reload support.
+ * Resolve one pipeline setting from current environment state.
  */
 function resolve(def: PipelineDef): unknown {
   const v = process.env[def.key];
@@ -206,10 +183,9 @@ interface PipelineConfig {
 }
 
 /**
- * Centralized pipeline configuration with hot-reload support.
+ * Typed pipeline config proxy used by runtime modules.
  *
- * Uses a Proxy to read `process.env` on every access, so changes
- * made via the TUI hot-reload API are immediately reflected.
+ * Each property access resolves from `process.env` + defaults in real time.
  */
 export const pipeline: PipelineConfig = new Proxy({} as PipelineConfig, {
   get(_target, prop: string) {

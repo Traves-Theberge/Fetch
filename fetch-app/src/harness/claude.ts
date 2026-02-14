@@ -1,33 +1,7 @@
 /**
- * @fileoverview Claude Code CLI harness adapter
- *
- * Implements the HarnessAdapter interface for Claude Code CLI.
- * Claude Code is invoked with `claude --print -p "prompt"` for non-interactive use.
+ * @fileoverview Harness adapter for Claude Code CLI.
  *
  * @module harness/claude
- * @see {@link HarnessAdapter} - Adapter interface
- * @see {@link HarnessExecutor} - Execution engine
- *
- * ## Claude CLI Usage
- *
- * ```bash
- * # Non-interactive mode (--print avoids TUI, -p for prompt)
- * claude --print -p "Add dark mode to the settings page"
- *
- * # With allowed tools
- * claude --print --allowedTools "Edit,Write,Read" -p "..."
- *
- * # Resume conversation
- * claude --print --resume -p "..."
- * ```
- *
- * ## Output Patterns
- *
- * Claude CLI outputs include:
- * - Progress indicators: `⠋ Working...`
- * - File operations: `Edited src/file.ts`
- * - Questions: `? Do you want to...`
- * - Completion: Summary of changes
  */
 
 import type { AgentType } from '../task/types.js';
@@ -44,12 +18,12 @@ import { AbstractHarnessAdapter } from './base.js';
 // ============================================================================
 
 /**
- * Claude CLI executable name
+ * Claude CLI executable.
  */
 const CLAUDE_COMMAND = 'claude';
 
 /**
- * Default Claude CLI arguments
+ * Base args for non-interactive execution.
  */
 const DEFAULT_ARGS = [
   '--print',           // Non-interactive mode (no TUI)
@@ -57,22 +31,22 @@ const DEFAULT_ARGS = [
 ];
 
 /**
- * Pattern for Claude questions
+ * Claude prompt/question line pattern.
  */
 const QUESTION_PATTERN = /^\s*\?\s+(.+)/m;
 
 /**
- * Pattern for file edit operations
+ * File operation line pattern.
  */
 const FILE_EDIT_PATTERN = /^(Edited|Created|Deleted|Modified)\s+(.+)$/m;
 
 /**
- * Pattern for progress indicators
+ * Spinner/progress line pattern.
  */
 const PROGRESS_PATTERN = /^[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]\s+(.+)$/m;
 
 /**
- * Pattern for completion
+ * Completion markers.
  */
 const COMPLETION_PATTERNS = [
   /^Done\.?$/im,
@@ -86,32 +60,16 @@ const COMPLETION_PATTERNS = [
 // ============================================================================
 
 /**
- * Claude Code CLI adapter
- *
- * Implements the HarnessAdapter interface for Claude Code.
- *
- * @example
- * ```typescript
- * const adapter = new ClaudeAdapter();
- *
- * const config = adapter.buildConfig(
- *   'Add dark mode',
- *   '/workspace/my-project',
- *   300000
- * );
- *
- * // config.command = 'claude'
- * // config.args = ['--print', '-p', 'Add dark mode']
- * ```
+ * Adapter for Claude CLI behavior and output parsing.
  */
 export class ClaudeAdapter extends AbstractHarnessAdapter {
   /**
-   * Agent type this adapter handles
+   * Agent type handled by this adapter.
    */
   readonly agent: AgentType = 'claude';
 
   /**
-   * Build execution configuration for a task
+   * Builds process config for one task execution.
    *
    * @param goal - Task goal/prompt
    * @param workspacePath - Working directory
@@ -153,7 +111,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Parse output line to detect special events
+   * Parses one output line into a harness event type.
    *
    * @param line - Raw output line
    * @returns Event type or null
@@ -184,7 +142,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Claude-specific question pattern: `? Do you want to...`
+   * Adapter-specific question matcher.
    */
   protected getAdapterQuestionPattern(): RegExp {
     return QUESTION_PATTERN;
@@ -193,9 +151,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
   // formatResponse() inherited from AbstractHarnessAdapter
 
   /**
-   * Extract file operations from output
-   *
-   * Parses Claude output to find which files were modified.
+   * Extracts created/modified/deleted files from full output.
    *
    * @param output - Full output buffer
    * @returns Object with created, modified, deleted files
@@ -236,7 +192,7 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
   }
 
   /**
-   * Progress pattern for summary paragraph filtering
+   * Progress matcher used by base summary extractor.
    */
   protected getProgressPattern(): RegExp {
     return PROGRESS_PATTERN;
@@ -250,7 +206,6 @@ export class ClaudeAdapter extends AbstractHarnessAdapter {
 // ============================================================================
 
 /**
- * Global Claude adapter instance
+ * Singleton Claude adapter.
  */
 export const claudeAdapter = new ClaudeAdapter();
-

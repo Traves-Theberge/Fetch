@@ -1,6 +1,6 @@
 # Skills Guide
 
-Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific domains. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt — teaching the orchestrator LLM how to use Fetch's 29 tools for that particular task type.
+Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific workflows. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt to steer tool selection and call order.
 
 ## How Skills Work
 
@@ -11,12 +11,12 @@ sequenceDiagram
     participant SM as SkillManager
     participant LLM as Orchestrator LLM
 
-    User->>Fetch: "commit my changes and push"
-    Fetch->>SM: matchSkills("commit my changes and push")
-    SM-->>Fetch: [Git Operations skill]
+    User->>Fetch: "create a new project and publish it"
+    Fetch->>SM: matchSkills("create a new project and publish it")
+    SM-->>Fetch: [Workspace Operations skill]
     Fetch->>Fetch: buildActivatedSkillsContext()
-    Fetch->>LLM: System prompt + Git skill instructions
-    Note over LLM: LLM reads skill instructions:<br/>1. workspace_status first<br/>2. task_create to delegate commit<br/>3. workspace_sync to push
+    Fetch->>LLM: System prompt + Workspace skill instructions
+    Note over LLM: LLM reads skill instructions:<br/>1. workspace_create<br/>2. workspace_select<br/>3. workspace_publish or workspace_sync
     LLM-->>Fetch: Tool calls follow skill guidance
 ```
 
@@ -33,34 +33,69 @@ Skills **don't execute anything directly**. They guide the orchestrator LLM's de
 
 ## Built-in Skills (7)
 
-Fetch ships with 7 built-in skills that cover common development workflows. Each one maps user intent to specific Fetch tools and harness routing.
+Fetch ships with 7 built-in skills aligned to the current tool categories.
 
-| Skill | Triggers | Harness Hint | What It Guides |
-|-------|----------|-------------|---------------|
-| **Fetch Meta** | `what can you do`, `system status`, `capabilities` | — | Self-reporting via `workspace_list`, `workspace_status`, `task_status` |
-| **Git Operations** | `git`, `commit`, `push`, `branch`, `merge`, `PR` | `copilot` | Git workflows via `workspace_status` → `task_create` → `workspace_sync` + all 8 GitHub tools |
-| **Docker Management** | `docker`, `container`, `compose`, `kennel` | `claude` | Container orchestration via `task_create`, safety guards via `ask_user` |
-| **TypeScript** | `typescript`, `tsconfig`, `type error`, `TS2345` | `claude` | Type fixes via `task_create` with coding standards baked into the goal |
-| **React** | `react`, `component`, `hook`, `jsx`, `next.js` | `claude` | Component work via `workspace_status` → `task_create` with framework-aware goals |
-| **Testing & QA** | `test`, `vitest`, `jest`, `e2e`, `coverage` | `claude` | Test creation/execution via `task_create`, bug-first-test-then-fix pattern |
-| **Debugging** | `debug`, `error`, `broken`, `crash`, `bug` | `claude` | Structured diagnosis: `workspace_status` → `ask_user` → `task_create` with error context |
+| Skill | Triggers | What It Guides |
+|-------|----------|---------------|
+| **Fetch Meta** | `what can you do`, `system status`, `capabilities` | Capability and runtime status reporting |
+| **Workspace Operations** | `workspace`, `create project`, `publish project`, `delete file` | Workspace lifecycle, cleanup, sync, and publish |
+| **Task Orchestration** | `implement`, `fix this`, `delegate`, `continue task` | Task create/status/respond/cancel flows |
+| **GitHub Operations** | `pull request`, `issue`, `branch`, `actions` | PR, issue, branch, workflow, and repo search operations |
+| **Web Research** | `docs`, `research`, `look up`, `search web` | `web_search` and `web_fetch` research workflows |
+| **Browser Automation** | `open browser`, `fill form`, `screenshot page` | `browser_open`/`snapshot`/`action`/`screenshot` loops |
+| **Interaction Control** | `clarify`, `confirm`, `status update`, `approval` | `ask_user` and `report_progress` usage patterns |
+
+### Tool Usage Playbooks
+
+Use these standard sequences when writing or reviewing skill instructions:
+
+1. Workspace: `workspace_list` -> `workspace_select` -> `workspace_status` -> (`workspace_publish` or `workspace_sync`)
+2. Task: `workspace_status` -> `task_create` -> `task_status` -> (`task_respond` or `task_cancel` as needed)
+3. GitHub: `workspace_status` -> (`github_pr_*` / `github_issue_*` / `github_branch_create`) -> `github_action_status`
+4. Web: `web_search` -> `web_fetch` -> summarize with links
+5. Browser: `browser_open` -> `browser_snapshot` -> `browser_action` loop -> `browser_screenshot`
+6. Interaction: `ask_user` for ambiguity/approval, `report_progress` for milestone updates
+
+### Tool Alignment Rules
+
+Use these rules to keep skills aligned with the live tool surface and avoid drift:
+
+1. Treat `fetch-app/src/validation/tools.ts` as the canonical source for valid tool names and parameters.
+2. Do not hardcode category counts in skill text; counts can change as tools are added.
+3. Prefer tool names in backticks and verify each name exists before merging skill changes.
+4. If tool behavior changes, update both the relevant `SKILL.md` and this guide in the same PR.
+5. Keep skill instructions at the tool layer (tool names + call order), not low-level utility modules such as `utils/*` or `transcription/*`.
+6. Treat `workspace/*` internals (`manager`, `profiler`, `repo-map`, `symbols`) as implementation details; skills should reference `workspace_*` tools instead.
+
+### Skill-to-Tool Module Map
+
+Use this map to keep skill instructions tied to concrete handlers.
+
+| Skill | Primary Tool Family | Source Module |
+|-------|----------------------|---------------|
+| Workspace Operations | `workspace_*`, `file_delete`, `folder_delete` | `fetch-app/src/tools/workspace.ts` |
+| Task Orchestration | `task_*` | `fetch-app/src/tools/task.ts` |
+| Interaction Control | `ask_user`, `report_progress` | `fetch-app/src/tools/interaction.ts` |
+| GitHub Operations | `github_*` | `fetch-app/src/tools/github.ts` |
+| Web Research | `web_fetch`, `web_search` | `fetch-app/src/tools/web.ts` |
+| Browser Automation | `browser_*` | `fetch-app/src/tools/browser.ts` |
+| Fetch Meta | Status/capability queries (prompt guidance, minimal direct tool usage) | `fetch-app/src/agent/prompts.ts` and `fetch-app/src/agent/core.ts` |
 
 ### Skill Anatomy
 
 Each skill includes:
 
 - **Instructions** — Step-by-step tool-call guidance per user scenario
-- **Harness Routing** — Which CLI (Claude/Gemini/Copilot/OpenCode/Codex) to delegate to and why
-- **Harness Hint** — Optional `harnessHint` in frontmatter that renders as an XML attribute, giving the LLM a skill-aware routing nudge
+- **Tool Sequence** — Recommended order of tool calls for common workflows
 - **Tool Reference** — The exact Fetch tool names the LLM should use
 
-Example from the Git skill:
+Example from the Workspace Operations skill:
 
 ```
-When the user asks to commit or push:
-1. Call `workspace_status` to verify there are uncommitted changes
-2. Delegate to a harness via `task_create` with a clear goal
-3. After the task completes, call `workspace_sync` to push
+When the user asks to publish a new project:
+1. Call `workspace_create` with `name` and `template`
+2. Call `workspace_select` for that workspace
+3. Call `workspace_publish` if remote is missing, otherwise `workspace_sync`
 ```
 
 ---
@@ -81,7 +116,6 @@ data/skills/
 ---
 name: Database Management
 description: PostgreSQL workflow guidance for the Fetch orchestrator.
-harnessHint: claude
 triggers:
   - database
   - postgres
@@ -128,7 +162,6 @@ When the user asks to check database status:
 | `name` | Yes | string | Display name |
 | `description` | Yes | string | Short description (shown in skills summary) |
 | `triggers` | No | string[] | Keywords that activate this skill |
-| `harnessHint` | No | string | Suggested harness: `claude`, `gemini`, `copilot`, `opencode`, or `codex` |
 | `requirements.binaries` | No | string[] | Required CLI tools (not validated at load time) |
 | `requirements.envVars` | No | string[] | Required environment variables (validated at load time) |
 | `requirements.platform` | No | string[] | OS restrictions: `linux`, `darwin`, `win32` |
@@ -146,11 +179,11 @@ Skills should guide the LLM to use Fetch's tools — not describe how to run she
 
 **Bad:** "Run `git status` to check the branch, then `git commit -m '...'`."
 
-### 2. Include Harness Routing
+### 2. Define Tool Sequence
 
-Tell the LLM which harness is best for different sub-tasks within the skill domain.
+Tell the LLM which tools to call first, next, and last for a workflow.
 
-**Good:** "Complex merges → **Claude**. Simple commits → **Gemini**."
+**Good:** "`workspace_status` before `workspace_sync` for any publish/sync request."
 
 ### 3. Specific Triggers
 
@@ -212,10 +245,10 @@ Skills are rendered in two sections of the system prompt:
 
 ```xml
 <available_skills>
-  <skill id="git">
-    <name>Git Operations</name>
-    <description>Git workflow orchestration</description>
-    <triggers>git, commit, push, branch, merge, rebase, PR</triggers>
+  <skill id="workspace-operations">
+    <name>Workspace Operations</name>
+    <description>Workspace lifecycle, cleanup, and sync workflows</description>
+    <triggers>workspace, create project, publish project, delete file</triggers>
   </skill>
   ...
 </available_skills>
@@ -224,11 +257,11 @@ Skills are rendered in two sections of the system prompt:
 ### 2. Activated Skill Instructions (only when matched)
 
 ```xml
-<activated_skill name="Git Operations" harness_hint="copilot">
+<activated_skill name="Workspace Operations">
   <instructions>
     [Full markdown body of the skill]
   </instructions>
 </activated_skill>
 ```
 
-The `harness_hint` attribute (when present) gives the LLM a skill-aware nudge about which harness to delegate to. The LLM is instructed: "Follow activated skill instructions as expert procedural guidance."
+The LLM is instructed to follow activated skill instructions as procedural guidance for tool selection and call order.

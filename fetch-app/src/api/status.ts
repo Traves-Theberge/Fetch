@@ -1,54 +1,29 @@
 /**
- * @fileoverview Status API Server
- * 
- * Exposes bridge status, QR code, and authentication state via HTTP.
- * Used by the Go TUI manager to display connection status.
- * Also serves the documentation site at /docs.
- * 
+ * @fileoverview HTTP status/control API and docs/static file server.
+ *
+ * Responsibilities:
+ * - expose bridge status/health for the manager UI
+ * - provide admin-protected control endpoints (logout, config reload, sessions)
+ * - serve documentation assets under `/docs`
+ *
  * @module api/status
- * @see {@link startStatusServer} - Start the HTTP server
- * @see {@link updateStatus} - Update bridge status
- * @see {@link getStatus} - Get current status
+ * @see {@link startStatusServer} Start the HTTP server and route requests
+ * @see {@link updateStatus} Update in-memory bridge status
+ * @see {@link getStatus} Read current status snapshot
  * 
  * ## Endpoints
  * 
  * | Method | Path | Description |
- * |--------|------|------------|
+ * |--------|------|-------------|
  * | GET | /api/status | Current bridge status (JSON) |
  * | GET | /api/health | Lightweight health check (Go TUI) |
- * | POST | /api/logout | Disconnect WhatsApp (admin token) |
+ * | POST | /api/logout | Disconnect WhatsApp (admin token required) |
+ * | POST | /api/config/reload | Reload mounted `.env` into process env (admin token required) |
+ * | GET | /api/sessions | List sessions (admin token required) |
+ * | GET | /api/sessions/:id | Read one session (admin token required) |
+ * | DELETE | /api/sessions/:id | Delete one session (admin token required) |
+ * | POST | /api/sessions/:id/clear | Clear one session history (admin token required) |
  * | GET | /docs/* | Documentation site (static) |
- * 
- * ## Status States
- * 
- * | State | Description |
- * |-------|------------|
- * | initializing | Bridge starting up |
- * | qr_pending | QR code displayed, awaiting scan |
- * | authenticated | WhatsApp connected |
- * | disconnected | Connection lost |
- * | error | Error occurred |
- * 
- * ## Status Response
- * 
- * ```json
- * {
- *   "state": "authenticated",
- *   "qrCode": null,
- *   "qrUrl": null,
- *   "uptime": 3600,
- *   "messageCount": 42,
- *   "lastError": null
- * }
- * ```
- * 
- * @example
- * ```typescript
- * import { startStatusServer, updateStatus } from './status.js';
- * 
- * startStatusServer(); // Starts on port 8765
- * updateStatus({ state: 'authenticated' });
- * ```
  */
 
 import http from 'http';
@@ -75,8 +50,7 @@ const DOCS_PATH = '/app/docs';
 // =============================================================================
 
 /**
- * Bridge status information.
- * @interface
+ * Status payload returned by `GET /api/status`.
  */
 export interface BridgeStatus {
   /** Current connection state */
@@ -120,16 +94,16 @@ let logoutCallback: (() => Promise<void>) | null = null;
 const ADMIN_TOKEN = env.ADMIN_TOKEN || crypto.randomBytes(24).toString('hex');
 
 /**
- * Registers a logout callback function.
- * Called by the bridge to provide logout functionality.
+ * Register callback used by `POST /api/logout`.
  */
 export function setLogoutCallback(callback: () => Promise<void>): void {
   logoutCallback = callback;
 }
 
 /**
- * Triggers logout/disconnect from WhatsApp.
- * Returns true if successful.
+ * Execute the registered logout callback, if available.
+ *
+ * @returns `true` when callback runs successfully; otherwise `false`
  */
 export async function triggerLogout(): Promise<boolean> {
   if (logoutCallback) {
@@ -149,10 +123,9 @@ export async function triggerLogout(): Promise<boolean> {
 // =============================================================================
 
 /**
- * Updates the bridge status.
- * Called by bridge event handlers when state changes.
- * 
- * @param {Partial<BridgeStatus>} update - Fields to update
+ * Merge partial fields into the in-memory status object.
+ *
+ * @param update - Status fields to overwrite
  */
 export function updateStatus(update: Partial<BridgeStatus>): void {
   status = { ...status, ...update };
@@ -160,17 +133,16 @@ export function updateStatus(update: Partial<BridgeStatus>): void {
 }
 
 /**
- * Increments the message counter.
- * Called for each processed message.
+ * Increment processed-message counter for status reporting.
  */
 export function incrementMessageCount(): void {
   status.messageCount++;
 }
 
 /**
- * Gets the current bridge status with calculated uptime.
- * 
- * @returns {BridgeStatus} Current status snapshot
+ * Return a status snapshot with computed uptime.
+ *
+ * @returns Current status payload
  */
 export function getStatus(): BridgeStatus {
   return {
@@ -180,8 +152,7 @@ export function getStatus(): BridgeStatus {
 }
 
 /**
- * Starts the status API HTTP server.
- * Listens on PORT (8765) for status requests and serves docs.
+ * Start the HTTP server and register all API/docs routes.
  */
 export function startStatusServer(): void {
   const server = http.createServer(async (req, res) => {
@@ -494,7 +465,7 @@ export function startStatusServer(): void {
 }
 
 /**
- * Serve a static file with appropriate content type
+ * Serve a static docs asset with basic path validation and content-type mapping.
  */
 function serveStaticFile(filePath: string, res: http.ServerResponse): void {
   // Security: prevent directory traversal

@@ -1,25 +1,13 @@
 /**
- * @fileoverview Commands Module — Barrel Exports
+ * @fileoverview Public exports for deterministic slash-command handling.
  *
- * Re-exports the safety-gate parser and shared types.
- * In v4.0, only 8 deterministic escape commands are intercepted here;
- * everything else passes through to the LLM agent.
+ * This module exposes:
+ * - `parseCommand`: pre-LLM command gate
+ * - `CommandResult`: shared result contract for command handlers
  *
  * @module commands
- * @see {@link module:commands/parser} — parseCommand (safety gate)
- * @see {@link module:commands/types}  — CommandResult type
- *
- * @example
- * ```typescript
- * import { parseCommand } from './commands/index.js';
- *
- * const result = await parseCommand('/status', session, sessionManager);
- * if (result.handled) {
- *   // Safety escape matched — send result.responses to the user
- * } else {
- *   // Not a safety escape — forward to the LLM agent
- * }
- * ```
+ * @see {@link module:commands/parser} Command router implementation
+ * @see {@link module:commands/types} Shared command types
  */
 
 export { parseCommand } from './parser.js';

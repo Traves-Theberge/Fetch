@@ -1,9 +1,9 @@
 /**
- * @fileoverview Prompt Utilities
+ * @fileoverview Prompt fragment builders used by the core agent loop.
  *
- * Utility prompt builders for specific use cases (task framing, context building).
- * Core identity and system prompt are managed by IdentityManager (identity/manager.ts).
- * Identity data comes from COLLAR.md and ALPHA.md via IdentityLoader.
+ * This module builds:
+ * - task framing prompts for harness goal generation
+ * - dynamic context sections injected into system prompts
  *
  * @module agent/prompts
  */
@@ -15,14 +15,11 @@ import type { Session } from '../session/types.js';
 // =============================================================================
 
 /**
- * Build the task framing prompt
+ * Build the prompt used to convert a user request into a harness task goal.
  *
- * Used to transform a user's request into a clear goal for the harness.
- * The harness (Claude Code, etc.) will receive this goal.
- *
- * @param session - Current session for context
+ * @param session - Current session context
  * @param userRequest - Original user request
- * @returns System prompt for task framing
+ * @returns Prompt text for the framing model call
  */
 export function buildTaskFramePrompt(session: Session, userRequest: string): string {
   const workspace = session.currentProject?.name ?? 'unknown';
@@ -74,11 +71,14 @@ Now write the goal:`;
 // =============================================================================
 
 /**
- * Build the context section for the system prompt.
- * Provides session-aware context: workspace, task, git state, summaries, repo map.
+ * Build the dynamic context section for the main system prompt.
+ *
+ * Includes workspace, active task, compaction summary, repo map,
+ * recalled memory snippets, and conversation size metadata.
  *
  * @param session - Current session
- * @returns Formatted context block
+ * @param userMessage - Optional current user text for memory recall matching
+ * @returns Context block text
  */
 export async function buildContextSection(session: Session, userMessage?: string): Promise<string> {
   const parts: string[] = [];

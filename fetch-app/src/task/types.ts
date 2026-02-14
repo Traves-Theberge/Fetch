@@ -1,81 +1,27 @@
 /**
- * @fileoverview Task domain types and interfaces
- *
- * Defines all types related to task management.
- * Tasks represent coding work delegated to harnesses (Claude, Gemini, Copilot, OpenCode, Codex).
+ * @fileoverview Type contracts for task lifecycle, progress, and result data.
  *
  * @module task/types
- * @see {@link TaskManager} - Task lifecycle management
- * @see {@link HarnessExecution} - Task execution details
  */
 
 // ============================================================================
 // ID Types
 // ============================================================================
 
-/**
- * Unique identifier for tasks
- *
- * Format: `tsk_{nanoid(10)}`
- *
- * @example
- * ```typescript
- * const taskId: TaskId = 'tsk_V1StGXR8_Z';
- * ```
- */
+/** Task id format used across task manager, tools, and harness integration. */
 export type TaskId = `tsk_${string}`;
 
 // ============================================================================
 // Enums (as union types)
 // ============================================================================
 
-/**
- * Supported coding agent types
- *
- * | Agent | CLI Command | Best For |
- * |-------|-------------|----------|
- * | claude | `claude --print` | Complex multi-file changes |
- * | gemini | `gemini` | Quick edits, explanations |
- * | copilot | `gh copilot suggest` | GitHub-integrated workflows |
- * | opencode | `opencode run` | Versatile coding via OpenRouter |
- * | codex | `codex exec` | Agentic coding with OpenAI models |
- */
+/** Supported harness agent identifiers for delegated execution. */
 export type AgentType = 'claude' | 'gemini' | 'copilot' | 'opencode' | 'codex';
 
-/**
- * Agent selection strategy
- *
- * - Specific agent: Use that agent directly
- * - `auto`: Let the router choose based on task complexity
- */
+/** Explicit agent choice or `auto` for runtime selection. */
 export type AgentSelection = AgentType | 'auto';
 
-/**
- * Task lifecycle states
- *
- * State Machine:
- * ```
- * pending ──────► running ──────► completed
- *                    │                ▲
- *                    ▼                │
- *              waiting_input ─────────┘
- *                    │
- *                    ▼
- *                 failed
- *                    │
- *                    ▼
- *               cancelled
- * ```
- *
- * | State | Description |
- * |-------|-------------|
- * | pending | Task created, waiting to start |
- * | running | Harness is executing |
- * | waiting_input | Harness asked a question, awaiting user response |
- * | completed | Task finished successfully |
- * | failed | Task encountered an error |
- * | cancelled | User cancelled the task |
- */
+/** Task lifecycle states used by `TaskManager` transition rules. */
 export type TaskStatus =
   | 'pending'
   | 'running'
@@ -85,22 +31,14 @@ export type TaskStatus =
   | 'cancelled'
   | 'paused';
 
-/**
- * Task priority levels
- *
- * Currently unused (single-task queue), but reserved for future multi-task support.
- */
+/** Priority field retained for compatibility/future scheduling support. */
 export type TaskPriority = 'low' | 'normal' | 'high';
 
 // ============================================================================
 // Constraint & Configuration Types
 // ============================================================================
 
-/**
- * Task execution constraints
- *
- * Controls how the task is executed and what limits apply.
- */
+/** Execution constraints persisted with each task. */
 export interface TaskConstraints {
   /**
    * Maximum execution time in milliseconds
@@ -131,11 +69,7 @@ export interface TaskConstraints {
 // Progress & Result Types
 // ============================================================================
 
-/**
- * Progress update from harness
- *
- * Emitted periodically during task execution to show what's happening.
- */
+/** One task progress entry emitted during execution. */
 export interface TaskProgress {
   /** Progress entry ID */
   id: string;
@@ -153,11 +87,7 @@ export interface TaskProgress {
   percent?: number;
 }
 
-/**
- * Task completion result
- *
- * Captures the outcome of a task, whether successful or failed.
- */
+/** Normalized final result payload for completed/failed tasks. */
 export interface TaskResult {
   /** Whether the task completed successfully */
   success: boolean;
@@ -188,30 +118,7 @@ export interface TaskResult {
 // Main Task Entity
 // ============================================================================
 
-/**
- * Complete task entity
- *
- * Represents a single coding task from creation to completion.
- *
- * @example
- * ```typescript
- * const task: Task = {
- *   id: 'tsk_V1StGXR8_Z',
- *   goal: 'Add dark mode toggle to settings page',
- *   workspace: 'my-react-app',
- *   agent: 'claude',
- *   agentSelection: 'auto',
- *   status: 'running',
- *   priority: 'normal',
- *   constraints: { timeoutMs: 300000, requireApproval: false, maxRetries: 1 },
- *   progress: [],
- *   retryCount: 0,
- *   createdAt: '2026-02-02T10:00:00.000Z',
- *   startedAt: '2026-02-02T10:00:01.000Z',
- *   sessionId: 'ses_Ab3dE7gH'
- * };
- * ```
- */
+/** Persisted task record shared across manager, store, tools, and integration. */
 export interface Task {
   /** Unique task identifier */
   id: TaskId;
@@ -266,11 +173,7 @@ export interface Task {
 // Task Creation Input
 // ============================================================================
 
-/**
- * Input for creating a new task
- *
- * Used by the task_create tool.
- */
+/** Input payload accepted by task creation flows (tool + manager). */
 export interface TaskCreateInput {
   /** What the task should accomplish */
   goal: string;
@@ -289,9 +192,7 @@ export interface TaskCreateInput {
 // Task Events
 // ============================================================================
 
-/**
- * Task event types for pub/sub
- */
+/** Event names emitted by task manager/integration. */
 export type TaskEventType =
   | 'task:created'
   | 'task:started'
@@ -303,9 +204,7 @@ export type TaskEventType =
   | 'task:failed'
   | 'task:cancelled';
 
-/**
- * Task event payload
- */
+/** Generic task event payload envelope. */
 export interface TaskEvent {
   type: TaskEventType;
   taskId: TaskId;

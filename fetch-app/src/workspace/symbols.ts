@@ -1,29 +1,22 @@
 /**
- * @fileoverview Symbol extraction for repo-map
- * 
- * Provides patterns and logic to extract key symbols (functions, classes, etc.)
- * from source files across various languages.
- * 
+ * @fileoverview Language-aware symbol extraction used by repo-map.
+ *
+ * Matches exported/declared symbols from source text using regex patterns.
+ *
  * @module workspace/symbols
  */
 
-/**
- * Symbol type
- */
+/** Normalized symbol kinds used in repo-map output. */
 export type SymbolType = 'function' | 'class' | 'interface' | 'type' | 'const' | 'method' | 'enum';
 
-/**
- * Extracted symbol information
- */
+/** One extracted symbol record. */
 export interface SymbolInfo {
   name: string;
   type: SymbolType;
   line?: number;
 }
 
-/**
- * Language-specific patterns for symbol extraction
- */
+/** Symbol patterns for one language family. */
 export interface LanguagePattern {
   extensions: string[];
   patterns: Array<{
@@ -32,9 +25,7 @@ export interface LanguagePattern {
   }>;
 }
 
-/**
- * Supported language patterns
- */
+/** Regex-based symbol patterns keyed by language. */
 export const LANGUAGE_PATTERNS: Record<string, LanguagePattern> = {
   typescript: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
@@ -105,13 +96,7 @@ export const LANGUAGE_PATTERNS: Record<string, LanguagePattern> = {
   },
 };
 
-/**
- * Extract symbols from file content based on extension
- * 
- * @param content - File content
- * @param fileName - File name to determine extension
- * @returns Array of found symbols
- */
+/** Extracts symbols for a file based on extension-specific patterns. */
 export function extractSymbols(content: string, fileName: string): SymbolInfo[] {
   const ext = '.' + fileName.split('.').pop();
   const lang = Object.keys(LANGUAGE_PATTERNS).find(l => 

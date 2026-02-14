@@ -1,37 +1,10 @@
 /**
- * @fileoverview Task lifecycle management
+ * @fileoverview Task lifecycle state manager.
  *
- * The TaskManager is responsible for creating, tracking, and managing
- * the lifecycle of coding tasks. It coordinates with the
- * HarnessExecutor to execute tasks.
+ * Maintains in-memory task state, persists it via `TaskStore`, validates state
+ * transitions, and emits task events used by tools/integration layers.
  *
  * @module task/manager
- * @see {@link Task} - Task entity
- * @see {@link HarnessExecutor} - Task execution
- *
- * ## Overview
- *
- * The TaskManager handles:
- * - Task creation and validation
- * - Task state transitions
- * - Progress tracking
- * - Result handling
- * - Event emission
- *
- * ## State Machine
- *
- * ```
- * pending ──────► running ──────► completed
- *                    │                ▲
- *                    ▼                │
- *              waiting_input ─────────┘
- *                    │
- *                    ▼
- *                 failed
- *                    │
- *                    ▼
- *               cancelled
- * ```
  */
 
 import { EventEmitter } from 'events';
@@ -55,25 +28,19 @@ import type {
 // Constants
 // ============================================================================
 
-/**
- * Default task constraints
- */
+/** Default execution constraints applied to newly created tasks. */
 const DEFAULT_CONSTRAINTS = {
   timeoutMs: 300000, // 5 minutes
   requireApproval: false,
   maxRetries: 1,
 };
 
-/**
- * Check if a task status represents an active (non-terminal) state
- */
+/** Returns true when the status represents an active non-terminal task. */
 function isActiveStatus(status: TaskStatus): boolean {
   return status === 'pending' || status === 'running' || status === 'waiting_input';
 }
 
-/**
- * Valid state transitions
- */
+/** Allowed state transitions for task lifecycle enforcement. */
 const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   pending: ['running', 'cancelled'],
   running: ['waiting_input', 'completed', 'failed', 'cancelled'],
@@ -88,27 +55,7 @@ const VALID_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
 // TaskManager Class
 // ============================================================================
 
-/**
- * Task lifecycle manager
- *
- * Manages the creation, execution, and completion of coding tasks.
- * Emits events for task state changes.
- *
- * @example
- * ```typescript
- * const manager = new TaskManager();
- *
- * manager.on('task:created', (event) => {
- *   console.log(`Task ${event.taskId} created`);
- * });
- *
- * const task = await manager.createTask({
- *   goal: 'Add dark mode',
- *   workspace: 'my-project',
- *   sessionId: 'ses_Ab3dE7gH'
- * });
- * ```
- */
+/** Creates, mutates, and queries task state with persistence and event emission. */
 export class TaskManager extends EventEmitter {
   /** In-memory task storage */
   private tasks: Map<TaskId, Task> = new Map();
@@ -124,9 +71,7 @@ export class TaskManager extends EventEmitter {
     this.store = store || getTaskStore();
   }
 
-  /**
-   * Initialize the task manager, loading state from disk
-   */
+  /** Initializes store access and restores persisted tasks/current-task pointer. */
   async init(): Promise<void> {
     try {
       await this.store.init();
@@ -152,12 +97,9 @@ export class TaskManager extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Create a new task
+   * Creates a task and marks it as the current active task.
    *
-   * @param input - Task creation input
-   * @param sessionId - Session ID creating the task
-   * @returns Created task
-   * @throws Error if a task is already running
+   * @throws Error when a non-terminal task is already active
    */
   async createTask(input: TaskCreateInput, sessionId: string): Promise<Task> {
     if (!input.goal?.trim()) {
@@ -225,12 +167,7 @@ export class TaskManager extends EventEmitter {
   // Task State Management
   // ==========================================================================
 
-  /**
-   * Start a task
-   *
-   * @param taskId - Task ID to start
-   * @throws Error if task not found or invalid transition
-   */
+  /** Transitions task from `pending` to `running` and persists state. */
   async startTask(taskId: TaskId): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'running');
@@ -248,12 +185,7 @@ export class TaskManager extends EventEmitter {
     logger.info(`Task started: ${taskId}`);
   }
 
-  /**
-   * Mark task as waiting for user input
-   *
-   * @param taskId - Task ID
-   * @param question - Question being asked
-   */
+  /** Transitions task to `waiting_input` and stores the pending question. */
   async setWaitingInput(taskId: TaskId, question: string): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'waiting_input');
@@ -271,11 +203,7 @@ export class TaskManager extends EventEmitter {
     logger.info(`Task waiting for input: ${taskId}`, { question });
   }
 
-  /**
-   * Resume task from waiting state
-   *
-   * @param taskId - Task ID
-   */
+  /** Resumes a task from `waiting_input` back to `running`. */
   async resumeTask(taskId: TaskId): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     if (task.status !== 'waiting_input') {
@@ -294,12 +222,7 @@ export class TaskManager extends EventEmitter {
     logger.info(`Task resumed: ${taskId}`);
   }
 
-  /**
-   * Complete a task successfully
-   *
-   * @param taskId - Task ID
-   * @param result - Task result
-   */
+  /** Marks task as completed, stores result, and clears current active task pointer. */
   async completeTask(taskId: TaskId, result: TaskResult): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'completed');
@@ -323,13 +246,7 @@ export class TaskManager extends EventEmitter {
     });
   }
 
-  /**
-   * Fail a task
-   *
-   * @param taskId - Task ID
-   * @param error - Error message
-   * @param result - Partial result (if any)
-   */
+  /** Marks task as failed with normalized result payload and persistence update. */
   async failTask(taskId: TaskId, error: string, result?: Partial<TaskResult>): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'failed');
@@ -359,11 +276,7 @@ export class TaskManager extends EventEmitter {
     logger.error(`Task failed: ${taskId}`, { error });
   }
 
-  /**
-   * Cancel a task
-   *
-   * @param taskId - Task ID
-   */
+  /** Cancels a task and clears current active task pointer when applicable. */
   async cancelTask(taskId: TaskId): Promise<void> {
     const task = this.getTaskOrThrow(taskId);
     this.transitionTo(task, 'cancelled');
@@ -385,13 +298,7 @@ export class TaskManager extends EventEmitter {
     logger.warn(`Task cancelled: ${taskId}`);
   }
 
-  /**
-   * Pause a task (alias for setWaitingInput)
-   * Used by task integration layer.
-   *
-   * @param taskId - Task ID
-   * @param reason - Reason for pause (e.g., question from harness)
-   */
+  /** Alias used by integration layer to transition a task into waiting input state. */
   async pauseTask(taskId: TaskId, reason?: string): Promise<void> {
     await this.setWaitingInput(taskId, reason ?? 'Waiting for input');
     this.emitTaskEvent('task:paused', taskId, { reason });
@@ -401,14 +308,7 @@ export class TaskManager extends EventEmitter {
   // Progress Tracking
   // ==========================================================================
 
-  /**
-   * Add a progress update to a task
-   *
-   * @param taskId - Task ID
-   * @param message - Progress message
-   * @param files - Files being modified (optional)
-   * @param percent - Percentage complete (optional)
-   */
+  /** Appends one progress entry to the task timeline and persists the task. */
   async addProgress(
     taskId: TaskId,
     message: string,
@@ -443,23 +343,12 @@ export class TaskManager extends EventEmitter {
   // Task Queries
   // ==========================================================================
 
-  /**
-   * Get a task by ID
-   *
-   * @param taskId - Task ID
-   * @returns Task if found, undefined otherwise
-   */
+  /** Returns task by id or `undefined` when not found. */
   getTask(taskId: TaskId): Task | undefined {
     return this.tasks.get(taskId);
   }
 
-  /**
-   * Get a task by ID, throwing if not found
-   *
-   * @param taskId - Task ID
-   * @returns Task
-   * @throws Error if task not found
-   */
+  /** Returns task by id or throws when missing. */
   getTaskOrThrow(taskId: TaskId): Task {
     const task = this.tasks.get(taskId);
     if (!task) {
@@ -468,29 +357,17 @@ export class TaskManager extends EventEmitter {
     return task;
   }
 
-  /**
-   * Get the current active task
-   *
-   * @returns Current task if any, undefined otherwise
-   */
+  /** Returns current active task object when set. */
   getCurrentTask(): Task | undefined {
     return this.currentTaskId ? this.tasks.get(this.currentTaskId) : undefined;
   }
 
-  /**
-   * Get the current active task ID
-   *
-   * @returns Current task ID if any, null otherwise
-   */
+  /** Returns current active task id or `null`. */
   getCurrentTaskId(): TaskId | null {
     return this.currentTaskId;
   }
 
-  /**
-   * Check if a task is currently running
-   *
-   * @returns True if a task is running
-   */
+  /** Returns true when the current task is in an active state. */
   hasRunningTask(): boolean {
     if (!this.currentTaskId) return false;
     const task = this.tasks.get(this.currentTaskId);
@@ -501,13 +378,7 @@ export class TaskManager extends EventEmitter {
   // Private Helpers
   // ==========================================================================
 
-  /**
-   * Transition a task to a new state
-   *
-   * @param task - Task to transition
-   * @param newStatus - New status
-   * @throws Error if transition is invalid
-   */
+  /** Applies a validated state transition or throws on invalid move. */
   private transitionTo(task: Task, newStatus: TaskStatus): void {
     const validTargets = VALID_TRANSITIONS[task.status];
     if (!validTargets.includes(newStatus)) {
@@ -518,17 +389,10 @@ export class TaskManager extends EventEmitter {
     task.status = newStatus;
   }
 
-  /**
-   * Select an agent for a task
-   *
-   * @param selection - Agent selection ('auto' or specific agent)
-   * @param _goal - Task goal
-   * @returns Selected agent type
-   * @throws Error if selection is ambiguous or no agents are enabled
-   */
+  /** Resolves explicit or `auto` agent selection against enabled harness flags. */
   private selectAgent(selection: string, _goal: string): AgentType {
     // Helper to check if a string flag is 'true'
-    const isTrue = (val: any) => String(val).trim().toLowerCase() === 'true';
+    const isTrue = (val: unknown) => String(val).trim().toLowerCase() === 'true';
 
     const copilotEnabled = isTrue(env.ENABLE_COPILOT);
     const geminiEnabled = isTrue(env.ENABLE_GEMINI);
@@ -582,13 +446,7 @@ export class TaskManager extends EventEmitter {
     );
   }
 
-  /**
-   * Emit a task event
-   *
-   * @param type - Event type
-   * @param taskId - Task ID
-   * @param data - Event data
-   */
+  /** Emits typed task event and wildcard task stream event. */
   private emitTaskEvent(type: TaskEventType, taskId: TaskId, data?: unknown): void {
     const event: TaskEvent = {
       type,
@@ -605,17 +463,11 @@ export class TaskManager extends EventEmitter {
 // Singleton Instance
 // ============================================================================
 
-/**
- * Global task manager instance
- */
+/** Process-wide task manager singleton state. */
 let taskManagerInstance: TaskManager | null = null;
 let taskInitPromise: Promise<TaskManager> | null = null;
 
-/**
- * Get or create the global task manager instance
- *
- * @returns Task manager instance
- */
+/** Returns singleton task manager, initializing once on first call. */
 export async function getTaskManager(): Promise<TaskManager> {
   if (taskManagerInstance) return taskManagerInstance;
   if (taskInitPromise) return taskInitPromise;

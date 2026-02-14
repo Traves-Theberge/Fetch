@@ -1,61 +1,9 @@
 /**
- * @fileoverview Fetch Bridge - The Brain
- * 
- * Main entry point for the Fetch WhatsApp-to-AI agent orchestration layer.
- * Initializes the bridge, validates environment, and handles graceful shutdown.
- * 
+ * @fileoverview Bridge process entry point.
+ *
+ * Boots env validation, status API, skills, WhatsApp bridge, and shutdown hooks.
+ *
  * @module index
- * @see {@link module:bridge/client} For WhatsApp bridge implementation
- * @see {@link module:api/status} For health check API
- * @see {@link module:utils/logger} For logging utilities
- * 
- * ## Architecture Overview
- * 
- * ```
- * ┌─────────────────────────────────────────────────────┐
- * │                    Fetch Bridge                      │
- * │                   (Entry Point)                      │
- * └──────────────┬──────────────────────┬───────────────┘
- *                │                      │
- *        ┌───────▼───────┐      ┌───────▼───────┐
- *        │ Status API    │      │ WhatsApp      │
- *        │ (Port 3000)   │      │ Bridge        │
- *        └───────────────┘      └───────┬───────┘
- *                                       │
- *                               ┌───────▼───────┐
- *                               │ Message       │
- *                               │ Handler       │
- *                               └───────┬───────┘
- *                                       │
- *                 ┌─────────────────────┼─────────────────────┐
- *                 │                     │                     │
- *         ┌───────▼───────┐     ┌───────▼───────┐     ┌───────▼───────┐
- *         │ Conversation  │     │   Inquiry     │     │   Action      │
- *         │ Mode          │     │   Mode        │     │   Mode        │
- *         └───────────────┘     └───────────────┘     └───────────────┘
- * ```
- * 
- * ## Required Environment Variables
- * 
- * | Variable | Description |
- * |----------|-------------|
- * | OWNER_PHONE_NUMBER | Whitelisted phone number for access |
- * | OPENROUTER_API_KEY | API key for LLM access |
- * 
- * ## Security
- * 
- * - Strict whitelist enforcement via OWNER_PHONE_NUMBER
- * - All messages from non-whitelisted numbers are rejected
- * - Rate limiting prevents abuse
- * 
- * @example
- * ```bash
- * # Start the Fetch bridge
- * npm start
- * 
- * # Or with nodemon for development
- * npm run dev
- * ```
  */
 
 import 'dotenv/config';
@@ -71,16 +19,7 @@ import { getVersion } from './utils/version.js';
 /** Module-scoped bridge reference for graceful shutdown */
 let activeBridge: Bridge | null = null;
 
-/**
- * Main application entry point.
- * 
- * Initializes the status API server, validates required environment
- * variables, and starts the WhatsApp bridge.
- * 
- * @async
- * @function main
- * @returns {Promise<void>}
- */
+/** Bootstraps the bridge runtime and exits on unrecoverable startup errors. */
 async function main(): Promise<void> {
   const version = getVersion();
   logger.info(`🐕 Fetch Bridge ${version} starting...`);
@@ -127,10 +66,7 @@ async function main(): Promise<void> {
 
 let shuttingDown = false;
 
-/**
- * Orderly shutdown: destroy WhatsApp bridge, kill harness child
- * processes, flush & close SQLite databases.
- */
+/** Performs ordered shutdown of harnesses, bridge client, and stores. */
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return; // guard against double-signal
   shuttingDown = true;
@@ -165,18 +101,14 @@ async function shutdown(signal: string): Promise<void> {
 // Global Error Handlers
 // =============================================================================
 
-/**
- * Catch unhandled promise rejections so they don't silently disappear.
- */
+/** Logs unhandled promise rejections for diagnostics. */
 process.on('unhandledRejection', (reason: unknown) => {
   const message = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
   logger.error('Unhandled rejection', { message, stack });
 });
 
-/**
- * Catch truly uncaught exceptions. Log and exit.
- */
+/** Logs uncaught exceptions and terminates the process. */
 process.on('uncaughtException', (error: Error) => {
   logger.error('Uncaught exception — exiting', { message: error.message, stack: error.stack });
   process.exit(1);

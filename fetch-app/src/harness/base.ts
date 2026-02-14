@@ -1,17 +1,14 @@
 /**
- * @fileoverview Abstract Harness Adapter Base Class
+ * @fileoverview Base adapter implementation shared by all harness CLIs.
  *
- * Provides default implementations for shared adapter behavior.
- * All concrete adapters (Claude, Gemini, Copilot) extend this class
- * and override only what differs.
+ * Provides defaults for:
+ * - stdin response formatting
+ * - generic question detection
+ * - summary extraction from raw output
  *
- * Shared logic extracted here:
- * - formatResponse(): Identical across all adapters
- * - detectQuestion(): Common question-detection patterns
- * - extractSummary(): Shared summary-extraction structure
+ * Concrete adapters override command/config and any parser specifics.
  *
  * @module harness/base
- * @see {@link HarnessAdapter} - Adapter interface
  */
 
 import type { AgentType } from '../task/types.js';
@@ -26,16 +23,16 @@ import type {
 // Common question-detection patterns
 // =============================================================================
 
-/** Direct question (ends with ?) */
+/** Direct question (line ends with `?`). */
 const QUESTION_SUFFIX = /\?\s*$/;
 
-/** Yes/No prompt */
+/** Bracket yes/no prompt. */
 const YES_NO_PATTERN = /\[y\/n\]/i;
 
-/** Parenthetical yes/no */
+/** Parenthetical yes/no prompt. */
 const PAREN_YES_NO = /\(yes\/no\)/i;
 
-/** Continue/proceed/confirm prompt */
+/** Continue/proceed/confirm prompt variants. */
 const CONTINUE_PATTERN = /continue\?|proceed\?|confirm/i;
 
 // =============================================================================
@@ -43,21 +40,13 @@ const CONTINUE_PATTERN = /continue\?|proceed\?|confirm/i;
 // =============================================================================
 
 /**
- * Abstract base class for harness adapters.
+ * Base class for harness adapters.
  *
- * Provides default implementations for common behavior.
- * Subclasses must implement:
- * - `agent` — readonly agent type
- * - `buildConfig()` — CLI-specific configuration
- * - `parseOutputLine()` — Output event detection
- * - `extractFileOperations()` — File operation parsing
- *
- * Subclasses may override:
- * - `detectQuestion()` — Add adapter-specific question patterns
- * - `extractSummary()` — Change summary extraction logic
- * - `formatResponse()` — Change stdin formatting
- * - `getAdapterQuestionPattern()` — Primary question regex
- * - `getProgressPattern()` — Progress regex for summary extraction
+ * Required in subclasses:
+ * - agent identifier
+ * - process config builder
+ * - line-level event parser
+ * - file operation extractor
  */
 export abstract class AbstractHarnessAdapter implements HarnessAdapter {
   abstract readonly agent: AgentType;
@@ -77,8 +66,8 @@ export abstract class AbstractHarnessAdapter implements HarnessAdapter {
   // ===========================================================================
 
   /**
-   * Format user response for harness stdin.
-   * Default: trim + newline. All current adapters use this.
+   * Formats user input for stdin writes.
+   * Default behavior trims and appends a trailing newline.
    */
   formatResponse(response: string): string {
     return response.trim() + '\n';
@@ -89,22 +78,15 @@ export abstract class AbstractHarnessAdapter implements HarnessAdapter {
   // ===========================================================================
 
   /**
-   * Primary question regex for this adapter.
-   * Override in subclass if the CLI has a specific prompt format.
-   * Return null to skip the primary-pattern check.
+   * Adapter-specific question regex.
+   * Return `null` to skip adapter-specific matching.
    */
   protected getAdapterQuestionPattern(): RegExp | null {
     return null;
   }
 
   /**
-   * Detect if the harness is asking a question.
-   *
-   * 1. Check adapter-specific primary pattern
-   * 2. Scan last 3 output lines for common question indicators
-   *
-   * Subclasses can override entirely or call `super.detectQuestion()`
-   * and add extra checks.
+   * Detects whether recent harness output is asking for user input.
    */
   detectQuestion(output: string): string | null {
     // 1. Adapter-specific primary pattern
@@ -135,21 +117,14 @@ export abstract class AbstractHarnessAdapter implements HarnessAdapter {
   // ===========================================================================
 
   /**
-   * Progress indicator regex used to filter paragraphs in summary extraction.
-   * Override in subclass.
+   * Optional progress regex used to exclude noisy paragraphs in summaries.
    */
   protected getProgressPattern(): RegExp | null {
     return null;
   }
 
   /**
-   * Extract a summary from harness output.
-   *
-   * Strategy:
-   * 1. Look for explicit `## Summary` section
-   * 2. Look for "Done/Complete/Finished" with trailing text
-   * 3. Take last meaningful paragraph (>20 chars, not a progress line)
-   * 4. Fallback: "Task completed."
+   * Extracts a short summary from harness output using fallback heuristics.
    */
   extractSummary(output: string): string {
     // 1. Explicit summary section

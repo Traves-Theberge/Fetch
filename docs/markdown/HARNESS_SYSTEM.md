@@ -36,6 +36,25 @@ Each harness has an adapter in the `src/harness/` directory that extends `Abstra
 * `output-parser.ts` — Parses harness CLI stdout/stderr into structured events
 * `types.ts` — `HarnessConfig`, `ErrorCategory`, `HarnessResult` interfaces
 
+## Source Responsibility Index
+
+| File | Purpose |
+|------|---------|
+| `src/handler/index.ts` | Entry point for inbound WhatsApp messages, slash command routing, agent delegation, proactive task notifications |
+| `src/harness/base.ts` | Shared adapter defaults for question detection, stdin formatting, and summary extraction |
+| `src/harness/claude.ts` | Claude CLI adapter: config building and output parsing rules |
+| `src/harness/gemini.ts` | Gemini CLI adapter: config building and output parsing rules |
+| `src/harness/copilot.ts` | Copilot CLI adapter: config building and output parsing rules |
+| `src/harness/opencode.ts` | OpenCode CLI adapter: config building and output parsing rules |
+| `src/harness/codex.ts` | Codex CLI adapter with JSONL-oriented parsing |
+| `src/harness/registry.ts` | Adapter lookup/registration for agent type to adapter mapping |
+| `src/harness/executor.ts` | High-level execution coordinator over pool/spawner with lifecycle events |
+| `src/harness/spawner.ts` | Low-level child process lifecycle, stream forwarding, timeout/kill handling |
+| `src/harness/pool.ts` | Concurrency cap and FIFO queue for harness execution requests |
+| `src/harness/output-parser.ts` | Line parser that emits structured events from raw stream output |
+| `src/harness/types.ts` | Shared type contracts for adapters, events, execution state, and results |
+| `src/harness/index.ts` | Public harness module exports |
+
 ## Available Harnesses
 
 | Harness | CLI | Best For | CLI Config Injection |
@@ -54,7 +73,46 @@ When a `ProjectProfile` is available, all adapters append a `--- Project Context
 
 ## Hybrid LLM Notifications
 
-Task completion and failure events are formatted by `agent/notifications.ts` using a cheap LLM call (configurable via `FETCH_NOTIFICATION_MODEL`) with the identity voice tone injected. Started and progress events use expanded template pools (8-12 variations). LLM failures fall back to templates.
+Task completion and failure events are formatted by `agent/notifications.ts` using a cheap LLM call (configurable via `FETCH_NOTIFICATION_MODEL`) with the identity voice tone injected.
+
+Safety boundaries for notification rewrites:
+
+* Hard timeout (2s) on LLM notification generation.
+* Output sanitization (max lines/chars, strip markdown/list artifacts).
+* Automatic fallback to deterministic templates on timeout/error/invalid output.
+* Runtime kill switch via `FETCH_NOTIFICATION_REWRITE=false`.
+
+Started and progress task events use template pools with anti-repeat selection to reduce immediate repetition.
+
+### Notification Rendering Sequence
+
+```mermaid
+sequenceDiagram
+    participant E as Task Event
+    participant N as Notification Formatter
+    participant L as LLM Rewrite
+    participant S as Sanitizer
+    participant T as Template Fallback
+    participant W as WhatsApp Output
+
+    E->>N: task:completed / task:failed / progress
+    N->>N: Build factual template base
+    N->>L: Optional bounded rewrite
+    alt Rewrite succeeds in time
+      L-->>N: Rewritten text
+      N->>S: Validate/clean output
+      alt Valid output
+        S-->>N: Sanitized text
+      else Invalid output
+        N->>T: Fallback
+        T-->>N: Template text
+      end
+    else Timeout / error / disabled
+      N->>T: Fallback
+      T-->>N: Template text
+    end
+    N-->>W: Final notification text
+```
 
 ## Error Classification
 

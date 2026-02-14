@@ -1,8 +1,10 @@
 /**
- * @fileoverview Tool Loader
- * 
- * Loads custom shell-based tools from `data/tools/*.json` files.
- * This allows users to define new tools that execute scripts/commands.
+ * @fileoverview Custom tool definition loader and schema builder.
+ *
+ * Reads `data/tools/*.json` files and converts their parameter definitions
+ * into runtime Zod validation schemas.
+ *
+ * @module tools/loader
  */
 
 import fs from 'fs/promises';
@@ -25,9 +27,7 @@ export interface CustomToolDefinition {
   }[];
 }
 
-/**
- * Load a single tool definition from a JSON file
- */
+/** Loads and validates a single custom tool definition file. */
 export async function loadToolDefinition(filePath: string): Promise<CustomToolDefinition | null> {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
@@ -46,9 +46,7 @@ export async function loadToolDefinition(filePath: string): Promise<CustomToolDe
   }
 }
 
-/**
- * Convert a CustomToolDefinition into a Zod Validation Schema
- */
+/** Builds a Zod input schema from a custom tool parameter list. */
 export function buildToolSchema(def: CustomToolDefinition): z.ZodSchema {
   const shape: Record<string, z.ZodTypeAny> = {};
   

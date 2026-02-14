@@ -1,21 +1,15 @@
 /**
- * @fileoverview Agent Core - Conversational Orchestrator (v4.0)
+ * @fileoverview Core message-processing loop for the Fetch bridge.
  *
- * The agent is a conversational orchestrator that:
- * 1. Receives ALL messages (no pre-classification)
- * 2. Has access to ALL tools (no conversation/action split)
- * 3. Delegates coding work to harnesses via tool calls
- *
- * The LLM IS the router. No regex intent classifier, no instinct
- * registry, no mode detector. Safety escapes (/stop, /undo, /clear)
- * are handled upstream in the command parser.
- *
- * System prompt is built by IdentityManager.buildSystemPrompt() — the single
- * source of truth for Fetch's persona, skills, pack, and session context.
+ * Responsibilities:
+ * - Run the primary LLM turn with full tool access
+ * - Execute tool-call loops with retry/backoff and circuit breaker behavior
+ * - Build context/prompt input from session, identity, skills, and workspace state
+ * - Provide task framing and bounded progress-message rewriting helpers
  *
  * @module agent/core
- * @see {@link ToolRegistry} - Tool registry
- * @see {@link IdentityManager} - System prompt builder
+ * @see {@link ToolRegistry} Tool registration and execution
+ * @see {@link IdentityManager} System prompt assembly
  */
 
 import OpenAI from 'openai';
@@ -178,7 +172,7 @@ async function handleWithRetry<T>(
 
         // Report progress to user if callback provided
         if (onProgress) {
-          const retryMessage = generateProgressMessage(userMessage, attempt);
+          const retryMessage = await generateProgressMessage(userMessage, attempt);
           await onProgress(retryMessage);
         }
 
@@ -248,16 +242,16 @@ function getOpenAI(): OpenAI {
 // =============================================================================
 
 /**
- * Process a user message through the agent.
+ * Process one user message through the LLM + tool loop.
  *
- * v4.0: Single path. ALL messages go to the LLM with ALL tools.
- * The LLM decides whether to chat, call tools, or delegate to a harness.
- * No intent classifier, no instinct registry, no mode detector.
+ * This is the main runtime entry point after command parsing.
+ * It refreshes stale repo context, runs the retry/circuit-breaker logic,
+ * and returns final assistant text plus tool/task metadata.
  *
  * @param message - User message
  * @param session - Current session
  * @param onProgress - Optional callback for intermediate progress messages
- * @returns Agent response
+ * @returns Final agent response payload
  */
 export async function processMessage(
   message: string,
@@ -881,11 +875,10 @@ function buildMessageHistory(
 // =============================================================================
 
 /**
- * Frame a user request as a task goal.
+ * Convert a user request into a standalone harness task goal.
  *
- * Sends the user's raw message through a secondary LLM call to produce
- * a self-contained, actionable goal string for the harness (Claude Code,
- * Gemini, etc.) which has no access to our conversation history.
+ * Harness CLIs do not receive full chat history, so this function
+ * produces a concise goal string that includes required context.
  *
  * @param message - Original user message
  * @param session - Current session (workspace/branch context)
@@ -919,14 +912,26 @@ export async function frameTaskGoal(
 // =============================================================================
 
 /**
- * Generate a context-aware, dog-themed progress message for WhatsApp.
- * Uses keywords from the user's message to provide specific feedback.
+ * Generate a progress update for user-visible retries.
+ *
+ * Flow:
+ * 1) build a factual template message
+ * 2) optionally run bounded rewrite (timeout + sanitizer)
+ * 3) fall back to the template on any rewrite failure
  *
  * @param userMessage - The original user message
  * @param attempt - Current attempt number (1 = initial, 2+ = retries)
- * @returns Formatted progress update
+ * @returns Final progress text
  */
-export function generateProgressMessage(userMessage: string, attempt: number = 1): string {
+export async function generateProgressMessage(userMessage: string, attempt: number = 1): Promise<string> {
+  const factual = generateFactualProgressMessage(userMessage, attempt);
+  return rewriteProgressMessageBounded(factual);
+}
+
+/**
+ * Build the template-based fallback progress message.
+ */
+function generateFactualProgressMessage(userMessage: string, attempt: number = 1): string {
   const lower = userMessage.toLowerCase();
 
   // Action detection — expanded keyword groups with multiple phrasings each
@@ -971,4 +976,76 @@ export function generateProgressMessage(userMessage: string, attempt: number = 1
   ];
 
   return pick(retries);
+}
+
+/**
+ * Rewrite progress text with strict latency/output bounds.
+ * Returns the original template text on timeout, API error, or invalid rewrite.
+ */
+async function rewriteProgressMessageBounded(factual: string): Promise<string> {
+  // Kill switch for reliability/debugging.
+  if (process.env.FETCH_PROGRESS_REWRITE === 'false') {
+    return factual;
+  }
+
+  try {
+    const openai = getOpenAI();
+
+    const rewritePromise = openai.chat.completions.create({
+      model: pipeline.notificationModel,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            'Rewrite the message into ONE short sentence for WhatsApp.',
+            'Keep it dog-themed and friendly.',
+            'Do not add new facts.',
+            'No markdown, no lists, no line breaks.',
+            'Max 90 characters.'
+          ].join(' ')
+        },
+        {
+          role: 'user',
+          content: factual
+        }
+      ],
+      max_tokens: 40,
+      temperature: 0.9,
+    });
+
+    // Bound latency for progress updates.
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Progress rewrite timeout')), 1500);
+    });
+
+    const response = await Promise.race([rewritePromise, timeoutPromise]);
+    const rewritten = response.choices[0]?.message?.content?.trim() ?? '';
+    return sanitizeProgressRewrite(rewritten, factual);
+  } catch (error) {
+    logger.debug('Progress rewrite failed, using factual fallback', { error: error instanceof Error ? error.message : String(error) });
+    return factual;
+  }
+}
+
+/**
+ * Validate and normalize rewritten progress text before sending to users.
+ */
+function sanitizeProgressRewrite(candidate: string, fallback: string): string {
+  if (!candidate) return fallback;
+
+  // Strip newlines and normalize whitespace.
+  let text = candidate.replace(/\s+/g, ' ').trim();
+
+  // Remove surrounding quotes and markdown-ish wrappers.
+  text = text.replace(/^["'`]+|["'`]+$/g, '');
+  text = text.replace(/[*_~]/g, '');
+
+  // Bound length for WhatsApp progress updates.
+  if (text.length === 0 || text.length > 120) return fallback;
+
+  // Reject multi-sentence rewrites; keep concise.
+  const sentenceCount = (text.match(/[.!?](?:\s|$)/g) ?? []).length;
+  if (sentenceCount > 1) return fallback;
+
+  return text;
 }

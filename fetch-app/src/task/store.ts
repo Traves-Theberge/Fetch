@@ -1,8 +1,8 @@
 /**
- * @fileoverview Task Store - SQLite Persistent Storage
- * 
- * Provides persistent storage for tasks using better-sqlite3.
- * 
+ * @fileoverview SQLite persistence for tasks and task metadata.
+ *
+ * Stores serialized task records and the current active task pointer.
+ *
  * @module task/store
  */
 
@@ -13,7 +13,7 @@ import { Task, TaskId } from './types.js';
 import { logger } from '../utils/logger.js';
 import { TASKS_DB } from '../config/paths.js';
 
-/** Default database file path */
+/** Default task database path resolved from config. */
 const DEFAULT_DB_PATH = TASKS_DB;
 
 export class TaskStore {
@@ -25,9 +25,7 @@ export class TaskStore {
     this.dbPath = dbPath;
   }
 
-  /**
-   * Initialize the store
-   */
+  /** Opens/initializes SQLite database and required tables/indexes. */
   async init(): Promise<void> {
     if (this.initialized) return;
 
@@ -65,9 +63,7 @@ export class TaskStore {
     }
   }
 
-  /**
-   * Save a task
-   */
+  /** Upserts one task row. */
   async saveTask(task: Task): Promise<void> {
     await this.ensureInitialized();
     
@@ -86,9 +82,7 @@ export class TaskStore {
     );
   }
 
-  /**
-   * Load all tasks
-   */
+  /** Loads all persisted tasks. */
   async loadAllTasks(): Promise<Task[]> {
     await this.ensureInitialized();
     
@@ -96,9 +90,7 @@ export class TaskStore {
     return rows.map(row => JSON.parse(row.data) as Task);
   }
 
-  /**
-   * Save current task ID
-   */
+  /** Stores current active task id in metadata table. */
   async saveCurrentTaskId(taskId: TaskId | null): Promise<void> {
     await this.ensureInitialized();
     
@@ -110,9 +102,7 @@ export class TaskStore {
     stmt.run('currentTaskId', taskId || '');
   }
 
-  /**
-   * Load current task ID
-   */
+  /** Loads current active task id from metadata table. */
   async loadCurrentTaskId(): Promise<TaskId | null> {
     await this.ensureInitialized();
     
@@ -128,9 +118,7 @@ export class TaskStore {
     }
   }
 
-  /**
-   * Close the database connection and flush the WAL.
-   */
+  /** Closes open SQLite handle. */
   close(): void {
     if (this.db) {
       this.db.close();

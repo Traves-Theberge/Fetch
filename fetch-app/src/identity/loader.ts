@@ -1,9 +1,11 @@
 /**
- * @fileoverview Identity Loader
+ * @fileoverview Loads and parses identity markdown files.
  *
- * Parses identity markdown files into the AgentIdentity structure:
- * - COLLAR.md — System profile (name, role, voice, directives)
- * - ALPHA.md — User/owner profile (name, preferences)
+ * Reads:
+ * - `COLLAR.md` for system identity fields
+ * - `ALPHA.md` for owner context fields
+ *
+ * Returns partial identity data used by `IdentityManager` merge logic.
  *
  * @module identity/loader
  */
@@ -20,6 +22,9 @@ export class IdentityLoader {
     this.dataDir = dataDir;
   }
 
+  /**
+   * Loads identity data from disk and returns parsed partial fields.
+   */
   public async load(): Promise<Partial<AgentIdentity>> {
     const collarPath = path.join(this.dataDir, 'COLLAR.md');
     let loaded: Partial<AgentIdentity> = {};
@@ -40,7 +45,7 @@ export class IdentityLoader {
       const content = await fsp.readFile(alphaPath, 'utf-8');
       const user = this.parseUser(content);
       if (user.context) {
-        loaded.context = { ...(loaded.context || {}), ...user.context } as any;
+        loaded.context = { ...(loaded.context || {}), ...user.context };
       }
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -51,6 +56,9 @@ export class IdentityLoader {
     return loaded;
   }
 
+  /**
+   * Parses owner/user context fields from `ALPHA.md`.
+   */
   private parseUser(content: string): Partial<AgentIdentity> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const identity: Partial<AgentIdentity> = { context: {} as any };
@@ -69,6 +77,9 @@ export class IdentityLoader {
     return identity;
   }
 
+  /**
+   * Parses system identity fields from `COLLAR.md`.
+   */
   private parseSystem(content: string): Partial<AgentIdentity> {
     const sections = content.split(/^## /m);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,6 +141,9 @@ export class IdentityLoader {
     return identity;
   }
 
+  /**
+   * Extracts the markdown field value from lines formatted like `- **Key:** Value`.
+   */
   private extractValue(line: string): string {
     const parts = line.split('**');
     if (parts.length >= 3) {

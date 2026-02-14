@@ -1,19 +1,10 @@
 /**
- * @fileoverview Browser automation tools
+ * @fileoverview Browser tool handlers.
  *
- * Tool handlers for headless browser operations via Playwright in the kennel.
- * Uses accessibility tree snapshots for token-efficient page representation.
- *
- * - `browser_open`       — Navigate to a URL, returns accessibility snapshot
- * - `browser_snapshot`   — Get current page accessibility tree
- * - `browser_action`     — Interact with page elements (click, type, scroll)
- * - `browser_screenshot` — Capture a screenshot of the current page
- *
- * All browser commands run inside fetch-kennel via docker exec, using a
- * persistent Playwright script that maintains browser state across calls.
+ * Executes browser actions inside the kennel Playwright agent and returns
+ * snapshots/action outputs to the orchestrator.
  *
  * @module tools/browser
- * @see {@link ToolRegistry} - Tool registration
  */
 
 import { pipeline } from '../config/pipeline.js';

@@ -1,15 +1,12 @@
 /**
- * @fileoverview Task-Harness Integration
+ * @fileoverview Runtime bridge between tasks and harness execution.
  *
- * Connects the task management layer to the harness execution layer.
- * Handles:
- * - Starting harness execution when tasks are created
- * - Routing harness events to task updates
- * - Managing the execution lifecycle
+ * Responsibilities:
+ * - start harness execution for created tasks
+ * - map harness lifecycle/events to task updates
+ * - emit task-scoped events used by transport layers (e.g., WhatsApp notifications)
  *
  * @module task/integration
- * @see {@link TaskManager} - Task lifecycle
- * @see {@link HarnessExecutor} - Harness execution
  */
 
 import { EventEmitter } from 'events';
@@ -25,9 +22,7 @@ import type { HarnessResult } from '../harness/types.js';
 // Types
 // ============================================================================
 
-/**
- * Task execution result (internal to integration layer)
- */
+/** Internal execution result returned by the integration layer. */
 interface TaskExecutionResult {
   taskId: TaskId;
   success: boolean;
@@ -36,9 +31,7 @@ interface TaskExecutionResult {
   filesChanged?: string[];
 }
 
-/**
- * Progress callback for streaming updates (internal to integration layer)
- */
+/** Internal callback shape for streaming task progress updates. */
 type ProgressCallback = (
   taskId: TaskId,
   message: string,
@@ -49,12 +42,7 @@ type ProgressCallback = (
 // TaskIntegration Class
 // ============================================================================
 
-/**
- * Task-Harness Integration Manager
- *
- * Coordinates task execution through harnesses and routes
- * events/progress between the layers.
- */
+/** Coordinates task execution through harnesses and task manager state updates. */
 export class TaskIntegration extends EventEmitter {
   private initialized = false;
   private manager: TaskManager | null = null;
@@ -62,9 +50,7 @@ export class TaskIntegration extends EventEmitter {
   private progressCallbacks = new Map<TaskId, ProgressCallback>();
   private taskSessions = new Map<TaskId, string>();
 
-  /**
-   * Initialize the integration layer
-   */
+  /** Initializes manager/executor references and subscribes to harness events. */
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
@@ -84,14 +70,11 @@ export class TaskIntegration extends EventEmitter {
   }
 
   /**
-   * Execute a task
-   *
-   * Starts harness execution for the given task and streams
-   * progress updates.
+   * Executes one task through the harness executor.
    *
    * @param task - Task to execute
-   * @param onProgress - Optional progress callback
-   * @returns Execution result
+   * @param onProgress - Optional streaming callback
+   * @returns Final execution outcome
    */
   async executeTask(
     task: Task,
@@ -170,9 +153,7 @@ export class TaskIntegration extends EventEmitter {
     }
   }
 
-  /**
-   * Graceful shutdown — clear all state and remove listeners
-   */
+  /** Clears integration state and removes event listeners. */
   public shutdown(): void {
     this.activeExecutions.clear();
     this.progressCallbacks.clear();
@@ -186,9 +167,7 @@ export class TaskIntegration extends EventEmitter {
   // Private Methods
   // ==========================================================================
 
-  /**
-   * Subscribe to harness events and route to tasks
-   */
+  /** Subscribes to harness events and re-emits normalized task events. */
   private subscribeToHarnessEvents(executor: ReturnType<typeof getHarnessExecutor>): void {
     executor.on('harness:output', (event) => {
       const { taskId, data } = event;
@@ -248,9 +227,7 @@ export class TaskIntegration extends EventEmitter {
     });
   }
 
-  /**
-   * Select agent type (resolve 'auto')
-   */
+  /** Resolves `auto` to a concrete agent using enabled harness flags. */
   private selectAgent(agent: string): AgentType {
     if (agent === 'auto') {
       // Intelligent routing based on enabled harnesses
@@ -265,9 +242,7 @@ export class TaskIntegration extends EventEmitter {
     return agent as AgentType;
   }
 
-  /**
-   * Process harness result into task result
-   */
+  /** Maps a harness result into task-manager completion/failure updates. */
   private async processResult(
     taskId: TaskId,
     result: HarnessResult
@@ -310,9 +285,7 @@ export class TaskIntegration extends EventEmitter {
 
 let taskIntegration: TaskIntegration | null = null;
 
-/**
- * Get the task integration singleton
- */
+/** Returns process-wide `TaskIntegration` singleton. */
 export function getTaskIntegration(): TaskIntegration {
   if (!taskIntegration) {
     taskIntegration = new TaskIntegration();
@@ -320,9 +293,7 @@ export function getTaskIntegration(): TaskIntegration {
   return taskIntegration;
 }
 
-/**
- * Initialize task integration
- */
+/** Initializes the singleton integration instance. */
 export async function initializeTaskIntegration(): Promise<void> {
   const integration = getTaskIntegration();
   await integration.initialize();

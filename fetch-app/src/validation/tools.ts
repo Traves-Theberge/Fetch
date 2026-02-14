@@ -1,12 +1,9 @@
 /**
- * @fileoverview Tool input validation schemas
+ * @fileoverview Zod schemas for all orchestrator tool inputs.
  *
- * Zod schemas for validating all Fetch tool inputs.
- * Each tool has a corresponding schema that validates its parameters.
+ * This file is the canonical source for accepted tool names and arguments.
  *
  * @module validation/tools
- * @see {@link ToolRegistry} - Tool registration and execution
- * @see {@link CommonSchemas} - Shared validation schemas
  */
 
 import { z } from 'zod';
@@ -26,9 +23,7 @@ import {
 // Agent Schemas
 // ============================================================================
 
-/**
- * Agent selection schema (includes 'auto')
- */
+/** Allowed agent identifiers for `task_create`. */
 export const AgentSelectionSchema = z.enum(
   ['copilot', 'gemini', 'claude', 'opencode', 'codex', 'auto'],
   {
@@ -40,9 +35,7 @@ export const AgentSelectionSchema = z.enum(
 // Project Template Schemas
 // ============================================================================
 
-/**
- * Project template types
- */
+/** Allowed workspace templates for `workspace_create`. */
 export const ProjectTemplateSchema = z.enum([
   'empty',      // Just creates the directory
   'node',       // package.json + basic structure
@@ -59,19 +52,13 @@ export const ProjectTemplateSchema = z.enum([
 // Workspace Tool Schemas
 // ============================================================================
 
-/**
- * workspace_list - List all available workspaces
- *
- * No parameters required.
- */
+/** Input schema for `workspace_list` (no params). */
 export const WorkspaceListInputSchema = z
   .object({})
   .strict()
   .describe('List all available workspaces');
 
-/**
- * workspace_select - Select a workspace to work in
- */
+/** Input schema for `workspace_select`. */
 export const WorkspaceSelectInputSchema = z
   .object({
     /** Workspace name to select */
@@ -80,9 +67,7 @@ export const WorkspaceSelectInputSchema = z
   .strict()
   .describe('Select a workspace to work in');
 
-/**
- * workspace_status - Get status of a workspace
- */
+/** Input schema for `workspace_status`. */
 export const WorkspaceStatusInputSchema = z
   .object({
     /** Workspace name (optional, uses active workspace if not specified) */
@@ -93,9 +78,7 @@ export const WorkspaceStatusInputSchema = z
   .strict()
   .describe('Get status of a workspace including git info');
 
-/**
- * workspace_create - Create a new workspace/project
- */
+/** Input schema for `workspace_create`. */
 export const WorkspaceCreateInputSchema = z
   .object({
     /** Name for the new workspace */
@@ -125,9 +108,7 @@ export const WorkspaceCreateInputSchema = z
   .strict()
   .describe('Create a new workspace/project');
 
-/**
- * workspace_delete - Delete a workspace (requires confirmation)
- */
+/** Input schema for `workspace_delete`. */
 export const WorkspaceDeleteInputSchema = z
   .object({
     /** Name of workspace to delete */
@@ -143,9 +124,7 @@ export const WorkspaceDeleteInputSchema = z
   .strict()
   .describe('Delete a workspace (requires explicit confirmation)');
 
-/**
- * file_delete - Delete a single file from a workspace
- */
+/** Input schema for `file_delete`. */
 export const FileDeleteInputSchema = z
   .object({
     /** Path to the file to delete */
@@ -166,9 +145,7 @@ export const FileDeleteInputSchema = z
   .strict()
   .describe('Delete a specific file from a workspace. Use this for simple file removal or deleting untracked files.');
 
-/**
- * folder_delete - Delete a directory and all its contents
- */
+/** Input schema for `folder_delete`. */
 export const FolderDeleteInputSchema = z
   .object({
     /** Path to the folder to delete */
@@ -189,9 +166,7 @@ export const FolderDeleteInputSchema = z
   .strict()
   .describe('Delete a directory and all its contents. Use this for recursive folder removal.');
 
-/**
- * workspace_sync - Sync workspace to GitHub (commit + push)
- */
+/** Input schema for `workspace_sync`. */
 export const WorkspaceSyncInputSchema = z
   .object({
     /** Workspace to sync (uses active if not specified) */
@@ -207,9 +182,7 @@ export const WorkspaceSyncInputSchema = z
   .strict()
   .describe('Sync workspace to GitHub — stages changes, commits, creates repo if needed, and pushes');
 
-/**
- * workspace_publish - Create a new GitHub repo from an existing workspace
- */
+/** Input schema for `workspace_publish`. */
 export const WorkspacePublishInputSchema = z
   .object({
     /** Workspace to publish (uses active if not specified) */
@@ -235,9 +208,7 @@ export const WorkspacePublishInputSchema = z
 // Task Tool Schemas
 // ============================================================================
 
-/**
- * task_create - Create a new coding task
- */
+/** Input schema for `task_create`. */
 export const TaskCreateInputSchema = z
   .object({
     /** What the task should accomplish */
@@ -261,9 +232,7 @@ export const TaskCreateInputSchema = z
   .strict()
   .describe('Create a new coding task for complex work (refactoring, features). NEVER use this for simple file deletion or single-file removal.');
 
-/**
- * task_status - Get status of a task
- */
+/** Input schema for `task_status`. */
 export const TaskStatusInputSchema = z
   .object({
     /** Task ID (optional, returns current task if not specified) */
@@ -274,9 +243,7 @@ export const TaskStatusInputSchema = z
   .strict()
   .describe('Get the current status of a task');
 
-/**
- * task_cancel - Cancel a running task
- */
+/** Input schema for `task_cancel`. */
 export const TaskCancelInputSchema = z
   .object({
     /** Task ID to cancel */
@@ -285,9 +252,7 @@ export const TaskCancelInputSchema = z
   .strict()
   .describe('Cancel a running or pending task');
 
-/**
- * task_respond - Send a response to a waiting task
- */
+/** Input schema for `task_respond`. */
 export const TaskRespondInputSchema = z
   .object({
     /** Response to send to the harness */
@@ -305,9 +270,7 @@ export const TaskRespondInputSchema = z
 // Interaction Tool Schemas
 // ============================================================================
 
-/**
- * ask_user - Ask the user a question
- */
+/** Input schema for `ask_user`. */
 export const AskUserInputSchema = z
   .object({
     /** Question to ask the user */
@@ -323,9 +286,7 @@ export const AskUserInputSchema = z
   .strict()
   .describe('Ask the user a question and wait for their response');
 
-/**
- * report_progress - Report progress to the user
- */
+/** Input schema for `report_progress`. */
 export const ReportProgressInputSchema = z
   .object({
     /** Progress message to display */
@@ -343,9 +304,7 @@ export const ReportProgressInputSchema = z
 // GitHub Tool Schemas
 // ============================================================================
 
-/**
- * github_pr_create - Create a pull request
- */
+/** Input schema for `github_pr_create`. */
 export const GitHubPRCreateInputSchema = z
   .object({
     /** PR title */
@@ -380,9 +339,7 @@ export const GitHubPRCreateInputSchema = z
   .strict()
   .describe('Create a pull request on GitHub from the current branch');
 
-/**
- * github_pr_list - List pull requests
- */
+/** Input schema for `github_pr_list`. */
 export const GitHubPRListInputSchema = z
   .object({
     /** Filter by state */
@@ -413,9 +370,7 @@ export const GitHubPRListInputSchema = z
   .strict()
   .describe('List pull requests for the current or specified repository');
 
-/**
- * github_pr_view - View a specific pull request
- */
+/** Input schema for `github_pr_view`. */
 export const GitHubPRViewInputSchema = z
   .object({
     /** PR number */
@@ -437,9 +392,7 @@ export const GitHubPRViewInputSchema = z
   .strict()
   .describe('View details of a specific pull request');
 
-/**
- * github_issue_create - Create an issue
- */
+/** Input schema for `github_issue_create`. */
 export const GitHubIssueCreateInputSchema = z
   .object({
     /** Issue title */
@@ -467,9 +420,7 @@ export const GitHubIssueCreateInputSchema = z
   .strict()
   .describe('Create a GitHub issue in the current repository');
 
-/**
- * github_issue_list - List issues
- */
+/** Input schema for `github_issue_list`. */
 export const GitHubIssueListInputSchema = z
   .object({
     /** Filter by state */
@@ -497,9 +448,7 @@ export const GitHubIssueListInputSchema = z
   .strict()
   .describe('List issues for the current repository');
 
-/**
- * github_branch_create - Create a new branch
- */
+/** Input schema for `github_branch_create`. */
 export const GitHubBranchCreateInputSchema = z
   .object({
     /** Branch name */
@@ -522,9 +471,7 @@ export const GitHubBranchCreateInputSchema = z
   .strict()
   .describe('Create a new git branch and optionally push it to GitHub');
 
-/**
- * github_action_status - Get GitHub Actions status
- */
+/** Input schema for `github_action_status`. */
 export const GitHubActionStatusInputSchema = z
   .object({
     /** Workspace (uses active if not specified) */
@@ -534,9 +481,7 @@ export const GitHubActionStatusInputSchema = z
   .strict()
   .describe('Get the status of recent GitHub Actions workflow runs');
 
-/**
- * github_search_repos - Search GitHub repositories
- */
+/** Input schema for `github_search_repos`. */
 export const GitHubSearchReposInputSchema = z
   .object({
     /** Search query */
@@ -561,9 +506,7 @@ export const GitHubSearchReposInputSchema = z
 // Web Tool Schemas
 // ============================================================================
 
-/**
- * web_fetch - Fetch a web page and extract readable content
- */
+/** Input schema for `web_fetch`. */
 export const WebFetchInputSchema = z
   .object({
     /** URL to fetch */
@@ -580,9 +523,7 @@ export const WebFetchInputSchema = z
   .strict()
   .describe('Fetch a web page and extract its readable content as markdown');
 
-/**
- * web_search - Search the web via SearXNG
- */
+/** Input schema for `web_search`. */
 export const WebSearchInputSchema = z
   .object({
     /** Search query */
@@ -613,9 +554,7 @@ export const WebSearchInputSchema = z
 // Browser Tool Schemas
 // ============================================================================
 
-/**
- * browser_open - Open a URL in a headless browser
- */
+/** Input schema for `browser_open`. */
 export const BrowserOpenInputSchema = z
   .object({
     /** URL to navigate to */
@@ -632,17 +571,13 @@ export const BrowserOpenInputSchema = z
   .strict()
   .describe('Open a URL in a headless browser and return an accessibility tree snapshot');
 
-/**
- * browser_snapshot - Get current page accessibility tree
- */
+/** Input schema for `browser_snapshot` (no params). */
 export const BrowserSnapshotInputSchema = z
   .object({})
   .strict()
   .describe('Get the accessibility tree snapshot of the current browser page');
 
-/**
- * browser_action - Perform an action on the browser page
- */
+/** Input schema for `browser_action`. */
 export const BrowserActionInputSchema = z
   .object({
     /** Action to perform */
@@ -671,9 +606,7 @@ export const BrowserActionInputSchema = z
   .strict()
   .describe('Perform an action on the browser page using element references from snapshot');
 
-/**
- * browser_screenshot - Capture a screenshot
- */
+/** Input schema for `browser_screenshot` (no params). */
 export const BrowserScreenshotInputSchema = z
   .object({})
   .strict()
@@ -683,12 +616,7 @@ export const BrowserScreenshotInputSchema = z
 // Schema Registry
 // ============================================================================
 
-/**
- * Map of tool names to their input schemas
- *
- * This registry is used by the tool executor to validate inputs
- * before calling tool handlers.
- */
+/** Tool name -> input schema map used by the registry execution path. */
 export const ToolInputSchemas = {
   // Workspace tools (7)
   workspace_list: WorkspaceListInputSchema,
@@ -727,14 +655,10 @@ export const ToolInputSchemas = {
   browser_screenshot: BrowserScreenshotInputSchema,
 } as const;
 
-/**
- * Tool name type (union of all tool names)
- */
+/** Union of all valid tool names. */
 export type ToolName = keyof typeof ToolInputSchemas;
 
-/**
- * Inferred input types for each tool
- */
+/** Inferred input types per tool schema. */
 export type WorkspaceListInput = z.infer<typeof WorkspaceListInputSchema>;
 export type WorkspaceSelectInput = z.infer<typeof WorkspaceSelectInputSchema>;
 export type WorkspaceStatusInput = z.infer<typeof WorkspaceStatusInputSchema>;

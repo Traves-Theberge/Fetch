@@ -1,23 +1,20 @@
 /**
- * @fileoverview Command Parser — Safety Gate
+ * @fileoverview Slash-command router executed before the LLM.
  *
- * In v4.0 the conversation IS the interface. The LLM handles everything
- * via its tool belt. This parser is a thin safety gate that intercepts
- * only the handful of deterministic escape-hatch commands that must
- * work instantly and without an LLM round-trip.
- *
- * Everything else — even if it starts with `/` — passes straight
- * through to the agent so the LLM can interpret it naturally.
+ * Purpose:
+ * - handle deterministic safety commands synchronously
+ * - bypass LLM for commands that must work even when model/tool calls fail
+ * - pass all non-matching input through to normal agent processing
  *
  * @module commands/parser
- * @see {@link parseCommand} — Main entry point
+ * @see {@link parseCommand} Main router
  *
  * ## Safety Escapes
  *
  * | Command           | Handler            | Why it bypasses the LLM            |
  * |-------------------|--------------------|------------------------------------|
  * | /stop, /cancel    | task.handleStop    | Must kill a running task instantly  |
- * | /undo, /undo all  | task.handleUndo*   | Deterministic git reset            |
+ * | /undo, /undo all  | task.handleUndo*   | Immediate task/git recovery guidance/action |
  * | /clear, /reset    | (inline)           | Wipe session — no LLM needed       |
  * | /help, /h, /?     | format.formatHelp  | Show help — no LLM needed          |
  * | /status, /st      | format.formatStatus| Show system status — no LLM needed |
@@ -42,16 +39,12 @@ export type { CommandResult } from './types.js';
 // =============================================================================
 
 /**
- * Safety-gate parser for slash commands.
+ * Parse a message and execute a deterministic command when applicable.
  *
- * Only intercepts the 8 deterministic escape hatches. Everything else
- * (including unknown `/foo` commands) passes through to the LLM agent.
- *
- * @param message  - Raw user message
- * @param session  - Current session
- * @param sessionManager - Session manager
- * @returns `handled: true` when a safety command was matched,
- *          `handled: false` otherwise (let the LLM handle it).
+  * @param message  - Raw user message
+  * @param session  - Current session
+  * @param sessionManager - Session manager
+ * @returns Command result indicating whether parsing consumed the message
  */
 export async function parseCommand(
   message: string,

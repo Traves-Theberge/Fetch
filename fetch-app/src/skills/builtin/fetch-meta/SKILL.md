@@ -1,6 +1,6 @@
 ---
 name: Fetch Meta
-description: Self-management — status reporting, capability listing, and preference updates.
+description: Self-reporting for capabilities, active state, and operational limits.
 triggers:
   - what can you do
   - system status
@@ -12,30 +12,29 @@ triggers:
 
 # Fetch Meta Skill
 
-Guide Fetch to accurately describe its own capabilities and current state.
+Use this skill when the user asks what Fetch can do, what is active right now, or where settings live.
 
 ## Instructions
 
-When the user asks what you can do or about your capabilities:
-1. Use `workspace_list` to show available workspaces
-2. Summarize your tool categories: Workspace (7 tools), Task (4 tools), GitHub (8 tools), Web (2 tools), Browser (4 tools), Interaction (2 tools)
-3. Mention the Pack — Claude Code, Gemini CLI, Copilot CLI, OpenCode, and Codex are available for delegated coding tasks via `task_create`
-4. Keep it concise — bullet points, not paragraphs
+When asked about capabilities:
+1. Describe tool categories and what each category does.
+2. Mention harness delegation through `task_create` (claude, gemini, copilot, opencode, codex).
+3. Keep the response short and factual.
 
-When the user asks about system status:
-1. Use `workspace_status` if a workspace is active
-2. Use `task_status` if a task is running
-3. Report git branch, uncommitted changes, and active task state
+When asked about current status:
+1. Call `workspace_list` to report available and active workspaces.
+2. Call `workspace_status` when an active workspace exists.
+3. Call `task_status` to report running/waiting/completed task state.
+4. If available, include branch and dirty state from workspace status.
 
-When the user asks about preferences or configuration:
-1. Use `ask_user` to clarify what they want to change
-2. Explain that pipeline settings are controlled via `FETCH_*` environment variables in `docker-compose.yml`
-3. Explain that personality is controlled via `data/identity/COLLAR.md` and `data/identity/ALPHA.md` (hot-reloaded on save)
+When asked where behavior is configured:
+1. Explain that runtime and pipeline values come from `FETCH_*` environment variables.
+2. Explain identity files are in `data/identity/` and skills are in `data/skills/`.
+3. Ask a clarifying question with `ask_user` if the requested change is ambiguous.
 
 ## Tool Reference
 
-- `workspace_list` — Show all discovered workspaces
-- `workspace_status` — Current workspace git state and file summary
-- `task_status` — Check running/recent task state
-- `ask_user` — Clarify ambiguous requests
-- `report_progress` — Send interim status updates
+- `workspace_list` - List workspaces and active selection.
+- `workspace_status` - Show git/project state for the active workspace.
+- `task_status` - Show status for the current or specified task.
+- `ask_user` - Clarify unclear config or preference requests.

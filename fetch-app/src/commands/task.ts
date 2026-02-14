@@ -1,8 +1,7 @@
 /**
- * @fileoverview Task Control — Safety Escape Handlers
+ * @fileoverview Deterministic task-control command handlers.
  *
- * Deterministic handlers for /stop, /undo, /undo all.
- * These bypass the LLM because they must work instantly and reliably.
+ * Handles `/stop`, `/undo`, and `/undo all` from the slash-command parser.
  *
  * @module commands/task
  */
@@ -17,7 +16,9 @@ import type { CommandResult } from './types.js';
 const execAsync = promisify(exec);
 
 /**
- * Reset to a specific git commit.
+ * Reset current repository to the provided commit SHA.
+ *
+ * @returns `true` when reset succeeds
  */
 async function resetToCommit(commitSha: string): Promise<boolean> {
   if (!/^[0-9a-f]{7,40}$/i.test(commitSha)) {
@@ -33,6 +34,9 @@ async function resetToCommit(commitSha: string): Promise<boolean> {
   }
 }
 
+/**
+ * Handle `/stop` and `/cancel` by cancelling the active task if present.
+ */
 export async function handleStop(
   session: Session,
   _sessionManager: SessionManager
@@ -54,6 +58,11 @@ export async function handleStop(
   };
 }
 
+/**
+ * Handle `/undo`.
+ *
+ * Current behavior returns manual git instructions for reverting the last commit.
+ */
 export async function handleUndo(
   _session: Session,
   _sessionManager: SessionManager
@@ -66,6 +75,9 @@ export async function handleUndo(
   };
 }
 
+/**
+ * Handle `/undo all` by resetting to the session start commit, when available.
+ */
 export async function handleUndoAll(
   session: Session,
   _sessionManager: SessionManager

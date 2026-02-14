@@ -1,20 +1,10 @@
 /**
- * @fileoverview Workspace tools
+ * @fileoverview Workspace and repository tool handlers.
  *
- * Tool handlers for workspace operations.
+ * Handles workspace discovery/selection, project creation/deletion, file/folder
+ * deletion, and GitHub sync/publish operations.
  *
  * @module tools/workspace
- * @see {@link WorkspaceManager} - Workspace operations
- * @see {@link WorkspaceListInputSchema} - Input validation
- *
- * ## Tools
- *
- * - `workspace_list` - List available workspaces
- * - `workspace_select` - Select active workspace
- * - `workspace_status` - Get workspace status
- * - `workspace_create` - Create a new workspace
- * - `workspace_delete` - Delete a workspace
- * - `workspace_sync` - Sync workspace to GitHub
  */
 
 import { workspaceManager } from '../workspace/manager.js';
@@ -43,21 +33,7 @@ import type { ToolResult } from './types.js';
 // workspace_list
 // ============================================================================
 
-/**
- * List available workspaces
- *
- * Returns all workspaces mounted in the Kennel container with
- * basic information about each (name, type, git branch, dirty status).
- *
- * @param input - Tool input (empty object)
- * @returns List of workspace summaries
- *
- * @example
- * ```typescript
- * const result = await handleWorkspaceList({});
- * // Returns: { success: true, output: JSON with workspaces }
- * ```
- */
+/** Lists known workspaces and marks the active workspace when set. */
 export async function handleWorkspaceList(
   input: unknown
 ): Promise<ToolResult> {
@@ -115,21 +91,7 @@ export async function handleWorkspaceList(
 // workspace_select
 // ============================================================================
 
-/**
- * Select a workspace as active
- *
- * Sets the specified workspace as the active workspace. The active
- * workspace is used by default for task creation and status queries.
- *
- * @param input - Tool input with workspace name
- * @returns Selected workspace details
- *
- * @example
- * ```typescript
- * const result = await handleWorkspaceSelect({ name: 'my-project' });
- * // Returns: { success: true, output: JSON with workspace }
- * ```
- */
+/** Selects active workspace for subsequent tool calls. */
 export async function handleWorkspaceSelect(
   input: unknown
 ): Promise<ToolResult> {
@@ -197,24 +159,7 @@ export async function handleWorkspaceSelect(
 // workspace_status
 // ============================================================================
 
-/**
- * Get workspace status
- *
- * Returns detailed status for a workspace including full git status
- * with modified files, staged files, and untracked files.
- *
- * @param input - Tool input (optional workspace name, uses active if not provided)
- * @returns Detailed workspace status
- *
- * @example
- * ```typescript
- * // Get active workspace status
- * const result = await handleWorkspaceStatus({});
- *
- * // Get specific workspace status
- * const result = await handleWorkspaceStatus({ name: 'other-project' });
- * ```
- */
+/** Returns workspace + git status for the target or active workspace. */
 export async function handleWorkspaceStatus(
   input: unknown
 ): Promise<ToolResult> {
@@ -319,24 +264,7 @@ export async function handleWorkspaceStatus(
 // workspace_create
 // ============================================================================
 
-/**
- * Create a new workspace/project
- *
- * Creates a new project directory with optional template scaffolding.
- * Can initialize git and set up basic project structure.
- *
- * @param input - Tool input with name, template, and options
- * @returns Created workspace details
- *
- * @example
- * ```typescript
- * const result = await handleWorkspaceCreate({
- *   name: 'my-new-project',
- *   template: 'node',
- *   initGit: true
- * });
- * ```
- */
+/** Creates a workspace from template and returns normalized metadata. */
 export async function handleWorkspaceCreate(
   input: unknown
 ): Promise<ToolResult> {
@@ -406,23 +334,7 @@ export async function handleWorkspaceCreate(
 // workspace_delete
 // ============================================================================
 
-/**
- * Delete a workspace
- *
- * Permanently deletes a workspace directory. Requires explicit confirmation.
- * Cannot delete the currently active workspace.
- *
- * @param input - Tool input with workspace name and confirmation
- * @returns Deletion result
- *
- * @example
- * ```typescript
- * const result = await handleWorkspaceDelete({
- *   name: 'old-project',
- *   confirm: true
- * });
- * ```
- */
+/** Deletes a workspace after explicit confirmation and safety checks. */
 export async function handleWorkspaceDelete(
   input: unknown
 ): Promise<ToolResult> {
@@ -489,20 +401,7 @@ export async function handleWorkspaceDelete(
 // workspace_sync
 // ============================================================================
 
-/**
- * Sync workspace to GitHub
- *
- * Stages all changes, commits with optional message, creates a GitHub
- * repo if none exists, and pushes. This is the "save my work" tool —
- * the LLM should call this when the user says things like:
- * - "push my code"
- * - "sync to GitHub"
- * - "save this project"
- * - "back this up"
- *
- * @param input - Tool input with optional workspace name and commit message
- * @returns Sync result with commit hash, remote URL, and push status
- */
+/** Stages, commits, and pushes workspace changes (creates remote repo if needed). */
 export async function handleWorkspaceSync(
   input: unknown
 ): Promise<ToolResult> {
@@ -609,22 +508,7 @@ export async function handleWorkspaceSync(
 // workspace_publish
 // ============================================================================
 
-/**
- * Publish workspace to GitHub
- *
- * Creates a new GitHub repository from the current workspace and pushes
- * all local commits. Unlike workspace_sync, this explicitly creates a new
- * repo even if there are no uncommitted changes.
- *
- * @param input - Tool input with optional workspace name, description, and visibility
- * @returns Publish result with new repo URL
- *
- * @example
- * ```typescript
- * const result = await handleWorkspacePublish({ description: 'My new project' });
- * // Returns: { success: true, output: JSON with new repo URL }
- * ```
- */
+/** Creates remote GitHub repository for an existing local workspace. */
 export async function handleWorkspacePublish(
   input: unknown
 ): Promise<ToolResult> {
@@ -723,12 +607,7 @@ export async function handleWorkspacePublish(
 // file_delete
 // ============================================================================
 
-/**
- * Delete a single file from a workspace
- *
- * @param input - Tool input (path, workspace, confirm)
- * @returns Result summary
- */
+/** Deletes one file from the selected workspace after confirmation. */
 export async function handleFileDelete(
   input: unknown
 ): Promise<ToolResult> {
@@ -789,12 +668,7 @@ export async function handleFileDelete(
   }
 }
 
-/**
- * Delete a directory and its contents from a workspace
- *
- * @param input - Tool input (path, workspace, confirm)
- * @returns Result summary
- */
+/** Deletes one directory recursively from the selected workspace after confirmation. */
 export async function handleFolderDelete(
   input: unknown
 ): Promise<ToolResult> {
@@ -860,9 +734,7 @@ export async function handleFolderDelete(
 // Tool Registry Integration
 // ============================================================================
 
-/**
- * Workspace tool definitions for registry
- */
+/** Workspace tool entries consumed by the central registry. */
 export const workspaceTools = {
   workspace_list: {
     name: 'workspace_list',

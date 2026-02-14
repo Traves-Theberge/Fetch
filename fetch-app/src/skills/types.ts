@@ -1,5 +1,9 @@
 /**
- * @fileoverview Skills Type Definitions
+ * @fileoverview Skills domain types.
+ *
+ * Defines the parsed skill model, optional runtime requirements,
+ * and manager configuration for built-in and user skill directories.
+ *
  * @module skills/types
  */
 
@@ -8,7 +12,7 @@
 // =============================================================================
 
 /**
- * Skill definition loaded from SKILL.md
+ * Parsed skill definition loaded from a `SKILL.md` file.
  */
 export interface Skill {
   /** Unique ID (e.g., "git-ops") */
@@ -31,11 +35,9 @@ export interface Skill {
   isBuiltin: boolean;
   /** Is this skill currently enabled? */
   enabled: boolean;
-  /** Suggested harness for this skill (e.g., 'claude', 'gemini', 'copilot') */
-  harnessHint?: string;
 }
 /**
- * Requirements for a skill to run
+ * Optional runtime constraints for loading/activating a skill.
  */
 export interface SkillRequirements {
   /** Required binaries in PATH */
@@ -51,7 +53,7 @@ export interface SkillRequirements {
 // =============================================================================
 
 /**
- * Configuration for SkillManager
+ * Skill manager configuration values.
  */
 export interface SkillConfig {
   /** Directory for custom user skills */

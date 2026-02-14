@@ -1,58 +1,13 @@
 /**
- * @fileoverview Security Gate - Zero Trust Bonding
- * 
- * CRITICAL SECURITY COMPONENT
- * 
- * Enforces strict phone number whitelist validation. Only messages from
- * the owner OR explicitly trusted phone numbers with @fetch trigger are
- * processed. All other messages are silently dropped.
- * 
+ * @fileoverview Authorization gate for inbound WhatsApp messages.
+ *
+ * Enforcement rules:
+ * - message must include `@fetch` trigger
+ * - sender must be owner or trusted whitelist member
+ * - broadcast traffic is rejected
+ * - unauthorized traffic is dropped without response
+ *
  * @module security/gate
- * @see {@link SecurityGate} - Main gate class
- * @see {@link WhitelistStore} - Trusted numbers management
- * 
- * ## Security Model (Zero Trust Bonding)
- * 
- * "Fetch is loyal to his owner and people his owner explicitly trusts."
- * 
- * ```
- * Incoming Message
- *      ↓
- * Has @fetch trigger?
- *      │ No → DROP (silent)
- *      ↓ Yes
- * From owner?
- *      │ Yes → ALLOW (owner is always exempt)
- *      ↓ No
- * In trusted whitelist?
- *      │ Yes → ALLOW
- *      ↓ No
- * DROP (silent)
- * ```
- * 
- * ## Configuration
- * 
- * - OWNER_PHONE_NUMBER: Required environment variable (always trusted)
- * - TRUSTED_PHONE_NUMBERS: Optional comma-separated list of trusted numbers
- * - Trigger prefix: `@fetch` (case-insensitive)
- * 
- * ## IMPORTANT
- * 
- * - Unauthorized messages are dropped WITHOUT response
- * - This prevents information leakage about the bot's existence
- * - Broadcast messages are always rejected
- * - Owner can manage whitelist via natural language (LLM tool)
- * 
- * @example
- * ```typescript
- * const gate = await SecurityGate.create();
- * 
- * if (gate.isAuthorized(senderId, participantId, message)) {
- *   const cleanMessage = gate.stripTrigger(message);
- *   // Process message
- * }
- * // Silently ignore unauthorized
- * ```
  */
 
 import { logger } from '../utils/logger.js';
@@ -63,7 +18,7 @@ import { getWhitelistStore, type WhitelistStore } from './whitelist.js';
 // CONFIGURATION
 // =============================================================================
 
-/** The trigger prefix (case-insensitive) */
+/** Trigger prefix required for non-thread traffic. */
 const FETCH_TRIGGER = '@fetch';
 
 // =============================================================================
@@ -71,13 +26,7 @@ const FETCH_TRIGGER = '@fetch';
 // =============================================================================
 
 /**
- * Security gate enforcing Zero Trust Bonding.
- * 
- * Only processes messages from owner OR trusted whitelist members
- * that start with @fetch. All other messages are silently dropped.
- * 
- * @class
- * @throws {Error} If OWNER_PHONE_NUMBER is not set
+ * Message authorization gate backed by owner identity and whitelist checks.
  */
 export class SecurityGate {
   private readonly ownerNumberClean: string;
@@ -95,7 +44,7 @@ export class SecurityGate {
   }
 
   /**
-   * Factory method to create and initialize SecurityGate with whitelist.
+   * Creates and initializes the gate with whitelist state.
    */
   static async create(): Promise<SecurityGate> {
     const gate = new SecurityGate();
@@ -104,8 +53,7 @@ export class SecurityGate {
   }
 
   /**
-   * Initialize the whitelist store.
-   * Call this after construction to enable Zero Trust Bonding.
+   * Initializes whitelist dependencies.
    */
   async initializeWhitelist(): Promise<void> {
     this.whitelist = await getWhitelistStore();
@@ -118,21 +66,21 @@ export class SecurityGate {
   }
 
   /**
-   * Get the whitelist store for management operations.
+   * Returns initialized whitelist store, or null when not ready.
    */
   getWhitelist(): WhitelistStore | null {
     return this.whitelist;
   }
 
   /**
-   * Check if message starts with @fetch trigger
+   * Returns true when message starts with the `@fetch` trigger.
    */
   hasFetchTrigger(messageBody: string): boolean {
     return messageBody.toLowerCase().trim().startsWith(FETCH_TRIGGER);
   }
 
   /**
-   * Strip the @fetch trigger from message body
+   * Removes leading `@fetch` trigger from message text.
    */
   stripTrigger(messageBody: string): string {
     const body = messageBody.trim();
@@ -143,7 +91,7 @@ export class SecurityGate {
   }
 
   /**
-   * Extract the sender's phone number from various WhatsApp ID formats
+   * Normalizes WhatsApp IDs to digit-only phone numbers.
    */
   private extractNumber(whatsappId: string): string {
     // Remove @c.us or @g.us suffix and any non-numeric chars
@@ -151,7 +99,7 @@ export class SecurityGate {
   }
 
   /**
-   * Check if sender/participant is the owner
+   * Returns true when identifier belongs to configured owner.
    */
   private isOwner(whatsappId: string): boolean {
     const number = this.extractNumber(whatsappId);
@@ -159,8 +107,7 @@ export class SecurityGate {
   }
 
   /**
-   * Check if sender/participant is in the trusted whitelist.
-   * Owner is checked separately (always trusted).
+   * Returns true when identifier exists in trusted whitelist.
    */
   private isTrusted(whatsappId: string): boolean {
     if (!this.whitelist) return false;
@@ -169,8 +116,7 @@ export class SecurityGate {
   }
 
   /**
-   * Check if message is from the owner (without @fetch requirement)
-   * Used for thread replies where @fetch trigger is not needed
+   * Checks owner authorization without requiring `@fetch` trigger.
    * 
    * @param senderId - WhatsApp chat ID
    * @param participantId - For groups, the actual sender's ID
@@ -196,8 +142,7 @@ export class SecurityGate {
   }
 
   /**
-   * Check if a specific WhatsApp ID is authorized (Owner or Trusted)
-   * This is used for events like reactions that don't have a message trigger.
+   * Checks whether a WhatsApp ID belongs to owner or trusted member.
    * 
    * @param whatsappId - The ID to check (@c.us, @g.us, or participant ID)
    */
@@ -207,8 +152,7 @@ export class SecurityGate {
   }
 
   /**
-   * Check if a message is authorized (Zero Trust Bonding)
-   * Requires: @fetch trigger + (owner OR trusted whitelist member)
+   * Authorizes inbound message based on trigger + owner/whitelist policy.
    * 
    * @param senderId - WhatsApp chat ID (can be @c.us or @g.us)
    * @param participantId - For groups, the actual sender's ID

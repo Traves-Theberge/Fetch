@@ -123,13 +123,12 @@ Each skill is a `SKILL.md` with YAML frontmatter:
 
 ```yaml
 ---
-name: Git Operations
-triggers: [git, commit, push, branch]
-harnessHint: copilot
+name: Workspace Operations
+triggers: [workspace, create project, publish project]
 enabled: true
 ---
 # Instructions
-When the user asks to commit...
+When the user asks to create a project...
 ```
 
 ### Two-phase injection
@@ -137,21 +136,19 @@ When the user asks to commit...
 1. **Discovery** - `buildSkillsSummary()` lists ALL skills in `<available_skills>` XML so the LLM knows what exists
 2. **Activation** - `matchSkills(message)` checks if any trigger keywords appear in the user's message. Matched skills get their **full instruction body** injected as `<activated_skill>` into the prompt
 
-**Example**: user says "commit these changes" → `commit` matches the git skill → full git workflow instructions appear in the prompt → LLM follows them.
-
-Skills also carry a `harnessHint` (e.g. `"copilot"`) that suggests which AI agent to delegate to when the skill is activated.
+**Example**: user says "publish this project" → `publish project` matches Workspace Operations → workspace publish/sync instructions are injected into the prompt.
 
 ### Built-in skills
 
-| Skill | Triggers | Harness Hint |
-| --- | --- | --- |
-| Git Operations | git, commit, push, branch | copilot |
-| Docker | docker, container, compose | copilot |
-| Testing | test, jest, vitest, coverage | claude |
-| TypeScript | typescript, ts, type, interface | claude |
-| React | react, component, jsx, hook | claude |
-| Debugging | debug, error, bug, fix | claude |
-| Fetch Meta | fetch, self, meta, update | claude |
+| Skill | Triggers |
+| --- | --- |
+| Workspace Operations | workspace, create project, publish project, delete file |
+| Task Orchestration | implement, fix this, delegate, continue task |
+| GitHub Operations | pull request, issue, branch, actions |
+| Web Research | docs, research, look up, search web |
+| Browser Automation | open browser, fill form, screenshot page |
+| Interaction Control | clarify, confirm, status update, approval |
+| Fetch Meta | what can you do, system status, capabilities |
 
 ---
 

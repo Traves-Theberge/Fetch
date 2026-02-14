@@ -1,5 +1,9 @@
 /**
- * @fileoverview Session and Task Type Definitions
+ * @fileoverview Session domain types and factories.
+ *
+ * Defines persisted session shape, message/tool call payloads, memory records,
+ * and helpers for creating session/message entities.
+ *
  * @module session/types
  */
 
@@ -8,10 +12,11 @@
 // =============================================================================
 
 /**
- * User's autonomy preference level.
+ * User autonomy preference level.
  */
 export type AutonomyLevel = 'supervised' | 'cautious' | 'autonomous';
 
+/** Per-user runtime behavior preferences stored in session state. */
 export interface UserPreferences {
   /** How much freedom the agent has */
   autonomyLevel: AutonomyLevel;
@@ -23,6 +28,7 @@ export interface UserPreferences {
   maxIterations: number;
 }
 
+/** Default preferences used for new sessions. */
 export const DEFAULT_PREFERENCES: UserPreferences = {
   autonomyLevel: 'cautious',
   autoCommit: true,
@@ -34,10 +40,12 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 // Project Context
 // ============================================================================
 
+/** Supported project type labels for session project context. */
 export type ProjectType = 'node' | 'typescript' | 'python' | 'rust' | 'go' | 'java' | 'ruby' | 'php' | 'dotnet' | 'unknown';
 
 import type { ProjectProfile } from '../workspace/types.js';
 
+/** Project context snapshot stored in session state. */
 export interface ProjectContext {
   /** Project directory name */
   name: string;
@@ -69,6 +77,7 @@ export interface ProjectContext {
 
 export type MessageRole = 'user' | 'assistant' | 'tool';
 
+/** Structured tool result metadata stored on tool-role messages. */
 export interface ToolCall {
   /** Tool name */
   name: string;
@@ -83,7 +92,7 @@ export interface ToolCall {
 }
 
 /**
- * Tool call request (in assistant message)
+ * Tool call request emitted by assistant messages.
  */
 export interface ToolCallRequest {
   /** Unique ID for this tool call (used to match with response) */
@@ -94,6 +103,7 @@ export interface ToolCallRequest {
   arguments: string;
 }
 
+/** Canonical message shape stored in session history. */
 export interface Message {
   /** Unique message ID */
   id: string;
@@ -139,6 +149,7 @@ import type { TaskId } from '../task/types.js';
 // Session
 // ============================================================================
 
+/** Persisted session aggregate used by session manager/store. */
 export interface Session {
   /** Unique session ID */
   id: string;
@@ -190,7 +201,7 @@ export interface Session {
 // ============================================================================
 
 /**
- * Generate a short unique ID
+ * Generates a short random identifier.
  */
 export function generateId(length: number = 8): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -202,7 +213,7 @@ export function generateId(length: number = 8): string {
 }
 
 /**
- * Create a new session
+ * Creates a new session object with default values.
  */
 export function createSession(userId: string): Session {
   const now = new Date().toISOString();
@@ -225,7 +236,7 @@ export function createSession(userId: string): Session {
 }
 
 /**
- * Create a new message
+ * Creates a message object with current timestamp.
  */
 export function createMessage(
   role: MessageRole,

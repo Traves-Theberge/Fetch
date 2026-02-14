@@ -1,9 +1,8 @@
 /**
- * @fileoverview Vision service wrapper
- * 
- * Provides image analysis using OpenAI/OpenRouter Vision models.
- * Used for processing WhatsApp images (screenshots, UI, whiteboard, etc.)
- * 
+ * @fileoverview Image analysis helpers for inbound WhatsApp media.
+ *
+ * Calls OpenRouter vision models via the OpenAI-compatible SDK.
+ *
  * @module vision/index
  */
 
@@ -13,9 +12,7 @@ import { env } from '../config/env.js';
 
 let openaiClient: OpenAI | null = null;
 
-/**
- * Get or initialize the OpenAI client for vision
- */
+/** Returns a cached OpenAI client configured for OpenRouter vision requests. */
 function getClient(): OpenAI {
   if (openaiClient) return openaiClient;
 
@@ -34,14 +31,7 @@ function getClient(): OpenAI {
   return openaiClient;
 }
 
-/**
- * Analyze an image using a vision model
- * 
- * @param base64Data - Image data in base64 format (no data: URI prefix)
- * @param mimeType - Image MIME type (e.g., image/jpeg)
- * @param context - User provided context (caption or message)
- * @returns Text description or analysis of the image
- */
+/** Analyzes one image and returns the model text response. */
 export async function analyzeImage(
   base64Data: string, 
   mimeType: string, 
@@ -92,9 +82,7 @@ Instructions:
   }
 }
 
-/**
- * Check if the vision service is available
- */
+/** Returns `true` when vision requests can be made. */
 export function isVisionAvailable(): boolean {
   return !!env.OPENROUTER_API_KEY;
 }

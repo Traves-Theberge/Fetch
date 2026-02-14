@@ -1,29 +1,9 @@
 /**
- * @fileoverview Tools Module Exports
+ * @fileoverview Public exports for the tools subsystem.
+ *
+ * Exposes tool handlers, registry, custom-tool loader, and shared tool types.
+ *
  * @module tools
- *
- * ## Orchestrator Tools
- *
- * The architecture uses 12 high-level tools that delegate
- * actual coding work to harnesses (Claude Code, Gemini CLI, etc.).
- *
- * ### Workspace (6)
- * - `workspace_list` - List available workspaces
- * - `workspace_select` - Select active workspace
- * - `workspace_status` - Get workspace status
- * - `workspace_create` - Create a new workspace
- * - `workspace_delete` - Delete a workspace
- * - `workspace_sync` - Sync workspace to GitHub
- *
- * ### Task (4)
- * - `task_create` - Create a new task
- * - `task_status` - Get task status
- * - `task_cancel` - Cancel a task
- * - `task_respond` - Respond to task question
- *
- * ### Interaction (2)
- * - `ask_user` - Ask user a question
- * - `report_progress` - Report task progress
  */
 
 // Core types

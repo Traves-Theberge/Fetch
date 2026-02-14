@@ -1,66 +1,14 @@
 /**
- * @fileoverview WhatsApp Bridge Client
- * 
- * Handles WhatsApp Web connection, authentication, and message routing.
- * Enforces strict security via whitelist and rate limiting.
- * 
+ * @fileoverview WhatsApp transport adapter for the Fetch bridge.
+ *
+ * Responsibilities:
+ * - manage WhatsApp Web client lifecycle (auth, ready, disconnect, reconnect)
+ * - route inbound messages/reactions through security + handler pipeline
+ * - normalize transport edge cases (duplicate events, self-chat, media payloads)
+ * - send proactive task progress/question updates back to users
+ *
  * @module bridge/client
- * @see {@link Bridge} - Main bridge class
- * @see {@link SecurityGate} - Number whitelist enforcement
- * @see {@link RateLimiter} - Rate limiting
- * 
- * ## Supported Interactions
- * 
- * | Type | Trigger | Notes |
- * |------|---------|-------|
- * | Direct message | `@fetch ...` | Natural language or /safety escape |
- * | Self-chat | `@fetch ...` | Message yourself |
- * | Thread reply | Reply to Fetch msg | No @fetch needed |
- * | Emoji reaction | 👍/👎 on Fetch msg | Approve/reject       |
- * 
- * ## Security Model
- * 
- * - **Whitelist**: Only messages from OWNER_PHONE_NUMBER are processed
- * - **Rate Limit**: 30 requests per minute per user
- * - **Input Validation**: Messages are validated before processing
- * - **Silent Drop**: Unauthorized messages are dropped without response
- * 
- * ## Message Flow
- * 
- * ```
- * Incoming Message/Reaction
- *      ↓
- * Empty body check
- *      ↓
- * Thread reply check (skip @fetch if replying to Fetch)
- *      ↓
- * @fetch trigger check
- *      ↓
- * Security Gate (owner verification)
- *      ↓
- * Rate Limiter
- *      ↓
- * Input Validation
- *      ↓
- * Handler (agent processing)
- *      ↓
- * Reply sent
- * ```
- * 
- * ## Self-Chat Support
- * 
- * WhatsApp routes self-chat messages with `to` field ending in `@lid`
- * instead of `@c.us`. This module handles this by using `message_create`
- * event and checking for `fromMe=true` with `@fetch` prefix.
- * 
- * @example
- * ```typescript
- * import { Bridge } from './client.js';
- * 
- * const bridge = new Bridge();
- * await bridge.initialize();
- * // QR code displayed, scan to connect
- * ```
+ * @see {@link Bridge} Runtime bridge class
  */
 
 import pkg from 'whatsapp-web.js';
@@ -106,16 +54,11 @@ interface TaskQuestionEvent {
 // =============================================================================
 
 /**
- * Removes stale Chrome lock files that prevent browser startup.
- * This happens when the container crashes without graceful shutdown.
- * 
- * IMPORTANT: Chromium creates SingletonLock as a **symlink** pointing to
- * "hostname-pid". After a container crash the symlink target no longer
- * exists, making it a *broken* symlink. Node's fs.existsSync() follows
- * symlinks and returns false for broken ones — so the old cleanup silently
- * skipped them every time. We now use readdirSync to list entries (which
- * includes broken symlinks) and match by name instead.
- * 
+ * Remove stale Chromium singleton lock files under WhatsApp auth data.
+ *
+ * This runs before client init/re-init to avoid Chromium startup failures
+ * after unclean shutdowns.
+ *
  * @param authPath - Path to the .wwebjs_auth directory
  */
 function cleanupChromeLocks(authPath: string): void {
@@ -166,10 +109,7 @@ function cleanupChromeLocks(authPath: string): void {
 // =============================================================================
 
 /**
- * Tracks recently processed message IDs to prevent duplicate processing.
- * WhatsApp's message_create event can fire multiple times for the same message.
- * Uses a Map with timestamps; stale entries are purged on a periodic interval
- * instead of on every lookup (O(1) per check).
+ * Deduplicate inbound `message_create` events by message id with TTL eviction.
  */
 class MessageDeduplicator {
   private processedMessages = new Map<string, number>();
@@ -183,7 +123,9 @@ class MessageDeduplicator {
   }
 
   /**
-   * Check if message was already processed. Returns true if new, false if duplicate.
+   * Mark and check message id.
+   *
+   * @returns `true` if message id was not seen in the current TTL window
    */
   isNew(messageId: string): boolean {
     if (this.processedMessages.has(messageId)) {
@@ -193,7 +135,7 @@ class MessageDeduplicator {
     return true;
   }
 
-  /** Remove entries older than TTL */
+  /** Remove cached ids older than TTL. */
   private evict(): void {
     const cutoff = Date.now() - this.TTL_MS;
     for (const [id, ts] of this.processedMessages) {
@@ -207,13 +149,10 @@ class MessageDeduplicator {
 // =============================================================================
 
 /**
- * WhatsApp Web bridge client.
- * 
- * Manages the WhatsApp Web connection using Puppeteer, handles
- * authentication via QR code, and routes messages through security
- * checks to the agent handler.
- * 
- * @class
+ * Runtime wrapper around `whatsapp-web.js` client.
+ *
+ * Owns client lifecycle, event wiring, inbound security checks, and outbound
+ * proactive messaging integration.
  */
 export class Bridge {
   private client: ClientType;
@@ -255,6 +194,9 @@ export class Bridge {
     this.rateLimiter = new RateLimiter(pipeline.rateLimitMax, pipeline.rateLimitWindow);
   }
 
+  /**
+   * Initialize security, handler integrations, event listeners, and WhatsApp client.
+   */
   async initialize(): Promise<void> {
     // Clean up any stale Chrome lock files from previous crashes
     cleanupChromeLocks('/app/data/.wwebjs_auth');
@@ -284,6 +226,9 @@ export class Bridge {
     await this.client.initialize();
   }
 
+  /**
+   * Register WhatsApp client event handlers (connection, messages, reactions).
+   */
   private setupEventHandlers(): void {
     // QR Code for authentication
     this.client.on('qr', (qr: string) => {
@@ -472,9 +417,6 @@ export class Bridge {
 
   /**
    * Check if message is a reply to a Fetch bot message
-   */
-  /**
-   * Check if message is a reply to a Fetch bot message
    * @deprecated Disabled to prevent false positives with Owner messages
    */
   /*
@@ -497,7 +439,9 @@ export class Bridge {
   */
 
   /**
-   * Handle image messages by analyzing them with vision
+   * Download and analyze image messages, then append analysis to message body.
+   *
+   * @returns `true` when analysis context was added to the message
    */
   private async handleImageMessage(message: Message): Promise<boolean> {
     if (!isVisionAvailable()) {
@@ -536,7 +480,7 @@ export class Bridge {
   }
 
   /**
-   * Listen for real-time task progress and route to WhatsApp
+   * Subscribe to task integration events and forward user-facing updates.
    */
   private setupTaskProgressListeners(): void {
     const integration = getTaskIntegration();
@@ -622,7 +566,9 @@ export class Bridge {
   }
 
   /**
-   * Handle voice messages by transcribing them first
+   * Transcribe incoming voice notes and replace message body with transcript.
+   *
+   * @returns `true` when transcription succeeded and body was updated
    */
   private async handleVoiceMessage(message: Message): Promise<boolean> {
     if (!isTranscriptionAvailable()) {
@@ -659,8 +605,7 @@ export class Bridge {
   }
 
   /**
-   * Handle incoming messages with strict security enforcement
-   * SECURITY: Requires @fetch trigger + owner verification (unless thread reply)
+   * Process one inbound message through auth, rate limiting, validation, and handler execution.
    */
   private async handleIncomingMessage(message: Message, isThreadReply: boolean = false): Promise<void> {
     const senderId = message.from;
@@ -761,12 +706,7 @@ export class Bridge {
   // ===========================================================================
 
   /**
-   * Reconnect to WhatsApp with exponential backoff.
-   *
-   * Creates a fresh Client instance because whatsapp-web.js cannot
-   * re-initialize the same client after disconnection.
-   *
-   * Backoff schedule: 5 s → 10 s → 20 s → 40 s → … → 5 min cap, with jitter.
+   * Recreate and reinitialize the WhatsApp client using exponential backoff.
    */
   private reconnect(): void {
     if (this.destroyed || this.isReconnecting) return;
@@ -844,6 +784,9 @@ export class Bridge {
   // LIFECYCLE
   // ===========================================================================
 
+  /**
+   * Stop bridge processing and destroy the WhatsApp client instance.
+   */
   async destroy(): Promise<void> {
     this.destroyed = true;
 
