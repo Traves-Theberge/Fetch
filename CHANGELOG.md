@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Manifest-driven updates** — Added `release-manifest.json` and wired installer/update flows to resolve channel/version targets from manifest metadata.
 - **Checksum verification** — Installer now verifies SHA-256 checksums for downloaded release archives before activation.
 - **Install/update docs refreshed** — Updated README and setup docs to use curl installer and `fetch self` workflows.
+- **Harness install docs linked** — Added direct official install/setup links for Copilot CLI, Claude Code, Gemini CLI, OpenCode, Codex, plus Node/npm prerequisite links.
+- **Doctor prerequisite checks expanded** — `fetch self doctor` now reports missing `node`/`npm` as optional warnings for harness CLI installation.
 - **Production doc cleanup** — Removed personal attribution/footer text, corrected legacy service placeholders, and tightened setup wording.
 - **GitHub setup clarified** — Documentation and `.env.example` now explicitly support GitHub repo operations with `GH_TOKEN` while `ENABLE_COPILOT=false`.
 - **Repo slug centralization** — Installer/update scripts now derive canonical URLs from `FETCH_REPO_SLUG` (with optional `FETCH_MANIFEST_URL` override) instead of duplicating hardcoded repo strings.

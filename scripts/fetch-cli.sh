@@ -111,6 +111,7 @@ cmd_tui() {
 
 self_doctor() {
   local missing=0
+  local optional_missing=0
   echo "[fetch] doctor: checking environment"
 
   for c in git curl docker tar sha256sum python3; do
@@ -143,8 +144,21 @@ self_doctor() {
     missing=1
   fi
 
+  for c in node npm; do
+    if command -v "$c" >/dev/null 2>&1; then
+      echo "  ✅ $c"
+    else
+      echo "  ⚠️  $c missing (required to install/update harness CLIs)"
+      optional_missing=1
+    fi
+  done
+
   if [[ $missing -eq 0 ]]; then
-    echo "[fetch] doctor: healthy"
+    if [[ $optional_missing -eq 0 ]]; then
+      echo "[fetch] doctor: healthy"
+    else
+      echo "[fetch] doctor: healthy (with optional tooling warnings)"
+    fi
     return 0
   fi
 

@@ -34,6 +34,11 @@ Required on host:
 
 Optional:
 - `go` (required for manager rebuilds)
+- `node` + `npm` (required to install/update harness CLIs)
+
+Node/npm install docs:
+- https://nodejs.org/en/download/package-manager
+- https://docs.npmjs.com/downloading-and-installing-node-js-and-npm
 
 ## CLI Management
 

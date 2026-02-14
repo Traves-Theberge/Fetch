@@ -138,6 +138,14 @@ Fetch runs as a **three-container system** managed by a native Go TUI:
 | **OpenCode** | Versatile coding, OpenRouter-native, general-purpose |
 | **Codex** | Agentic coding with OpenAI models, JSON Lines streaming |
 
+Harness install docs:
+- Copilot CLI: https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli
+- Claude Code: https://docs.claude.com/en/docs/claude-code/getting-started
+- Gemini CLI: https://github.com/google-gemini/gemini-cli
+- OpenCode: https://opencode.ai/docs/
+- Codex CLI: https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started
+- Node.js/npm prerequisite: https://nodejs.org/en/download/package-manager
+
 </td>
 </tr>
 </table>

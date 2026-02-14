@@ -67,6 +67,19 @@ Each harness has an adapter in the `src/harness/` directory that extends `Abstra
 
 Each adapter's `buildConfig()` injects the CLI config file from `data/cli-configs/` so harnesses receive Fetch-specific behavioral instructions (e.g., no commits, structured output summaries).
 
+### Official Install Docs
+
+| Harness | Install / Setup Docs |
+|---------|----------------------|
+| Claude Code | https://docs.claude.com/en/docs/claude-code/getting-started |
+| Gemini CLI | https://github.com/google-gemini/gemini-cli |
+| GitHub Copilot CLI | https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli |
+| OpenCode | https://opencode.ai/docs/ |
+| Codex CLI | https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started |
+
+Prerequisite for most CLI harnesses: Node.js + npm  
+https://nodejs.org/en/download/package-manager
+
 ### Project Context Injection
 
 When a `ProjectProfile` is available, all adapters append a `--- Project Context ---` section to the task goal with language, framework, test/build commands, and entry points. This gives the harness CLI awareness of the project's toolchain without requiring it to discover this information itself.

@@ -7,6 +7,7 @@
 | Linux host | Debian/Ubuntu | Recommended OS |
 | OpenRouter Key | — | Required for LLM access ([openrouter.ai](https://openrouter.ai)) |
 | WhatsApp Account| — | Required for primary interface |
+| Node.js + npm | Node 20+ recommended | Needed to install/update harness CLIs on host |
 
 > **Note:** The canonical installer is `scripts/install.sh` (also accessible through root `install.sh` wrapper).
 
@@ -18,7 +19,7 @@ Use this flow on a Raspberry Pi running Ubuntu Server/Desktop 64-bit.
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git curl ca-certificates gnupg lsb-release tar python3 python3-pip
+sudo apt install -y git curl ca-certificates gnupg lsb-release tar python3 python3-pip nodejs npm
 ```
 
 ### 2. Install Docker + Compose plugin
@@ -103,11 +104,23 @@ OPENROUTER_API_KEY=sk-or-...
 
 Fetch uses CLI tools on your host for AI coding tasks. You should authenticate the ones you plan to use:
 
-- **GitHub CLI (repo sync, optional Copilot)**: `gh auth login`
-- **Claude Code**: `claude login`
-- **Gemini CLI**: Set `GEMINI_API_KEY` in `.env`
-- **OpenCode**: `opencode auth login`
-- **Codex**: `codex login`
+Node/npm install docs:
+- https://nodejs.org/en/download/package-manager
+- https://docs.npmjs.com/downloading-and-installing-node-js-and-npm
+
+- **GitHub Copilot CLI** (install + auth): https://docs.github.com/en/copilot/how-tos/set-up/install-copilot-cli
+- **Claude Code** (install + auth): https://docs.claude.com/en/docs/claude-code/getting-started
+- **Gemini CLI** (install): https://github.com/google-gemini/gemini-cli
+- **OpenCode** (install): https://opencode.ai/docs/
+- **Codex CLI** (install + auth): https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started
+
+Common login commands after install:
+
+- `gh auth login`
+- `claude login`
+- Set `GEMINI_API_KEY` in `.env`
+- `opencode auth login`
+- `codex --login`
 
 The Manager TUI's **🐕 Harnesses** screen helps manage this state.
 
