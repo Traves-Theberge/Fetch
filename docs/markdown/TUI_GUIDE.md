@@ -39,15 +39,14 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 
 | Option | Badge | Action |
 |--------|-------|--------|
-| 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
-| 🐕 Harnesses | `[X/5 auth]` | Manage auth, enable/disable, API keys, and models for all 5 harnesses |
 | 🚀 Start Fetch | `[Running]` / `[Partial]` / `[Stopped]` | Runs `docker compose up -d --build` to start containers |
 | 🛑 Stop Fetch | — | Runs `docker compose down` to stop services |
-| ⚙️ Settings | — | General config (owner phone, API key, model) + Advanced pipeline tuning |
-| 🔐 Trusted Numbers | — | Manage the phone number whitelist (`data/whitelist.json`) |
+| 🔄 Update Fetch | — | Runs `fetch self update` in-process, then exits TUI on success (relaunch with `fetch tui`) |
+| 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
 | 📄 View Logs | — | Stream live container logs |
-| 🕒 Session History | — | View and manage past conversation histories |
 | 📚 Documentation | — | Opens the docs site in your browser |
+| ⚙️ Settings | `[X/5 auth]` | General config, harness auth/config, trusted numbers |
+| 💬 Global Sessions | — | View and manage persisted conversation sessions |
 | ℹ️ Version | — | Shows system version info (neofetch-style) |
 | ❌ Exit | — | Quit the TUI |
 

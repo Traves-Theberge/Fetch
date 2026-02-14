@@ -60,6 +60,11 @@ type actionResultMsg struct {
 	message string
 }
 
+// updateFetchDoneMsg carries the result of an in-TUI Fetch update run.
+type updateFetchDoneMsg struct {
+	err error
+}
+
 // sessionsMsg carries the list of sessions
 type sessionsMsg struct {
 	sessions []status.SessionSummary
@@ -219,15 +224,18 @@ func initialModel() model {
 	// New Custom Order:
 	// 1. Start Fetch
 	// 2. Stop Fetch
-	// 3. Setup WhatsApp
-	// 4. View Logs
-	// 5. Documentation
-	// 6. Settings (Sub-menu)
-	// 7. Version
-	// 8. Exit
+	// 3. Update Fetch
+	// 4. Setup WhatsApp
+	// 5. View Logs
+	// 6. Documentation
+	// 7. Settings (Sub-menu)
+	// 8. Global Sessions
+	// 9. Version
+	// 10. Exit
 	menu := components.NewMenu("", []components.MenuItem{
 		{Icon: "\U0001f680", Label: "Start Fetch"},
 		{Icon: "\U0001f6d1", Label: "Stop Fetch"},
+		{Icon: "\U0001f504", Label: "Update Fetch"},
 		{Icon: "\U0001f4f1", Label: "Setup WhatsApp"},
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
@@ -288,7 +296,7 @@ func (m model) buildMenuBadges() {
 		}
 	}
 
-	// Harness Auth badge - Moved to Settings item (Index 5)
+	// Harness Auth badge - Moved to Settings item (Index 6)
 	authCount := 0
 	for _, hs := range m.harnessStatuses {
 		if hs.authed {
@@ -296,9 +304,9 @@ func (m model) buildMenuBadges() {
 		}
 	}
 	if authCount > 0 {
-		items[5].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
+		items[6].Badge = fmt.Sprintf("[%d/%d auth]", authCount, len(m.harnessStatuses))
 	} else {
-		items[5].Badge = ""
+		items[6].Badge = ""
 	}
 
 	m.mainMenu.Items = items
@@ -381,6 +389,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.actionMessage = msg.message
 		m.actionSuccess = msg.success
 		return m, checkStatus
+
+	case updateFetchDoneMsg:
+		if msg.err != nil {
+			m.actionMessage = fmt.Sprintf("Update failed: %v", msg.err)
+			m.actionSuccess = false
+			return m, nil
+		}
+		fmt.Println("[fetch-manager] Update complete. Please relaunch with: fetch tui")
+		m.quitting = true
+		return m, tea.Quit
 
 	case logMsg:
 		m.logLines = msg.lines
@@ -630,27 +648,29 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, startFetchCmd()
 		case 1: // Stop Fetch
 			return m, stopFetchCmd()
-		case 2: // Setup WhatsApp
+		case 2: // Update Fetch
+			return m, updateFetchCmd()
+		case 3: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
-		case 3: // View Logs
+		case 4: // View Logs
 			m.screen = screenLogs
 			return m, tea.Batch(fetchLogs, logTickCmd())
-		case 4: // Documentation
+		case 5: // Documentation
 			return m, openDocs
-		case 5: // Settings (Sub-menu)
+		case 6: // Settings (Sub-menu)
 			m.screen = screenConfig
 			m.configMode = 0 // Sub-menu mode
 			return m, nil
-		case 6: // Global Sessions
+		case 7: // Global Sessions
 			m.screen = screenSessions
 			m.sessionLoading = true
 			return m, m.fetchSessionsCmd()
-		case 7: // Version
+		case 8: // Version
 			m.screen = screenVersion
 			return m, nil
-		case 8: // Exit
+		case 9: // Exit
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -948,6 +968,46 @@ func stopFetchCmd() tea.Cmd {
 		}
 		return actionResultMsg{success: true, message: "🛑 Fetch services stopped."}
 	}
+}
+
+func resolveFetchCLIPath() (string, error) {
+	if p, err := exec.LookPath("fetch"); err == nil {
+		return p, nil
+	}
+
+	if exePath, err := os.Executable(); err == nil {
+		candidate := filepath.Clean(filepath.Join(filepath.Dir(exePath), "..", "scripts", "fetch-cli.sh"))
+		if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
+			return candidate, nil
+		}
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		candidates := []string{
+			filepath.Join(cwd, "scripts", "fetch-cli.sh"),
+			filepath.Join(cwd, "..", "scripts", "fetch-cli.sh"),
+		}
+		for _, candidate := range candidates {
+			if st, statErr := os.Stat(candidate); statErr == nil && !st.IsDir() {
+				return candidate, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("could not locate fetch CLI on PATH or local repo (expected scripts/fetch-cli.sh)")
+}
+
+// updateFetchCmd runs `fetch self update` from the TUI and exits on success.
+func updateFetchCmd() tea.Cmd {
+	fetchPath, err := resolveFetchCLIPath()
+	if err != nil {
+		return func() tea.Msg { return updateFetchDoneMsg{err: err} }
+	}
+
+	cmd := exec.Command(fetchPath, "self", "update")
+	return tea.ExecProcess(cmd, func(execErr error) tea.Msg {
+		return updateFetchDoneMsg{err: execErr}
+	})
 }
 
 // reloadConfigCmd triggers a hot-reload of configuration in the running bridge.
