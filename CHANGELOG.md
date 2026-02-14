@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.54] - 2026-02-14
+
+### Changed
+
+- **Reaction approval safety** — Bridge now ignores reaction-triggered approvals during startup warmup, deduplicates repeated reaction events, and only applies emoji approvals when a task is actually in `waiting_input`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.54`.
+
 ## [0.0.53] - 2026-02-14
 
 ### Changed

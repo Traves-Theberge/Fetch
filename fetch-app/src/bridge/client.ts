@@ -20,6 +20,7 @@ import { pipeline } from '../config/pipeline.js';
 import { SecurityGate, RateLimiter, validateInput } from '../security/index.js';
 import { handleMessage, initializeHandler, shutdown, registerWhatsAppSender } from '../handler/index.js';
 import { getTaskIntegration } from '../task/integration.js';
+import { getTaskManager } from '../task/manager.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
 import { transcribeAudio, isTranscriptionAvailable } from '../transcription/index.js';
 import { analyzeImage, isVisionAvailable } from '../vision/index.js';
@@ -159,7 +160,11 @@ export class Bridge {
   private securityGate: SecurityGate;
   private rateLimiter: RateLimiter;
   private deduplicator = new MessageDeduplicator();
+  private reactionDedup = new Map<string, number>();
   private isReady = false;
+  private readyAt = 0;
+  private readonly reactionWarmupMs = 60_000;
+  private readonly reactionDedupTtlMs = 10_000;
 
   // Reconnection state
   private reconnectAttempts = 0;
@@ -265,6 +270,7 @@ export class Bridge {
       this.reconnectAttempts = 0;
       this.isReconnecting = false;
       this.isReady = true;
+      this.readyAt = Date.now();
 
       logger.section('🐕 Fetch is Ready!');
       logger.success('WhatsApp connected and listening for commands');
@@ -304,6 +310,10 @@ export class Bridge {
       try {
         // 1. Skip if bridge not fully ready (prevents startup sync spam)
         if (!this.isReady) return;
+        if (Date.now() - this.readyAt < this.reactionWarmupMs) {
+          logger.debug('Skipped reaction during startup warmup');
+          return;
+        }
 
         // 2. Only process reactions from owner or trusted whitelist members
         const senderId = reaction.senderId;
@@ -318,13 +328,34 @@ export class Bridge {
         if (!msgId) return;
 
         const emoji = reaction.reaction;
-        logger.info(`Reaction received: ${emoji} from authorized user on message ${msgId._serialized || msgId}`);
+        const serializedMsgId = msgId._serialized || String(msgId);
+        const dedupKey = `${senderId}:${serializedMsgId}:${emoji}`;
+        const now = Date.now();
+        const lastSeen = this.reactionDedup.get(dedupKey);
+        if (lastSeen && (now - lastSeen) < this.reactionDedupTtlMs) {
+          logger.debug(`Skipped duplicate reaction: ${dedupKey}`);
+          return;
+        }
+        this.reactionDedup.set(dedupKey, now);
+        for (const [k, ts] of this.reactionDedup) {
+          if ((now - ts) > this.reactionDedupTtlMs) this.reactionDedup.delete(k);
+        }
+
+        logger.info(`Reaction received: ${emoji} from authorized user on message ${serializedMsgId}`);
 
         // Map reactions to actions
         // 👍 = approve/continue, 👎 = cancel/reject, ❌ = cancel
         const approveEmojis = ['👍', '✅', '👌', '🙌', '💯'];
         const rejectEmojis = ['👎', '❌', '🚫', '⛔'];
         const cancelEmojis = ['🛑', '⏹️', '❌'];
+        const taskManager = await getTaskManager();
+        const currentTask = taskManager.getCurrentTask();
+        const awaitingInput = currentTask?.status === 'waiting_input';
+
+        if (!awaitingInput) {
+          logger.debug('Ignored reaction approval: no task awaiting input');
+          return;
+        }
 
         if (approveEmojis.includes(emoji)) {
           logger.info('Processing approval via reaction');
