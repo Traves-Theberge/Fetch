@@ -71,7 +71,7 @@ services:
     container_name: fetch-kennel
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "test", "-f", "/tmp/kennel-ready" ]
+      test: [ "CMD-SHELL", "command -v git >/dev/null && command -v node >/dev/null && test -d /workspace" ]
       interval: 30s
       timeout: 5s
       retries: 3
