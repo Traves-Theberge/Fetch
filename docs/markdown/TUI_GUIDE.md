@@ -40,7 +40,7 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 | Option | Badge | Action |
 |--------|-------|--------|
 | 🚀 Start Fetch | `[Running]` / `[Partial]` / `[Stopped]` | Runs `docker compose up -d --build` to start containers |
-| 🛑 Stop Fetch | — | Runs `docker compose down` to stop services |
+| 🛑 Stop Fetch | — | Runs `docker compose down` to stop services and verifies final container state |
 | 🔄 Update Fetch | — | Runs `fetch self update` in-process, then exits TUI on success (relaunch with `fetch tui`) |
 | 📱 Setup WhatsApp | — | Opens the QR code scanner for WhatsApp authentication |
 | 📄 View Logs | — | Stream live container logs |
@@ -78,6 +78,18 @@ Shows the QR code rendered directly in the terminal using Unicode block characte
 | `Esc` | Return to main menu |
 
 The session persists across restarts. You only need to scan once unless you manually log out.
+
+**Live status refresh:** While this screen is open, the Manager continuously polls Bridge status. If the Bridge moves from `disconnected` to `qr_pending` or `authenticated`, the view updates automatically without restarting Fetch.
+
+---
+
+### Stop Fetch Feedback
+
+The Stop action now reports explicit outcomes after checking container state:
+
+- `🛑 Fetch services stopped.` — services were running and are now stopped
+- `ℹ️ Fetch services were already stopped.` — nothing was running
+- `Stop requested, but still running: ...` — at least one expected container is still up
 
 ---
 

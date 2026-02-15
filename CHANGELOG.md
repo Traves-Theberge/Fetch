@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.64] - 2026-02-15
+
+### Changed
+
+- **WhatsApp Setup live status refresh** — Manager now continuously polls bridge status while on the Setup screen, so disconnected/QR/authenticated transitions update without requiring restart.
+- **TUI stop action feedback hardening** — Stop now verifies container state post-action and reports clear outcomes (`stopped`, `already stopped`, or still-running container names).
+- **Version bump** — Bumped project/runtime package versions to `v0.0.64`.
+
 ## [0.0.63] - 2026-02-15
 
 ### Changed
