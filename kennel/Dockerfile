@@ -38,7 +38,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
     && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
-RUN gh extension install github/gh-copilot || true
+RUN gh copilot --help >/dev/null 2>&1 || gh extension install github/gh-copilot || true
 
 # ============================================
 # Install AI CLIs (Claude, Gemini, OpenCode, Codex)

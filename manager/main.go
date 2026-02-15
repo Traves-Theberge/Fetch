@@ -1357,18 +1357,21 @@ func checkGitHubStatus() harnessAuthStatus {
 		return hs
 	}
 	hs.installed = true
-	extInstalled := false
+	copilotAvailable := false
+	if err := exec.Command("gh", "copilot", "--help").Run(); err == nil {
+		copilotAvailable = true
+	}
 	if extOut, extErr := exec.Command("gh", "extension", "list").CombinedOutput(); extErr == nil {
 		for _, line := range strings.Split(string(extOut), "\n") {
 			fields := strings.Fields(strings.TrimSpace(line))
 			if len(fields) > 0 && fields[0] == "github/gh-copilot" {
-				extInstalled = true
+				copilotAvailable = true
 				break
 			}
 		}
 	}
-	if !extInstalled {
-		hs.detail = "gh-copilot extension missing (press 'n' to install harness)"
+	if !copilotAvailable {
+		hs.detail = "Copilot command missing (press 'n' to install harness)"
 	}
 	out, err := exec.Command("gh", "auth", "status").CombinedOutput()
 	if err != nil && len(out) == 0 {
@@ -1408,13 +1411,13 @@ func checkGitHubStatus() harnessAuthStatus {
 		accounts = append(accounts, *current)
 	}
 	hs.ghAccounts = accounts
-	hs.authed = len(accounts) > 0 && extInstalled
+	hs.authed = len(accounts) > 0 && copilotAvailable
 	for _, a := range accounts {
 		if a.active {
-			if extInstalled {
+			if copilotAvailable {
 				hs.detail = a.user
 			} else {
-				hs.detail = a.user + " (gh-copilot extension missing)"
+				hs.detail = a.user + " (Copilot command missing)"
 			}
 			break
 		}

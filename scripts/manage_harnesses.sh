@@ -88,6 +88,12 @@ gh_copilot_install() {
     fail "GitHub auth is required first. Run 'gh auth login' (or set GH_TOKEN in .env), then retry."
   fi
 
+  # Newer gh releases may include "copilot" as a built-in command instead of an extension.
+  if gh copilot --help >/dev/null 2>&1; then
+    log "GitHub Copilot command already available"
+    return 0
+  fi
+
   if gh extension list >/dev/null 2>&1 && gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$'; then
     log "GitHub Copilot extension already installed"
     return 0
@@ -127,20 +133,23 @@ uninstall_one() {
 }
 
 print_status() {
-  local gh_cli=0 gh_ext=0
+  local gh_cli=0 gh_copilot=0
   command -v gh >/dev/null 2>&1 && gh_cli=1
   if [[ $gh_cli -eq 1 ]]; then
     load_github_token_from_env_file
+    if gh copilot --help >/dev/null 2>&1; then
+      gh_copilot=1
+    fi
     if gh extension list >/dev/null 2>&1 && gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$'; then
-      gh_ext=1
+      gh_copilot=1
     fi
   fi
   if [[ $gh_cli -eq 0 ]]; then
     echo "github:   gh-cli-missing"
-  elif [[ $gh_ext -eq 1 ]]; then
+  elif [[ $gh_copilot -eq 1 ]]; then
     echo "github:   installed"
   else
-    echo "github:   extension-missing"
+    echo "github:   copilot-missing"
   fi
   command -v claude >/dev/null 2>&1 && echo "claude:   installed" || echo "claude:   missing"
   command -v gemini >/dev/null 2>&1 && echo "gemini:   installed" || echo "gemini:   missing"

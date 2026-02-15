@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.62] - 2026-02-15
+
+### Changed
+
+- **GitHub Copilot compatibility across `gh` variants** — Harness install/status logic now treats Copilot as available when `gh copilot` is built in, while still supporting legacy `github/gh-copilot` extension installs.
+- **TUI GitHub readiness detection update** — Manager GitHub auth status now reports Copilot command availability instead of requiring extension-only detection, eliminating repeated false "extension missing" prompts on newer GitHub CLI.
+- **Kennel build install guard** — Docker build now checks for built-in `gh copilot` before attempting extension install to avoid noisy name-conflict loops.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.62`.
+
 ## [0.0.61] - 2026-02-15
 
 ### Changed
