@@ -841,7 +841,7 @@ Major TUI improvements for the Fetch Manager, including a shared screen layout s
 
 ### 🌐 Web Fetch, Web Search & Browser Automation
 
-Fetch gains 6 new tools for web content retrieval, search, and browser automation — all 100% free with no API keys required. Inspired by OpenClaw's approach, adapted for Fetch's dual-container architecture.
+Fetch gains 6 new tools for web content retrieval, search, and browser automation — all 100% free with no API keys required, adapted for Fetch's dual-container architecture.
 
 - **Web Tools (2 new):**
   - `web_fetch` — Fetches a URL and extracts readable content as markdown using jsdom + Mozilla Readability + Turndown. Blocks private/internal URLs (localhost, 10.x, 192.168.x, etc.). Supports CSS selector extraction. 50k char limit, 30s timeout.
