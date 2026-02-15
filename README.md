@@ -166,7 +166,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc   # bash
 # fish_add_path $HOME/.local/bin                           # fish
 
 # 3. Guided setup
-fetch setup --install-gh-cli
+fetch setup --install-prereqs --install-gh-cli --install-harnesses
 
 # 4. Configure
 nano ~/.fetch/repo/.env
@@ -186,6 +186,8 @@ fetch self pin <version>
 fetch self doctor --json
 fetch config validate
 fetch config doctor
+fetch harness status
+fetch harness install all
 fetch uninstall
 # optional deep cleanup:
 fetch uninstall --with-docker --with-deps --clean-path

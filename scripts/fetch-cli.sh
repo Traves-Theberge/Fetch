@@ -39,6 +39,10 @@ Commands:
   setup              Guided host/bootstrap setup checks
   setup --install-gh-cli
                      Attempt host install of GitHub CLI prerequisite
+  setup --install-prereqs
+                     Install host prerequisites (git/curl/docker/node/npm/go)
+  setup --install-harnesses
+                     Install all harness CLIs on host
   up                 Start Fetch services (docker compose up -d --build)
   down               Stop Fetch services
   restart            Restart Fetch services
@@ -49,6 +53,11 @@ Commands:
 
   config validate    Validate .env values and required keys
   config doctor      Diagnose config and integration readiness
+  harness status     Show harness install status on host
+  harness install <name|all>
+                     Install one harness CLI (github/claude/gemini/opencode/codex)
+  harness uninstall <name|all>
+                     Uninstall one harness CLI (github/claude/gemini/opencode/codex)
 
   self doctor        Validate local environment and install
   self doctor --json Output machine-readable doctor results
@@ -56,7 +65,7 @@ Commands:
   self update --channel <name>
   self update --manifest-url <url>
                      Update from a release channel (stable/beta/nightly)
-  self pin <version> Install exact manifest version (example: v0.0.57)
+  self pin <version> Install exact manifest version (example: v0.0.58)
   self version       Show installed version and git commit
 
   help               Show this help
@@ -429,10 +438,14 @@ cmd_setup() {
   need_repo
   local non_interactive=0
   local install_gh_cli=0
+  local install_prereqs=0
+  local install_harnesses=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --non-interactive) non_interactive=1; shift ;;
       --install-gh-cli) install_gh_cli=1; shift ;;
+      --install-prereqs) install_prereqs=1; shift ;;
+      --install-harnesses) install_harnesses=1; shift ;;
       *)
         echo "[fetch] unknown option for setup: $1" >&2
         exit 1
@@ -444,6 +457,14 @@ cmd_setup() {
   if [[ ! -f "$REPO_DIR/.env" && -f "$REPO_DIR/.env.example" ]]; then
     cp "$REPO_DIR/.env.example" "$REPO_DIR/.env"
     echo "  ✅ created .env from .env.example"
+  fi
+  if [[ $install_prereqs -eq 1 ]]; then
+    if [[ -x "$REPO_DIR/scripts/install_prereqs.sh" ]]; then
+      echo "  • installing host prerequisites..."
+      "$REPO_DIR/scripts/install_prereqs.sh"
+    else
+      echo "  ⚠️  scripts/install_prereqs.sh not found; skipping prerequisites"
+    fi
   fi
   if [[ $install_gh_cli -eq 1 ]]; then
     if command -v gh >/dev/null 2>&1; then
@@ -459,6 +480,14 @@ cmd_setup() {
     else
       echo "  ⚠️  scripts/install_gh_cli.sh not found; install gh manually"
       gh_install_hint
+    fi
+  fi
+  if [[ $install_harnesses -eq 1 ]]; then
+    if [[ -x "$REPO_DIR/scripts/manage_harnesses.sh" ]]; then
+      echo "  • installing harness CLIs..."
+      "$REPO_DIR/scripts/manage_harnesses.sh" install all
+    else
+      echo "  ⚠️  scripts/manage_harnesses.sh not found; skipping harness install"
     fi
   fi
   ensure_admin_token
@@ -478,10 +507,39 @@ cmd_setup() {
   cat <<EOF
 [fetch] setup: next steps
   1) Validate: fetch self doctor
-  2) Install:  gh auth login
-  3) Start:    fetch up
-  4) Launch:   fetch tui
+  2) Install:  fetch setup --install-prereqs --install-gh-cli --install-harnesses
+  3) Login:    gh auth login
+  4) Start:    fetch up
+  5) Launch:   fetch tui
 EOF
+}
+
+cmd_harness() {
+  need_repo
+  local sub="${1:-}"
+  local target="${2:-}"
+  local script="$REPO_DIR/scripts/manage_harnesses.sh"
+  [[ -x "$script" ]] || {
+    echo "[fetch] harness manager script not found: $script" >&2
+    exit 1
+  }
+  case "$sub" in
+    status)
+      "$script" status
+      ;;
+    install|uninstall)
+      [[ -n "$target" ]] || {
+        echo "Usage: fetch harness $sub <github|claude|gemini|opencode|codex|all>" >&2
+        exit 1
+      }
+      "$script" "$sub" "$target"
+      ;;
+    *)
+      echo "Unknown harness command: ${sub:-<empty>}" >&2
+      echo "Usage: fetch harness <status|install|uninstall> [target]" >&2
+      exit 1
+      ;;
+  esac
 }
 
 self_update() {
@@ -607,6 +665,7 @@ main() {
     logs) cmd_logs "$@" ;;
     tui) cmd_tui "$@" ;;
     uninstall) cmd_uninstall "$@" ;;
+    harness) cmd_harness "$@" ;;
     config)
       local sub="${1:-}"
       shift || true

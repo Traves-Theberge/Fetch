@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.58] - 2026-02-14
+
+### Changed
+
+- **TUI harness package management** — Harness screen now supports per-harness install/uninstall actions (`n` install, `u` uninstall) and refreshes status immediately after action completion.
+- **GitHub harness readiness detection** — GitHub harness status now requires `gh-copilot` extension presence (not just `gh` binary), with explicit inline guidance when missing.
+- **CLI harness manager commands** — Added `fetch harness status`, `fetch harness install <name|all>`, and `fetch harness uninstall <name|all>` wrappers for host harness lifecycle management.
+- **Guided prerequisite packaging** — Added `scripts/install_prereqs.sh` and wired `fetch setup --install-prereqs` for one-command host bootstrap of core dependencies.
+- **Guided harness packaging** — Added `scripts/manage_harnesses.sh` and wired `fetch setup --install-harnesses`; legacy `scripts/update_harnesses.sh` now delegates to the new manager.
+- **Docs refreshed for guided setup** — Setup/install/TUI/README flows now document full bootstrap path: `fetch setup --install-prereqs --install-gh-cli --install-harnesses`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.58`.
+
 ## [0.0.57] - 2026-02-14
 
 ### Changed

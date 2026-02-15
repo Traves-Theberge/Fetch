@@ -71,6 +71,7 @@ which fetch
 ```bash
 nano ~/.fetch/repo/.env
 fetch setup --install-gh-cli
+fetch setup --install-prereqs --install-gh-cli --install-harnesses
 fetch up
 fetch tui
 ```
@@ -133,6 +134,7 @@ Install GitHub CLI explicitly if needed:
 
 ```bash
 fetch setup --install-gh-cli
+fetch harness install all
 gh --version
 ```
 
@@ -145,6 +147,7 @@ Common login commands after install:
 - `codex --login`
 
 The Manager TUI's **🐕 Harnesses** screen helps manage this state.
+You can also install/uninstall each harness directly in TUI (`n`/`u` on selected harness).
 
 ### 4. Start Fetch
 

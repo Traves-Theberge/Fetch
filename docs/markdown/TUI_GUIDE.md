@@ -150,6 +150,8 @@ Each harness is shown as a row with icon, name, auth status, and enable badge. T
 | `a` | Edit API key for selected harness |
 | `m` | Edit model for selected harness |
 | `i` | Install GitHub CLI on host (GitHub row only) |
+| `n` | Install selected harness CLI |
+| `u` | Uninstall selected harness CLI |
 | `l` | Login the selected harness (launches interactive CLI) |
 | `d` | Logout the selected harness |
 | `r` | Refresh all harness statuses and config |

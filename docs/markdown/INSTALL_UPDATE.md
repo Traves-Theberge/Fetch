@@ -61,6 +61,7 @@ Node/npm install docs:
 ```bash
 fetch setup
 fetch setup --install-gh-cli
+fetch setup --install-prereqs --install-gh-cli --install-harnesses
 fetch self doctor
 fetch self doctor --json
 fetch self version
@@ -69,13 +70,16 @@ fetch self update --channel beta
 fetch self pin <version>
 fetch config validate
 fetch config doctor
+fetch harness status
+fetch harness install all
+fetch harness uninstall codex
 fetch uninstall
 ```
 
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.57
+fetch self pin v0.0.58
 ```
 
 ## Service Lifecycle

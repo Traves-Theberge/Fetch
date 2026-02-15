@@ -143,6 +143,13 @@ type harnessAuthResultMsg struct {
 	err     error
 }
 
+// harnessManageResultMsg carries harness install/uninstall results.
+type harnessManageResultMsg struct {
+	harness harnessID
+	action  string
+	err     error
+}
+
 // harnessStatusMsg carries status check results for all harnesses
 type harnessStatusMsg struct {
 	statuses []harnessAuthStatus
@@ -462,6 +469,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.screen == screenHarnessAuth {
 			m.harnessChecking = true
 			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd(), reloadConfigCmd(m.statusClient))
+		}
+		return m, nil
+
+	case harnessManageResultMsg:
+		if msg.err != nil {
+			m.actionMessage = fmt.Sprintf("%s %s failed: %v", harnessName(msg.harness), msg.action, msg.err)
+			m.actionSuccess = false
+		} else {
+			m.actionMessage = fmt.Sprintf("✅ %s %s complete", harnessName(msg.harness), msg.action)
+			m.actionSuccess = true
+		}
+		if m.screen == screenHarnessAuth {
+			m.harnessChecking = true
+			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
 		}
 		return m, nil
 
@@ -935,10 +956,17 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "l":
 		// Login selected harness
-		if !selected.installed {
+		if selected.id != harnessGitHub && !selected.installed {
 			m.actionMessage = fmt.Sprintf("%s CLI is not installed", selected.name)
 			m.actionSuccess = false
 			return m, nil
+		}
+		if selected.id == harnessGitHub {
+			if _, err := exec.LookPath("gh"); err != nil {
+				m.actionMessage = "GitHub CLI is not installed"
+				m.actionSuccess = false
+				return m, nil
+			}
 		}
 		return m, loginHarnessCmd(selected.id)
 	case "i":
@@ -947,6 +975,12 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, installGitHubCLICmd()
 		}
 		return m, nil
+	case "n":
+		// Install selected harness CLI
+		return m, installHarnessCmd(selected.id)
+	case "u":
+		// Uninstall selected harness CLI
+		return m, uninstallHarnessCmd(selected.id)
 	case "d":
 		// Logout selected harness
 		if !selected.authed {
@@ -1118,6 +1152,45 @@ func installGitHubCLICmd() tea.Cmd {
 	})
 }
 
+func runHarnessManageCmd(id harnessID, action string) tea.Cmd {
+	var target string
+	switch id {
+	case harnessGitHub:
+		target = "github"
+	case harnessClaude:
+		target = "claude"
+	case harnessGemini:
+		target = "gemini"
+	case harnessOpenCode:
+		target = "opencode"
+	case harnessCodex:
+		target = "codex"
+	default:
+		return nil
+	}
+
+	fetchPath, err := resolveFetchCLIPath()
+	if err != nil {
+		return func() tea.Msg {
+			return harnessManageResultMsg{harness: id, action: action, err: err}
+		}
+	}
+
+	cmd := exec.Command(fetchPath, "harness", action, target)
+	hid := id
+	return tea.ExecProcess(cmd, func(execErr error) tea.Msg {
+		return harnessManageResultMsg{harness: hid, action: action, err: execErr}
+	})
+}
+
+func installHarnessCmd(id harnessID) tea.Cmd {
+	return runHarnessManageCmd(id, "install")
+}
+
+func uninstallHarnessCmd(id harnessID) tea.Cmd {
+	return runHarnessManageCmd(id, "uninstall")
+}
+
 // reloadConfigCmd triggers a hot-reload of configuration in the running bridge.
 // Falls back to a full restart if the reload API is not available.
 func reloadConfigCmd(client *status.Client) tea.Cmd {
@@ -1263,9 +1336,23 @@ func loadHarnessConfigCmd() tea.Cmd {
 func checkGitHubStatus() harnessAuthStatus {
 	hs := harnessAuthStatus{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb"}
 	if _, err := exec.LookPath("gh"); err != nil {
+		hs.detail = "GitHub CLI missing"
 		return hs
 	}
-	hs.installed = true
+	extInstalled := false
+	if extOut, extErr := exec.Command("gh", "extension", "list").CombinedOutput(); extErr == nil {
+		for _, line := range strings.Split(string(extOut), "\n") {
+			fields := strings.Fields(strings.TrimSpace(line))
+			if len(fields) > 0 && fields[0] == "github/gh-copilot" {
+				extInstalled = true
+				break
+			}
+		}
+	}
+	hs.installed = extInstalled
+	if !extInstalled {
+		hs.detail = "gh-copilot extension missing"
+	}
 	out, err := exec.Command("gh", "auth", "status").CombinedOutput()
 	if err != nil && len(out) == 0 {
 		return hs
@@ -1972,7 +2059,11 @@ func (m model) viewHarnessAuth() string {
 		if i == m.harnessCursor {
 			detailIndent := "      "
 			if !hs.installed {
-				content.WriteString(detailIndent + theme.Subtitle.Render("Install the CLI on the host to enable authentication") + "\n")
+				msg := "Install the CLI on the host to enable authentication"
+				if hs.detail != "" {
+					msg = hs.detail
+				}
+				content.WriteString(detailIndent + theme.Subtitle.Render(msg) + "\n")
 			} else {
 				// Auth detail
 				if hs.id == harnessGitHub && len(hs.ghAccounts) > 0 {
@@ -2032,16 +2123,16 @@ func (m model) viewHarnessAuth() string {
 	} else if len(m.harnessStatuses) > 0 && m.harnessCursor < len(m.harnessStatuses) {
 		selected := m.harnessStatuses[m.harnessCursor]
 		if selected.id == harnessGitHub && len(selected.ghAccounts) > 1 {
-			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "e Enable", "a Token", "m Model", "i Install gh", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
+			helpKeys = []string{"↑/↓ Navigate", "←/→ Accounts", "e Enable", "a Token", "m Model", "i Install gh", "n Install harness", "u Uninstall harness", "l Add", "s Switch", "d Remove", "r Refresh", "Esc Back"}
 		} else {
-			base := []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
+			base := []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "n Install harness", "u Uninstall harness", "l Login", "d Logout", "r Refresh", "Esc Back"}
 			if selected.id == harnessGitHub {
-				base = []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "i Install gh", "l Login", "d Logout", "r Refresh", "Esc Back"}
+				base = []string{"↑/↓ Navigate", "e Enable", "a " + selected.apiLabel, "m Model", "i Install gh", "n Install harness", "u Uninstall harness", "l Login", "d Logout", "r Refresh", "Esc Back"}
 			}
 			helpKeys = base
 		}
 	} else {
-		helpKeys = []string{"↑/↓ Navigate", "e Enable", "a API Key", "m Model", "l Login", "d Logout", "r Refresh", "Esc Back"}
+		helpKeys = []string{"↑/↓ Navigate", "e Enable", "a API Key", "m Model", "n Install harness", "u Uninstall harness", "l Login", "d Logout", "r Refresh", "Esc Back"}
 	}
 
 	return layout.ScreenLayout{
