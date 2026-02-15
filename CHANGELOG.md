@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.60] - 2026-02-15
+
+### Changed
+
+- **TUI GitHub install precheck** — Harness install action (`n`) now performs a local GitHub auth precheck and blocks repeated installer subprocess runs until `gh auth login` or `GH_TOKEN` is configured.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.60`.
+
 ## [0.0.59] - 2026-02-15
 
 ### Changed

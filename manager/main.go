@@ -977,6 +977,19 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "n":
 		// Install selected harness CLI
+		if selected.id == harnessGitHub {
+			ghReady := selected.apiKey != ""
+			if !ghReady {
+				if _, err := exec.LookPath("gh"); err == nil {
+					ghReady = exec.Command("gh", "auth", "status").Run() == nil
+				}
+			}
+			if !ghReady {
+				m.actionMessage = "GitHub auth required first. Press 'l' to run gh auth login or set GH_TOKEN, then press 'n'."
+				m.actionSuccess = false
+				return m, nil
+			}
+		}
 		return m, installHarnessCmd(selected.id)
 	case "u":
 		// Uninstall selected harness CLI

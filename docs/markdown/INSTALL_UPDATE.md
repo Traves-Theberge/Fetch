@@ -79,7 +79,7 @@ fetch uninstall
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.59
+fetch self pin v0.0.60
 ```
 
 ## Service Lifecycle
