@@ -44,7 +44,7 @@ The final prompt assembles these sections in order:
 | **Identity** | `COLLAR.md` | Name, emoji, version, voice tone, timestamp |
 | **Directives** | `COLLAR.md` | Primary rules (5), operational guidelines (6), behavioral traits (6) |
 | **Autonomy Rules** | Hardcoded | 9 high-priority behavioral assertions |
-| **Capabilities** | Hardcoded | 8 slash commands, 29 tools, 5 harnesses |
+| **Capabilities** | Hardcoded | 8 slash commands, 29 tools, 5 harnesses; capability questions default to conversational summaries unless full list is explicitly requested (`/help`, "all commands", "full list") |
 | **Session Context** | `prompts.ts` | Active workspace path, git state, task goal, repo map |
 | **Skills** | `SkillManager` | Available skills summary + activated skill instructions |
 | **Response Format** | Hardcoded | WhatsApp constraints (max lines, emoji usage) |

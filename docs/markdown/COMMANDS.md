@@ -35,6 +35,8 @@ These are handled deterministically without an LLM call (<5ms):
 
 Everything else — including project switching, git operations, settings, identity management, skills, scheduling, and coding tasks — is handled by sending natural language to the LLM.
 
+Note: natural-language capability prompts like "what can you do?" now use the LLM conversational path (context-aware and personalized). Use `/help` when you want the deterministic full command/tool catalog.
+
 ## Natural Language (Everything Else)
 
 The LLM has access to 29 orchestrator tools and decides which to call based on your message. Here are examples:
@@ -79,6 +81,7 @@ The LLM has access to 29 orchestrator tools and decides which to call based on y
 | Message | What Fetch Does |
 |---------|----------------|
 | "Hey Fetch!" | LLM responds directly — no tools needed |
+| "What can you do?" | LLM gives a conversational capability overview + suggested next action |
 | "Explain how the rate limiter works" | LLM reads context and explains — may call workspace tools |
 | "What's the status of everything?" | Calls `report_progress` — comprehensive system summary |
 

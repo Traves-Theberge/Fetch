@@ -42,6 +42,7 @@ This is the master documentation index for Fetch.
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Safety gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`). If matched, responds immediately without LLM
 4. **Everything else** goes to the LLM with all 29 tools available — there is no intent classification or conversation/action split
+   - This includes natural-language capability prompts like "what can you do?" (handled conversationally via LLM, not parser shortcuts)
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 7. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
