@@ -39,7 +39,9 @@ export type { CommandResult } from './types.js';
 // =============================================================================
 
 /**
- * Parse a message and execute a deterministic command when applicable.
+ * Parse a message and execute deterministic slash commands when applicable.
+ * Natural-language requests (including "what can you do?") intentionally
+ * pass through to the LLM so responses can stay conversational and contextual.
  *
   * @param message  - Raw user message
   * @param session  - Current session
@@ -52,20 +54,6 @@ export async function parseCommand(
   sessionManager: SessionManager
 ): Promise<CommandResult> {
   const trimmed = message.trim();
-  const lower = trimmed.toLowerCase();
-
-  // Natural language capability queries → return formatted help directly
-  const capabilityTriggers = [
-    'what can you do',
-    'what are your capabilities',
-    'what are you capable of',
-    'what do you do',
-    'show me your tools',
-    'list your abilities'
-  ];
-  if (capabilityTriggers.some(trigger => new RegExp(`\\b${trigger}\\b`).test(lower))) {
-    return { handled: true, responses: [formatHelp()] };
-  }
 
   if (!trimmed.startsWith('/')) {
     return { handled: false, shouldProcess: true };

@@ -81,17 +81,18 @@ Run each command (aliases in parentheses):
 - [ ] `/usage` (`/u`) — OpenRouter usage
 - [ ] `/trust` — owner-only whitelist management (`list`, `add`, `remove`)
 
-### 2.2 Capability Trigger (Bypasses LLM)
+### 2.2 Capability Queries (LLM Conversational Path)
 
-These messages should return the same help output as `/help`:
+These messages should go through the normal LLM path (not deterministic `/help` shortcut):
 
 ```
 @fetch show me your tools
 @fetch what can you do
 ```
 
-- [ ] Output is the compact help message (not JSON)
-- [ ] Tool list matches the help formatter (expected to be a subset, not all tools)
+- [ ] Output is conversational and context-aware (not a static command dump)
+- [ ] Output suggests one concrete next action Fetch can take immediately
+- [ ] `/help` still returns the deterministic full help catalog
 
 ### 2.3 Full Tool Coverage (LLM Output)
 
@@ -196,4 +197,3 @@ Capture these for each testing run:
 - [ ] Durations for task start → completion
 - [ ] Number of progress updates per task
 - [ ] Any flake/retry notes and relevant logs or screenshots
-

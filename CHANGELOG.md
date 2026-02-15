@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.63] - 2026-02-15
+
+### Changed
+
+- **Conversational capability routing** — Natural-language capability prompts (for example, "what can you do?") now flow through the normal LLM path instead of being hard-routed to static `/help` output.
+- **Safety-gate behavior clarified** — Parser JSDoc now explicitly documents slash-command determinism and conversational pass-through for non-slash input.
+- **Identity tone guidance expanded** — Updated identity directives to emphasize conversational, operator-style responses with concrete next actions over template-like command dumps.
+- **Testing guidance updated** — `TESTING_GUIDE.md` now validates conversational capability responses while preserving deterministic `/help`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.63`.
+
 ## [0.0.62] - 2026-02-15
 
 ### Changed

@@ -1,7 +1,7 @@
 /**
  * @fileoverview Command Parser Tests — Safety Gate
  *
- * Tests for the v4.0 safety-gate parser. Only 5 escape-hatch commands
+ * Tests for the safety-gate parser. Only deterministic slash commands
  * are intercepted; everything else passes through to the LLM.
  */
 
@@ -57,6 +57,12 @@ describe('Command Parser — Safety Gate', () => {
 
   it('should pass non-slash messages through to LLM', async () => {
     const result = await parseCommand('hello world', session, sm);
+    expect(result.handled).toBe(false);
+    expect(result.shouldProcess).toBe(true);
+  });
+
+  it('should pass natural-language capability questions through to LLM', async () => {
+    const result = await parseCommand('what can you do?', session, sm);
     expect(result.handled).toBe(false);
     expect(result.shouldProcess).toBe(true);
   });

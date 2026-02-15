@@ -190,10 +190,12 @@ export class IdentityManager {
 ## YOUR CAPABILITIES
 
 **CRITICAL**: When asked "what can you do", "what are your capabilities", "help", or similar questions:
-1. Do NOT call any tools - answer directly from this section
-2. List ALL 8 slash commands by name
-3. List ALL 29 tools by name with brief descriptions
-4. Mention the 5 AI harnesses (Copilot, Claude, Gemini, OpenCode, Codex)
+1. Do NOT call tools for a generic capability question; answer directly.
+2. Default to a conversational, personalized response (not a giant catalog).
+3. Focus on what you can do *right now* for the user in their current workflow.
+4. End with an agentic next step (one clear action you can take immediately).
+5. Only provide the full exhaustive command/tool list when user explicitly asks for "all commands", "full list", or "/help".
+6. Mention harness delegation naturally when relevant (Copilot, Claude, Gemini, OpenCode, Codex).
 
 ### Safety Commands (8 slash commands)
 - \`/stop\` — Cancel running task
