@@ -30,6 +30,3 @@
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commits (examples: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `build:`); scopes are optional.
 - PRs should include: a concise description, rationale, and test evidence (commands run + results). Add screenshots for docs/UX changes when relevant.
-
-## Architecture Notes
-Fetch is a three-container system: `fetch-bridge` (Node.js brain), `fetch-kennel` (sandboxed agent runtime), and `searxng` (meta search). See `CLAUDE.md` and `README.md` for deeper workflows.
