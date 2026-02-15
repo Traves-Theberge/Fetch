@@ -23,6 +23,40 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
 }
 
+load_github_token_from_env_file() {
+  local repo_root env_file token
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  env_file="$repo_root/.env"
+
+  [[ -z "${GH_TOKEN:-}" ]] || return 0
+  [[ -f "$env_file" ]] || return 0
+
+  token="$(awk -F= '
+    /^[[:space:]]*#/ {next}
+    /^[[:space:]]*$/ {next}
+    {
+      line=$0
+      sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+      key=line
+      sub(/=.*/, "", key)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+      if (key=="GH_TOKEN") {
+        val=line
+        sub(/^[^=]*=/, "", val)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+        gsub(/^"|"$/, "", val)
+        gsub(/^'\''|'\''$/, "", val)
+        print val
+        exit
+      }
+    }
+  ' "$env_file")"
+
+  if [[ -n "$token" ]]; then
+    export GH_TOKEN="$token"
+  fi
+}
+
 npm_global_install() {
   local pkg="$1"
   need_cmd npm
@@ -48,10 +82,17 @@ npm_global_uninstall() {
 
 gh_copilot_install() {
   need_cmd gh
-  if gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$'; then
+  load_github_token_from_env_file
+
+  if ! gh auth status >/dev/null 2>&1 && [[ -z "${GH_TOKEN:-}" ]]; then
+    fail "GitHub auth is required first. Run 'gh auth login' (or set GH_TOKEN in .env), then retry."
+  fi
+
+  if gh extension list >/dev/null 2>&1 && gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$'; then
     log "GitHub Copilot extension already installed"
     return 0
   fi
+
   gh extension install github/gh-copilot
 }
 
@@ -86,9 +127,21 @@ uninstall_one() {
 }
 
 print_status() {
-  local ok=0
-  command -v gh >/dev/null 2>&1 && gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$' && ok=1
-  printf "github:   %s\n" "$([[ $ok -eq 1 ]] && echo installed || echo missing)"
+  local gh_cli=0 gh_ext=0
+  command -v gh >/dev/null 2>&1 && gh_cli=1
+  if [[ $gh_cli -eq 1 ]]; then
+    load_github_token_from_env_file
+    if gh extension list >/dev/null 2>&1 && gh extension list | awk '{print $1}' | grep -q '^github/gh-copilot$'; then
+      gh_ext=1
+    fi
+  fi
+  if [[ $gh_cli -eq 0 ]]; then
+    echo "github:   gh-cli-missing"
+  elif [[ $gh_ext -eq 1 ]]; then
+    echo "github:   installed"
+  else
+    echo "github:   extension-missing"
+  fi
   command -v claude >/dev/null 2>&1 && echo "claude:   installed" || echo "claude:   missing"
   command -v gemini >/dev/null 2>&1 && echo "gemini:   installed" || echo "gemini:   missing"
   command -v opencode >/dev/null 2>&1 && echo "opencode: installed" || echo "opencode: missing"

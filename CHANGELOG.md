@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.59] - 2026-02-15
+
+### Changed
+
+- **GitHub harness install flow hardening** — `manage_harnesses.sh` now pre-checks GitHub auth/token before `gh-copilot` installation and can load `GH_TOKEN` from `.env` automatically to avoid repeated noisy install failures.
+- **GitHub harness status accuracy** — TUI now treats installed `gh` as host-installed and reports extension readiness separately (`Extension Missing`) instead of incorrectly showing `Not Installed`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.59`.
+
 ## [0.0.58] - 2026-02-14
 
 ### Changed

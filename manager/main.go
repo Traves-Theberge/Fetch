@@ -1336,9 +1336,10 @@ func loadHarnessConfigCmd() tea.Cmd {
 func checkGitHubStatus() harnessAuthStatus {
 	hs := harnessAuthStatus{id: harnessGitHub, name: "GitHub (Copilot)", icon: "\U0001f4bb"}
 	if _, err := exec.LookPath("gh"); err != nil {
-		hs.detail = "GitHub CLI missing"
+		hs.detail = "GitHub CLI missing (press 'i' to install gh)"
 		return hs
 	}
+	hs.installed = true
 	extInstalled := false
 	if extOut, extErr := exec.Command("gh", "extension", "list").CombinedOutput(); extErr == nil {
 		for _, line := range strings.Split(string(extOut), "\n") {
@@ -1349,9 +1350,8 @@ func checkGitHubStatus() harnessAuthStatus {
 			}
 		}
 	}
-	hs.installed = extInstalled
 	if !extInstalled {
-		hs.detail = "gh-copilot extension missing"
+		hs.detail = "gh-copilot extension missing (press 'n' to install harness)"
 	}
 	out, err := exec.Command("gh", "auth", "status").CombinedOutput()
 	if err != nil && len(out) == 0 {
@@ -1391,10 +1391,14 @@ func checkGitHubStatus() harnessAuthStatus {
 		accounts = append(accounts, *current)
 	}
 	hs.ghAccounts = accounts
-	hs.authed = len(accounts) > 0
+	hs.authed = len(accounts) > 0 && extInstalled
 	for _, a := range accounts {
 		if a.active {
-			hs.detail = a.user
+			if extInstalled {
+				hs.detail = a.user
+			} else {
+				hs.detail = a.user + " (gh-copilot extension missing)"
+			}
 			break
 		}
 	}
@@ -2029,8 +2033,11 @@ func (m model) viewHarnessAuth() string {
 
 		// Status indicator
 		var statusBadge string
+		ghExtMissing := hs.id == harnessGitHub && strings.Contains(strings.ToLower(hs.detail), "extension missing")
 		if !hs.installed {
 			statusBadge = theme.HarnessStatusMuted.Render("◌ Not Installed")
+		} else if ghExtMissing {
+			statusBadge = theme.StatusError.Render("○ Extension Missing")
 		} else if hs.apiKey != "" {
 			statusBadge = theme.StatusSuccess.Render("● Authenticated (Key Configured)")
 		} else if hs.authed {
