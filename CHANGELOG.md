@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.61] - 2026-02-15
+
+### Changed
+
+- **Harness screen action visibility** — TUI now renders action feedback inline on the Harness screen, so key actions (`i/n/u/d`) show immediate success/failure messages.
+- **Harness no-op feedback** — Added explicit messages for GitHub-only install key usage on non-GitHub rows and logout attempts when a harness is not authenticated.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.61`.
+
 ## [0.0.60] - 2026-02-15
 
 ### Changed

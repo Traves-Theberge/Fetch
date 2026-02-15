@@ -974,6 +974,8 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if selected.id == harnessGitHub {
 			return m, installGitHubCLICmd()
 		}
+		m.actionMessage = "GitHub CLI install is only available on the GitHub harness row."
+		m.actionSuccess = false
 		return m, nil
 	case "n":
 		// Install selected harness CLI
@@ -997,6 +999,8 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		// Logout selected harness
 		if !selected.authed {
+			m.actionMessage = fmt.Sprintf("%s is not authenticated.", selected.name)
+			m.actionSuccess = false
 			return m, nil
 		}
 		ghUser := ""
@@ -2021,6 +2025,9 @@ func (m model) viewHarnessAuth() string {
 
 	if m.harnessChecking {
 		content.WriteString(theme.StatusInfo.Render("   Checking harness auth status...") + "\n\n")
+	}
+	if m.actionMessage != "" {
+		content.WriteString("   " + components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n")
 	}
 
 	// Summary line
