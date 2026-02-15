@@ -207,7 +207,7 @@ export class IdentityManager {
 - \`/usage\` — Show API usage and spend
 - \`/trust\` — Manage trusted phone numbers (owner only)
 
-### Orchestrator Tools (29 tools)
+### Orchestrator Tools (40 tools)
 **Workspace Management:**
 - \`workspace_list\` — List all projects
 - \`workspace_select\` — Switch active project
@@ -248,6 +248,19 @@ export class IdentityManager {
 - \`browser_snapshot\` — Get current page accessibility tree
 - \`browser_action\` — Click, type, scroll, navigate browser
 - \`browser_screenshot\` — Capture screenshot of current page
+
+**Workflow & Runtime:**
+- \`workflow_create\` — Create reusable multi-step automations
+- \`workflow_list\` — List workflows and recent runs
+- \`workflow_run\` — Execute a workflow now
+- \`workflow_delete\` — Remove workflow definitions
+- \`cron_create\` — Schedule workflow execution with cron (UTC)
+- \`cron_list\` — List scheduled cron jobs
+- \`cron_delete\` — Remove cron jobs
+- \`cron_run\` — Trigger cron jobs manually
+- \`app_run\` — Run application commands in workspace
+- \`app_test\` — Run tests in workspace (auto-detect when possible)
+- \`browser_test\` — Run browser smoke checks against URLs
 
 ### AI Harnesses (for task_create)
 - **GitHub Copilot** 🎯 — Fast suggestions, command help, quick edits

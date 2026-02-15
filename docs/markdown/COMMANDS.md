@@ -106,7 +106,7 @@ The LLM has access to 29 orchestrator tools and decides which to call based on y
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 29 tools:
+The LLM has access to these 40 tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|
@@ -139,6 +139,17 @@ The LLM has access to these 29 tools:
 | `browser_snapshot` | Browser | Get current page accessibility tree snapshot |
 | `browser_action` | Browser | Perform browser actions (click, type, scroll, back, forward) |
 | `browser_screenshot` | Browser | Take a screenshot of the current browser page |
+| `workflow_create` | Workflow | Create a reusable named multi-step workflow |
+| `workflow_list` | Workflow | List saved workflows and optional recent runs |
+| `workflow_run` | Workflow | Execute a workflow immediately |
+| `workflow_delete` | Workflow | Delete a workflow definition |
+| `cron_create` | Workflow | Schedule a workflow via cron expression (UTC) |
+| `cron_list` | Workflow | List configured cron jobs |
+| `cron_delete` | Workflow | Delete a cron job |
+| `cron_run` | Workflow | Trigger a cron job immediately for verification |
+| `app_run` | Runtime | Run an application command inside a workspace |
+| `app_test` | Runtime | Run tests inside a workspace (auto-detect command when possible) |
+| `browser_test` | Runtime | Run a browser smoke test with snapshot assertions |
 
 ## Response Formats
 

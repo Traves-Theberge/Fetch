@@ -66,3 +66,6 @@ export const SESSIONS_DB = env.DATABASE_PATH || path.join(DATA_DIR, 'sessions.db
 
 /** Absolute path to tasks SQLite database file. */
 export const TASKS_DB = env.TASKS_DB_PATH || path.join(DATA_DIR, 'tasks.db');
+
+/** Absolute path to workflow/cron state file. */
+export const WORKFLOWS_JSON = path.join(DATA_DIR, 'workflows.json');

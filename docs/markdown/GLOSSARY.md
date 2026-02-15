@@ -7,7 +7,7 @@
 | **Fetch** | The orchestrator system. Receives WhatsApp messages, runs them through the LLM with full tool access, delegates coding to AI harnesses, reports results. |
 | **Alpha** | The owner/operator. The person whose phone number is set as `OWNER_PHONE_NUMBER`. Has full control. |
 | **The Pack** | Collective name for the five AI harness agents (Claude, Gemini, Copilot, OpenCode, Codex). |
-| **LLM-First Architecture** | Design where every message (except 8 safety escapes) takes the same single path through the LLM with all 29 tools. No intent classification or conversation/action split. |
+| **LLM-First Architecture** | Design where every message (except 8 safety escapes) takes the same single path through the LLM with all 40 tools. No intent classification or conversation/action split. |
 
 ## Infrastructure
 
@@ -55,7 +55,7 @@
 | **Session** | A conversation context. Contains messages, preferences, active project, and active task reference. |
 | **Thread** | A named conversation branch within a session. Allows context switching. |
 | **Task** | A coding job with lifecycle: pending → running → completed/failed/cancelled. Persisted to tasks.db. |
-| **CronJob** | A scheduled job. Can be recurring (cron expression) or one-shot (auto-deleted after execution). |
+| **CronJob** | A scheduled workflow trigger using a 5-field UTC cron expression (`minute hour day month weekday`). |
 
 ## Security
 
@@ -80,7 +80,7 @@
 
 | Term | Definition |
 |------|-----------|
-| **Orchestrator Tool** | One of 29 tools the LLM can call during the ReAct loop: 9 workspace tools (includes `file_delete`, `folder_delete`), 4 task tools, 2 interaction tools, 8 GitHub tools, 2 web tools (`web_fetch`, `web_search`), and 4 browser tools (`browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`). |
+| **Orchestrator Tool** | One of 40 tools the LLM can call during the ReAct loop: 9 workspace tools, 4 task tools, 2 interaction tools, 8 GitHub tools, 2 web tools, 4 browser tools, and 11 workflow/runtime tools (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`). |
 | **workspace_sync** | Tool that commits local changes and pushes to GitHub. Auto-generates commit messages from diffs. |
 | **Custom Tool** | A user-defined tool in `data/tools/` (JSON). Wraps a shell command with parameters. |
 | **web_fetch** | Tool that fetches a URL and extracts readable content as markdown using jsdom + Readability + Turndown. Blocks private/internal URLs. |

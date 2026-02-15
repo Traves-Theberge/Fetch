@@ -66,6 +66,21 @@ import {
   browserTools,
 } from './browser.js';
 
+import {
+  handleWorkflowCreate,
+  handleWorkflowList,
+  handleWorkflowRun,
+  handleWorkflowDelete,
+  handleCronCreate,
+  handleCronList,
+  handleCronDelete,
+  handleCronRun,
+  handleAppRun,
+  handleAppTest,
+  handleBrowserTest,
+  workflowTools,
+} from './workflow.js';
+
 import { loadToolDefinition, buildToolSchema, CustomToolDefinition } from './loader.js';
 import { exec } from 'child_process';
 import util from 'util';
@@ -381,6 +396,18 @@ export class ToolRegistry {
       browser_snapshot: { h: handleBrowserSnapshot, s: ToolInputSchemas.browser_snapshot, d: DangerLevel.SAFE },
       browser_action: { h: handleBrowserAction, s: ToolInputSchemas.browser_action, d: DangerLevel.MODERATE },
       browser_screenshot: { h: handleBrowserScreenshot, s: ToolInputSchemas.browser_screenshot, d: DangerLevel.SAFE },
+      // WORKFLOW / CRON / RUNTIME
+      workflow_create: { h: handleWorkflowCreate, s: ToolInputSchemas.workflow_create, d: DangerLevel.MODERATE },
+      workflow_list: { h: handleWorkflowList, s: ToolInputSchemas.workflow_list, d: DangerLevel.SAFE },
+      workflow_run: { h: handleWorkflowRun, s: ToolInputSchemas.workflow_run, d: DangerLevel.MODERATE },
+      workflow_delete: { h: handleWorkflowDelete, s: ToolInputSchemas.workflow_delete, d: DangerLevel.MODERATE },
+      cron_create: { h: handleCronCreate, s: ToolInputSchemas.cron_create, d: DangerLevel.MODERATE },
+      cron_list: { h: handleCronList, s: ToolInputSchemas.cron_list, d: DangerLevel.SAFE },
+      cron_delete: { h: handleCronDelete, s: ToolInputSchemas.cron_delete, d: DangerLevel.MODERATE },
+      cron_run: { h: handleCronRun, s: ToolInputSchemas.cron_run, d: DangerLevel.MODERATE },
+      app_run: { h: handleAppRun, s: ToolInputSchemas.app_run, d: DangerLevel.MODERATE },
+      app_test: { h: handleAppTest, s: ToolInputSchemas.app_test, d: DangerLevel.MODERATE },
+      browser_test: { h: handleBrowserTest, s: ToolInputSchemas.browser_test, d: DangerLevel.MODERATE },
     };
 
     for (const [name, meta] of Object.entries(builtins)) {
@@ -390,8 +417,9 @@ export class ToolRegistry {
       const gTools = githubTools as Record<string, { description: string }>;
       const webT = webTools as Record<string, { description: string }>;
       const brT = browserTools as Record<string, { description: string }>;
+      const wfT = workflowTools as Record<string, { description: string }>;
 
-      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name] || webT[name] || brT[name])?.description || 'No description';
+      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name] || webT[name] || brT[name] || wfT[name])?.description || 'No description';
       logger.info(`Registering builtin tool: ${name}`, { hasHandler: !!meta.h });
 
       this.register({

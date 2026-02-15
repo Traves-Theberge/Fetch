@@ -65,7 +65,7 @@ Commands:
   self update --channel <name>
   self update --manifest-url <url>
                      Update from a release channel (stable/beta/nightly)
-  self pin <version> Install exact manifest version (example: v0.0.64)
+  self pin <version> Install exact manifest version (example: v0.0.65)
   self version       Show installed version and git commit
 
   help               Show this help

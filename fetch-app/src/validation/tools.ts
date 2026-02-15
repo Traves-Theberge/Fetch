@@ -656,6 +656,251 @@ export const BrowserScreenshotInputSchema = z
   .describe('Capture a screenshot of the current browser page');
 
 // ============================================================================
+// Workflow / Cron / Runtime Tool Schemas
+// ============================================================================
+
+/** Input schema for one workflow step definition. */
+export const WorkflowStepSchema = z.strictObject({
+  /** Step display name */
+  name: z.string()
+    .min(1, 'Step name is required')
+    .max(80, 'Step name too long (max 80 characters)')
+    .describe('Friendly step name shown in run output'),
+
+  /** Tool to execute */
+  tool: z.string()
+    .min(1, 'Step tool is required')
+    .max(80, 'Tool name too long (max 80 characters)')
+    .regex(/^[a-z0-9_]+$/, 'Tool name must contain lowercase letters, numbers, or underscores')
+    .describe('Registered tool name to execute for this step'),
+
+  /** Tool args */
+  args: z.record(z.unknown())
+    .optional()
+    .describe('Arguments to send to the step tool'),
+});
+
+/** Input schema for string shorthand workflow steps. */
+export const WorkflowStepShorthandSchema = z.string()
+  .min(1, 'Step shorthand cannot be empty')
+  .max(160, 'Step shorthand too long (max 160 characters)')
+  .describe('Step shorthand: "tool" or "tool|Step Name"');
+
+/** Input schema for `workflow_create`. */
+export const WorkflowCreateInputSchema = z
+  .object({
+    /** Workflow name */
+    name: z.string()
+      .min(1, 'Workflow name is required')
+      .max(80, 'Workflow name too long (max 80 characters)')
+      .describe('Name of the workflow'),
+
+    /** Optional description */
+    description: z.string()
+      .max(300, 'Description too long (max 300 characters)')
+      .optional()
+      .describe('Optional workflow description'),
+
+    /** Optional workspace to select before running steps */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Optional workspace selected before workflow steps run'),
+
+    /** Ordered workflow steps */
+    steps: z.array(z.union([WorkflowStepSchema, WorkflowStepShorthandSchema]))
+      .min(1, 'At least one workflow step is required')
+      .max(30, 'Maximum 30 workflow steps')
+      .describe('Ordered list of workflow steps (object or "tool|name" shorthand)'),
+  })
+  .strict()
+  .describe('Create a reusable multi-step workflow using existing tools');
+
+/** Input schema for `workflow_list`. */
+export const WorkflowListInputSchema = z
+  .object({
+    /** Include recent run history */
+    includeRuns: z.boolean()
+      .optional()
+      .default(false)
+      .describe('Include recent workflow runs in the response'),
+
+    /** Number of runs to include when includeRuns=true */
+    runLimit: z.number()
+      .int('runLimit must be an integer')
+      .min(1, 'runLimit must be >= 1')
+      .max(50, 'runLimit must be <= 50')
+      .optional()
+      .default(10)
+      .describe('Recent run count to include when includeRuns is true'),
+  })
+  .strict()
+  .describe('List saved workflows and optionally include recent workflow runs');
+
+/** Input schema for `workflow_run`. */
+export const WorkflowRunInputSchema = z
+  .object({
+    /** Workflow name or id */
+    workflow: z.string()
+      .min(1, 'Workflow is required')
+      .max(120, 'Workflow name/id too long')
+      .describe('Workflow name or id to execute'),
+  })
+  .strict()
+  .describe('Execute a saved workflow immediately');
+
+/** Input schema for `workflow_delete`. */
+export const WorkflowDeleteInputSchema = z
+  .object({
+    /** Workflow name or id */
+    workflow: z.string()
+      .min(1, 'Workflow is required')
+      .max(120, 'Workflow name/id too long')
+      .describe('Workflow name or id to delete'),
+  })
+  .strict()
+  .describe('Delete a saved workflow');
+
+/** Input schema for `cron_create`. */
+export const CronCreateInputSchema = z
+  .object({
+    /** Cron job name */
+    name: z.string()
+      .min(1, 'Cron job name is required')
+      .max(80, 'Cron job name too long (max 80 characters)')
+      .describe('Name of the cron job'),
+
+    /** Cron schedule expression */
+    schedule: z.string()
+      .min(9, 'Cron schedule must be in 5-field format')
+      .max(100, 'Cron schedule too long')
+      .describe('Cron expression in UTC (minute hour day month weekday)'),
+
+    /** Workflow target */
+    workflow: z.string()
+      .min(1, 'Workflow is required')
+      .max(120, 'Workflow name/id too long')
+      .describe('Workflow name or id to trigger'),
+
+    /** Enabled state */
+    enabled: z.boolean()
+      .optional()
+      .default(true)
+      .describe('Whether this cron job is enabled'),
+  })
+  .strict()
+  .describe('Create a cron job that executes a saved workflow on schedule (UTC)');
+
+/** Input schema for `cron_list`. */
+export const CronListInputSchema = z
+  .object({})
+  .strict()
+  .describe('List configured cron jobs');
+
+/** Input schema for `cron_delete`. */
+export const CronDeleteInputSchema = z
+  .object({
+    /** Cron job name or id */
+    job: z.string()
+      .min(1, 'Cron job is required')
+      .max(120, 'Cron job name/id too long')
+      .describe('Cron job name or id to delete'),
+  })
+  .strict()
+  .describe('Delete a cron job');
+
+/** Input schema for `cron_run`. */
+export const CronRunInputSchema = z
+  .object({
+    /** Cron job name or id */
+    job: z.string()
+      .min(1, 'Cron job is required')
+      .max(120, 'Cron job name/id too long')
+      .describe('Cron job name or id to run immediately'),
+  })
+  .strict()
+  .describe('Execute a cron job immediately for testing');
+
+/** Input schema for `app_run`. */
+export const AppRunInputSchema = z
+  .object({
+    /** Shell command to run */
+    command: z.string()
+      .min(1, 'command is required')
+      .max(4000, 'command too long')
+      .describe('Command to run inside the workspace'),
+
+    /** Workspace target (uses active if omitted) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace to run in (defaults to active workspace)'),
+
+    /** Command timeout in milliseconds */
+    timeoutMs: z.number()
+      .int('timeoutMs must be an integer')
+      .min(1_000, 'timeoutMs must be at least 1000')
+      .max(1_800_000, 'timeoutMs too large (max 30 minutes)')
+      .optional()
+      .default(120_000)
+      .describe('Execution timeout in milliseconds (default: 120000)'),
+  })
+  .strict()
+  .describe('Run an application command inside a workspace in Kennel');
+
+/** Input schema for `app_test`. */
+export const AppTestInputSchema = z
+  .object({
+    /** Optional explicit test command */
+    command: z.string()
+      .min(1, 'command cannot be empty')
+      .max(4000, 'command too long')
+      .optional()
+      .describe('Optional test command override (auto-detected if omitted)'),
+
+    /** Workspace target (uses active if omitted) */
+    workspace: WorkspaceNameSchema.optional()
+      .describe('Workspace to run tests in (defaults to active workspace)'),
+
+    /** Command timeout in milliseconds */
+    timeoutMs: z.number()
+      .int('timeoutMs must be an integer')
+      .min(1_000, 'timeoutMs must be at least 1000')
+      .max(1_800_000, 'timeoutMs too large (max 30 minutes)')
+      .optional()
+      .default(300_000)
+      .describe('Test timeout in milliseconds (default: 300000)'),
+  })
+  .strict()
+  .describe('Run project tests inside a workspace');
+
+/** Input schema for `browser_test`. */
+export const BrowserTestInputSchema = z
+  .object({
+    /** URL to open for test */
+    url: z.string()
+      .url('Must be a valid URL')
+      .describe('URL to validate in browser'),
+
+    /** Navigation wait mode */
+    waitUntil: z.enum(['load', 'domcontentloaded', 'networkidle'])
+      .optional()
+      .default('load')
+      .describe('Browser wait condition before assertions'),
+
+    /** Required strings to assert in snapshot output */
+    mustInclude: z.array(z.string().min(1, 'mustInclude entries cannot be empty'))
+      .max(30, 'Maximum 30 assertions')
+      .optional()
+      .default([])
+      .describe('Case-insensitive substrings that must appear in the browser snapshot'),
+
+    /** Include screenshot payload in metadata */
+    includeScreenshot: z.boolean()
+      .optional()
+      .default(false)
+      .describe('Capture and include screenshot data in tool metadata'),
+  })
+  .strict()
+  .describe('Run a lightweight browser smoke test against a URL');
+
+// ============================================================================
 // Schema Registry
 // ============================================================================
 
@@ -696,6 +941,18 @@ export const ToolInputSchemas = {
   browser_snapshot: BrowserSnapshotInputSchema,
   browser_action: BrowserActionInputSchema,
   browser_screenshot: BrowserScreenshotInputSchema,
+  // Workflow/Cron/Runtime tools (11)
+  workflow_create: WorkflowCreateInputSchema,
+  workflow_list: WorkflowListInputSchema,
+  workflow_run: WorkflowRunInputSchema,
+  workflow_delete: WorkflowDeleteInputSchema,
+  cron_create: CronCreateInputSchema,
+  cron_list: CronListInputSchema,
+  cron_delete: CronDeleteInputSchema,
+  cron_run: CronRunInputSchema,
+  app_run: AppRunInputSchema,
+  app_test: AppTestInputSchema,
+  browser_test: BrowserTestInputSchema,
 } as const;
 
 /** Union of all valid tool names. */
@@ -731,3 +988,14 @@ export type BrowserOpenInput = z.infer<typeof BrowserOpenInputSchema>;
 export type BrowserSnapshotInput = z.infer<typeof BrowserSnapshotInputSchema>;
 export type BrowserActionInput = z.infer<typeof BrowserActionInputSchema>;
 export type BrowserScreenshotInput = z.infer<typeof BrowserScreenshotInputSchema>;
+export type WorkflowCreateInput = z.infer<typeof WorkflowCreateInputSchema>;
+export type WorkflowListInput = z.infer<typeof WorkflowListInputSchema>;
+export type WorkflowRunInput = z.infer<typeof WorkflowRunInputSchema>;
+export type WorkflowDeleteInput = z.infer<typeof WorkflowDeleteInputSchema>;
+export type CronCreateInput = z.infer<typeof CronCreateInputSchema>;
+export type CronListInput = z.infer<typeof CronListInputSchema>;
+export type CronDeleteInput = z.infer<typeof CronDeleteInputSchema>;
+export type CronRunInput = z.infer<typeof CronRunInputSchema>;
+export type AppRunInput = z.infer<typeof AppRunInputSchema>;
+export type AppTestInput = z.infer<typeof AppTestInputSchema>;
+export type BrowserTestInput = z.infer<typeof BrowserTestInputSchema>;

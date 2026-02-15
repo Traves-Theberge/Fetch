@@ -18,6 +18,7 @@ import { getSkillManager } from './skills/manager.js';
 import { getIdentityManager } from './identity/manager.js';
 import { getToolRegistry } from './tools/registry.js';
 import { getVersion } from './utils/version.js';
+import { getWorkflowManager, shutdownWorkflowManager } from './workflow/manager.js';
 
 type ExitFn = (code: number) => void;
 
@@ -42,6 +43,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   let handlersRegistered = false;
   let bootstrapTimer: ReturnType<typeof setInterval> | null = null;
   let bridgeStarting = false;
+  let workflowInitialized = false;
 
   const clearBootstrapTimer = (): void => {
     if (bootstrapTimer) {
@@ -99,6 +101,11 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
     // Start status API first so TUI can configure missing env in setup mode.
     startStatusServer();
 
+    if (!workflowInitialized) {
+      await getWorkflowManager();
+      workflowInitialized = true;
+    }
+
     // Attempt immediate startup. If env is incomplete, remain in setup mode and retry.
     await startBridge();
     if (!activeBridge && !shuttingDown) {
@@ -138,6 +145,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       try { await getSkillManager().shutdown(); } catch { /* may not be initialized */ }
       try { getIdentityManager().shutdown(); } catch { /* may not be initialized */ }
       try { await getToolRegistry().shutdown(); } catch { /* may not be initialized */ }
+      try { await shutdownWorkflowManager(); } catch { /* may not be initialized */ }
     } catch (error) {
       logger.error('Error during shutdown', { error });
     }

@@ -12,6 +12,7 @@ describe('index runtime', () => {
     const updateStatus = vi.fn();
 
     vi.doMock('../../src/config/env.js', () => ({
+      env: {},
       validateEnv: vi.fn(() => ({ valid: false, missing: ['OPENAI_API_KEY'] })),
     }));
     vi.doMock('../../src/api/status.js', () => ({
@@ -40,6 +41,10 @@ describe('index runtime', () => {
     vi.doMock('../../src/tools/registry.js', () => ({
       getToolRegistry: vi.fn(() => ({ shutdown: vi.fn() })),
     }));
+    vi.doMock('../../src/workflow/manager.js', () => ({
+      getWorkflowManager: vi.fn(async () => ({ shutdown: vi.fn(async () => undefined) })),
+      shutdownWorkflowManager: vi.fn(async () => undefined),
+    }));
     vi.doMock('../../src/utils/version.js', () => ({
       getVersion: vi.fn(() => '0.0.0-test'),
     }));
@@ -63,6 +68,7 @@ describe('index runtime', () => {
     const poolKillAll = vi.fn();
 
     vi.doMock('../../src/config/env.js', () => ({
+      env: {},
       validateEnv: vi.fn(() => ({ valid: true, missing: [] })),
     }));
     vi.doMock('../../src/api/status.js', () => ({
@@ -93,6 +99,10 @@ describe('index runtime', () => {
     }));
     vi.doMock('../../src/tools/registry.js', () => ({
       getToolRegistry: vi.fn(() => ({ shutdown: vi.fn() })),
+    }));
+    vi.doMock('../../src/workflow/manager.js', () => ({
+      getWorkflowManager: vi.fn(async () => ({ shutdown: vi.fn(async () => undefined) })),
+      shutdownWorkflowManager: vi.fn(async () => undefined),
     }));
     vi.doMock('../../src/utils/version.js', () => ({
       getVersion: vi.fn(() => '0.0.0-test'),

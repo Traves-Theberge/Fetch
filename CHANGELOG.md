@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.65] - 2026-02-15
+
+### Added
+
+- **Workflow orchestration tools** — Added `workflow_create`, `workflow_list`, `workflow_run`, and `workflow_delete` for reusable multi-step automation flows.
+- **Cron scheduling tools** — Added `cron_create`, `cron_list`, `cron_delete`, and `cron_run` with persisted UTC cron schedules and background execution loop.
+- **Runtime execution tools** — Added `app_run`, `app_test`, and `browser_test` so Fetch can run app commands/tests and browser smoke checks inside Kennel without changing existing browser tools.
+
+### Changed
+
+- **Bridge lifecycle wiring** — Workflow scheduler now initializes on bridge startup and shuts down cleanly during runtime teardown.
+- **Validation and registry contracts** — Added full Zod schemas and registry wiring for 11 new tools (total orchestrator tools: 40).
+- **Documentation refresh** — Updated README and docs tool references for workflow/cron/runtime capabilities and practical usage.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.65`.
+
 ## [0.0.64] - 2026-02-15
 
 ### Changed

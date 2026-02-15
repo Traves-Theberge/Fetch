@@ -149,7 +149,7 @@ flowchart TD
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Safety Gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) — if matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with **all 29 tools** available
+4. **Everything else** goes to the LLM with **all 40 tools** available
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
@@ -231,7 +231,7 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 29 tools, bounded progress rewrite fallback
+│   ├── core.ts           # Single-path LLM handler, ReAct loop, all 40 tools, bounded progress rewrite fallback
 │   ├── notifications.ts  # Hybrid LLM/template notifications with timeout + sanitizer + template fallback
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders (profile-aware workspace context)
@@ -278,7 +278,7 @@ src/
 │   └── types.ts          # Task, TaskStatus, TaskConstraints interfaces
 ├── tools/
 │   ├── index.ts          # Barrel exports for tools module
-│   ├── registry.ts       # Tool registry (29 tools) with custom tool hot-reload
+│   ├── registry.ts       # Tool registry (40 tools) with custom tool hot-reload
 │   ├── types.ts          # ToolContext, ToolResult, DangerLevel interfaces
 │   ├── loader.ts         # Custom tool loader (data/tools/*.json → shell handlers)
 │   ├── workspace.ts      # Workspace tools (list, select, status, create, delete, sync, publish, file_delete, folder_delete)
@@ -307,7 +307,7 @@ src/
 
 ## Systems Integration
 
-The diagram below shows how every internal system feeds into the agent core loop. There is no router or classifier - the LLM sees the complete system prompt (identity + context + skills + all 29 tools) on every message and decides what to do.
+The diagram below shows how every internal system feeds into the agent core loop. There is no router or classifier - the LLM sees the complete system prompt (identity + context + skills + all 40 tools) on every message and decides what to do.
 
 ```mermaid
 flowchart TB
@@ -316,7 +316,7 @@ flowchart TB
     ALPHA["ALPHA.md<br/>(owner profile)"]
     BuiltinSkills["Built-in Skills<br/>(7 SKILL.md files)"]
     UserSkills["User Skills<br/>(data/skills/)"]
-    BuiltinTools["Built-in Tools<br/>(29 tools, Zod schemas)"]
+    BuiltinTools["Built-in Tools<br/>(40 tools, Zod schemas)"]
     CustomTools["Custom Tools<br/>(data/tools/*.json)"]
 
     %% ── Managers (middle layer) ─────────────────────────────
@@ -354,7 +354,7 @@ flowchart TB
     subgraph ContextAssembly ["System Prompt Assembly"]
         direction TB
         Identity["Identity + Directives<br/>+ Autonomy Rules"]
-        Capabilities["Capabilities<br/>(8 commands, 29 tools, 5 harnesses)"]
+        Capabilities["Capabilities<br/>(8 commands, 40 tools, 5 harnesses)"]
         SessionCtx["Session Context<br/>(workspace, task, repo map)"]
         RecalledMem["Recalled Memories<br/>(BM25 matched)"]
         SkillSummary["Skill Summary<br/>(all available)"]

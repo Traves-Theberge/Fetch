@@ -116,6 +116,21 @@ fetch harness uninstall github
 - If GitHub auth is missing, run `gh auth login` on host and re-check `fetch harness status`.
 - Use `fetch setup --install-harnesses` after changing harness enable flags.
 
+## Workflow Automation
+
+Fetch now includes workflow + cron orchestration tools in the agent loop:
+
+- `workflow_create`, `workflow_list`, `workflow_run`, `workflow_delete`
+- `cron_create`, `cron_list`, `cron_delete`, `cron_run`
+- Runtime execution helpers: `app_run`, `app_test`, `browser_test`
+
+Example asks from WhatsApp:
+
+- "Create a nightly workflow that runs tests and syncs to GitHub."
+- "Schedule that workflow at `0 3 * * *` UTC."
+- "Run app tests now in my active workspace."
+- "Open https://example.com and verify the login button exists."
+
 ## Architecture
 
 Fetch runs as a three-container stack plus a host manager:

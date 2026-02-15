@@ -182,7 +182,7 @@ For stable manager/TUI session operations, set `ADMIN_TOKEN` in `.env` so the ma
 
 ## Orchestrator Tools
 
-These are the 29 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the 40 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 > **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
 
@@ -198,6 +198,7 @@ Use this table when updating behavior so docs stay aligned with the implementati
 | GitHub (`github_*`) | `fetch-app/src/tools/github.ts` |
 | Web (`web_fetch`, `web_search`) | `fetch-app/src/tools/web.ts` |
 | Browser (`browser_*`) | `fetch-app/src/tools/browser.ts` |
+| Workflow/Cron/Runtime (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`) | `fetch-app/src/tools/workflow.ts` |
 
 The registry entry point is `fetch-app/src/tools/registry.ts`, and input schemas are defined in `fetch-app/src/validation/tools.ts`.
 
@@ -682,6 +683,26 @@ Capture a screenshot of the current browser page.
 **Danger Level:** SAFE
 
 > **Note:** Browser tools require `ENABLE_BROWSER=true` and Playwright+Chromium installed in the Kennel container. Browser state persists across tool calls within a session. All browser commands execute inside `fetch-kennel` via `docker exec` with a 30-second timeout.
+
+---
+
+### Workflow & Runtime Tools (11)
+
+#### workflow_create / workflow_list / workflow_run / workflow_delete
+
+Create, inspect, execute, and remove named workflows. A workflow is an ordered list of existing tool calls with optional workspace pre-selection.
+
+#### cron_create / cron_list / cron_delete / cron_run
+
+Manage UTC cron schedules for workflows. Schedules use 5-field cron format (`minute hour day month weekday`).
+
+#### app_run / app_test
+
+Execute commands inside the active (or specified) workspace within Kennel. `app_test` auto-detects a default command when possible (`npm test`, `go test ./...`, `cargo test`, `pytest`).
+
+#### browser_test
+
+Run a browser smoke test by opening a URL, collecting an accessibility snapshot, and asserting expected substrings (`mustInclude`), with optional screenshot capture.
 
 ---
 

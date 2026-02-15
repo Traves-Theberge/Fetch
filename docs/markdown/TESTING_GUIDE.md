@@ -102,13 +102,14 @@ Ask the LLM directly:
 @fetch list all orchestrator tools with one-line descriptions
 ```
 
-- [ ] Response lists 29 tools, including:
+- [ ] Response lists 40 tools, including:
   - Workspace: `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`, `file_delete`, `folder_delete`
   - Task: `task_create`, `task_status`, `task_cancel`, `task_respond`
   - Interaction: `ask_user`, `report_progress`
   - GitHub: `github_pr_create`, `github_pr_list`, `github_pr_view`, `github_issue_create`, `github_issue_list`, `github_branch_create`, `github_action_status`, `github_search_repos`
   - Web: `web_fetch`, `web_search`
   - Browser: `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
+  - Workflow/Runtime: `workflow_create`, `workflow_list`, `workflow_run`, `workflow_delete`, `cron_create`, `cron_list`, `cron_delete`, `cron_run`, `app_run`, `app_test`, `browser_test`
 
 ---
 

@@ -13,10 +13,10 @@ describe('Tool Registry', () => {
   const registry = getToolRegistry();
 
   describe('Tool Registration', () => {
-    it('should have all 28 built-in orchestrator tools', () => {
+    it('should have all built-in orchestrator tools', () => {
       const tools = registry.list();
-      // 8 workspace + 4 task + 2 interaction + 8 github + 2 web + 4 browser = 28
-      expect(tools.length).toBeGreaterThanOrEqual(28);
+      // 9 workspace + 4 task + 2 interaction + 8 github + 2 web + 4 browser + 11 workflow/runtime = 40
+      expect(tools.length).toBeGreaterThanOrEqual(40);
     });
 
     it('should have workspace tools', () => {
@@ -64,6 +64,20 @@ describe('Tool Registry', () => {
       expect(registry.get('browser_snapshot')).toBeDefined();
       expect(registry.get('browser_action')).toBeDefined();
       expect(registry.get('browser_screenshot')).toBeDefined();
+    });
+
+    it('should have workflow and runtime tools', () => {
+      expect(registry.get('workflow_create')).toBeDefined();
+      expect(registry.get('workflow_list')).toBeDefined();
+      expect(registry.get('workflow_run')).toBeDefined();
+      expect(registry.get('workflow_delete')).toBeDefined();
+      expect(registry.get('cron_create')).toBeDefined();
+      expect(registry.get('cron_list')).toBeDefined();
+      expect(registry.get('cron_delete')).toBeDefined();
+      expect(registry.get('cron_run')).toBeDefined();
+      expect(registry.get('app_run')).toBeDefined();
+      expect(registry.get('app_test')).toBeDefined();
+      expect(registry.get('browser_test')).toBeDefined();
     });
   });
 
