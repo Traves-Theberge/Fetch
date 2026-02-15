@@ -617,8 +617,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		// Only poll if on setup screen AND we don't have status yet
-		if m.screen == screenSetup && m.bridgeStatus == nil {
+		// Continuously poll while on setup screen so state transitions
+		// (disconnected -> qr_pending -> authenticated) are reflected
+		// without requiring a full manager/app restart.
+		if m.screen == screenSetup {
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd())
 		}
 		return m, nil
@@ -1058,10 +1060,37 @@ func startFetchCmd() tea.Cmd {
 // stopFetchCmd returns a command that stops Docker services
 func stopFetchCmd() tea.Cmd {
 	return func() tea.Msg {
+		wasBridgeRunning := docker.IsContainerRunning("fetch-bridge")
+		wasKennelRunning := docker.IsContainerRunning("fetch-kennel")
+
 		err := docker.StopServices()
 		if err != nil {
 			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to stop: %v", err)}
 		}
+
+		// docker compose down can report success even when nothing was running.
+		// Verify state after stop so the user gets explicit feedback.
+		bridgeRunning := docker.IsContainerRunning("fetch-bridge")
+		kennelRunning := docker.IsContainerRunning("fetch-kennel")
+
+		if bridgeRunning || kennelRunning {
+			running := make([]string, 0, 2)
+			if bridgeRunning {
+				running = append(running, "fetch-bridge")
+			}
+			if kennelRunning {
+				running = append(running, "fetch-kennel")
+			}
+			return actionResultMsg{
+				success: false,
+				message: fmt.Sprintf("Stop requested, but still running: %s", strings.Join(running, ", ")),
+			}
+		}
+
+		if !wasBridgeRunning && !wasKennelRunning {
+			return actionResultMsg{success: true, message: "ℹ️ Fetch services were already stopped."}
+		}
+
 		return actionResultMsg{success: true, message: "🛑 Fetch services stopped."}
 	}
 }
