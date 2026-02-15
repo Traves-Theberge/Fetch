@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-02-15T19:11:11Z",
+  "generatedAt": "2026-02-15T19:12:21Z",
   "defaultChannel": "stable",
   "channels": {
     "stable": "v0.0.64",
@@ -121,7 +121,7 @@
       }
     },
     "v0.0.64": {
-      "gitRef": "e0b9b2e32c31eb6247d0b9f4214b8fbd7c6f9934",
+      "gitRef": "9e5f724d932491539a62d642322f25f0c8449bd7",
       "archive": {
         "url": "https://codeload.github.com/Traves-Theberge/Fetch/tar.gz/v0.0.64",
         "sha256": "5cf490456b83355095eecb153db5a2833a2a8054297a3a422bad66c2e7283340"
