@@ -4,7 +4,7 @@
 
 - Docs shell: `docs/index.html`, `docs/assets/style.css`, `docs/assets/diagrams.js`.
 - Content source: `docs/markdown/*.md`.
-- Maintenance index: `docs/markdown/DOCS_MAINTENANCE_MAP.md`.
+- Maintenance index: `tmp/DOCS_MAINTENANCE_MAP.md`.
 
 
 This is the master documentation index for Fetch.
@@ -25,13 +25,13 @@ This is the master documentation index for Fetch.
 - [Skills Guide](SKILLS_GUIDE.md) — Creating and managing hot-loadable skills
 - [API Reference](API_REFERENCE.md) — HTTP endpoints, tool interfaces, type definitions
 - [Glossary](GLOSSARY.md) — Terminology and definitions
-- [Docs Maintenance Map](DOCS_MAINTENANCE_MAP.md) — Page-to-source traceability and full audit checklist
+- Docs Maintenance Map moved to `tmp/DOCS_MAINTENANCE_MAP.md`
 
 ## Architecture
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
-- [Conversational Experience Plan](CONVERSATIONAL_EXPERIENCE_PLAN.md) — Implementation plan for conversational UX, formatting, and output contracts
+- Conversational Experience Plan moved to `tmp/CONVERSATIONAL_EXPERIENCE_PLAN.md`
 - **[Agentic Workflow](AGENTIC_WORKFLOW.md)** - Pointer to merged workflow section in Systems Deep Dive.
 - **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot/OpenCode/Codex).
 - **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.

@@ -78,6 +78,7 @@ vi.mock('../../src/commands/parser.js', () => ({
 
 vi.mock('../../src/agent/whatsapp-format.js', () => ({
   formatForWhatsApp: vi.fn((text: string) => text),
+  formatAndChunkForWhatsApp: vi.fn((text: string) => [text]),
 }));
 
 vi.mock('../../src/task/manager.js', () => ({
@@ -118,6 +119,7 @@ const { handleMessage, initializeHandler, registerWhatsAppSender } = await impor
 const { parseCommand } = await import('../../src/commands/parser.js');
 const { processMessage } = await import('../../src/agent/core.js');
 const { formatForWhatsApp } = await import('../../src/agent/whatsapp-format.js');
+const { formatAndChunkForWhatsApp } = await import('../../src/agent/whatsapp-format.js');
 
 // =============================================================================
 // TESTS
@@ -131,6 +133,7 @@ describe('Handler — Message Flow', () => {
     vi.mocked(parseCommand).mockResolvedValue({ handled: false, shouldProcess: true });
     vi.mocked(processMessage).mockResolvedValue({ text: 'LLM response', toolCalls: [] });
     vi.mocked(formatForWhatsApp).mockImplementation((text: string) => text);
+    vi.mocked(formatAndChunkForWhatsApp).mockImplementation((text: string) => [text]);
   });
 
   // ─── Normal message flow ─────────────────────────────────────────
@@ -246,7 +249,7 @@ describe('Handler — Message Flow', () => {
 
   // ─── Response formatting ─────────────────────────────────────────
 
-  it('should call formatForWhatsApp on agent response text', async () => {
+  it('should call formatAndChunkForWhatsApp on agent response text', async () => {
     vi.mocked(processMessage).mockResolvedValue({
       text: 'Some markdown **bold** text',
       toolCalls: [],
@@ -254,7 +257,7 @@ describe('Handler — Message Flow', () => {
 
     await handleMessage('user1', 'format this');
 
-    expect(formatForWhatsApp).toHaveBeenCalled();
+    expect(formatAndChunkForWhatsApp).toHaveBeenCalled();
   });
 
   it('should call formatForWhatsApp on command responses', async () => {

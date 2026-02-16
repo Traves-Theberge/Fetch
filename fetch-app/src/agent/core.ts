@@ -20,7 +20,7 @@ import {
   buildContextSection,
 } from './prompts.js';
 import { buildCapabilitySummary, buildToolInventory } from './capability-cards.js';
-import { classifyIntent, shouldUseMinimalMode, wantsFullInventory } from './response-policy.js';
+import { classifyIntent, shouldUseMinimalMode, wantsFullInventory, type ResponseIntent } from './response-policy.js';
 import { getToolRegistry } from '../tools/registry.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
@@ -39,6 +39,8 @@ import { pipeline } from '../config/pipeline.js';
 export interface AgentResponse {
   /** Text response to user */
   text: string;
+  /** Detected response intent used by renderer behavior */
+  intent?: ResponseIntent;
   /** Tool calls made (for logging) */
   toolCalls?: ToolCallRecord[];
   /** Turn-level runtime telemetry */
@@ -383,7 +385,7 @@ export async function processMessage(
         durableNotes: [],
       });
       await options?.onLifecycle?.('completed', { promptMode });
-      return { text, telemetry, promptMode };
+      return { text, telemetry, promptMode, intent };
     }
 
     // Check circuit breaker
@@ -400,6 +402,7 @@ export async function processMessage(
         });
         return {
           text: "🐕 I'm taking a short break after some hiccups. Try again in a moment!",
+          intent,
         };
       }
     }
@@ -467,7 +470,7 @@ export async function processMessage(
     }
 
     await options?.onLifecycle?.('completed', { promptMode });
-    return { ...response, telemetry, promptMode };
+    return { ...response, telemetry, promptMode, intent: response.intent ?? intent };
 
   } catch (error) {
     if (options?.abortSignal?.aborted) {
@@ -475,6 +478,7 @@ export async function processMessage(
       await options?.onLifecycle?.('cancelled', { error: cancelledMsg, promptMode });
       return {
         text: cancelledMsg,
+        intent,
         promptMode,
       };
     }
@@ -494,6 +498,7 @@ export async function processMessage(
     if (!shouldContinue) {
       return {
         text: "🐕 I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
+        intent,
       };
     }
 
@@ -502,12 +507,14 @@ export async function processMessage(
       const safeMsg = sanitizeErrorForUser(error);
       return {
         text: `🐕 Something went wrong: ${safeMsg}`,
+        intent,
         promptMode,
       };
     }
 
     return {
       text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
+      intent,
       promptMode,
     };
   } finally {

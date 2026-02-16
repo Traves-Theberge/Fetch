@@ -15,7 +15,7 @@ import { SessionManager, getSessionManager } from '../session/manager.js';
 import { processMessage, selectPromptMode, type AgentResponse } from '../agent/core.js';
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
-import { formatForWhatsApp } from '../agent/whatsapp-format.js';
+import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../agent/whatsapp-format.js';
 import { formatNotification } from '../agent/notifications.js';
 import { logger } from '../utils/logger.js';
 
@@ -344,7 +344,10 @@ function buildResponses(response: AgentResponse): string[] {
     // Safeguard: detect repetition loops
     cleanText = deduplicateResponse(cleanText);
 
-    responses.push(`🐕 ${formatForWhatsApp(cleanText)}`);
+    const chunks = formatAndChunkForWhatsApp(cleanText, response.intent);
+    for (const chunk of chunks) {
+      responses.push(`🐕 ${chunk}`);
+    }
   }
 
   // Task started notification — now handled via proactive event in task:started

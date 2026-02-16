@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { pipeline } from '../config/pipeline.js';
+import type { ResponseIntent } from './response-policy.js';
 
 /**
  * Maximum characters per line for comfortable mobile reading.
@@ -81,6 +82,57 @@ export function formatForWhatsApp(text: string): string {
   return formatted;
 }
 
+/**
+ * Format text with intent-aware behavior and chunk into send-ready WhatsApp messages.
+ */
+export function formatAndChunkForWhatsApp(text: string, intent?: ResponseIntent): string[] {
+  const formatted = formatForWhatsApp(text);
+  const limit = resolveChunkLimit(intent);
+  if (formatted.length <= limit) return [formatted];
+
+  const blocks = formatted.split(/\n\n+/).map((b) => b.trim()).filter(Boolean);
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const block of blocks) {
+    if (!current) {
+      current = block;
+      continue;
+    }
+    const next = `${current}\n\n${block}`;
+    if (next.length > limit) {
+      chunks.push(current);
+      current = block;
+    } else {
+      current = next;
+    }
+  }
+  if (current) chunks.push(current);
+
+  // Fallback split for oversized single blocks.
+  const finalChunks: string[] = [];
+  for (const chunk of chunks) {
+    if (chunk.length <= limit) {
+      finalChunks.push(chunk);
+      continue;
+    }
+    const lines = chunk.split('\n');
+    let part = '';
+    for (const line of lines) {
+      const candidate = part ? `${part}\n${line}` : line;
+      if (candidate.length > limit && part) {
+        finalChunks.push(part);
+        part = line;
+      } else {
+        part = candidate;
+      }
+    }
+    if (part) finalChunks.push(part);
+  }
+
+  return finalChunks.filter(Boolean);
+}
+
 // =============================================================================
 // INTERNAL HELPERS
 // =============================================================================
@@ -116,4 +168,11 @@ function wrapLongLines(text: string, maxLength: number): string {
     
     return lines.join('\n');
   }).join('\n');
+}
+
+function resolveChunkLimit(intent?: ResponseIntent): number {
+  if (intent === 'tool_inventory') {
+    return Math.min(MAX_MESSAGE_LENGTH, 1200);
+  }
+  return Math.min(MAX_MESSAGE_LENGTH, 2200);
 }

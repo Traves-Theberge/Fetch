@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatForWhatsApp } from '../../src/agent/whatsapp-format.js';
+import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../../src/agent/whatsapp-format.js';
 
 describe('formatForWhatsApp', () => {
   it('converts collapsed markdown bullets and bold markers into WhatsApp-friendly output', () => {
@@ -29,5 +29,21 @@ describe('formatForWhatsApp', () => {
     expect(output).toContain('📋 *Capabilities*');
     expect(output).toContain('• First item');
     expect(output).toContain('• Second item');
+  });
+
+  it('chunks long tool inventory style messages into multiple payloads', () => {
+    const input = [
+      '*Tool Inventory*',
+      '',
+      ...Array.from({ length: 320 }, (_, i) => `• tool_${i + 1}`),
+      '',
+      'Ask "show full tool list" if you want every command name.',
+    ].join('\n');
+
+    const chunks = formatAndChunkForWhatsApp(input, 'tool_inventory');
+
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks[0]).toContain('*Tool Inventory*');
+    expect(chunks.join('\n')).toContain('show full tool list');
   });
 });
