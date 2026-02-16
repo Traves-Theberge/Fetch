@@ -31,6 +31,7 @@ This is the master documentation index for Fetch.
 
 - [Architecture](ARCHITECTURE.md) — System design, message flow, module map, Docker topology
 - [Identity System](IDENTITY_SYSTEM.md) — Personality, COLLAR.md, directives, and system prompt assembly
+- [Conversational Experience Plan](CONVERSATIONAL_EXPERIENCE_PLAN.md) — Implementation plan for conversational UX, formatting, and output contracts
 - **[Agentic Workflow](AGENTIC_WORKFLOW.md)** - Pointer to merged workflow section in Systems Deep Dive.
 - **[Harness System](HARNESS_SYSTEM.md)** - CLI delegation (Claude/Gemini/Copilot/OpenCode/Codex).
 - **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.

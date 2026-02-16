@@ -30,6 +30,7 @@ Use it when shipping features, refactors, or releases.
 - [x] `HARNESS_SYSTEM.md`
 - [x] `STATE_MANAGEMENT.md`
 - [x] `IDENTITY_SYSTEM.md`
+- [x] `CONVERSATIONAL_EXPERIENCE_PLAN.md`
 - [x] `SKILLS_GUIDE.md`
 - [x] `API_REFERENCE.md`
 - [x] `GLOSSARY.md`
@@ -57,6 +58,7 @@ Last full audit: 2026-02-16.
 | `HARNESS_SYSTEM.md` | `fetch-app/src/harness/base.ts`, `fetch-app/src/harness/registry.ts`, `fetch-app/src/harness/spawner.ts`, `fetch-app/src/harness/executor.ts` | `kennel/Dockerfile`, `kennel/entrypoint.sh`, `docker-compose.yml` | `fetch-app/tests/unit/harness-adapters.test.ts`, `fetch-app/tests/unit/spawner.test.ts` | Yes |
 | `STATE_MANAGEMENT.md` | `fetch-app/src/session/store.ts`, `fetch-app/src/session/manager.ts`, `fetch-app/src/task/store.ts`, `fetch-app/src/task/manager.ts`, `fetch-app/src/task/integration.ts` | runtime DBs in `data/`, active projects in `workspace/` | `fetch-app/tests/unit/session-store.test.ts`, `fetch-app/tests/unit/task-store.test.ts`, `fetch-app/tests/unit/task-integration.test.ts` | Yes |
 | `IDENTITY_SYSTEM.md` | `fetch-app/src/identity/loader.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/identity/types.ts`, `fetch-app/src/agent/prompts.ts` | `data/identity/COLLAR.md`, `data/identity/ALPHA.md`, `data/cli-configs/*` | `fetch-app/tests/unit/identity-loader.test.ts`, `fetch-app/tests/unit/identity-manager.test.ts` | Yes |
+| `CONVERSATIONAL_EXPERIENCE_PLAN.md` | `fetch-app/src/agent/core.ts`, `fetch-app/src/agent/whatsapp-format.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/skills/manager.ts` | `docs/index.html`, `docs/markdown/SKILLS_GUIDE.md` | `fetch-app/tests/unit/whatsapp-format.test.ts`, `fetch-app/tests/unit/skills-manager.test.ts` | Yes |
 | `SKILLS_GUIDE.md` | `fetch-app/src/skills/manager.ts`, `fetch-app/src/skills/loader.ts`, `fetch-app/src/skills/types.ts`, `fetch-app/src/validation/tools.ts` | `fetch-app/src/skills/builtin/**/SKILL.md`, `data/skills/` | `fetch-app/tests/unit/skills-manager.test.ts`, `fetch-app/tests/unit/tool-validation-contracts.test.ts` | Yes |
 | `API_REFERENCE.md` | `fetch-app/src/index.ts`, `fetch-app/src/api/status.ts`, `fetch-app/src/tools/*`, `fetch-app/src/validation/tools.ts` | `.env.example`, `docs/index.html` | `fetch-app/tests/unit/status-api.test.ts`, `fetch-app/tests/unit/*-tools.test.ts` | Yes |
 | `GLOSSARY.md` | Cross-reference docs + runtime modules listed in this map | Cross-reference docs set | n/a | Optional |
@@ -134,6 +136,11 @@ Use this section when the summary table is not enough.
 - Identity load/compose pipeline: `fetch-app/src/identity/loader.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/identity/types.ts`.
 - Prompt assembly hooks: `fetch-app/src/agent/prompts.ts`.
 - Identity sources: `data/identity/COLLAR.md`, `data/identity/ALPHA.md`, `data/cli-configs/*`.
+
+### `CONVERSATIONAL_EXPERIENCE_PLAN.md`
+- Conversational runtime and response shaping: `fetch-app/src/agent/core.ts`, `fetch-app/src/agent/whatsapp-format.ts`, `fetch-app/src/identity/manager.ts`.
+- Skill-trigger behavior for conversational guidance: `fetch-app/src/skills/manager.ts`, `fetch-app/src/skills/builtin/fetch-meta/SKILL.md`.
+- Docs shell and routing: `docs/index.html`, `docs/markdown/DOCUMENTATION.md`.
 
 ### `SKILLS_GUIDE.md`
 - Skill lifecycle: `fetch-app/src/skills/index.ts`, `fetch-app/src/skills/loader.ts`, `fetch-app/src/skills/manager.ts`, `fetch-app/src/skills/types.ts`.
