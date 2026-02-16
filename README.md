@@ -145,6 +145,103 @@ Example asks from WhatsApp:
 - "Run app tests now in my active workspace."
 - "Open https://example.com and verify the login button exists."
 
+## Workspace Operations
+
+Fetch includes workspace + git tools for day-to-day project control:
+
+- `workspace_list`, `workspace_select`, `workspace_status`
+- `workspace_create`, `workspace_delete`, `workspace_publish`, `workspace_sync`
+- `file_delete`, `folder_delete`
+
+Safety notes:
+
+- Destructive operations are autonomy-gated and can require confirmation depending on mode.
+- `workspace_sync` and publish flows depend on valid git/remote configuration.
+
+Example asks from WhatsApp:
+
+- "List my workspaces and switch to api-server."
+- "Show git status and recent commits for this project."
+- "Sync my current workspace to GitHub."
+- "Delete `tmp/output.log` from this workspace."
+
+## Task Delegation
+
+Fetch can delegate implementation work to harness agents:
+
+- `task_create`, `task_status`, `task_cancel`, `task_respond`
+- Interaction helpers used by the loop: `ask_user`, `report_progress`
+
+Safety notes:
+
+- `/stop` and `task_cancel` terminate active harness execution, not just task state.
+- Follow-ups (`task_respond`) attach to the currently running task context.
+
+Example asks from WhatsApp:
+
+- "Use codex to add tests for auth middleware."
+- "What is the current task status?"
+- "Cancel the active task now."
+- "Tell the task to also update docs and JSDoc."
+
+## GitHub Operations
+
+Fetch includes GitHub repo/PR/issue/CI helpers:
+
+- `github_pr_create`, `github_pr_list`, `github_pr_view`
+- `github_issue_create`, `github_issue_list`
+- `github_branch_create`, `github_action_status`, `github_search_repos`
+
+Safety notes:
+
+- Requires host auth (`gh auth login`) and usually `GH_TOKEN` for API-backed operations.
+- Repo-scoped actions use the active workspace repo unless you pass an explicit `owner/repo`.
+
+Example asks from WhatsApp:
+
+- "Create a draft PR for this workspace."
+- "List open PRs for `owner/repo`."
+- "Create an issue titled 'Fix flaky retry logic'."
+- "Show recent GitHub Actions status."
+
+## Web And Browser Tools
+
+Fetch includes research + browser automation tools:
+
+- Web: `web_search`, `web_fetch`
+- Browser session: `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
+- Browser assertion runner: `browser_test`
+
+Safety notes:
+
+- Browser tools run inside Kennel and return structured snapshots for deterministic follow-up actions.
+- `browser_test` is ideal for quick smoke assertions without changing existing browser tools.
+
+Example asks from WhatsApp:
+
+- "Search for TypeScript Zod validation best practices."
+- "Fetch https://example.com/docs and summarize the auth section."
+- "Open https://example.com, click login, and take a screenshot."
+- "Run a browser test on https://example.com and confirm 'Login' appears."
+
+## Deterministic Safety Commands
+
+These commands bypass normal LLM/tool planning and are handled deterministically:
+
+- `/stop` (`/cancel`)
+- `/undo` (`/undo all`)
+- `/clear` (`/reset`)
+- `/help` (`/h`, `/?`)
+- `/status` (`/st`)
+- `/version` (`/v`)
+- `/usage` (`/u`)
+- `/trust` (`list`, `add`, `remove`)
+
+Safety notes:
+
+- Use these when you need immediate control, even if the LLM path is unavailable.
+- Natural-language prompts like "what can you do?" stay conversational through the normal LLM path; use `/help` for deterministic command catalog output.
+
 ## Architecture
 
 Fetch runs as a three-container stack plus a host manager:

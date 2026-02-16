@@ -30,3 +30,4 @@
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commits (examples: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `build:`); scopes are optional.
 - PRs should include: a concise description, rationale, and test evidence (commands run + results). Add screenshots for docs/UX changes when relevant.
+- Release discipline: for every version tag/release, append human-readable release notes to the GitHub Release body (never leave it as compare-link only). Keep prior notes and append new sections for the new version.
