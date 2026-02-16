@@ -18,21 +18,14 @@ Success means:
 - output formatting is stable on mobile (no broken markdown or collapsed bullets)
 - the agent keeps a consistent identity voice across chat, progress, and completion updates
 
-## External Pattern Review (OpenClaw)
+## External Pattern Review
 
-From OpenClaw public docs, the strongest reusable patterns are:
+From modern agent-system best practices, the strongest reusable patterns are:
 
 1. Prompt stack separation: explicit identity, behavior rules, and operating constraints in a structured system prompt.
 2. Skill-guided orchestration: trigger-matched skills injected as procedural instructions for tool sequencing.
 3. Deterministic agent loop: bounded execution flow with clear step limits and tool call handling.
 4. Context discipline: layered context loading with explicit focus on relevance and bounded token budgets.
-
-Sources:
-- https://docs.openclaw.ai/introduction
-- https://docs.openclaw.ai/core-concepts/agent-loop
-- https://docs.openclaw.ai/core-concepts/skills
-- https://docs.openclaw.ai/core-concepts/system-prompt
-- https://docs.openclaw.ai/core-concepts/context-management
 
 ## Fetch Gap Analysis (Current)
 

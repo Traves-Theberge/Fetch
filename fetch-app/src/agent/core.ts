@@ -19,6 +19,8 @@ import {
   buildTaskFramePrompt,
   buildContextSection,
 } from './prompts.js';
+import { buildCapabilitySummary, buildToolInventory } from './capability-cards.js';
+import { classifyIntent, shouldUseMinimalMode, wantsFullInventory } from './response-policy.js';
 import { getToolRegistry } from '../tools/registry.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
@@ -120,6 +122,9 @@ function resolveMaxToolCallsForTurn(sessionMaxIterations: number | undefined): n
  * Minimal mode is used for short conversational messages to reduce context load.
  */
 export function selectPromptMode(message: string): PromptMode {
+  const intent = classifyIntent(message);
+  if (shouldUseMinimalMode(intent)) return 'minimal';
+
   const text = message.trim().toLowerCase();
   if (!text) return 'minimal';
 
@@ -341,13 +346,44 @@ export async function processMessage(
 ): Promise<AgentResponse> {
   const startTime = Date.now();
   const sManager = await getSessionManager();
-  const promptMode = options?.promptMode ?? selectPromptMode(message);
+  const intent = classifyIntent(message);
+  const promptMode = options?.promptMode ?? (shouldUseMinimalMode(intent) ? 'minimal' : selectPromptMode(message));
   let retryAttempts = 1;
   await options?.onLifecycle?.('preparing', { promptMode });
 
   try {
     if (options?.abortSignal?.aborted) {
       throw new Error(options.abortSignal.reason ? String(options.abortSignal.reason) : 'Operation cancelled');
+    }
+
+    // Deterministic conversational responses for capability/inventory asks.
+    if (intent === 'capability_summary' || intent === 'tool_inventory') {
+      const text = intent === 'capability_summary'
+        ? buildCapabilitySummary()
+        : buildToolInventory({ full: wantsFullInventory(message) });
+
+      const durationMs = Date.now() - startTime;
+      const telemetry: AgentTurnTelemetry = {
+        promptMode,
+        model: MODEL,
+        retries: 0,
+        totalToolCalls: 0,
+        successfulToolCalls: 0,
+        failedToolCalls: 0,
+        tools: [],
+        durationMs,
+        startedAt: new Date(startTime).toISOString(),
+        finishedAt: new Date().toISOString(),
+      };
+
+      await sManager.recordMemoryTiers(session, {
+        userMessage: message,
+        assistantMessage: text,
+        toolNames: [],
+        durableNotes: [],
+      });
+      await options?.onLifecycle?.('completed', { promptMode });
+      return { text, telemetry, promptMode };
     }
 
     // Check circuit breaker
