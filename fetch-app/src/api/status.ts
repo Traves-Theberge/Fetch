@@ -35,6 +35,7 @@ import { getVersion } from '../utils/version.js';
 import { getSessionManager } from '../session/manager.js';
 import { validateRuntimeEnvUpdates } from '../config/env.js';
 import { getNotificationMetrics, type NotificationMetrics } from '../agent/notifications.js';
+import { getWhatsAppFormatMetrics, type WhatsAppFormatMetrics } from '../agent/whatsapp-format.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -72,6 +73,8 @@ export interface BridgeStatus {
   version: string;
   /** Notification formatter path/fallback counters */
   notificationMetrics: NotificationMetrics;
+  /** WhatsApp response formatting and chunking counters */
+  responseFormattingMetrics: WhatsAppFormatMetrics;
 }
 
 // =============================================================================
@@ -88,6 +91,7 @@ let status: BridgeStatus = {
   lastError: null,
   version: getVersion(),
   notificationMetrics: getNotificationMetrics(),
+  responseFormattingMetrics: getWhatsAppFormatMetrics(),
 };
 
 /** Server start time for uptime calculation */
@@ -163,6 +167,7 @@ export function getStatus(): BridgeStatus {
     ...status,
     uptime: Math.floor((Date.now() - startTime) / 1000),
     notificationMetrics: getNotificationMetrics(),
+    responseFormattingMetrics: getWhatsAppFormatMetrics(),
   };
 }
 

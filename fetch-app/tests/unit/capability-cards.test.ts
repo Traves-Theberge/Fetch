@@ -23,4 +23,10 @@ describe('capability cards', () => {
     expect(text).toContain('• task_create');
     expect(text).toContain('• browser_test');
   });
+
+  it('adapts capability summary to brief/direct preferences', () => {
+    const text = buildCapabilitySummary({ detail: 'brief', tone: 'direct', emoji: 'low' });
+    expect(text).toContain('*Capabilities*');
+    expect(text).not.toContain('Research docs/web content');
+  });
 });

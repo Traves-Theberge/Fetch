@@ -20,7 +20,14 @@ import {
   buildContextSection,
 } from './prompts.js';
 import { buildCapabilitySummary, buildToolInventory } from './capability-cards.js';
-import { classifyIntent, shouldUseMinimalMode, wantsFullInventory, type ResponseIntent } from './response-policy.js';
+import {
+  classifyIntent,
+  shouldUseMinimalMode,
+  wantsFullInventory,
+  type ResponseIntent,
+  getResponsePreferences,
+  parsePreferenceUpdate,
+} from './response-policy.js';
 import { getToolRegistry } from '../tools/registry.js';
 import { getSessionManager } from '../session/manager.js';
 import { generateRepoMap } from '../workspace/repo-map.js';
@@ -350,6 +357,7 @@ export async function processMessage(
   const sManager = await getSessionManager();
   const intent = classifyIntent(message);
   const promptMode = options?.promptMode ?? (shouldUseMinimalMode(intent) ? 'minimal' : selectPromptMode(message));
+  const responsePreferences = getResponsePreferences(session);
   let retryAttempts = 1;
   await options?.onLifecycle?.('preparing', { promptMode });
 
@@ -358,11 +366,44 @@ export async function processMessage(
       throw new Error(options.abortSignal.reason ? String(options.abortSignal.reason) : 'Operation cancelled');
     }
 
+    const preferenceUpdate = parsePreferenceUpdate(message);
+    if (preferenceUpdate) {
+      session.metadata.responsePreferences = {
+        ...responsePreferences,
+        ...preferenceUpdate,
+      };
+      await sManager.updateSession(session);
+      return {
+        text: [
+          '*Response preferences updated*',
+          `• detail: ${session.metadata.responsePreferences.detail}`,
+          `• tone: ${session.metadata.responsePreferences.tone}`,
+          `• emoji: ${session.metadata.responsePreferences.emoji}`,
+          '',
+          'I will use these defaults in future replies.',
+        ].join('\n'),
+        telemetry: {
+          promptMode,
+          model: MODEL,
+          retries: 0,
+          totalToolCalls: 0,
+          successfulToolCalls: 0,
+          failedToolCalls: 0,
+          tools: [],
+          durationMs: Date.now() - startTime,
+          startedAt: new Date(startTime).toISOString(),
+          finishedAt: new Date().toISOString(),
+        },
+        promptMode,
+        intent: 'status',
+      };
+    }
+
     // Deterministic conversational responses for capability/inventory asks.
     if (intent === 'capability_summary' || intent === 'tool_inventory') {
       const text = intent === 'capability_summary'
-        ? buildCapabilitySummary()
-        : buildToolInventory({ full: wantsFullInventory(message) });
+        ? buildCapabilitySummary(responsePreferences)
+        : buildToolInventory({ full: wantsFullInventory(message) }, responsePreferences);
 
       const durationMs = Date.now() - startTime;
       const telemetry: AgentTurnTelemetry = {

@@ -5,6 +5,7 @@
  */
 
 import { ToolInputSchemas } from '../validation/tools.js';
+import type { ResponsePreferences } from './response-policy.js';
 
 type InventoryOptions = {
   full?: boolean;
@@ -28,23 +29,37 @@ function collectToolGroups(): Record<string, string[]> {
 /**
  * Build concise capability summary for generic "what can you do" asks.
  */
-export function buildCapabilitySummary(): string {
-  return [
-    '*What I can do for you right now*',
+export function buildCapabilitySummary(preferences?: ResponsePreferences): string {
+  const detail = preferences?.detail ?? 'standard';
+  const tone = preferences?.tone ?? 'conversational';
+  const opener = tone === 'direct' ? '*Capabilities*' : '*What I can do for you right now*';
+  const base = [
+    opener,
     '• Build, debug, and refactor code in your active workspace',
     '• Run tests, app commands, and browser checks',
     '• Handle GitHub workflows: branches, PRs, issues, CI status',
-    '• Research docs/web content and extract what matters',
-    '• Create repeatable workflows and cron automation',
-    '',
-    'Give me one outcome and I will execute it step by step.',
-  ].join('\n');
+  ];
+
+  if (detail !== 'brief') {
+    base.push('• Research docs/web content and extract what matters');
+    base.push('• Create repeatable workflows and cron automation');
+  }
+  if (detail === 'deep') {
+    base.push('• Delegate complex multi-file tasks across available coding harnesses');
+  }
+
+  base.push('');
+  base.push(tone === 'direct'
+    ? 'Give one objective and I will execute it.'
+    : 'Give me one outcome and I will execute it step by step.');
+  return base.join('\n');
 }
 
 /**
  * Build deterministic tool inventory with stable category ordering.
  */
-export function buildToolInventory(options: InventoryOptions = {}): string {
+export function buildToolInventory(options: InventoryOptions = {}, preferences?: ResponsePreferences): string {
+  const detail = preferences?.detail ?? 'standard';
   const groups = collectToolGroups();
   const ordered = [
     ['Workspace', groups.Workspace],
@@ -57,15 +72,16 @@ export function buildToolInventory(options: InventoryOptions = {}): string {
   ] as const;
 
   const totalTools = ordered.reduce((sum, [, tools]) => sum + tools.length, 0);
-  const lines: string[] = [`*Tool Inventory*`, `• ${SLASH_COMMANDS.length} slash commands`, `• ${totalTools} orchestrator tools`, ''];
+  const lines: string[] = ['*Tool Inventory*', `• ${SLASH_COMMANDS.length} slash commands`, `• ${totalTools} orchestrator tools`, ''];
 
   for (const [label, tools] of ordered) {
     if (tools.length === 0) continue;
     lines.push(`*${label}* (${tools.length})`);
-    if (options.full) {
+    if (options.full || detail === 'deep') {
       for (const name of tools) lines.push(`• ${name}`);
     } else {
-      lines.push(`• ${tools.slice(0, 4).join(', ')}${tools.length > 4 ? ', ...' : ''}`);
+      const previewCount = detail === 'brief' ? 3 : 4;
+      lines.push(`• ${tools.slice(0, previewCount).join(', ')}${tools.length > previewCount ? ', ...' : ''}`);
     }
   }
 

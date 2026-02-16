@@ -3,6 +3,7 @@
  *
  * @module agent/response-policy
  */
+import type { Session } from '../session/types.js';
 
 /** Intent classes used to tune prompt mode and deterministic response paths. */
 export type ResponseIntent =
@@ -12,6 +13,22 @@ export type ResponseIntent =
   | 'status'
   | 'action_request'
   | 'general';
+
+export type ResponseDetail = 'brief' | 'standard' | 'deep';
+export type ResponseTone = 'direct' | 'conversational';
+export type EmojiLevel = 'low' | 'normal';
+
+export interface ResponsePreferences {
+  detail: ResponseDetail;
+  tone: ResponseTone;
+  emoji: EmojiLevel;
+}
+
+export const DEFAULT_RESPONSE_PREFERENCES: ResponsePreferences = {
+  detail: 'standard',
+  tone: 'conversational',
+  emoji: 'normal',
+};
 
 /**
  * Classify a user message into a coarse conversational intent.
@@ -83,4 +100,38 @@ export function wantsFullInventory(message: string): boolean {
     /all (tools|commands)/.test(text) ||
     /^\/help$/.test(text)
   );
+}
+
+/**
+ * Read persisted response preferences from session metadata.
+ */
+export function getResponsePreferences(session: Session): ResponsePreferences {
+  const raw = (session.metadata?.responsePreferences ?? {}) as Partial<ResponsePreferences>;
+  return {
+    detail: raw.detail === 'brief' || raw.detail === 'deep' ? raw.detail : DEFAULT_RESPONSE_PREFERENCES.detail,
+    tone: raw.tone === 'direct' ? 'direct' : DEFAULT_RESPONSE_PREFERENCES.tone,
+    emoji: raw.emoji === 'low' ? 'low' : DEFAULT_RESPONSE_PREFERENCES.emoji,
+  };
+}
+
+/**
+ * Parse natural-language preference updates from a user message.
+ */
+export function parsePreferenceUpdate(message: string): Partial<ResponsePreferences> | null {
+  const text = message.trim().toLowerCase();
+  if (!text) return null;
+
+  const updates: Partial<ResponsePreferences> = {};
+
+  if (/(be|more|keep|make).*(brief|short|concise)/.test(text)) updates.detail = 'brief';
+  if (/(be|more|keep|make).*(detailed|deep|verbose)/.test(text)) updates.detail = 'deep';
+  if (/(normal|standard) (detail|verbosity|responses)/.test(text)) updates.detail = 'standard';
+
+  if (/(be|more|keep).*(direct|straight to the point)/.test(text)) updates.tone = 'direct';
+  if (/(be|more|keep).*(conversational|personal)/.test(text)) updates.tone = 'conversational';
+
+  if (/(less|fewer|no).*(emoji|emojis)/.test(text)) updates.emoji = 'low';
+  if (/(more|use).*(emoji|emojis)/.test(text)) updates.emoji = 'normal';
+
+  return Object.keys(updates).length > 0 ? updates : null;
 }

@@ -18,6 +18,18 @@
 import { pipeline } from '../config/pipeline.js';
 import type { ResponseIntent } from './response-policy.js';
 
+export interface WhatsAppFormatMetrics {
+  normalizedCount: number;
+  chunkedCount: number;
+  fallbackSplitCount: number;
+}
+
+const formatMetrics: WhatsAppFormatMetrics = {
+  normalizedCount: 0,
+  chunkedCount: 0,
+  fallbackSplitCount: 0,
+};
+
 /**
  * Maximum characters per line for comfortable mobile reading.
  * WhatsApp displays ~35-40 chars per line on most phones.
@@ -41,6 +53,7 @@ const MAX_MESSAGE_LENGTH = pipeline.whatsappMaxLength;
  * @returns Normalized text ready for WhatsApp send
  */
 export function formatForWhatsApp(text: string): string {
+  const original = text;
   // Normalize line endings first for predictable transforms.
   let formatted = text.replace(/\r\n?/g, '\n');
 
@@ -77,6 +90,10 @@ export function formatForWhatsApp(text: string): string {
   // Truncate if too long
   if (formatted.length > MAX_MESSAGE_LENGTH) {
     formatted = formatted.substring(0, MAX_MESSAGE_LENGTH - 50) + '\n\n_... message truncated_';
+  }
+
+  if (formatted !== original) {
+    formatMetrics.normalizedCount += 1;
   }
   
   return formatted;
@@ -118,19 +135,36 @@ export function formatAndChunkForWhatsApp(text: string, intent?: ResponseIntent)
     }
     const lines = chunk.split('\n');
     let part = '';
+    let usedFallback = false;
     for (const line of lines) {
       const candidate = part ? `${part}\n${line}` : line;
       if (candidate.length > limit && part) {
         finalChunks.push(part);
         part = line;
+        usedFallback = true;
       } else {
         part = candidate;
       }
     }
     if (part) finalChunks.push(part);
+    if (usedFallback) formatMetrics.fallbackSplitCount += 1;
+  }
+
+  if (finalChunks.length > 1) {
+    formatMetrics.chunkedCount += 1;
   }
 
   return finalChunks.filter(Boolean);
+}
+
+export function getWhatsAppFormatMetrics(): WhatsAppFormatMetrics {
+  return { ...formatMetrics };
+}
+
+export function resetWhatsAppFormatMetrics(): void {
+  formatMetrics.normalizedCount = 0;
+  formatMetrics.chunkedCount = 0;
+  formatMetrics.fallbackSplitCount = 0;
 }
 
 // =============================================================================

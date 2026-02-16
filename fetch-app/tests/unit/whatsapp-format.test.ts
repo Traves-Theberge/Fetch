@@ -1,8 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../../src/agent/whatsapp-format.js';
+import {
+  formatAndChunkForWhatsApp,
+  formatForWhatsApp,
+  getWhatsAppFormatMetrics,
+  resetWhatsAppFormatMetrics,
+} from '../../src/agent/whatsapp-format.js';
 
 describe('formatForWhatsApp', () => {
+  it('tracks normalization metrics', () => {
+    resetWhatsAppFormatMetrics();
+    formatForWhatsApp('## Header');
+    expect(getWhatsAppFormatMetrics().normalizedCount).toBe(1);
+  });
+
   it('converts collapsed markdown bullets and bold markers into WhatsApp-friendly output', () => {
     const input = [
       'I can assist with:',
@@ -32,6 +43,7 @@ describe('formatForWhatsApp', () => {
   });
 
   it('chunks long tool inventory style messages into multiple payloads', () => {
+    resetWhatsAppFormatMetrics();
     const input = [
       '*Tool Inventory*',
       '',
@@ -45,5 +57,6 @@ describe('formatForWhatsApp', () => {
     expect(chunks.length).toBeGreaterThan(1);
     expect(chunks[0]).toContain('*Tool Inventory*');
     expect(chunks.join('\n')).toContain('show full tool list');
+    expect(getWhatsAppFormatMetrics().chunkedCount).toBe(1);
   });
 });

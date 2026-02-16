@@ -135,6 +135,9 @@ export async function buildContextSection(session: Session, userMessage?: string
   }
 
   const runtime = session.metadata?.agentRuntime as Record<string, unknown> | undefined;
+  const responsePrefs = session.metadata?.responsePreferences as
+    | { detail?: string; tone?: string; emoji?: string }
+    | undefined;
   const activeRun = runtime?.activeRun as { phase?: string; promptMode?: string; startedAt?: string } | undefined;
   if (activeRun?.phase) {
     parts.push(`⚙️ **Active run**: ${activeRun.phase}${activeRun.promptMode ? ` (${activeRun.promptMode})` : ''}`);
@@ -143,6 +146,13 @@ export async function buildContextSection(session: Session, userMessage?: string
   if (typeof shortTermSummary === 'string' && shortTermSummary.trim()) {
     parts.push('\n## Short-Term Memory');
     parts.push(shortTermSummary);
+  }
+
+  if (responsePrefs && (responsePrefs.detail || responsePrefs.tone || responsePrefs.emoji)) {
+    parts.push('\n## Response Preferences');
+    if (responsePrefs.detail) parts.push(`- Detail: ${responsePrefs.detail}`);
+    if (responsePrefs.tone) parts.push(`- Tone: ${responsePrefs.tone}`);
+    if (responsePrefs.emoji) parts.push(`- Emoji: ${responsePrefs.emoji}`);
   }
   const durableNotes = runtime?.durableNotes;
   if (Array.isArray(durableNotes) && durableNotes.length > 0) {

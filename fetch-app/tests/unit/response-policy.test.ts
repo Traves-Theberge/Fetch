@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   buildOutputConstraints,
   classifyIntent,
+  getResponsePreferences,
+  parsePreferenceUpdate,
   shouldUseMinimalMode,
   wantsFullInventory,
 } from '../../src/agent/response-policy.js';
+import { createSession } from '../../src/session/types.js';
 
 describe('response policy', () => {
   it('classifies capability and inventory asks', () => {
@@ -29,5 +32,20 @@ describe('response policy', () => {
   it('returns stable output constraints for key intents', () => {
     expect(buildOutputConstraints('capability_summary')).toContain('immediate action option');
     expect(buildOutputConstraints('tool_inventory')).toContain('Grouped bullet list');
+  });
+
+  it('parses preference updates from natural language', () => {
+    expect(parsePreferenceUpdate('be brief from now on')).toEqual({ detail: 'brief' });
+    expect(parsePreferenceUpdate('be more conversational and use more emojis')).toEqual({
+      tone: 'conversational',
+      emoji: 'normal',
+    });
+    expect(parsePreferenceUpdate('run tests now')).toBeNull();
+  });
+
+  it('reads persisted response preferences from session metadata', () => {
+    const session = createSession('user-pref');
+    session.metadata.responsePreferences = { detail: 'deep', tone: 'direct', emoji: 'low' };
+    expect(getResponsePreferences(session)).toEqual({ detail: 'deep', tone: 'direct', emoji: 'low' });
   });
 });

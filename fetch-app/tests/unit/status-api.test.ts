@@ -19,5 +19,7 @@ describe('Status API Session ID Validation', () => {
     const status = getStatus();
     expect(status.notificationMetrics).toBeDefined();
     expect(typeof status.notificationMetrics.total).toBe('number');
+    expect(status.responseFormattingMetrics).toBeDefined();
+    expect(typeof status.responseFormattingMetrics.normalizedCount).toBe('number');
   });
 });
