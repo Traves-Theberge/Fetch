@@ -54,6 +54,18 @@ Everything else — including project switching, git operations, settings, ident
 
 Note: natural-language capability prompts like "what can you do?" now use the LLM conversational path (context-aware and personalized). Use `/help` when you want the deterministic full command/tool catalog.
 
+### Conversational Preference Controls
+
+You can persist reply style preferences with normal language:
+
+- "be brief"
+- "be detailed" / "be deep"
+- "be direct"
+- "be conversational"
+- "use fewer emojis" / "use more emojis"
+
+Fetch stores these as session-level response preferences and applies them to capability/tool inventory replies and future conversational output.
+
 ## Natural Language (Everything Else)
 
 The LLM has access to registered orchestrator tools and decides which to call based on your message. Here are examples:

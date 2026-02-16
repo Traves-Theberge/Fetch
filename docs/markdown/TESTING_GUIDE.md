@@ -37,11 +37,13 @@ Quick release regression checks (local):
 cd fetch-app
 npx vitest run tests/unit/agent-core-safety.test.ts
 npx vitest run tests/unit/workflow-manager.test.ts
+npx vitest run tests/integration/conversation-contracts.test.ts
 npx vitest run --coverage
 ```
 
 - [ ] `agent-core-safety` passes (redaction, retry/error/progress safety helpers)
 - [ ] `workflow-manager` passes (cron validation, cron metadata success/failure, startup catch-up)
+- [ ] `conversation-contracts` passes (capability/tool deterministic outputs + preference carry-over)
 - [ ] Coverage report generates successfully
 
 ---
@@ -154,6 +156,26 @@ These messages should go through the normal LLM path (not deterministic `/help` 
 - [ ] Output is conversational and context-aware (not a static command dump)
 - [ ] Output suggests one concrete next action Fetch can take immediately
 - [ ] `/help` still returns the deterministic full help catalog
+
+### 2.2e Preference Persistence
+
+```text
+@fetch be brief and direct with fewer emojis
+@fetch what can you do?
+@fetch what tools do you have?
+```
+
+- [ ] Preference update confirms persisted values (`detail`, `tone`, `emoji`)
+- [ ] Follow-up capability response reflects brief/direct style
+- [ ] Tool inventory remains grouped and readable under brief mode
+
+Reset preference style test:
+
+```text
+@fetch use normal standard detail and be conversational
+```
+
+- [ ] Responses return to standard/conversational defaults
 
 ### 2.2c Runtime Lifecycle + Prompt Mode
 

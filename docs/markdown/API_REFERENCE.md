@@ -63,6 +63,11 @@ Returns system health and WhatsApp connection state.
     "rewriteErrors": 3,
     "sanitizeRejects": 4,
     "duplicateSuppressions": 12
+  },
+  "responseFormattingMetrics": {
+    "normalizedCount": 18,
+    "chunkedCount": 3,
+    "fallbackSplitCount": 1
   }
 }
 ```
@@ -77,6 +82,7 @@ Returns system health and WhatsApp connection state.
 | `lastError` | `string`\|`null` | Most recent error message |
 | `version` | `string` | Running application version |
 | `notificationMetrics` | `object` | Notification rewrite/template counters for operational telemetry |
+| `responseFormattingMetrics` | `object` | WhatsApp response formatting/chunking counters (`normalizedCount`, `chunkedCount`, `fallbackSplitCount`) |
 
 ### GET /api/sessions
 
