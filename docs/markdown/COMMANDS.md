@@ -1,5 +1,12 @@
 # Command Reference
 
+## Implementation References
+
+- Command parsing/dispatch: `fetch-app/src/commands/parser.ts`, `fetch-app/src/commands/index.ts`, `fetch-app/src/commands/task.ts`, `fetch-app/src/commands/trust.ts`.
+- Tool catalog source: `fetch-app/src/tools/registry.ts`, `fetch-app/src/validation/tools.ts`.
+- Validation tests: `fetch-app/tests/unit/command-parser.test.ts`, `fetch-app/tests/unit/tool-validation-contracts.test.ts`.
+
+
 ## Trigger
 
 All messages must start with `@fetch` to be processed:
@@ -14,9 +21,19 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 40 orchestrator tools.
+Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its registered orchestrator tools.
 
 The only slash commands that exist are **8 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
+
+```mermaid
+flowchart TD
+    Input["@fetch message"] --> Gate{"Safety escape?"}
+    Gate -->|Yes| Escape["Deterministic handler"]
+    Gate -->|No| Agent["LLM + tool loop"]
+    Agent --> Tools["Registered tools"]
+    Escape --> Reply["WhatsApp reply"]
+    Tools --> Reply
+```
 
 ## Safety Escape Commands
 
@@ -39,7 +56,7 @@ Note: natural-language capability prompts like "what can you do?" now use the LL
 
 ## Natural Language (Everything Else)
 
-The LLM has access to 40 orchestrator tools and decides which to call based on your message. Here are examples:
+The LLM has access to registered orchestrator tools and decides which to call based on your message. Here are examples:
 
 ### Tooling Layers (How To Think About It)
 
@@ -139,7 +156,7 @@ Workflow safety guardrails:
 
 ## Orchestrator Tools Reference
 
-The LLM has access to these 40 tools:
+The LLM has access to the registered tools:
 
 | Tool | Category | Description |
 |------|----------|-------------|

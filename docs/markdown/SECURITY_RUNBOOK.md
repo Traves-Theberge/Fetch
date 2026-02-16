@@ -1,6 +1,21 @@
 # Security Runbook
 
+## Implementation References
+
+- Security runtime: `fetch-app/src/security/gate.ts`, `fetch-app/src/security/rateLimiter.ts`, `fetch-app/src/security/validator.ts`, `fetch-app/src/security/whitelist.ts`.
+- Auth/config: `fetch-app/src/config/env.ts`, `.env.example`.
+- Validation tests: `fetch-app/tests/unit/security.test.ts`, `fetch-app/tests/unit/whitelist.test.ts`.
+
+
 Operational checklist for running Fetch in production-like environments.
+
+```mermaid
+flowchart TD
+    Host["Host hardening"] --> Secrets["Secrets + token scope"]
+    Secrets --> Runtime["Runtime exposure controls"]
+    Runtime --> Monitoring["Doctor + config checks"]
+    Monitoring --> Recovery["Incident recovery playbook"]
+```
 
 ## 1. Host Access and Docker
 

@@ -1,6 +1,23 @@
 # TUI Manager Guide
 
+## Implementation References
+
+- TUI runtime: `manager/main.go`.
+- UI internals: `manager/internal/components/*`, `manager/internal/layout/*`, `manager/internal/theme/*`, `manager/internal/logs/logs.go`.
+- Container/status control: `manager/internal/docker/docker.go`, `manager/internal/status/client.go`.
+- Validation tests: `manager/internal/paths/paths_test.go`.
+
+
 The Fetch Manager is a terminal user interface (TUI) built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea). It provides a graphical way to manage Fetch's Docker services, authenticate AI harnesses, edit configuration, and monitor logs — without memorizing commands.
+
+```mermaid
+flowchart TD
+    Menu[Main Menu] --> Start[Start/Stop Fetch]
+    Menu --> Setup[WhatsApp Setup]
+    Menu --> Logs[View Logs]
+    Menu --> Settings[Settings + Harness Auth]
+    Menu --> Sessions[Global Sessions]
+```
 
 ## Building
 

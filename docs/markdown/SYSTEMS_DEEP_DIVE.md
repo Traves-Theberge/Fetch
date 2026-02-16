@@ -1,5 +1,13 @@
 # Systems Deep Dive
 
+## Implementation References
+
+- Identity/session/task systems: `fetch-app/src/identity/*`, `fetch-app/src/session/*`, `fetch-app/src/task/*`.
+- Agent runtime: `fetch-app/src/agent/*`.
+- Skills/runtime context: `fetch-app/src/skills/*`, `data/identity/*`, `data/skills/*`, `data/cli-configs/*`.
+- Validation tests: `fetch-app/tests/unit/identity-manager.test.ts`, `fetch-app/tests/unit/session-manager.test.ts`, `fetch-app/tests/unit/task-manager.test.ts`.
+
+
 Every WhatsApp message follows **one path** through these systems. There's no router or classifier - the LLM sees everything and decides what to do.
 
 ```text
@@ -268,7 +276,7 @@ processMessage(message, session)
       +-- INITIAL LLM CALL
       |   '-- openai.chat.completions.create({
       |        messages: [system, ...history, user],
-      |        tools: registry.toOpenAIFormat(),  // all 40 tools
+      |        tools: registry.toOpenAIFormat(),  // full registered toolset
       |        tool_choice: 'auto'
       |      })
       |
@@ -305,7 +313,7 @@ flowchart TB
     ALPHA["ALPHA.md<br/>(owner profile)"]
     BuiltinSkills["Built-in Skills<br/>(7 SKILL.md files)"]
     UserSkills["User Skills<br/>(data/skills/)"]
-    BuiltinTools["Built-in Tools<br/>(40 tools, Zod schemas)"]
+    BuiltinTools["Built-in Tools<br/>(registered tools, Zod schemas)"]
     CustomTools["Custom Tools<br/>(data/tools/*.json)"]
 
     %% Managers
@@ -342,7 +350,7 @@ flowchart TB
     subgraph ContextAssembly ["System Prompt Assembly"]
         direction TB
         Identity["Identity + Directives<br/>+ Autonomy Rules"]
-        Capabilities["Capabilities<br/>(8 commands, 40 tools, 5 harnesses)"]
+        Capabilities["Capabilities<br/>(8 commands, registered tools, 5 harnesses)"]
         SessionCtx["Session Context<br/>(workspace, task, repo map)"]
         RecalledMem["Recalled Memories<br/>(BM25 matched)"]
         SkillSummary["Skill Summary<br/>(all available)"]
@@ -396,7 +404,7 @@ flowchart TB
 
 ### The critical insight
 
-There is **no routing**. The LLM sees the complete system prompt (identity + context + skills + all 40 tools) on every single message and makes its own decisions. Skills guide it, tools empower it, context informs it, but nothing pre-classifies or restricts what it can do.
+There is **no routing**. The LLM sees the complete system prompt (identity + context + skills + full registered toolset) on every single message and makes its own decisions. Skills guide it, tools empower it, context informs it, but nothing pre-classifies or restricts what it can do.
 
 ---
 

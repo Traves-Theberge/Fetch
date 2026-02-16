@@ -1,5 +1,13 @@
 # Setup Guide
 
+## Implementation References
+
+- Setup/install scripts: `scripts/install.sh`, `scripts/fetch-cli.sh`, `scripts/install_prereqs.sh`, `scripts/install_gh_cli.sh`.
+- Runtime orchestration: `manager/main.go`, `manager/internal/status/client.go`.
+- Infra/config: `docker-compose.yml`, `config/searxng/settings.yml`, `.env.example`.
+- Validation tests: `fetch-app/tests/unit/env-runtime-validation.test.ts`.
+
+
 ## Prerequisites
 
 | Requirement | Version | Notes |
@@ -195,6 +203,14 @@ You can keep GitHub repo operations enabled while setting `ENABLE_COPILOT=false`
 
 <!-- DIAGRAM:docker -->
 
+```mermaid
+flowchart LR
+    Bridge[fetch-bridge] --> Kennel[fetch-kennel]
+    Bridge --> Search[fetch-searxng]
+    Bridge <--> WS[/workspace/]
+    Kennel <--> WS
+```
+
 ```
 docker compose up -d
 ```
@@ -205,13 +221,13 @@ This starts three containers:
 |-----------|-------|-------|---------|
 | `fetch-bridge` | `fetch-app/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `./docs` (ro), `./.env` (ro), `/var/run/docker.sock` (ro) |
 | `fetch-kennel` | `kennel/Dockerfile` | — | `./workspace`, `~/.config/gh` (ro), `~/.config/claude-code` (ro), `~/.claude` (ro), `~/.gemini` (ro), `~/.config/opencode` (ro), `~/.codex` (ro) |
-| `searxng` | `searxng/searxng:latest` | 8888 (search API) | `./config/searxng` |
+| `fetch-searxng` | `searxng/searxng:latest` | 8888 (search API) | `./config/searxng` |
 
 The Bridge talks to the Kennel by spawning CLI processes inside it via `docker exec`. Auth credentials are mounted read-only. SearXNG provides the web search backend on the Docker network.
 
 ## Pipeline Tuning (Optional)
 
-Fetch's context pipeline has 42 tunable parameters with sane defaults. Override via environment variables for quick adjustments:
+Fetch's context pipeline has dozens of tunable parameters with sane defaults. Override via environment variables for quick adjustments:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -219,7 +235,6 @@ Fetch's context pipeline has 42 tunable parameters with sane defaults. Override 
 | `FETCH_COMPACTION_THRESHOLD` | `40` | Compact when total messages exceed this |
 | `FETCH_COMPACTION_MAX_TOKENS` | `500` | Max tokens for compaction summaries |
 | `FETCH_MAX_TOOL_CALLS` | `5` | Max tool call rounds per message |
-
 | `FETCH_TOOL_MAX_TOKENS` | `2048` | Token budget for tool-calling responses |
 | `FETCH_TOOL_TEMPERATURE` | `0.3` | Temperature for tool-calling responses |
 
@@ -227,7 +242,7 @@ Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** edito
 
 ## Verifying the Installation
 
-1. **Check container status**: `docker compose ps` — both should be `running`
+1. **Check container status**: `docker compose ps` — bridge, kennel, and searxng should be `running`
 2. **Check Bridge health**: `curl http://localhost:8765/api/status`
 3. **Check logs**: `docker logs fetch-bridge`
 4. **Send a test message**: `@fetch ping` on WhatsApp
@@ -264,5 +279,5 @@ Pin to a specific released version:
 fetch self pin <version>
 ```
 
-Uninstall instructions: [Uninstall Guide](UNINSTALL.md)
+Uninstall instructions: [Install, Uninstall & Update](INSTALL_UNINSTALL_UPDATE.md#uninstall)
 Security checklist: [Security Runbook](SECURITY_RUNBOOK.md)

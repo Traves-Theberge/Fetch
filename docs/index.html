@@ -63,24 +63,14 @@
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="README.md" onclick="loadDoc('README.md'); return false;">
-                <span class="nav-link-icon">📖</span> Overview
-              </a>
-            </li>
-            <li class="nav-item">
               <a href="#" class="nav-link" data-doc="SETUP_GUIDE.md" onclick="loadDoc('SETUP_GUIDE.md'); return false;">
                 <span class="nav-link-icon">🚀</span> Setup Guide
               </a>
             </li>
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="INSTALL_UPDATE.md"
-                onclick="loadDoc('INSTALL_UPDATE.md'); return false;">
-                <span class="nav-link-icon">⬆️</span> Install &amp; Update
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="UNINSTALL.md" onclick="loadDoc('UNINSTALL.md'); return false;">
-                <span class="nav-link-icon">🗑️</span> Uninstall
+              <a href="#" class="nav-link" data-doc="INSTALL_UNINSTALL_UPDATE.md"
+                onclick="loadDoc('INSTALL_UNINSTALL_UPDATE.md'); return false;">
+                <span class="nav-link-icon">⬆️</span> Install, Uninstall &amp; Update
               </a>
             </li>
             <li class="nav-item">
@@ -191,28 +181,29 @@
                 <span class="nav-link-icon">📖</span> Glossary
               </a>
             </li>
-          </ul>
-        </div>
-
-        <!-- Release Notes -->
-        <div class="nav-section">
-          <div class="nav-section-title">Release Notes</div>
-          <ul class="nav-list">
             <li class="nav-item">
-              <a href="#" class="nav-link" data-doc="CHANGELOG.md" onclick="loadDoc('CHANGELOG.md'); return false;">
-                <span class="nav-link-icon">📝</span> Changelog
+              <a href="#" class="nav-link" data-doc="DOCS_MAINTENANCE_MAP.md"
+                onclick="loadDoc('DOCS_MAINTENANCE_MAP.md'); return false;">
+                <span class="nav-link-icon">🧭</span> Docs Maintenance Map
               </a>
             </li>
           </ul>
         </div>
+
       </nav>
 
       <div class="sidebar-footer">
-        <button class="theme-toggle" onclick="toggleTheme()">
-          <span id="themeLabel">🌙 Dark Mode</span>
-          <span id="themeIcon">☀️</span>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+          <span class="theme-toggle-text">
+            <strong id="themePrimary">Dark Mode</strong>
+            <span id="themeSecondary">Night command center</span>
+          </span>
+          <span class="theme-switch" aria-hidden="true">
+            <span class="theme-switch-knob"></span>
+          </span>
         </button>
-        <div class="sidebar-version">Fetch v0.0.68</div>
+        <a class="sidebar-github-link" href="https://github.com/Traves-Theberge/Fetch" target="_blank" rel="noopener">View on GitHub</a>
+        <div class="sidebar-version">Fetch v0.0.72</div>
       </div>
     </aside>
 
@@ -232,8 +223,7 @@
 
   <!-- Footer -->
   <footer class="docs-footer">
-    <span>Fetch v0.0.68 — Your Faithful Code Companion</span>
-    <a href="https://github.com/Traves-Theberge/Fetch" target="_blank" rel="noopener">GitHub</a>
+    <span>Fetch v0.0.72 — Your Faithful Code Companion</span>
   </footer>
 
   <!-- Back to Top Button -->
@@ -517,21 +507,7 @@
     function toggleTheme() {
       isDark = !isDark;
       document.body.classList.toggle('dark', isDark);
-
-      const label = document.getElementById('themeLabel');
-      const icon = document.getElementById('themeIcon');
-
-      if (isDark) {
-        label.textContent = '🌙 Dark Mode';
-        icon.textContent = '☀️';
-        document.getElementById('hljs-dark').disabled = false;
-        document.getElementById('hljs-light').disabled = true;
-      } else {
-        label.textContent = '☀️ Light Mode';
-        icon.textContent = '🌙';
-        document.getElementById('hljs-dark').disabled = true;
-        document.getElementById('hljs-light').disabled = false;
-      }
+      updateThemeControls();
 
       // Persist preference
       localStorage.setItem('fetch-docs-theme', isDark ? 'dark' : 'light');
@@ -558,6 +534,24 @@
       });
     }
 
+    function updateThemeControls() {
+      const primary = document.getElementById('themePrimary');
+      const secondary = document.getElementById('themeSecondary');
+      const toggle = document.querySelector('.theme-toggle');
+      if (isDark) {
+        primary.textContent = 'Dark Mode';
+        secondary.textContent = 'Night command center';
+        document.getElementById('hljs-dark').disabled = false;
+        document.getElementById('hljs-light').disabled = true;
+      } else {
+        primary.textContent = 'Light Mode';
+        secondary.textContent = 'Daylight focus mode';
+        document.getElementById('hljs-dark').disabled = true;
+        document.getElementById('hljs-light').disabled = false;
+      }
+      toggle.setAttribute('aria-pressed', String(!isDark));
+    }
+
     // Back to top visibility
     window.addEventListener('scroll', () => {
       const btn = document.getElementById('backToTop');
@@ -571,11 +565,8 @@
       if (savedTheme === 'light') {
         isDark = false;
         document.body.classList.remove('dark');
-        document.getElementById('themeLabel').textContent = '☀️ Light Mode';
-        document.getElementById('themeIcon').textContent = '🌙';
-        document.getElementById('hljs-dark').disabled = true;
-        document.getElementById('hljs-light').disabled = false;
       }
+      updateThemeControls();
 
       // Check URL hash for initial doc
       const hash = window.location.hash.slice(1);

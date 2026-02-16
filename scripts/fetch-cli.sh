@@ -45,7 +45,7 @@ Commands:
   setup --install-harnesses
                      Install all harness CLIs on host
   up                 Start Fetch services (docker compose up -d --build)
-  down               Stop Fetch services
+  down [--all] [-v]  Stop Fetch services (use --all for global legacy cleanup)
   restart            Restart Fetch services
   status             Show docker compose status
   logs [svc]         Tail logs (optional service name)
@@ -131,11 +131,49 @@ run_build() {
 }
 
 cmd_up() {
-  compose_cmd up -d --build
+  local output
+  if output="$(compose_cmd up -d --build 2>&1)"; then
+    echo "$output"
+    return 0
+  fi
+
+  echo "$output" >&2
+  if [[ "$output" == *"already in use by container"* ]] && \
+     ([[ "$output" == *"container name \"/fetch-"* ]] || [[ "$output" == *"container name \"/searxng\""* ]]); then
+    echo "[fetch] detected stale legacy container name conflict; cleaning up and retrying" >&2
+    docker rm -f fetch-bridge fetch-kennel fetch-searxng searxng >/dev/null 2>&1 || true
+    compose_cmd up -d --build
+    return 0
+  fi
+
+  return 1
 }
 
 cmd_down() {
-  compose_cmd down
+  local all=0
+  local volumes=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --all) all=1; shift ;;
+      -v|--volumes) volumes=1; shift ;;
+      *)
+        echo "[fetch] unknown option for down: $1" >&2
+        echo "Usage: fetch down [--all] [-v|--volumes]" >&2
+        exit 1
+        ;;
+    esac
+  done
+
+  local down_args=(down --remove-orphans)
+  if [[ $volumes -eq 1 ]]; then
+    down_args+=(-v)
+  fi
+  compose_cmd "${down_args[@]}"
+
+  if [[ $all -eq 1 ]]; then
+    echo "[fetch] removing legacy Fetch container names across host" >&2
+    docker rm -f fetch-bridge fetch-kennel fetch-searxng searxng >/dev/null 2>&1 || true
+  fi
 }
 
 cmd_restart() {

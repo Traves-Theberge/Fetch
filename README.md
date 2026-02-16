@@ -88,11 +88,18 @@ Service lifecycle:
 ```bash
 fetch up
 fetch down
+fetch down --all
 fetch restart
 fetch status
 fetch logs
 fetch tui
 ```
+
+How `down` works:
+
+- `fetch down` stops and removes this Fetch stack's containers and network (`docker compose down --remove-orphans`).
+- `fetch down -v` also removes this stack's volumes.
+- `fetch down --all` additionally removes legacy fixed-name containers from older versions (`fetch-bridge`, `fetch-kennel`, `fetch-searxng`, `searxng`).
 
 Service command targeting:
 
@@ -105,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.71
+fetch self pin v0.0.72
 fetch uninstall
 ```
 
@@ -324,7 +331,7 @@ docker compose down
 Core docs:
 
 - [Setup Guide](docs/markdown/SETUP_GUIDE.md)
-- [Install & Update](docs/markdown/INSTALL_UPDATE.md)
+- [Install, Uninstall & Update](docs/markdown/INSTALL_UNINSTALL_UPDATE.md)
 - [TUI Guide](docs/markdown/TUI_GUIDE.md)
 - [Configuration](docs/markdown/CONFIGURATION.md)
 - [Commands](docs/markdown/COMMANDS.md)

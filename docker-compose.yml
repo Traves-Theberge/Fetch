@@ -117,7 +117,7 @@ services:
   # SearXNG - Self-hosted meta search engine (free, private)
   searxng:
     image: searxng/searxng:latest
-    container_name: searxng
+    container_name: fetch-searxng
     restart: unless-stopped
     ports:
       - "8888:8080"

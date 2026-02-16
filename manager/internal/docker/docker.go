@@ -26,9 +26,10 @@ func StartServices() error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		outText := string(output)
-		// Recover from stale manually-created containers with fixed names.
-		if strings.Contains(outText, `container name "/fetch-`) && strings.Contains(outText, "already in use by container") {
-			cleanup := exec.Command("docker", "rm", "-f", "fetch-bridge", "fetch-kennel", "searxng")
+		// Recover from stale containers with legacy/fixed names.
+		if strings.Contains(outText, "already in use by container") &&
+			(strings.Contains(outText, `container name "/fetch-`) || strings.Contains(outText, `container name "/searxng"`)) {
+			cleanup := exec.Command("docker", "rm", "-f", "fetch-bridge", "fetch-kennel", "fetch-searxng", "searxng")
 			cleanup.CombinedOutput() // Best-effort cleanup.
 
 			retry := exec.Command("docker", "compose", "up", "-d")

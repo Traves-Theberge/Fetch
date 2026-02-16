@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.72] - 2026-02-16
+
+### Changed
+
+- **Container conflict hardening** — Renamed the SearXNG container to `fetch-searxng` to avoid generic `/searxng` name collisions with non-Fetch stacks.
+- **CLI lifecycle recovery** — `fetch up` now auto-recovers once from stale fixed-name container conflicts and retries startup.
+- **Simpler shutdown semantics** — `fetch down` now uses `--remove-orphans`; added `fetch down --all` (legacy global cleanup) and `fetch down -v` (remove volumes).
+- **Documentation shell overhaul** — Removed docs-side changelog/uninstall pointer pages, renamed install lifecycle docs, upgraded theme toggle UI, and added sidebar GitHub link.
+- **Comprehensive docs-source traceability** — Added `DOCS_MAINTENANCE_MAP.md` with full page-to-runtime/config/test mapping and drift-check commands.
+- **Page-level maintenance references** — Added `Implementation References` sections across all docs pages to tie each page directly to source files and tests.
+- **Docs and diagram refresh** — Updated stale container/tool-count wording, refreshed glossary and skills guide, and added/expanded mermaid diagrams across operational docs.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.72`.
+
 ## [0.0.71] - 2026-02-16
 
 ### Changed

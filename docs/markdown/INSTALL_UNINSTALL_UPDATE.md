@@ -1,4 +1,19 @@
-# Install & Update
+# Install, Uninstall & Update
+
+## Implementation References
+
+- Lifecycle scripts: `scripts/install.sh`, `scripts/fetch-cli.sh`, `scripts/uninstall.sh`, `scripts/build_manager.sh`.
+- Release metadata: `release-manifest.json`, `VERSION`.
+- Validation tests: `fetch-app/tests/unit/index-runtime.test.ts`.
+
+
+```mermaid
+flowchart LR
+    Install["install.sh / fetch setup"] --> Run["fetch up + fetch tui"]
+    Run --> Update["fetch self update / fetch self pin"]
+    Update --> Run
+    Run --> Remove["fetch uninstall"]
+```
 
 ## Quick Install (curl)
 
@@ -79,7 +94,7 @@ fetch uninstall
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.71
+fetch self pin v0.0.72
 ```
 
 ## Service Lifecycle
@@ -147,7 +162,7 @@ fetch uninstall
 fetch uninstall --with-docker --with-deps --clean-path
 ```
 
-See [Uninstall Guide](UNINSTALL.md) for full removal steps and option details.
+Use `fetch uninstall --help` for all removal options and flags.
 
 ## Security
 

@@ -1,5 +1,13 @@
 # Harness System
 
+## Implementation References
+
+- Harness core: `fetch-app/src/harness/base.ts`, `fetch-app/src/harness/registry.ts`, `fetch-app/src/harness/spawner.ts`, `fetch-app/src/harness/executor.ts`.
+- Adapter implementations: `fetch-app/src/harness/*.ts`.
+- Kennel runtime: `kennel/Dockerfile`, `kennel/entrypoint.sh`, `docker-compose.yml`.
+- Validation tests: `fetch-app/tests/unit/harness-adapters.test.ts`, `fetch-app/tests/unit/spawner.test.ts`.
+
+
 > "The Pack" consists of specialized AI CLIs running inside the **Kennel** sandbox (Docker). The Orchestrator delegates complex tasks to these harnesses when simple file edits or tool calls aren't enough.
 
 <!-- DIAGRAM:harness -->

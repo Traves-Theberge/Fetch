@@ -1,6 +1,22 @@
 # Testing Guide
 
+## Implementation References
+
+- Unit suites: `fetch-app/tests/unit/*`.
+- Integration suites: `fetch-app/tests/integration/*`.
+- Test framework config: `fetch-app/vitest.config.ts`, `fetch-app/package.json` test scripts.
+- Manager baseline tests: `manager/internal/paths/paths_test.go`.
+
+
 > Manual verification checklist for Fetch’s WhatsApp workflow, tools, runtime behavior, and metrics. Run sections in order; later phases depend on earlier setup.
+
+```mermaid
+flowchart LR
+    Setup["Setup + health checks"] --> Core["Core runtime tests"]
+    Core --> Tools["Tooling layer tests"]
+    Tools --> Workflow["Workflow/Cron tests"]
+    Workflow --> Regression["Release regression + coverage"]
+```
 
 ## Prerequisites
 
@@ -188,7 +204,7 @@ Ask the LLM directly:
 @fetch list all orchestrator tools with one-line descriptions
 ```
 
-- [ ] Response lists 40 tools, including:
+- [ ] Response lists the registered toolset, including:
   - Workspace: `workspace_list`, `workspace_select`, `workspace_status`, `workspace_create`, `workspace_delete`, `workspace_sync`, `workspace_publish`, `file_delete`, `folder_delete`
   - Task: `task_create`, `task_status`, `task_cancel`, `task_respond`
   - Interaction: `ask_user`, `report_progress`

@@ -1,13 +1,19 @@
 # Documentation
 
+## Implementation References
+
+- Docs shell: `docs/index.html`, `docs/assets/style.css`, `docs/assets/diagrams.js`.
+- Content source: `docs/markdown/*.md`.
+- Maintenance index: `docs/markdown/DOCS_MAINTENANCE_MAP.md`.
+
+
 This is the master documentation index for Fetch.
 
 ## Getting Started
 
-- [Overview](README.md) — Canonical root README pointer (single source of truth)
+- [Overview](README.md) — What Fetch is and how message flow works
 - [Setup Guide](SETUP_GUIDE.md) — Installation, configuration, first run
-- [Install & Update](INSTALL_UPDATE.md) — Canonical lifecycle guide (install, update, uninstall)
-- [Uninstall Guide](UNINSTALL.md) — Pointer to Install & Update uninstall section
+- [Install, Uninstall & Update](INSTALL_UNINSTALL_UPDATE.md) — Lifecycle guide (install/update/remove)
 - [Security Runbook](SECURITY_RUNBOOK.md) — Production hardening and incident checklist
 - [TUI Guide](TUI_GUIDE.md) — Using the Manager terminal interface
 - [Commands](COMMANDS.md) — Safety escapes, natural language patterns, orchestrator tools
@@ -19,6 +25,7 @@ This is the master documentation index for Fetch.
 - [Skills Guide](SKILLS_GUIDE.md) — Creating and managing hot-loadable skills
 - [API Reference](API_REFERENCE.md) — HTTP endpoints, tool interfaces, type definitions
 - [Glossary](GLOSSARY.md) — Terminology and definitions
+- [Docs Maintenance Map](DOCS_MAINTENANCE_MAP.md) — Page-to-source traceability and full audit checklist
 
 ## Architecture
 
@@ -29,10 +36,6 @@ This is the master documentation index for Fetch.
 - **[State Management](STATE_MANAGEMENT.md)** - Session and workspace persistence.
 - **[Context Pipeline](CONTEXT_PIPELINE.md)** - Memory, sliding windows, and compaction.
 
-## Project Health
-
-- [Changelog](CHANGELOG.md) — Canonical root changelog pointer (single source of truth)
-
 ---
 
 ## How Fetch Processes a Message
@@ -42,7 +45,7 @@ This is the master documentation index for Fetch.
 1. **WhatsApp** delivers the message to the Bridge via whatsapp-web.js
 2. **Security Gate** runs four checks: `@fetch` trigger → phone whitelist → rate limit → input validation
 3. **Safety gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`). If matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with all 40 tools available — there is no intent classification or conversation/action split
+4. **Everything else** goes to the LLM with full registered toolset available — there is no intent classification or conversation/action split
    - This includes natural-language capability prompts like "what can you do?" (handled conversationally via LLM, not parser shortcuts)
 5. **Handler** persists the user message via `SessionManager.addUserMessage()` and dispatches to the agent core
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM

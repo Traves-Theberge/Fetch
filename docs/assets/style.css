@@ -307,22 +307,94 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem var(--spacing-md);
-  background: hsl(var(--secondary));
-  border-radius: var(--radius-md);
+  gap: var(--spacing-md);
+  padding: 0.55rem 0.65rem;
+  background: linear-gradient(135deg, hsl(var(--card-elevated)), hsl(var(--secondary)));
+  border-radius: var(--radius-lg);
   cursor: pointer;
   border: 1px solid hsl(var(--border));
   width: 100%;
-  color: hsl(var(--muted-foreground));
-  font-size: 0.8125rem;
-  font-weight: 500;
+  color: hsl(var(--foreground));
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
 }
 
 .theme-toggle:hover {
-  background: hsl(var(--accent));
-  color: hsl(var(--foreground));
+  transform: translateY(-1px);
   border-color: hsl(var(--border-hover));
+  box-shadow: var(--shadow-md);
+}
+
+.theme-toggle-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.theme-toggle-text strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.theme-toggle-text span {
+  font-size: 0.67rem;
+  color: hsl(var(--muted-foreground-dim));
+}
+
+.theme-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: hsl(var(--accent-green) / 0.2);
+  border: 1px solid hsl(var(--accent-green) / 0.35);
+  transition: all var(--transition-normal);
+  flex-shrink: 0;
+}
+
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: hsl(var(--accent-green));
+  box-shadow: 0 2px 8px hsl(var(--accent-green) / 0.4);
+  transition: transform var(--transition-normal), background var(--transition-normal);
+}
+
+body:not(.dark) .theme-switch {
+  background: hsl(40 95% 55% / 0.2);
+  border-color: hsl(40 95% 55% / 0.35);
+}
+
+body:not(.dark) .theme-switch-knob {
+  transform: translateX(20px);
+  background: hsl(40 95% 55%);
+  box-shadow: 0 2px 8px hsl(40 95% 55% / 0.4);
+}
+
+.sidebar-github-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.45rem var(--spacing-md);
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border));
+  text-decoration: none;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--secondary));
+  transition: all var(--transition-fast);
+}
+
+.sidebar-github-link:hover {
+  color: hsl(var(--accent-green));
+  border-color: hsl(var(--accent-green) / 0.4);
+  background: hsl(var(--accent-green-dim));
 }
 
 /* Main Content — centers the article in the space after the sidebar */

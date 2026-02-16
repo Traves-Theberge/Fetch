@@ -1,5 +1,14 @@
 # Skills Guide
 
+## Implementation References
+
+- Skill lifecycle: `fetch-app/src/skills/index.ts`, `fetch-app/src/skills/loader.ts`, `fetch-app/src/skills/manager.ts`, `fetch-app/src/skills/types.ts`.
+- Built-in skills: `fetch-app/src/skills/builtin/**/SKILL.md`.
+- Tool contract source: `fetch-app/src/validation/tools.ts`, `fetch-app/src/tools/registry.ts`.
+- User skill storage: `data/skills/`.
+- Validation tests: `fetch-app/tests/unit/skills-manager.test.ts`, `fetch-app/tests/unit/tool-validation-contracts.test.ts`.
+
+
 Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific workflows. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt to steer tool selection and call order.
 
 ## How Skills Work
@@ -31,9 +40,10 @@ Skills **don't execute anything directly**. They guide the orchestrator LLM's de
 
 ---
 
-## Built-in Skills (7)
+## Built-in Skills (Current Set)
 
-Fetch ships with 7 built-in skills aligned to the current tool categories.
+Fetch ships with built-in skills under `fetch-app/src/skills/builtin/` aligned to the current tool categories.
+Treat that folder as canonical for the live built-in set.
 
 | Skill | Triggers | What It Guides |
 |-------|----------|---------------|
@@ -44,6 +54,9 @@ Fetch ships with 7 built-in skills aligned to the current tool categories.
 | **Web Research** | `docs`, `research`, `look up`, `search web` | `web_search` and `web_fetch` research workflows |
 | **Browser Automation** | `open browser`, `fill form`, `screenshot page` | `browser_open`/`snapshot`/`action`/`screenshot` loops |
 | **Interaction Control** | `clarify`, `confirm`, `status update`, `approval` | `ask_user` and `report_progress` usage patterns |
+
+> [!TIP]
+> Workflow and cron requests are usually handled by the general LLM tool loop (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`) rather than a dedicated built-in workflow skill.
 
 ### Tool Usage Playbooks
 
@@ -66,6 +79,16 @@ Use these rules to keep skills aligned with the live tool surface and avoid drif
 4. If tool behavior changes, update both the relevant `SKILL.md` and this guide in the same PR.
 5. Keep skill instructions at the tool layer (tool names + call order), not low-level utility modules such as `utils/*` or `transcription/*`.
 6. Treat `workspace/*` internals (`manager`, `profiler`, `repo-map`, `symbols`) as implementation details; skills should reference `workspace_*` tools instead.
+
+### Canonical Files For Skill Maintenance
+
+When updating skills, always verify against:
+
+- `fetch-app/src/skills/builtin/**/SKILL.md` (built-in skill content)
+- `fetch-app/src/skills/manager.ts` (matching + injection behavior)
+- `fetch-app/src/skills/loader.ts` (frontmatter validation + requirements handling)
+- `fetch-app/src/validation/tools.ts` (valid tool names and parameters)
+- `fetch-app/src/tools/registry.ts` (registered handlers and danger policy)
 
 ### Skill-to-Tool Module Map
 

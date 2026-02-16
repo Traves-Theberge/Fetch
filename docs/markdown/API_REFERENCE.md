@@ -1,5 +1,23 @@
 # API Reference
 
+## Implementation References
+
+- API entrypoints: `fetch-app/src/index.ts`, `fetch-app/src/api/status.ts`.
+- Tool endpoints/handlers: `fetch-app/src/tools/*`, `fetch-app/src/validation/tools.ts`.
+- Supporting runtime services: `fetch-app/src/security/*`, `fetch-app/src/utils/logger.ts`, `fetch-app/src/utils/version.ts`.
+- Validation tests: `fetch-app/tests/unit/status-api.test.ts`, `fetch-app/tests/unit/*-tools.test.ts`.
+
+
+```mermaid
+flowchart LR
+    Client[Manager / Browser / cURL] --> API[Bridge API :8765]
+    API --> Status[/api/status + /api/health]
+    API --> Admin[/api/logout + /api/config/reload + /api/sessions*]
+    Admin --> Auth{Bearer ADMIN_TOKEN}
+    Auth -->|valid| Actions[Execute action]
+    Auth -->|invalid| Reject[401/403]
+```
+
 ## Status API
 
 The Bridge exposes an HTTP API on port 8765.
@@ -33,7 +51,7 @@ Returns system health and WhatsApp connection state.
   "uptime": 3600,
   "messageCount": 42,
   "lastError": null,
-  "version": "0.0.54",
+  "version": "0.0.72",
   "notificationMetrics": {
     "total": 120,
     "templateEphemeral": 70,
@@ -182,7 +200,7 @@ For stable manager/TUI session operations, set `ADMIN_TOKEN` in `.env` so the ma
 
 ## Orchestrator Tools
 
-These are the 40 tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
+These are the registered tools available to the LLM during the ReAct loop. They are defined with Zod schemas in `src/validation/tools.ts` and registered in `src/tools/registry.ts`.
 
 > **Narrative Outputs:** All tool handlers return human-readable narrative text in their `output` field (consumed by the LLM) with full structured data in the `metadata` field (used for session state sync). This improves LLM reasoning compared to raw JSON dumps.
 

@@ -1,5 +1,22 @@
 # Configuration
 
+## Implementation References
+
+- Config runtime: `fetch-app/src/config/env.ts`, `fetch-app/src/config/pipeline.ts`, `fetch-app/src/config/paths.ts`.
+- Supporting files: `.env.example`, `docker-compose.yml`, `config/searxng/settings.yml`, `config/github/README.md`.
+- Validation tests: `fetch-app/tests/unit/env-runtime-validation.test.ts`, `fetch-app/tests/unit/pipeline-config.test.ts`.
+
+
+```mermaid
+flowchart TD
+    Env[".env / process.env"] --> EnvSchema["config/env.ts (Zod)"]
+    Env["FETCH_* overrides"] --> Pipeline["config/pipeline.ts"]
+    EnvSchema --> Runtime["Bridge runtime config"]
+    Pipeline --> Runtime
+    Runtime --> Tools["Tool behavior + limits"]
+    Runtime --> Api["Status/Admin API behavior"]
+```
+
 ## Environment Variables
 
 All environment variables are validated at startup by a Zod schema in `src/config/env.ts`. Invalid or missing required values cause an immediate exit with a clear error message.
@@ -84,7 +101,7 @@ By default, AI harnesses use their respective defaults. You can override them us
 
 ### Pipeline Tuning (FETCH_* Variables)
 
-The context pipeline is configured via `config/pipeline.ts` with 42 tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
+The context pipeline is configured via `config/pipeline.ts` with dozens of tunable parameters. All are overridable via `FETCH_*` environment variables. Key parameters:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -177,7 +194,7 @@ command: tail -f /dev/null            # Keep alive for docker exec
 
 > **Kennel Entrypoint:** The Kennel container has a custom entrypoint (`kennel/entrypoint.sh`) that checks for `GH_TOKEN`, configures `gh` CLI authentication, and sets the git identity to match the GitHub account. This enables `workspace_sync` and `workspace_create` to push to GitHub automatically.
 
-### searxng
+### searxng (service, container: `fetch-searxng`)
 
 ```yaml
 image: searxng/searxng:latest

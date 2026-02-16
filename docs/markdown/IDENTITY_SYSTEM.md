@@ -1,5 +1,13 @@
 # Identity System
 
+## Implementation References
+
+- Identity composition: `fetch-app/src/identity/loader.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/identity/types.ts`.
+- Prompt integration: `fetch-app/src/agent/prompts.ts`.
+- Identity data files: `data/identity/COLLAR.md`, `data/identity/ALPHA.md`, `data/cli-configs/*`.
+- Validation tests: `fetch-app/tests/unit/identity-loader.test.ts`, `fetch-app/tests/unit/identity-manager.test.ts`.
+
+
 Fetch's personality, directives, and user context are dynamically assembled from two Markdown files on disk. Edit a file, save — changes apply immediately via hot-reload.
 
 ## The Identity Stack
@@ -44,7 +52,7 @@ The final prompt assembles these sections in order:
 | **Identity** | `COLLAR.md` | Name, emoji, version, voice tone, timestamp |
 | **Directives** | `COLLAR.md` | Primary rules (5), operational guidelines (6), behavioral traits (6) |
 | **Autonomy Rules** | Hardcoded | 9 high-priority behavioral assertions |
-| **Capabilities** | Hardcoded | 8 slash commands, 40 tools, 5 harnesses; capability questions default to conversational summaries unless full list is explicitly requested (`/help`, "all commands", "full list") |
+| **Capabilities** | Hardcoded | 8 slash commands, registered tools, 5 harnesses; capability questions default to conversational summaries unless full list is explicitly requested (`/help`, "all commands", "full list") |
 | **Session Context** | `prompts.ts` | Active workspace path, git state, task goal, repo map |
 | **Skills** | `SkillManager` | Available skills summary + activated skill instructions |
 | **Response Format** | Hardcoded | WhatsApp constraints (max lines, emoji usage) |

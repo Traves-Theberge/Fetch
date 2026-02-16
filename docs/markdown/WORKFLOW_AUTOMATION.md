@@ -1,6 +1,24 @@
 # Workflow Automation
 
+## Implementation References
+
+- Workflow runtime: `fetch-app/src/tools/workflow.ts`, `fetch-app/src/workflow/manager.ts`, `fetch-app/src/workflow/types.ts`.
+- Persistence: `data/workflows.json`.
+- Validation tests: `fetch-app/tests/unit/workflow-tools.test.ts`, `fetch-app/tests/unit/workflow-manager.test.ts`.
+
+
 This guide explains exactly how users trigger and manage **workflows, cron jobs, and deterministic runtime checks** from WhatsApp.
+
+```mermaid
+flowchart TD
+    Msg["@fetch workflow request"] --> LLM[LLM + tool loop]
+    LLM --> WF[workflow_* tools]
+    LLM --> Cron[cron_* tools]
+    LLM --> Exec[app_run / app_test / browser_test]
+    WF --> State[data/workflows.json]
+    Cron --> State
+    Exec --> Reply[Result back to WhatsApp]
+```
 
 ## Quick Mental Model
 
@@ -192,4 +210,4 @@ Fetch:
 - State writes use temp-file + atomic rename semantics.
 - Scheduler starts with bridge startup and shuts down cleanly with bridge teardown.
 - On startup, scheduler computes missing `nextRunAt` values and catches up overdue cron jobs once.
-- Workflow tools are part of the same 40-tool orchestrator set; no separate routing mode is required.
+- Workflow tools are part of the same registered orchestrator toolset; no separate routing mode is required.
