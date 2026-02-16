@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.72
+fetch self pin v0.0.73
 fetch uninstall
 ```
 
@@ -250,6 +250,18 @@ Example asks from WhatsApp:
 - "Fetch https://example.com/docs and summarize the auth section."
 - "Open https://example.com, click login, and take a screenshot."
 - "Run a browser test on https://example.com and confirm 'Login' appears."
+
+## Conversational Preferences
+
+Fetch can persist per-session response style from natural language:
+
+- "be brief"
+- "be detailed"
+- "be direct"
+- "be conversational"
+- "use fewer emojis"
+
+These preferences affect conversational capability/tool-inventory responses and carry across future turns in the same session.
 
 ## Deterministic Safety Commands
 

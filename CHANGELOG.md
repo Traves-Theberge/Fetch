@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.73] - 2026-02-16
+
+### Changed
+
+- **Intent-aware conversational policy** — Added response-intent classification and deterministic capability/tool inventory routing to keep WhatsApp responses concise, structured, and predictable.
+- **Persistent response preferences** — Added natural-language preference updates (`brief/standard/deep`, `direct/conversational`, `emoji low/normal`) stored per session and applied in future conversational replies.
+- **WhatsApp formatting telemetry** — Added formatter/chunking counters (`normalizedCount`, `chunkedCount`, `fallbackSplitCount`) and exposed them on `GET /api/status`.
+- **Rendering improvements** — Added intent-aware WhatsApp chunking for long outputs (especially tool inventories) while preserving normalized formatting.
+- **Conversation contract coverage** — Added integration suite for capability responses, tool inventory structure, preference persistence, and preference carry-over.
+- **Documentation refresh** — Updated command/testing/API docs for conversational preferences, new integration test workflow, and response-format metrics.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.73`.
+
 ## [0.0.72] - 2026-02-16
 
 ### Changed
