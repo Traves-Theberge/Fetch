@@ -94,7 +94,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.67
+fetch self pin v0.0.68
 fetch uninstall
 ```
 
@@ -135,6 +135,8 @@ Safety notes:
 - Workflow step tools cannot include recursive orchestration tools (`workflow_*` / `cron_*`) or task-interaction tools (`ask_user`, `report_progress`).
 - Dangerous tools are policy-gated by autonomy level in the registry (supervised blocks dangerous actions; cautious requires explicit confirmation).
 - Tool arguments are redacted before logging/persistence for sensitive keys (token/apiKey/password/secret-like fields).
+- Agent/tool safety helpers now have direct unit coverage for retry classification, error sanitization, and progress rewrite output guards.
+- Workflow/cron manager tests now cover cron validation, success/failure metadata updates, and startup catch-up behavior for overdue jobs.
 
 Example asks from WhatsApp:
 
@@ -171,6 +173,7 @@ npm run dev
 npm run build
 npm run lint
 npm run test:run
+npx vitest run --coverage
 ```
 
 Manager:

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.68] - 2026-02-16
+
+### Changed
+
+- **Agent core safety test expansion** — Added direct unit coverage for recursive sensitive-arg redaction, tool-call budget bounds, user-facing error sanitization, retry classification, and progress rewrite output sanitization.
+- **Workflow/cron reliability test expansion** — Added workflow manager coverage for cron expression validation, run/tool summarizers, cron success/failure metadata updates, and startup overdue-cron catch-up behavior.
+- **Core test-hook exports** — Exposed targeted internal `agent/core` helper hooks used by unit tests to validate safety behavior deterministically.
+- **Coverage uplift** — Full V8 coverage run improved overall line coverage and substantially increased coverage of `agent/core.ts` and `workflow/manager.ts`.
+- **Documentation refresh** — Updated README and testing guide with release regression checks and safety/cron coverage notes.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.68`.
+
 ## [0.0.67] - 2026-02-16
 
 ### Changed

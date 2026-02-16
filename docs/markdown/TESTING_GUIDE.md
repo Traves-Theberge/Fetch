@@ -9,6 +9,19 @@
 - [ ] WhatsApp connected (QR scanned or session cached)
 - [ ] At least one workspace exists and is accessible in `/workspace`
 
+Quick release regression checks (local):
+
+```bash
+cd fetch-app
+npx vitest run tests/unit/agent-core-safety.test.ts
+npx vitest run tests/unit/workflow-manager.test.ts
+npx vitest run --coverage
+```
+
+- [ ] `agent-core-safety` passes (redaction, retry/error/progress safety helpers)
+- [ ] `workflow-manager` passes (cron validation, cron metadata success/failure, startup catch-up)
+- [ ] Coverage report generates successfully
+
 ---
 
 ## Phase 1: Project Profiling

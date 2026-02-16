@@ -95,6 +95,11 @@ function sanitizeForPersistence(value: unknown): unknown {
   return value;
 }
 
+function resolveMaxToolCallsForTurn(sessionMaxIterations: number | undefined): number {
+  if (!Number.isInteger(sessionMaxIterations)) return MAX_TOOL_CALLS;
+  return Math.max(1, Math.min(MAX_TOOL_CALLS, sessionMaxIterations as number));
+}
+
 // =============================================================================
 // ERROR TRACKING (Circuit Breaker)
 // =============================================================================
@@ -445,12 +450,7 @@ async function handleWithTools(
   });
 
   let callCount = 0;
-  const maxToolCallsForTurn = Math.max(
-    1,
-    Math.min(MAX_TOOL_CALLS, Number.isInteger(session.preferences.maxIterations)
-      ? session.preferences.maxIterations
-      : MAX_TOOL_CALLS)
-  );
+  const maxToolCallsForTurn = resolveMaxToolCallsForTurn(session.preferences.maxIterations);
 
   // Process tool calls
   while (
@@ -1018,6 +1018,15 @@ function generateFactualProgressMessage(userMessage: string, attempt: number = 1
 
   return pick(retries);
 }
+
+/** Internal test hooks for unit-level behavior checks. */
+export const __testing = {
+  sanitizeForPersistence,
+  resolveMaxToolCallsForTurn,
+  sanitizeErrorForUser,
+  isRetriableError,
+  sanitizeProgressRewrite,
+};
 
 /**
  * Rewrite progress text with strict latency/output bounds.
