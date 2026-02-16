@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-02-16T17:01:09Z",
+  "generatedAt": "2026-02-16T17:24:02Z",
   "defaultChannel": "stable",
   "channels": {
-    "stable": "v0.0.66",
-    "beta": "v0.0.66",
-    "nightly": "v0.0.66"
+    "stable": "v0.0.68",
+    "beta": "v0.0.68",
+    "nightly": "v0.0.68"
   },
   "releases": {
     "v0.0.48": {
@@ -139,6 +139,13 @@
       "archive": {
         "url": "https://codeload.github.com/Traves-Theberge/Fetch/tar.gz/v0.0.66",
         "sha256": "713522f49d44fddb0e4b08aad17d68672b162f1155a299acee03cdad18c674eb"
+      }
+    },
+    "v0.0.68": {
+      "gitRef": "092f98c6f4d501bf2b426d068af6503b149e3861",
+      "archive": {
+        "url": "https://codeload.github.com/Traves-Theberge/Fetch/tar.gz/v0.0.68",
+        "sha256": "2e972e79f307238b1c6d65f695bc8bd0ba9b4993f65b24e911e7ec244256bc43"
       }
     }
   }
