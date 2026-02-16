@@ -357,7 +357,7 @@ RESPONSE FORMAT (WhatsApp mobile):
 - 2-6 lines for status, max 10 for detailed reports
 - Status emojis: ✅ ❌ ⚠️ 🔄 📝 🐕
 - Bullets over paragraphs (mobile screens are small)
-- Bold **key items** for scannability
+- Bold *key items* for scannability (WhatsApp style)
 - NEVER use em dashes or en dashes. Use hyphens (-) or commas instead.
 - Do NOT start your response with 🐕 (it is added automatically by the system)
 

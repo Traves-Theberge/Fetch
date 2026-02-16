@@ -40,16 +40,35 @@ const MAX_MESSAGE_LENGTH = pipeline.whatsappMaxLength;
  * @returns Normalized text ready for WhatsApp send
  */
 export function formatForWhatsApp(text: string): string {
+  // Normalize line endings first for predictable transforms.
+  let formatted = text.replace(/\r\n?/g, '\n');
+
+  // Split collapsed markdown bullets that often arrive as one wrapped paragraph.
+  formatted = formatted
+    .replace(/\s*-\s+\*\*([^*]+)\*\*:/g, '\n• *$1*:')
+    .replace(/\s*-\s+`([^`]+)`\s*[—-]/g, '\n• `$1` -');
+
   // Replace markdown headers with emoji
-  let formatted = text
+  formatted = formatted
     .replace(/^### (.+)$/gm, '📌 *$1*')
     .replace(/^## (.+)$/gm, '📋 *$1*')
     .replace(/^# (.+)$/gm, '🔷 *$1*');
+
+  // Convert markdown emphasis to WhatsApp-friendly formatting.
+  formatted = formatted
+    .replace(/\*\*([^*\n]+)\*\*/g, '*$1*')
+    .replace(/__([^_\n]+)__/g, '*$1*');
+
+  // Normalize markdown list prefixes into clean bullets.
+  formatted = formatted
+    .replace(/^[ \t]*[-*+][ \t]+/gm, '• ')
+    .replace(/\n[ \t]*\d+\.[ \t]+/g, '\n• ');
   
   // Clean up excessive whitespace
   formatted = formatted
     .replace(/\n{3,}/g, '\n\n')  // Max 2 consecutive newlines
-    .replace(/[ \t]+$/gm, '');    // Trim trailing whitespace per line
+    .replace(/[ \t]+$/gm, '')     // Trim trailing whitespace per line
+    .replace(/[ \t]{2,}/g, ' ');  // Collapse repeated spaces
   
   // Wrap long lines for mobile
   formatted = wrapLongLines(formatted, MAX_LINE_LENGTH);
