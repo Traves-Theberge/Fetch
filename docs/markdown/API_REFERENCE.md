@@ -749,11 +749,13 @@ Blocks: command substitution (`$()`), `rm -rf` patterns, pipe-to-shell, `eval()`
 ```typescript
 interface ToolContext {
   sessionId?: string;       // Session ID for session-aware tools
-  autonomyLevel?: string;   // Current autonomy level for ask_user guard
+  autonomyLevel?: "supervised" | "cautious" | "autonomous"; // Safety/autonomy policy level
 }
 ```
 
-The `autonomyLevel` field flows from the session's preferences through the tool registry to individual tool handlers. The `ask_user` tool uses it to decide whether to auto-approve confirmation questions.
+The `autonomyLevel` field flows from session preferences through the registry into tool execution.
+- `ask_user` uses it for confirmation auto-approval behavior.
+- The tool registry enforces dangerous-tool policy gates (`supervised` blocks dangerous tools; `cautious` requires explicit `confirm: true`).
 
 ---
 

@@ -7,12 +7,15 @@
 // Tool Context
 // ============================================================================
 
+/** Supported autonomy levels passed from session preferences. */
+export type ToolAutonomyLevel = 'supervised' | 'cautious' | 'autonomous';
+
 /** Per-call context passed from agent loop into tool handlers. */
 export interface ToolContext {
   /** Session ID for session-aware tools */
   sessionId?: string;
-  /** Current autonomy level for ask_user guard */
-  autonomyLevel?: string;
+  /** Current autonomy level for ask_user behavior and registry safety policy */
+  autonomyLevel?: ToolAutonomyLevel;
 }
 
 // ============================================================================

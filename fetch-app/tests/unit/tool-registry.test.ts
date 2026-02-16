@@ -6,7 +6,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { getToolRegistry } from '../../src/tools/registry.js';
+import { DangerLevel } from '../../src/tools/types.js';
 
 describe('Tool Registry', () => {
   // Use the singleton — constructor is private
@@ -128,6 +130,38 @@ describe('Tool Registry', () => {
 
       expect(result.success).toBe(false);
       expect(result.output).toContain('not found');
+    });
+
+    it('blocks dangerous tools in supervised mode via autonomy policy', async () => {
+      registry.register({
+        name: 'test_danger_blocked',
+        description: 'test tool',
+        schema: z.object({}).strict(),
+        handler: async () => ({ success: true, output: 'ok', duration: 1 }),
+        danger: DangerLevel.DANGEROUS,
+      });
+
+      const result = await registry.execute('test_danger_blocked', {}, { autonomyLevel: 'supervised' });
+      expect(result.success).toBe(false);
+      expect(result.output).toContain('Safety policy blocked dangerous tool');
+    });
+
+    it('allows dangerous tools in cautious mode only with explicit confirm=true', async () => {
+      registry.register({
+        name: 'test_danger_confirm',
+        description: 'test tool',
+        schema: z.object({ confirm: z.boolean() }).strict(),
+        handler: async () => ({ success: true, output: 'ok', duration: 1 }),
+        danger: DangerLevel.DANGEROUS,
+      });
+
+      const blocked = await registry.execute('test_danger_confirm', { confirm: false }, { autonomyLevel: 'cautious' });
+      expect(blocked.success).toBe(false);
+      expect(blocked.output).toContain('requires explicit confirmation');
+
+      const allowed = await registry.execute('test_danger_confirm', { confirm: true }, { autonomyLevel: 'cautious' });
+      expect(allowed.success).toBe(true);
+      expect(allowed.output).toBe('ok');
     });
   });
 

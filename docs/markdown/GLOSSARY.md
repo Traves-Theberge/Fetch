@@ -96,7 +96,7 @@
 | **Autonomy Guard** | Pattern-matching interceptor on the `ask_user` tool. Auto-approves unnecessary confirmation questions ("Shall I?", "Would you like?") in non-supervised modes. The LLM believes the user said "Yes, proceed." |
 | **Dynamic Prompt Rebuild** | After state-changing tool calls (`workspace_select`, `workspace_create`, `task_create`), the system prompt at `messages[0]` is replaced with a fresh build reflecting current project/git/task state. |
 | **Autonomy Rules** | 9 highest-priority directives in the system prompt that enforce agentic behavior: act first, summarize after, never ask unnecessary questions, use workspace context, express intent naturally. |
-| **ToolContext** | Object passed through the tool registry to handlers. Contains `sessionId` (for session-aware tools) and `autonomyLevel` (for the ask_user guard). Defined in `tools/types.ts`. |
+| **ToolContext** | Object passed through the tool registry to handlers. Contains `sessionId` and `autonomyLevel`; used for ask-user behavior and dangerous-tool policy enforcement at registry level. Defined in `tools/types.ts`. |
 | **ProjectType** | Union type: `node`, `typescript`, `python`, `rust`, `go`, `java`, `ruby`, `php`, `dotnet`, `unknown`. Detected by `WorkspaceManager.detectProjectType()` using file indicators and glob patterns. |
 | **Structured Memory** | The `memory` table in sessions.db. Stores key facts, preferences, decisions, and file operations with BM25-style keyword recall. Entries have categories, importance scores (1-5), and recall counters. |
 | **BM25 Recall** | Keyword-based memory retrieval. Incoming user messages are matched against stored memory keywords, weighted by importance and recency decay. Top results are injected into the system prompt. |

@@ -168,6 +168,7 @@ export class WorkflowManager {
     this.state = await this.loadState();
     this.initialized = true;
     this.startCronTicker();
+    await this.runOverdueCronJobs();
     logger.info('WorkflowManager initialized', {
       workflows: this.state.workflows.length,
       cronJobs: this.state.cronJobs.length,
@@ -216,7 +217,9 @@ export class WorkflowManager {
   private async saveState(): Promise<void> {
     try {
       const json = JSON.stringify(this.state, null, 2);
-      await fs.promises.writeFile(WORKFLOWS_JSON, `${json}\n`, 'utf8');
+      const tmpPath = `${WORKFLOWS_JSON}.tmp`;
+      await fs.promises.writeFile(tmpPath, `${json}\n`, 'utf8');
+      await fs.promises.rename(tmpPath, WORKFLOWS_JSON);
     } catch (error) {
       logger.error('Failed to persist workflow state', { error });
     }
@@ -389,6 +392,39 @@ export class WorkflowManager {
         .finally(() => {
           this.runningCronJobs.delete(cron.id);
         });
+    }
+  }
+
+  private async runOverdueCronJobs(): Promise<void> {
+    const now = new Date();
+    let stateChanged = false;
+
+    for (const cron of this.state.cronJobs) {
+      if (!cron.nextRunAt) {
+        cron.nextRunAt = computeNextRun(cron.schedule, now);
+        cron.updatedAt = nowIso();
+        stateChanged = true;
+      }
+      if (!cron.enabled) continue;
+      if (this.runningCronJobs.has(cron.id)) continue;
+      if (!cron.nextRunAt) continue;
+      if (sameMinute(cron.lastRunAt, now)) continue;
+
+      const nextRunMs = new Date(cron.nextRunAt).getTime();
+      if (!Number.isFinite(nextRunMs) || nextRunMs > now.getTime()) continue;
+
+      this.runningCronJobs.add(cron.id);
+      try {
+        await this.runCronJob(cron.id);
+      } catch (error) {
+        logger.error('Overdue cron run failed during startup catch-up', { cronJobId: cron.id, error });
+      } finally {
+        this.runningCronJobs.delete(cron.id);
+      }
+    }
+
+    if (stateChanged) {
+      await this.saveState();
     }
   }
 

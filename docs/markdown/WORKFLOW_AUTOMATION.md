@@ -179,5 +179,7 @@ Fetch:
 ## Operator Notes
 
 - Workflow/cron state persists in `data/workflows.json`.
+- State writes use temp-file + atomic rename semantics.
 - Scheduler starts with bridge startup and shuts down cleanly with bridge teardown.
+- On startup, scheduler computes missing `nextRunAt` values and catches up overdue cron jobs once.
 - Workflow tools are part of the same 40-tool orchestrator set; no separate routing mode is required.

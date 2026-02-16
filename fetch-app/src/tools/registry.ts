@@ -324,6 +324,27 @@ export class ToolRegistry {
 
     const startTime = Date.now();
     try {
+      const autonomyLevel = context?.autonomyLevel ?? 'cautious';
+
+      // Enforce autonomy policy before schema/handler execution.
+      // This is a hard safety layer independent of prompt behavior.
+      if (tool.danger === DangerLevel.DANGEROUS) {
+        if (autonomyLevel === 'supervised') {
+          return {
+            success: false,
+            output: `Safety policy blocked dangerous tool '${name}' in supervised mode. Request explicit operator intervention or switch autonomy level.`,
+            duration: Date.now() - startTime,
+          };
+        }
+        if (autonomyLevel === 'cautious' && !hasExplicitConfirmation(args)) {
+          return {
+            success: false,
+            output: `Safety policy requires explicit confirmation for dangerous tool '${name}' in cautious mode (set confirm: true).`,
+            duration: Date.now() - startTime,
+          };
+        }
+      }
+
       // Validate args with Zod safeParse — lets the LLM self-correct bad arguments
       const validation = tool.schema.safeParse(args);
       if (!validation.success) {
@@ -436,6 +457,12 @@ export class ToolRegistry {
 // ============================================================================
 // Utility Functions
 // ============================================================================
+
+function hasExplicitConfirmation(args: unknown): boolean {
+  if (!args || typeof args !== 'object') return false;
+  const record = args as Record<string, unknown>;
+  return record.confirm === true;
+}
 
 function _mapToOpenAIFunction(tool: OrchestratorTool): Record<string, unknown> {
   return {

@@ -48,7 +48,7 @@ This is the master documentation index for Fetch.
 6. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 7. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 8. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
-9. **Tools** execute with `ToolContext { sessionId, autonomyLevel }` — tool calls and results are persisted to the session
+9. **Tools** execute with `ToolContext { sessionId, autonomyLevel }` — dangerous-tool policy is enforced at registry level, and tool calls/results are persisted to the session with argument redaction
 10. **Compaction** triggers automatically when messages exceed the threshold — older messages are summarized and trimmed
 11. **Response** is formatted for WhatsApp and sent back. Task completions push proactive notifications
 

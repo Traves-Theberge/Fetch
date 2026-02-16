@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.67] - 2026-02-16
+
+### Changed
+
+- **Registry-level autonomy safety policy** — Added hard enforcement for dangerous tools in the tool registry: supervised mode blocks dangerous tools; cautious mode requires explicit `confirm: true`.
+- **Per-session iteration limit enforcement** — Agent tool-call loops now honor session `maxIterations` (bounded by pipeline max), enabling user-specific autonomy control.
+- **Sensitive argument redaction** — Tool-call argument payloads are now sanitized before logging and session persistence to reduce secret leakage risk.
+- **Workflow persistence hardening** — Workflow/cron state writes now use temp-file + atomic rename semantics.
+- **Cron startup catch-up** — Workflow manager now initializes missing `nextRunAt` values and executes overdue cron jobs on startup.
+- **Manager test baseline** — Added Go unit tests for path resolution behavior in manager internals.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.67`.
+
 ## [0.0.66] - 2026-02-16
 
 ### Changed

@@ -62,6 +62,38 @@ const MODEL = env.AGENT_MODEL;
 const MAX_TOOL_CALLS = pipeline.maxToolCalls;
 const MAX_CONSECUTIVE_ERRORS = pipeline.circuitBreakerThreshold;
 const ERROR_BACKOFF_MS = pipeline.circuitBreakerBackoff;
+const REDACTED = '[REDACTED]';
+const SENSITIVE_ARG_KEYS = [
+  'token',
+  'apiKey',
+  'apikey',
+  'secret',
+  'password',
+  'authorization',
+  'auth',
+  'cookie',
+  'privateKey',
+  'clientSecret',
+];
+
+function isSensitiveKey(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return SENSITIVE_ARG_KEYS.some((needle) => normalized.includes(needle.toLowerCase()));
+}
+
+function sanitizeForPersistence(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeForPersistence(item));
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = isSensitiveKey(key) ? REDACTED : sanitizeForPersistence(inner);
+    }
+    return out;
+  }
+  return value;
+}
 
 // =============================================================================
 // ERROR TRACKING (Circuit Breaker)
@@ -413,12 +445,18 @@ async function handleWithTools(
   });
 
   let callCount = 0;
+  const maxToolCallsForTurn = Math.max(
+    1,
+    Math.min(MAX_TOOL_CALLS, Number.isInteger(session.preferences.maxIterations)
+      ? session.preferences.maxIterations
+      : MAX_TOOL_CALLS)
+  );
 
   // Process tool calls
   while (
     response.choices[0]?.message?.tool_calls &&
     response.choices[0].message.tool_calls.length > 0 &&
-    callCount < MAX_TOOL_CALLS
+    callCount < maxToolCallsForTurn
   ) {
     const assistantMessage = response.choices[0].message;
     const currentToolCalls = assistantMessage.tool_calls!;
@@ -524,8 +562,9 @@ async function handleWithTools(
 
       // At this point toolArgs is guaranteed non-null (all null paths `continue` above)
       const finalArgs = toolArgs!;
+      const sanitizedArgs = sanitizeForPersistence(finalArgs) as Record<string, unknown>;
 
-      logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id, args: finalArgs });
+      logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id, args: sanitizedArgs });
 
       // Send progress message for slow tools after 4 seconds
       let toolProgressTimer: ReturnType<typeof setTimeout> | undefined;
@@ -555,7 +594,7 @@ async function handleWithTools(
 
       toolCalls.push({
         name: toolName,
-        args: finalArgs,
+        args: sanitizedArgs,
         result,
       });
 
@@ -567,7 +606,7 @@ async function handleWithTools(
         : result.output;
       await sManager.addToolMessage(
         session,
-        { name: toolName, args: finalArgs, result: persistResult, duration: Date.now() - toolStart },
+        { name: toolName, args: sanitizedArgs, result: persistResult, duration: Date.now() - toolStart },
         JSON.stringify({ ...result, output: persistResult }),
         toolCall.id
       );

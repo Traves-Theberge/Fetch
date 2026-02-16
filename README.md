@@ -94,9 +94,13 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.66
+fetch self pin v0.0.67
 fetch uninstall
 ```
+
+Release note for maintainers:
+
+- `release-manifest.json` is tag-release CI managed. Preferred release flow is tag push (`vX.Y.Z`) and letting `.github/workflows/release.yml` update channels/metadata on `main`.
 
 Config and harness management:
 
@@ -129,6 +133,8 @@ Safety notes:
 - `/stop` and `task_cancel` now terminate active harness processes (not just task state).
 - Workflow definitions are validated at creation time.
 - Workflow step tools cannot include recursive orchestration tools (`workflow_*` / `cron_*`) or task-interaction tools (`ask_user`, `report_progress`).
+- Dangerous tools are policy-gated by autonomy level in the registry (supervised blocks dangerous actions; cautious requires explicit confirmation).
+- Tool arguments are redacted before logging/persistence for sensitive keys (token/apiKey/password/secret-like fields).
 
 Example asks from WhatsApp:
 
