@@ -81,6 +81,32 @@ Run each command (aliases in parentheses):
 - [ ] `/usage` (`/u`) — OpenRouter usage
 - [ ] `/trust` — owner-only whitelist management (`list`, `add`, `remove`)
 
+Copy/paste WhatsApp examples for every deterministic command option:
+
+```text
+/stop
+/cancel
+/undo
+/undo all
+/clear
+/reset
+/help
+/h
+/?
+/status
+/st
+/version
+/v
+/usage
+/u
+/trust list
+/trust add 15551234567
+/trust remove 15551234567
+```
+
+- [ ] Each command returns deterministic output without going through normal LLM/tool reasoning
+- [ ] Aliases return equivalent behavior
+
 ### 2.2 Capability Queries (LLM Conversational Path)
 
 These messages should go through the normal LLM path (not deterministic `/help` shortcut):
@@ -110,6 +136,88 @@ Ask the LLM directly:
   - Web: `web_fetch`, `web_search`
   - Browser: `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
   - Workflow/Runtime: `workflow_create`, `workflow_list`, `workflow_run`, `workflow_delete`, `cron_create`, `cron_list`, `cron_delete`, `cron_run`, `app_run`, `app_test`, `browser_test`
+
+### 2.4 WhatsApp Tool Option Matrix (Copy/Paste)
+
+Use these messages to validate major tool options from WhatsApp in real conversation form.
+
+Workspace:
+
+```text
+@fetch list workspaces
+@fetch switch to <project-name>
+@fetch show workspace status
+@fetch create workspace qa-sandbox with template node
+@fetch sync this workspace to github with message "test sync"
+@fetch publish this workspace as private repo "qa sandbox"
+```
+
+Task lifecycle:
+
+```text
+@fetch use copilot to add a health endpoint
+@fetch use gemini to add request logging
+@fetch use claude to refactor auth middleware
+@fetch use opencode to clean up lint errors
+@fetch use codex to add tests for auth
+@fetch show task status
+@fetch cancel task <task-id>
+@fetch respond to task <task-id>: proceed with option 2
+```
+
+GitHub:
+
+```text
+@fetch list open PRs
+@fetch show PR #12
+@fetch create PR titled "feat: add health endpoint"
+@fetch list open issues
+@fetch create issue "Investigate flaky auth test"
+@fetch create branch feature/health-endpoint from main
+@fetch show github action status
+@fetch search github for "fastify health check typescript"
+```
+
+Web:
+
+```text
+@fetch search the web for "vitest integration test best practices"
+@fetch search news for "openai api updates"
+@fetch fetch https://vitest.dev/guide/
+@fetch fetch https://nextjs.org/docs and extract main content section
+```
+
+Browser:
+
+```text
+@fetch open https://example.com and wait for networkidle
+@fetch take a browser snapshot
+@fetch click ref 1 in browser
+@fetch type "john@example.com" into ref 2 in browser
+@fetch scroll down in browser
+@fetch go back in browser
+@fetch take a browser screenshot
+```
+
+Workflow + cron + runtime:
+
+```text
+@fetch create workflow nightly-check for workspace <project-name> with steps: workspace_status, app_test, workspace_sync
+@fetch list workflows and recent runs
+@fetch run workflow nightly-check now
+@fetch schedule nightly-check at 0 3 * * *
+@fetch list cron jobs
+@fetch run cron nightly-check now
+@fetch delete cron nightly-check
+@fetch delete workflow nightly-check
+@fetch run in workspace <project-name>: npm run build
+@fetch run tests in workspace <project-name> with command "npm run test:unit"
+@fetch browser test https://example.com waitUntil domcontentloaded must include "Example Domain" and include screenshot
+```
+
+- [ ] Each message produces concise human-readable output
+- [ ] No raw JSON payload dumps are shown to the user
+- [ ] Failures include clear cause + next action
 
 ---
 
