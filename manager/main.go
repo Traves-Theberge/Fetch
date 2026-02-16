@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/charmbracelet/bubbles/progress"
 	bubblespinner "github.com/charmbracelet/bubbles/spinner"
@@ -1752,7 +1753,7 @@ func (m model) viewSessions() string {
 		header := lipgloss.NewStyle().
 			Foreground(theme.Primary).
 			Bold(true).
-			Render(fmt.Sprintf("%-10s %-15s %-10s %-20s %s", "ID", "User", "Msgs", "Last Activity", "Project"))
+			Render(fmt.Sprintf("%-10s %-18s %-10s %-20s %s", "ID", "User", "Msgs", "Last Activity", "Project"))
 
 		rows := []string{header, ""}
 
@@ -1774,9 +1775,9 @@ func (m model) viewSessions() string {
 				lastActivity = t.Format("01/02 15:04:05")
 			}
 
-			row := fmt.Sprintf("%-10s %-15s %-10d %-20s %s",
+			row := fmt.Sprintf("%-10s %-18s %-10d %-20s %s",
 				s.ID,
-				s.UserID,
+				formatSessionUser(s.UserID),
 				s.MessageCount,
 				lastActivity,
 				project,
@@ -1890,15 +1891,8 @@ func (m model) viewMenu() string {
 	// Available height for main content (above status bar)
 	contentHeight := height - statusBarHeight
 
-	// Build menu panel; reserve vertical space so pinned items stay at the bottom.
-	menuPanelHeight := contentHeight - 10
-	if layout.IsCompact(width) {
-		menuPanelHeight = contentHeight - 6
-	}
-	if menuPanelHeight < 8 {
-		menuPanelHeight = 8
-	}
-	menuPanel := m.renderMenuPanel(menuPanelHeight)
+	// Keep menu sections compact so pinned rows don't create oversized visual gaps.
+	menuPanel := m.renderMenuPanel(0)
 
 	// Action message (show above menu if present)
 	var actionMsg string
@@ -1916,7 +1910,7 @@ func (m model) viewMenu() string {
 			Italic(true).
 			Align(lipgloss.Center).
 			Width(width).
-			Render("Your Faithful Code Companion")
+			Render("Unleash Multi-agent Orchestration")
 
 		mainContent = lipgloss.JoinVertical(lipgloss.Left,
 			compactTitle,
@@ -1941,7 +1935,7 @@ func (m model) viewMenu() string {
 		tagline := lipgloss.NewStyle().
 			Foreground(theme.TextSecondary).
 			Italic(true).
-			Render("Your Faithful Code Companion")
+			Render("Unleash Multi-agent Orchestration")
 
 		rightContent := lipgloss.JoinVertical(lipgloss.Left,
 			fetchTitle,
@@ -2058,11 +2052,8 @@ func (m model) viewConfig() string {
 				sItems[1].Badge = ""
 			}
 			m.settingsMenu.Items = sItems
-			menuHeight := height - 12
-			if menuHeight < 6 {
-				menuHeight = 6
-			}
-			content = "\n" + m.settingsMenu.ViewCompactWithHeight(menuHeight)
+			content = "\n" + m.settingsMenu.ViewCompactWithHeight(0)
+			content += "\n" + m.settingsSubmenuHint()
 		}
 		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Esc Back"}
 		breadcrumb = []string{"Main Menu", "Settings"}
@@ -2109,6 +2100,59 @@ func (m model) viewConfig() string {
 		Width:      width,
 		Height:     height,
 	}.Render()
+}
+
+func (m model) settingsSubmenuHint() string {
+	selected := "General Configuration"
+	if m.settingsMenu != nil && len(m.settingsMenu.Items) > 0 {
+		selected = m.settingsMenu.SelectedItem().Label
+	}
+
+	var hint string
+	switch selected {
+	case "General Configuration":
+		hint = "Edit core runtime settings, model selection, and advanced pipeline tuning."
+	case "Harnesses":
+		hint = "Manage CLI authentication, provider toggles, and per-harness model/API settings."
+	case "Trusted Numbers":
+		hint = "Control which WhatsApp numbers are allowed to operate Fetch."
+	case "Back":
+		hint = "Return to the main menu."
+	default:
+		hint = "Select a settings section."
+	}
+
+	return "   " + theme.Subtitle.Render(hint)
+}
+
+func formatSessionUser(raw string) string {
+	user := strings.TrimSpace(raw)
+	if user == "" {
+		return "-"
+	}
+
+	local := user
+	if at := strings.Index(local, "@"); at >= 0 {
+		local = local[:at]
+	}
+
+	var digits []rune
+	for _, r := range local {
+		if unicode.IsDigit(r) {
+			digits = append(digits, r)
+		}
+	}
+
+	if len(digits) >= 10 {
+		num := string(digits)
+		// Prefer readable E.164-like output in the sessions table.
+		if len(num) == 10 {
+			return "+1" + num
+		}
+		return "+" + num
+	}
+
+	return local
 }
 
 func (m model) viewWhitelist() string {

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **TUI layout gap fix** — Removed oversized dynamic padding in main/settings menu rendering to keep pinned utility rows compact and visually aligned.
+- **Global sessions identity formatting** — Normalized session user identifiers to readable phone-style values instead of raw WhatsApp JID strings.
+- **Tagline refresh** — Updated manager and docs tagline text to `Unleash Multi-agent Orchestration`.
+
 ## [0.0.75] - 2026-02-16
 
 ### Changed

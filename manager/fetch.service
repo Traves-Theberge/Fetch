@@ -7,7 +7,7 @@
 # Replace __FETCH_DIR__ and __FETCH_USER__ before installing.
 
 [Unit]
-Description=Fetch - Your Faithful Code Companion
+Description=Fetch - Unleash Multi-agent Orchestration
 After=docker.service
 Requires=docker.service
 
