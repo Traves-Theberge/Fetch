@@ -31,6 +31,16 @@ const DEFAULT_STATE: WorkflowState = {
 
 const CRON_TICK_MS = 15_000;
 const MAX_RUN_HISTORY = 200;
+const BLOCKED_WORKFLOW_STEP_TOOLS = new Set<string>([
+  'workflow_create',
+  'workflow_run',
+  'workflow_delete',
+  'cron_create',
+  'cron_run',
+  'cron_delete',
+  'ask_user',
+  'report_progress',
+]);
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -151,6 +161,7 @@ export class WorkflowManager {
   private initialized = false;
   private ticker: ReturnType<typeof setInterval> | null = null;
   private runningCronJobs = new Set<string>();
+  private runningWorkflows = new Set<string>();
 
   async init(): Promise<void> {
     if (this.initialized) return;
@@ -234,6 +245,20 @@ export class WorkflowManager {
     if (this.state.workflows.some((w) => normalizeName(w.name) === normalized)) {
       throw new Error(`Workflow already exists: ${input.name}`);
     }
+    const registry = getToolRegistry();
+
+    input.steps.forEach((step, index) => {
+      const toolName = step.tool.trim();
+      if (!toolName) {
+        throw new Error(`Workflow step ${index + 1} is missing a tool name`);
+      }
+      if (BLOCKED_WORKFLOW_STEP_TOOLS.has(toolName)) {
+        throw new Error(`Workflow step ${index + 1} uses blocked tool: ${toolName}`);
+      }
+      if (!registry.get(toolName)) {
+        throw new Error(`Workflow step ${index + 1} references unknown tool: ${toolName}`);
+      }
+    });
 
     const now = nowIso();
     const workflow: WorkflowDefinition = {
@@ -393,6 +418,17 @@ export class WorkflowManager {
     const registry = getToolRegistry();
     const stepResults: WorkflowStepRun[] = [];
 
+    if (this.runningWorkflows.has(workflow.id)) {
+      run.status = 'failed';
+      run.error = `Workflow already running: ${workflow.name}`;
+      run.completedAt = nowIso();
+      await this.markCronRunFailure(cronJobId, run.error);
+      await this.saveState();
+      return run;
+    }
+
+    this.runningWorkflows.add(workflow.id);
+
     try {
       if (workflow.workspace) {
         const wsResult = await registry.execute('workspace_select', { name: workflow.workspace }, context);
@@ -434,6 +470,8 @@ export class WorkflowManager {
       await this.markCronRunFailure(cronJobId, message);
       await this.saveState();
       return run;
+    } finally {
+      this.runningWorkflows.delete(workflow.id);
     }
   }
 

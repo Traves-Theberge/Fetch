@@ -328,11 +328,14 @@ export async function handleTaskCancel(
       };
     }
 
-    // Cancel the task (TaskManager clears currentTaskId internally)
+    const integration = getTaskIntegration();
+    const processTerminated = integration.cancelExecution(taskId as TaskId);
+
+    // Cancel the task state (TaskManager clears currentTaskId internally)
     await manager.cancelTask(taskId as TaskId);
 
     const elapsed = task.startedAt ? Math.round((Date.now() - new Date(task.startedAt).getTime()) / 1000) : undefined;
-    const output = `Cancelled task ${taskId}${elapsed ? ` (was running ${elapsed}s)` : ''}`;
+    const output = `Cancelled task ${taskId}${elapsed ? ` (was running ${elapsed}s)` : ''}${processTerminated ? '; terminated active process' : ''}`;
 
     return {
       success: true,
@@ -342,6 +345,7 @@ export async function handleTaskCancel(
       metadata: {
         taskId,
         previousStatus: task.status,
+        processTerminated,
       },
     };
   } catch (err) {

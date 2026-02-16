@@ -4,6 +4,13 @@ const mockManager = {
   hasRunningTask: vi.fn(() => false),
   getCurrentTaskId: vi.fn(() => null),
   createTask: vi.fn(),
+  getTask: vi.fn(),
+  cancelTask: vi.fn(),
+};
+
+const mockIntegration = {
+  executeTask: vi.fn(async () => ({ success: true })),
+  cancelExecution: vi.fn(() => false),
 };
 
 const mockEnv = {
@@ -38,7 +45,7 @@ vi.mock('../../src/workspace/manager.js', () => ({
 }));
 
 vi.mock('../../src/task/integration.js', () => ({
-  getTaskIntegration: vi.fn(() => ({ executeTask: vi.fn(async () => ({ success: true })) })),
+  getTaskIntegration: vi.fn(() => mockIntegration),
 }));
 
 vi.mock('../../src/harness/executor.js', () => ({
@@ -82,5 +89,23 @@ describe('task tool ambiguity choices', () => {
 
     const payload = JSON.parse(result.output);
     expect(payload.choices).toEqual(['copilot', 'gemini', 'claude', 'opencode', 'codex']);
+  });
+
+  it('task_cancel terminates active process when integration reports running execution', async () => {
+    mockManager.getTask.mockReturnValue({
+      id: 'tsk_1234567890',
+      status: 'running',
+      startedAt: new Date(Date.now() - 5000).toISOString(),
+    });
+    mockIntegration.cancelExecution.mockReturnValue(true);
+
+    const { handleTaskCancel } = await import('../../src/tools/task.js');
+    const result = await handleTaskCancel({ taskId: 'tsk_1234567890' });
+
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('terminated active process');
+    expect(mockIntegration.cancelExecution).toHaveBeenCalledWith('tsk_1234567890');
+    expect(mockManager.cancelTask).toHaveBeenCalledWith('tsk_1234567890');
+    expect(result.metadata?.processTerminated).toBe(true);
   });
 });

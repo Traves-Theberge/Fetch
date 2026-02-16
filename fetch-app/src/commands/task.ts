@@ -9,6 +9,7 @@
 import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
 import { logger } from '../utils/logger.js';
+import { getTaskIntegration } from '../task/integration.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { CommandResult } from './types.js';
@@ -64,12 +65,18 @@ export async function handleStop(
   }
 
   const taskId = taskManager.getCurrentTaskId()!;
+  const integration = getTaskIntegration();
+  const processTerminated = integration.cancelExecution(taskId);
   await taskManager.cancelTask(taskId);
   session.activeTaskId = null;
 
   return {
     handled: true,
-    responses: ['🛑 Task stopped. Changes remain - say /undo to revert.'],
+    responses: [
+      processTerminated
+        ? '🛑 Task stopped and process terminated. Changes remain - say /undo to revert.'
+        : '🛑 Task stopped. Changes remain - say /undo to revert.',
+    ],
   };
 }
 

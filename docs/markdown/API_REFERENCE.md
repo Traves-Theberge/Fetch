@@ -395,7 +395,7 @@ Check the status of a running task.
 
 #### task_cancel
 
-Cancel a running task.
+Cancel a running task and terminate its active harness process when one is running.
 
 **Parameters:**
 
@@ -403,7 +403,7 @@ Cancel a running task.
 |------|------|----------|-------------|
 | `taskId` | string | ✅ | ID of the task to cancel |
 
-**Returns:** Narrative text (e.g. `"Cancelled task tsk_Xy7z (was running 32s)"`)
+**Returns:** Narrative text (e.g. `"Cancelled task tsk_Xy7z (was running 32s); terminated active process"`)
 
 **Danger Level:** MODERATE
 
@@ -691,6 +691,7 @@ Capture a screenshot of the current browser page.
 #### workflow_create / workflow_list / workflow_run / workflow_delete
 
 Create, inspect, execute, and remove named workflows. A workflow is an ordered list of existing tool calls with optional workspace pre-selection.
+`workflow_create` validates step tools up-front and blocks recursive orchestration tools (`workflow_*`, `cron_*`) and task-only interaction tools (`ask_user`, `report_progress`).
 
 #### cron_create / cron_list / cron_delete / cron_run
 

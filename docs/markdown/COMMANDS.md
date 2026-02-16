@@ -24,7 +24,7 @@ These are handled deterministically without an LLM call (<5ms):
 
 | Command | Aliases | Description |
 |---------|---------|-------------|
-| `/stop` | `stop`, `/cancel` | Cancel the running task immediately |
+| `/stop` | `stop`, `/cancel` | Cancel the running task immediately and terminate active harness execution |
 | `/undo` | — | Show manual git commands to revert last commit. `/undo all` reverts to task start |
 | `/clear` | `clear`, `/reset` | Clear conversation history |
 | `/help` | `help`, `/h`, `/?` | Show available commands |
@@ -107,6 +107,12 @@ The LLM has access to 40 orchestrator tools and decides which to call based on y
 | "Run npm run build in my app" | Calls `app_run` — executes app command in Kennel workspace |
 | "Run tests for this project" | Calls `app_test` — runs explicit or inferred test command |
 | "Browser test example.com for Login text" | Calls `browser_test` — runs snapshot-based browser assertion |
+
+Workflow safety guardrails:
+
+- Workflow steps must reference valid existing tools.
+- Recursive orchestration tools (`workflow_*`, `cron_*`) are blocked inside workflow steps.
+- Task-interaction tools (`ask_user`, `report_progress`) are blocked inside workflow steps.
 
 ### Identity & Skills
 

@@ -484,7 +484,7 @@ export async function handleBrowserTest(input: unknown): Promise<ToolResult> {
 // ============================================================================
 
 export const workflowTools: Record<string, { description: string }> = {
-  workflow_create: { description: 'Create a named multi-step workflow using existing tools.' },
+  workflow_create: { description: 'Create a named multi-step workflow using existing tools (validated at create time; recursive orchestration and task-interaction tools are blocked).' },
   workflow_list: { description: 'List saved workflows and optionally recent workflow runs.' },
   workflow_run: { description: 'Run a saved workflow immediately and return step-level results.' },
   workflow_delete: { description: 'Delete a saved workflow and any cron jobs bound to it.' },

@@ -30,6 +30,12 @@ Fetch does:
 - Stores it in persistent workflow state (`data/workflows.json`)
 - Returns confirmation with step count
 
+Validation rules:
+
+- Every step tool must exist in the registry at create time.
+- Step tools cannot be orchestration-recursive (`workflow_create`, `workflow_run`, `workflow_delete`, `cron_create`, `cron_run`, `cron_delete`).
+- Step tools cannot be task-interaction-only (`ask_user`, `report_progress`).
+
 Typical response:
 
 ```text
@@ -165,8 +171,10 @@ Fetch:
 ## Failure Behavior
 
 - If a workflow step fails, run status is `failed` and remaining steps are not executed.
+- If the same workflow is already running, new runs fail fast with an `already running` error.
 - `app_run` / `app_test` propagate command exit codes and stderr/stdout.
 - Cron jobs keep `lastError` and update next-run timestamps.
+- `/stop` and `task_cancel` terminate active harness processes when present, then mark task state cancelled.
 
 ## Operator Notes
 

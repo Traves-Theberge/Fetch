@@ -72,7 +72,7 @@ Verify safety commands and tool listings match what exists.
 
 Run each command (aliases in parentheses):
 
-- [ ] `/stop` (`/cancel`) — cancels a running task
+- [ ] `/stop` (`/cancel`) — cancels a running task and terminates active harness execution
 - [ ] `/undo` and `/undo all` — soft reset last commit / revert to task start
 - [ ] `/clear` (`/reset`) — clears conversation (confirmation expected)
 - [ ] `/help` (`/h`, `/?`) — shows help

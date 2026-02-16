@@ -1,16 +1,48 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockProject, createMockSession } from '../helpers/mock-session.js';
 
+const mockTaskManager = {
+  hasRunningTask: vi.fn(() => false),
+  getCurrentTaskId: vi.fn(() => null),
+  cancelTask: vi.fn(),
+};
+
+const mockTaskIntegration = {
+  cancelExecution: vi.fn(() => false),
+};
+
+vi.mock('../../src/task/manager.js', () => ({
+  getTaskManager: vi.fn(async () => mockTaskManager),
+}));
+
+vi.mock('../../src/task/integration.js', () => ({
+  getTaskIntegration: vi.fn(() => mockTaskIntegration),
+}));
+
 vi.mock('child_process', () => ({
   exec: vi.fn(),
 }));
 
 import { exec } from 'child_process';
-import { handleUndoAll } from '../../src/commands/task.js';
+import { handleStop, handleUndoAll } from '../../src/commands/task.js';
 
 describe('Task Commands', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('stops active task and reports process termination', async () => {
+    mockTaskManager.hasRunningTask.mockReturnValue(true);
+    mockTaskManager.getCurrentTaskId.mockReturnValue('tsk_123');
+    mockTaskIntegration.cancelExecution.mockReturnValue(true);
+
+    const session = createMockSession();
+    const result = await handleStop(session, {} as never);
+
+    expect(result.handled).toBe(true);
+    expect(result.responses?.[0]).toContain('process terminated');
+    expect(mockTaskIntegration.cancelExecution).toHaveBeenCalledWith('tsk_123');
+    expect(mockTaskManager.cancelTask).toHaveBeenCalledWith('tsk_123');
   });
 
   it('returns guidance when session has no start commit', async () => {

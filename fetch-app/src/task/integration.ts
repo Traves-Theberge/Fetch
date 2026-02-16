@@ -167,6 +167,24 @@ export class TaskIntegration extends EventEmitter {
     this.manager = null;
   }
 
+  /**
+   * Cancel active harness execution for a task, if any.
+   *
+   * @returns true when a live harness process was signaled for termination.
+   */
+  cancelExecution(taskId: TaskId): boolean {
+    const executor = getHarnessExecutor();
+    const execution = executor.getExecutionForTask(taskId);
+    if (!execution) return false;
+    if (!['starting', 'running', 'waiting_input'].includes(execution.status)) {
+      return false;
+    }
+
+    executor.kill(execution.id);
+    this.activeExecutions.delete(taskId);
+    return true;
+  }
+
   // ==========================================================================
   // Private Methods
   // ==========================================================================

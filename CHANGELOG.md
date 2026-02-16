@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.66] - 2026-02-16
+
+### Changed
+
+- **Deterministic stop/cancel process termination** — `/stop` and `task_cancel` now terminate active harness executions when present, instead of only marking task state as cancelled.
+- **Workflow safety guardrails** — `workflow_create` now validates every step tool at creation time, blocks recursive orchestration tools (`workflow_*` / `cron_*`) and interactive task-only tools (`ask_user`, `report_progress`) from workflow steps.
+- **Concurrent workflow recursion protection** — workflow execution now fails fast when the same workflow is already running, preventing accidental recursive/racing runs.
+- **Autonomy hardening tests** — Added unit coverage for stop/cancel termination behavior and workflow guardrails.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.66`.
+
 ## [0.0.65] - 2026-02-15
 
 ### Added

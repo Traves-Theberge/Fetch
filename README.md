@@ -94,7 +94,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.64
+fetch self pin v0.0.66
 fetch uninstall
 ```
 
@@ -123,6 +123,12 @@ Fetch now includes workflow + cron orchestration tools in the agent loop:
 - `workflow_create`, `workflow_list`, `workflow_run`, `workflow_delete`
 - `cron_create`, `cron_list`, `cron_delete`, `cron_run`
 - Runtime execution helpers: `app_run`, `app_test`, `browser_test`
+
+Safety notes:
+
+- `/stop` and `task_cancel` now terminate active harness processes (not just task state).
+- Workflow definitions are validated at creation time.
+- Workflow step tools cannot include recursive orchestration tools (`workflow_*` / `cron_*`) or task-interaction tools (`ask_user`, `report_progress`).
 
 Example asks from WhatsApp:
 
