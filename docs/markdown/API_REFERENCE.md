@@ -688,6 +688,14 @@ Capture a screenshot of the current browser page.
 
 ### Workflow & Runtime Tools (11)
 
+These tools are best understood in three layers:
+
+- `Delegation`: open-ended coding (`task_*`).
+- `Interactive`: exploratory research/browsing (`web_*`, browser session tools).
+- `Execution`: deterministic automation primitives (`app_run`, `app_test`, `browser_test`).
+
+Workflow and cron automation are designed primarily for the `Execution` layer.
+
 #### workflow_create / workflow_list / workflow_run / workflow_delete
 
 Create, inspect, execute, and remove named workflows. A workflow is an ordered list of existing tool calls with optional workspace pre-selection.
@@ -699,11 +707,11 @@ Manage UTC cron schedules for workflows. Schedules use 5-field cron format (`min
 
 #### app_run / app_test
 
-Execute commands inside the active (or specified) workspace within Kennel. `app_test` auto-detects a default command when possible (`npm test`, `go test ./...`, `cargo test`, `pytest`).
+Execute deterministic commands inside the active (or specified) workspace within Kennel. `app_test` auto-detects a default command when possible (`npm test`, `go test ./...`, `cargo test`, `pytest`).
 
 #### browser_test
 
-Run a browser smoke test by opening a URL, collecting an accessibility snapshot, and asserting expected substrings (`mustInclude`), with optional screenshot capture.
+Run a deterministic browser smoke check by opening a URL, collecting an accessibility snapshot, and asserting expected substrings (`mustInclude`), with optional screenshot capture.
 
 ---
 

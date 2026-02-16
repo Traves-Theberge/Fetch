@@ -1,6 +1,6 @@
 # Workflow Automation
 
-This guide explains exactly how users trigger and manage **workflows, cron jobs, and runtime checks** from WhatsApp.
+This guide explains exactly how users trigger and manage **workflows, cron jobs, and deterministic runtime checks** from WhatsApp.
 
 ## Quick Mental Model
 
@@ -10,6 +10,14 @@ This guide explains exactly how users trigger and manage **workflows, cron jobs,
 4. Fetch executes tools inside Kennel/workspace and replies with concise status/results.
 
 No special slash commands are required for workflows and cron.
+
+## Layer Boundaries
+
+- `Delegation`: `task_create` for open-ended implementation and reasoning-heavy work.
+- `Interactive`: `web_*` and browser session tools for exploration/inspection.
+- `Execution`: `app_run`, `app_test`, `browser_test` for deterministic pass/fail steps.
+
+Workflows should be composed mostly from `Execution` tools. If the step needs subjective reasoning, keep it outside workflows and use delegation.
 
 ## Core User Flows
 
@@ -141,6 +149,7 @@ Fetch:
 - Captures accessibility snapshot
 - Asserts required `mustInclude` substrings
 - Optionally captures screenshot metadata
+- Returns explicit pass/fail semantics for workflow-safe automation
 
 ## Day-to-Day Management
 
@@ -173,6 +182,7 @@ Fetch:
 - If a workflow step fails, run status is `failed` and remaining steps are not executed.
 - If the same workflow is already running, new runs fail fast with an `already running` error.
 - `app_run` / `app_test` propagate command exit codes and stderr/stdout.
+- `browser_test` fails when required assertions are missing, making it safe for CI-like gates.
 - Cron jobs keep `lastError` and update next-run timestamps.
 - `/stop` and `task_cancel` terminate active harness processes when present, then mark task state cancelled.
 

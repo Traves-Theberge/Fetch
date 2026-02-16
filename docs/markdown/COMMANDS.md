@@ -41,6 +41,19 @@ Note: natural-language capability prompts like "what can you do?" now use the LL
 
 The LLM has access to 40 orchestrator tools and decides which to call based on your message. Here are examples:
 
+### Tooling Layers (How To Think About It)
+
+| Layer | Purpose | Primary Tools |
+|---------|----------------|-------------|
+| Delegation | Open-ended implementation that needs reasoning/iteration | `task_create`, `task_status`, `task_cancel`, `task_respond` |
+| Interactive | Explore or inspect external systems/web UIs in real time | `web_search`, `web_fetch`, `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot` |
+| Execution | Deterministic steps with clear pass/fail output | `app_run`, `app_test`, `browser_test` |
+
+Rule of thumb:
+- If the ask is "do the whole coding job", use Delegation.
+- If the ask is "inspect/click/read/search", use Interactive.
+- If the ask is "run this exact step/check", use Execution.
+
 ### Workspace Management
 
 | Message | What Fetch Does |
@@ -104,15 +117,16 @@ The LLM has access to 40 orchestrator tools and decides which to call based on y
 | "Schedule nightly-check at 0 3 * * *" | Calls `cron_create` — creates UTC cron schedule |
 | "Show my cron jobs" | Calls `cron_list` — lists scheduled workflow triggers |
 | "Run cron nightly-check now" | Calls `cron_run` — triggers the cron workflow immediately |
-| "Run npm run build in my app" | Calls `app_run` — executes app command in Kennel workspace |
-| "Run tests for this project" | Calls `app_test` — runs explicit or inferred test command |
-| "Browser test example.com for Login text" | Calls `browser_test` — runs snapshot-based browser assertion |
+| "Run npm run build in my app" | Calls `app_run` — deterministic command execution in workspace |
+| "Run tests for this project" | Calls `app_test` — deterministic test execution (auto-detect supported) |
+| "Browser test example.com for Login text" | Calls `browser_test` — deterministic snapshot-based assertion |
 
 Workflow safety guardrails:
 
 - Workflow steps must reference valid existing tools.
 - Recursive orchestration tools (`workflow_*`, `cron_*`) are blocked inside workflow steps.
 - Task-interaction tools (`ask_user`, `report_progress`) are blocked inside workflow steps.
+- Prefer execution-layer tools in workflows; avoid open-ended delegation in workflow steps.
 
 ### Identity & Skills
 

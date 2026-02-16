@@ -122,17 +122,26 @@ fetch harness uninstall github
 
 ## Workflow Automation
 
-Fetch now includes workflow + cron orchestration tools in the agent loop:
+Fetch now includes workflow + cron orchestration tools in the agent loop.
+
+Use this three-layer model to decide what to ask for:
+
+- `Delegation Layer` (open-ended implementation): `task_create`, `task_status`, `task_cancel`, `task_respond`
+- `Interactive Layer` (live exploration/research): `web_search`, `web_fetch`, `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
+- `Execution Layer` (deterministic pass/fail steps): `app_run`, `app_test`, `browser_test`
+
+Workflow + cron primarily automate the `Execution Layer`:
 
 - `workflow_create`, `workflow_list`, `workflow_run`, `workflow_delete`
 - `cron_create`, `cron_list`, `cron_delete`, `cron_run`
-- Runtime execution helpers: `app_run`, `app_test`, `browser_test`
+- Deterministic execution helpers: `app_run`, `app_test`, `browser_test`
 
 Safety notes:
 
 - `/stop` and `task_cancel` now terminate active harness processes (not just task state).
 - Workflow definitions are validated at creation time.
 - Workflow step tools cannot include recursive orchestration tools (`workflow_*` / `cron_*`) or task-interaction tools (`ask_user`, `report_progress`).
+- Workflow steps should be deterministic; use delegation tools for open-ended coding tasks.
 - Dangerous tools are policy-gated by autonomy level in the registry (supervised blocks dangerous actions; cautious requires explicit confirmation).
 - Tool arguments are redacted before logging/persistence for sensitive keys (token/apiKey/password/secret-like fields).
 - Agent/tool safety helpers now have direct unit coverage for retry classification, error sanitization, and progress rewrite output guards.
@@ -167,7 +176,7 @@ Example asks from WhatsApp:
 
 ## Task Delegation
 
-Fetch can delegate implementation work to harness agents:
+Task delegation is for open-ended work that needs judgment and iteration:
 
 - `task_create`, `task_status`, `task_cancel`, `task_respond`
 - Interaction helpers used by the loop: `ask_user`, `report_progress`
@@ -206,16 +215,16 @@ Example asks from WhatsApp:
 
 ## Web And Browser Tools
 
-Fetch includes research + browser automation tools:
+Interactive tools are for exploration and live state inspection:
 
 - Web: `web_search`, `web_fetch`
 - Browser session: `browser_open`, `browser_snapshot`, `browser_action`, `browser_screenshot`
-- Browser assertion runner: `browser_test`
+- Browser assertion runner (deterministic execution layer): `browser_test`
 
 Safety notes:
 
 - Browser tools run inside Kennel and return structured snapshots for deterministic follow-up actions.
-- `browser_test` is ideal for quick smoke assertions without changing existing browser tools.
+- `browser_test` is for pass/fail assertions; use `browser_open` + `browser_action` when you need exploratory interaction.
 
 Example asks from WhatsApp:
 

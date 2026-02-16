@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Tooling layer documentation model** — Reframed docs and README around three intent-first layers (`Delegation`, `Interactive`, `Execution`) to clarify when to use task delegation, live web/browser exploration, and deterministic runtime checks.
+- **Workflow guidance clarity** — Updated workflow automation docs to emphasize deterministic execution steps (`app_run`, `app_test`, `browser_test`) and keep reasoning-heavy work in delegation flows.
+
 ## [0.0.69] - 2026-02-16
 
 ### Changed
