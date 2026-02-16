@@ -207,9 +207,12 @@ type model struct {
 	harnessEditField  string              // "apikey" or "model"
 	harnessEditBuffer string              // Accumulated text
 	// QR code refresh state
-	qrProgress     progress.Model
-	qrCountdown    int // Seconds remaining until refresh
-	qrMaxCountdown int // Total countdown time
+	qrProgress       progress.Model
+	qrCountdown      int // Seconds remaining until refresh
+	qrMaxCountdown   int // Total countdown time
+	qrRefreshPending bool
+	lastQRCodeValue  string
+	lastQRCodeAt     time.Time
 	// Session management state
 	sessions       []status.SessionSummary
 	sessionCursor  int
@@ -442,8 +445,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newQRCode := *msg.status.QRCode
 				if oldQRCode != newQRCode {
 					m.qrCountdown = m.qrMaxCountdown
+					m.lastQRCodeValue = newQRCode
+					m.lastQRCodeAt = time.Now()
+					if m.qrRefreshPending {
+						m.actionMessage = "✅ QR code refreshed."
+						m.actionSuccess = true
+					}
+				} else if m.qrRefreshPending {
+					m.actionMessage = "ℹ️ QR code still valid; waiting for next token."
+					m.actionSuccess = true
 				}
 			}
+			m.qrRefreshPending = false
 		}
 		return m, nil
 
@@ -600,6 +613,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.qrCountdown <= 0 {
 				// Auto-refresh: fetch new status
 				m.qrCountdown = m.qrMaxCountdown
+				m.qrRefreshPending = true
 				return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), qrRefreshTickCmd())
 			}
 			// Update progress bar
@@ -692,12 +706,15 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case 0: // Start Fetch
 			return m, startFetchCmd()
 		case 1: // Stop Fetch
+			m.actionMessage = "Stopping Fetch services..."
+			m.actionSuccess = true
 			return m, stopFetchCmd()
 		case 2: // Update Fetch
 			return m, updateFetchCmd()
 		case 3: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
+			m.qrRefreshPending = false
 			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
 		case 4: // View Logs
 			m.screen = screenLogs
@@ -740,6 +757,10 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc", "q":
 		m.screen = screenMenu
 		return m, nil
+	case "r":
+		m.qrRefreshPending = true
+		m.qrCountdown = m.qrMaxCountdown
+		return m, fetchBridgeStatusCmd(m.statusClient)
 	case "o":
 		// Open QR URL in browser
 		if m.bridgeStatus != nil && m.bridgeStatus.QRUrl != nil {
@@ -2311,11 +2332,29 @@ func (m model) viewSetup() string {
 			content.WriteString(theme.StatusInfo.Render("📱 Scan this QR code with WhatsApp:") + "\n\n")
 
 			if m.bridgeStatus.QRCode != nil {
-				qrText := renderQRCodeCompact(*m.bridgeStatus.QRCode)
-				content.WriteString(qrText + "\n")
+				// Keep QR fully visible on small terminals by falling back to URL mode.
+				maxQRWidth := width - 12
+				maxQRHeight := height - 14
+				qrText := renderQRCodeCompact(*m.bridgeStatus.QRCode, maxQRWidth, maxQRHeight)
+				if qrText == "" {
+					if m.bridgeStatus.QRUrl != nil {
+						content.WriteString(theme.Subtitle.Render("Terminal too small for full QR. Press 'o' to open it in browser.") + "\n")
+						content.WriteString(theme.QRBox.Render(*m.bridgeStatus.QRUrl) + "\n")
+					} else {
+						content.WriteString(theme.Subtitle.Render("Terminal too small for full QR. Enlarge window or press 'r' to refresh.") + "\n")
+					}
+				} else {
+					content.WriteString(qrText + "\n")
+				}
 				content.WriteString(fmt.Sprintf("\n⏱️  Auto-refresh in %ds ", m.qrCountdown))
 				content.WriteString(m.qrProgress.View() + "\n\n")
-				content.WriteString(theme.Subtitle.Render("'o' open in browser | Esc go back") + "\n")
+				if !m.lastQRCodeAt.IsZero() {
+					content.WriteString(theme.Subtitle.Render(fmt.Sprintf("Last QR update: %s", m.lastQRCodeAt.Format("15:04:05"))) + "\n")
+				}
+				if m.qrRefreshPending {
+					content.WriteString(theme.Subtitle.Render("Refreshing QR token...") + "\n")
+				}
+				content.WriteString(theme.Subtitle.Render("'r' refresh | 'o' open in browser | Esc go back") + "\n")
 			} else if m.bridgeStatus.QRUrl != nil {
 				content.WriteString(theme.QRBox.Render(
 					"Press 'o' to open QR in browser:\n\n"+*m.bridgeStatus.QRUrl,
@@ -2349,7 +2388,7 @@ func (m model) viewSetup() string {
 
 	helpKeys := []string{"Esc Back"}
 	if m.bridgeStatus != nil && m.bridgeStatus.State == "qr_pending" {
-		helpKeys = []string{"o Open QR", "Esc Back"}
+		helpKeys = []string{"r Refresh", "o Open QR", "Esc Back"}
 	}
 
 	return layout.ScreenLayout{
@@ -2364,7 +2403,7 @@ func (m model) viewSetup() string {
 
 // renderQRCodeCompact renders a smaller QR code using Low error correction
 // and skipping every other pixel for a more compact display
-func renderQRCodeCompact(data string) string {
+func renderQRCodeCompact(data string, maxWidth, maxHeight int) string {
 	// Use Low error correction for smaller QR code
 	qr, err := qrcode.New(data, qrcode.Low)
 	if err != nil {
@@ -2373,6 +2412,19 @@ func renderQRCodeCompact(data string) string {
 
 	// Get the QR code as a bitmap
 	bitmap := qr.Bitmap()
+	if len(bitmap) == 0 || len(bitmap[0]) == 0 {
+		return "   Error generating QR code"
+	}
+
+	// Avoid rendering clipped QR blocks on tiny terminals.
+	renderedWidth := len(bitmap[0]) + 4 // border + horizontal padding
+	renderedHeight := ((len(bitmap) + 1) / 2) + 2
+	if maxWidth > 0 && renderedWidth > maxWidth {
+		return ""
+	}
+	if maxHeight > 0 && renderedHeight > maxHeight {
+		return ""
+	}
 
 	// Style for the QR code box
 	boxStyle := lipgloss.NewStyle().
