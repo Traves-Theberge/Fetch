@@ -91,6 +91,7 @@ Shows the QR code rendered directly in the terminal using Unicode block characte
 
 | Key | Action |
 |-----|--------|
+| `r` | Force refresh QR token immediately |
 | `o` | Open QR code in browser (alternative scan method) |
 | `Esc` | Return to main menu |
 
@@ -98,11 +99,13 @@ The session persists across restarts. You only need to scan once unless you manu
 
 **Live status refresh:** While this screen is open, the Manager continuously polls Bridge status. If the Bridge moves from `disconnected` to `qr_pending` or `authenticated`, the view updates automatically without restarting Fetch.
 
+**Small terminal behavior:** If the terminal is too small to render the full QR block cleanly, the TUI now avoids clipped QR output and prompts you to open the QR URL in browser (`o`).
+
 ---
 
 ### Stop Fetch Feedback
 
-The Stop action now reports explicit outcomes after checking container state:
+Pressing Stop now gives immediate in-UI feedback (`Stopping Fetch services...`) while the command runs, then reports explicit outcomes after container-state verification:
 
 - `🛑 Fetch services stopped.` — services were running and are now stopped
 - `ℹ️ Fetch services were already stopped.` — nothing was running

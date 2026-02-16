@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
+	bubblespinner "github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	qrcode "github.com/skip2/go-qrcode"
@@ -213,6 +214,8 @@ type model struct {
 	qrRefreshPending bool
 	lastQRCodeValue  string
 	lastQRCodeAt     time.Time
+	actionBusy       bool
+	actionSpinner    *components.Spinner
 	// Session management state
 	sessions       []status.SessionSummary
 	sessionCursor  int
@@ -410,9 +413,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case actionResultMsg:
 		m.actionMessage = msg.message
 		m.actionSuccess = msg.success
+		m.actionBusy = false
+		m.actionSpinner = nil
 		return m, checkStatus
 
 	case updateFetchDoneMsg:
+		m.actionBusy = false
+		m.actionSpinner = nil
 		if msg.err != nil {
 			m.actionMessage = fmt.Sprintf("Update failed: %v", msg.err)
 			m.actionSuccess = false
@@ -461,6 +468,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case harnessAuthResultMsg:
+		m.actionBusy = false
+		m.actionSpinner = nil
 		if msg.err != nil {
 			m.actionMessage = fmt.Sprintf("%s auth failed: %v", harnessName(msg.harness), msg.err)
 			m.actionSuccess = false
@@ -486,6 +495,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case harnessManageResultMsg:
+		m.actionBusy = false
+		m.actionSpinner = nil
 		if msg.err != nil {
 			m.actionMessage = fmt.Sprintf("%s %s failed: %v", harnessName(msg.harness), msg.action, msg.err)
 			m.actionSuccess = false
@@ -623,6 +634,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case bubblespinner.TickMsg:
+		if m.actionBusy && m.actionSpinner != nil {
+			var cmd tea.Cmd
+			m.actionSpinner, cmd = m.actionSpinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
 	case logTickMsg:
 		// Only fetch logs and schedule next tick if we are on the logs screen
 		if m.screen == screenLogs {
@@ -701,16 +720,29 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mainMenu.Down()
 
 	case "enter", " ":
+		if m.actionBusy {
+			return m, nil
+		}
 
 		switch m.mainMenu.Selected() {
 		case 0: // Start Fetch
-			return m, startFetchCmd()
+			m.actionMessage = "Starting Fetch services..."
+			m.actionSuccess = true
+			m.actionBusy = true
+			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Working...")
+			return m, tea.Batch(m.actionSpinner.Init(), startFetchCmd())
 		case 1: // Stop Fetch
 			m.actionMessage = "Stopping Fetch services..."
 			m.actionSuccess = true
-			return m, stopFetchCmd()
+			m.actionBusy = true
+			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Working...")
+			return m, tea.Batch(m.actionSpinner.Init(), stopFetchCmd())
 		case 2: // Update Fetch
-			return m, updateFetchCmd()
+			m.actionMessage = "Updating Fetch..."
+			m.actionSuccess = true
+			m.actionBusy = true
+			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Applying update...")
+			return m, tea.Batch(m.actionSpinner.Init(), updateFetchCmd())
 		case 3: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
@@ -1726,7 +1758,9 @@ func (m model) viewSessions() string {
 	}
 
 	var actionMsg string
-	if m.actionMessage != "" {
+	if m.actionBusy && m.actionSpinner != nil {
+		actionMsg = m.actionSpinner.View() + "\n\n"
+	} else if m.actionMessage != "" {
 		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
 	}
 
