@@ -94,7 +94,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.68
+fetch self pin v0.0.69
 fetch uninstall
 ```
 
@@ -250,6 +250,16 @@ Fetch runs as a three-container stack plus a host manager:
 - `fetch-kennel` (Ubuntu): sandboxed execution for harness CLIs + browser tooling
 - `fetch-searxng`: self-hosted web search provider
 - `fetch-manager` (Go TUI): host-side operations and auth/setup flows
+
+### Agent Runtime Internals
+
+- Single active run per session with explicit lifecycle phases (`queued`, `preparing`, `planning`, `tool_execution`, `responding`, terminal state).
+- Prompt mode selection per turn (`minimal` for short conversational turns, `full` for execution-heavy turns).
+- Interrupt path for `/stop` and `/cancel` now aborts active in-flight runs, not only delegated tasks.
+- Turn telemetry is captured for every run (retries, tool counts, per-tool duration/success).
+- Two memory tiers are persisted in session metadata:
+- `shortTermSummary` for immediate continuity across nearby turns.
+- `durableNotes` for stable preferences/decisions that should survive compaction.
 
 ## Project Structure
 

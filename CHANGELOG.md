@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.69] - 2026-02-16
+
+### Changed
+
+- **Session run lifecycle orchestration** — Added explicit per-session run phases with single-active-run locking, persisted runtime state snapshots, and archive history for completed/failed/cancelled runs.
+- **Prompt mode runtime selection** — Added turn-level `minimal` vs `full` prompt modes, with lightweight mode selection for short conversational turns and full mode for execution-heavy requests.
+- **Interrupt semantics hardening** — `/stop` and `/cancel` now abort active in-flight agent runs in addition to delegated tasks.
+- **Agent telemetry capture** — Added per-turn telemetry (retries, tool totals, per-tool duration/success) and persisted last-run telemetry metadata.
+- **Memory tier expansion** — Added short-term turn summaries and durable note tracking in session runtime metadata, plus durable memory writes for stable preferences/decisions.
+- **Documentation refresh** — Updated README, systems deep dive, and context pipeline docs to reflect lifecycle/prompt/telemetry/memory-tier behavior.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.69`.
+
 ## [0.0.68] - 2026-02-16
 
 ### Changed

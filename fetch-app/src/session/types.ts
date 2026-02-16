@@ -37,6 +37,59 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 };
 
 // ============================================================================
+// Agent Runtime
+// ============================================================================
+
+/** Prompt verbosity/runtime mode for a single agent turn. */
+export type PromptMode = 'full' | 'minimal';
+
+/** Lifecycle phases for one active agent run in a session. */
+export type AgentRunPhase =
+  | 'queued'
+  | 'preparing'
+  | 'planning'
+  | 'tool_execution'
+  | 'responding'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+/** One tool call telemetry record. */
+export interface ToolTelemetry {
+  name: string;
+  success: boolean;
+  durationMs: number;
+  error?: string;
+}
+
+/** Turn-level agent telemetry captured after each model/tool loop. */
+export interface AgentTurnTelemetry {
+  promptMode: PromptMode;
+  model: string;
+  retries: number;
+  totalToolCalls: number;
+  successfulToolCalls: number;
+  failedToolCalls: number;
+  tools: ToolTelemetry[];
+  durationMs: number;
+  startedAt: string;
+  finishedAt: string;
+}
+
+/** Persisted runtime state for one active run in a chat session. */
+export interface AgentRunState {
+  runId: string;
+  phase: AgentRunPhase;
+  promptMode: PromptMode;
+  messagePreview: string;
+  startedAt: string;
+  updatedAt: string;
+  cancelRequested?: boolean;
+  cancelReason?: string;
+  lastError?: string;
+}
+
+// ============================================================================
 // Project Context
 // ============================================================================
 

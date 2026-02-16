@@ -29,12 +29,14 @@ flowchart TD
 
 The Context Pipeline solves a core problem in conversational AI: **multi-turn memory**. Without it, every message is a blank slate.
 
-The pipeline applies four layers of memory:
+The pipeline applies six layers of runtime/context memory:
 
 1. **Sliding Window**: Last 20 messages (configurable) in full OpenAI format.
 2. **Compaction**: Older messages are summarized into a chained system prompt section. Previous summaries are preserved as structured memory entries.
 3. **Structured Memory**: Key facts, preferences, and decisions stored in a `memory` table with BM25-style keyword recall. Recalled entries are injected into the system prompt.
-4. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
+4. **Short-Term Summary**: Last-turn continuity summary stored in `session.metadata.agentRuntime.shortTermSummary`.
+5. **Durable Notes**: Stable preferences/decisions in `session.metadata.agentRuntime.durableNotes`.
+6. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
 
 ## Project Intelligence
 

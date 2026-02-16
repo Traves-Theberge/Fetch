@@ -72,6 +72,8 @@ vi.mock('../../src/config/pipeline.js', () => ({
     compactionModel: 'test-model',
     compactionMaxTokens: 500,
     repoMapTtl: 10 * 60 * 1000, // 10 minutes in ms
+    runHistoryLimit: 25,
+    durableNotesLimit: 20,
   },
 }));
 
@@ -311,6 +313,46 @@ describe('SessionManager', () => {
       await manager.updateRepoMap(session, 'updated map');
 
       expect(manager.isRepoMapStale(session)).toBe(false);
+    });
+  });
+
+  describe('agent runtime lifecycle', () => {
+    it('acquires one active run per session and blocks concurrent acquire', async () => {
+      const session = await manager.getOrCreateSession('runtime_lock');
+      const first = await manager.acquireAgentRun(session, 'hello', 'minimal');
+      const second = await manager.acquireAgentRun(session, 'another', 'full');
+
+      expect(first.acquired).toBe(true);
+      expect(second.acquired).toBe(false);
+    });
+
+    it('cancels and completes active runs', async () => {
+      const session = await manager.getOrCreateSession('runtime_cancel');
+      const acquired = await manager.acquireAgentRun(session, 'build api', 'full');
+      if (!acquired.acquired) throw new Error('Expected acquired run');
+
+      const cancelled = await manager.cancelAgentRun(session, 'test stop');
+      expect(cancelled.cancelled).toBe(true);
+
+      await manager.completeAgentRun(session, acquired.run.runId, 'cancelled');
+      expect(manager.getActiveAgentRun(session.id)).toBeUndefined();
+    });
+  });
+
+  describe('memory tiers', () => {
+    it('stores short-term summary and deduplicated durable notes', async () => {
+      const session = await manager.getOrCreateSession('memory_tier');
+      await manager.recordMemoryTiers(session, {
+        userMessage: 'Please setup workflow',
+        assistantMessage: 'Done',
+        toolNames: ['workflow_create'],
+        durableNotes: ['User decided to automate reports', 'User decided to automate reports'],
+      });
+
+      const runtime = session.metadata.agentRuntime as Record<string, unknown>;
+      expect(runtime.shortTermSummary).toContain('Please setup workflow');
+      expect(Array.isArray(runtime.durableNotes)).toBe(true);
+      expect((runtime.durableNotes as string[]).length).toBe(1);
     });
   });
 

@@ -93,6 +93,8 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
   recallSnippetTokens: { type: 'int', key: 'FETCH_RECALL_SNIPPET_TOKENS', fallback: 300 },
   recallDecay: { type: 'float', key: 'FETCH_RECALL_DECAY', fallback: 0.1 },
   toolResultMaxPersist: { type: 'int', key: 'FETCH_TOOL_RESULT_MAX_PERSIST', fallback: 2000 },
+  runHistoryLimit: { type: 'int', key: 'FETCH_RUN_HISTORY_LIMIT', fallback: 25 },
+  durableNotesLimit: { type: 'int', key: 'FETCH_DURABLE_NOTES_LIMIT', fallback: 20 },
 
   // ─── Web / Browser ─────────────────────────────────────────
   searxngUrl: { type: 'str', key: 'FETCH_SEARXNG_URL', fallback: 'http://searxng:8080' },
@@ -193,6 +195,8 @@ interface PipelineConfig {
   recallSnippetTokens: number;
   recallDecay: number;
   toolResultMaxPersist: number;
+  runHistoryLimit: number;
+  durableNotesLimit: number;
   searxngUrl: string;
   webFetchMaxLength: number;
   browserTimeout: number;

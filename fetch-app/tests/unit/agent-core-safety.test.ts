@@ -72,4 +72,21 @@ describe('agent core safety helpers', () => {
     expect(__testing.sanitizeProgressRewrite('', fallback)).toBe(fallback);
     expect(__testing.sanitizeProgressRewrite('x'.repeat(121), fallback)).toBe(fallback);
   });
+
+  it('selects minimal prompt mode for short conversational messages', () => {
+    expect(__testing.selectPromptMode('hi')).toBe('minimal');
+    expect(__testing.selectPromptMode('what can you do?')).toBe('minimal');
+    expect(__testing.selectPromptMode('create a new api project')).toBe('full');
+  });
+
+  it('derives durable notes from preferences and workflow actions', () => {
+    const notes = __testing.deriveDurableNotes(
+      'I prefer fast responses. remember this.',
+      'Completed setup',
+      ['workflow_create', 'cron_create']
+    );
+    expect(notes.some((n: string) => n.includes('User prefers'))).toBe(true);
+    expect(notes.some((n: string) => n.includes('automate a repeatable flow'))).toBe(true);
+    expect(notes.some((n: string) => n.includes('schedule workflow automation'))).toBe(true);
+  });
 });

@@ -23,6 +23,8 @@ Fetch runs a ReAct-style agent loop:
 4. Rebuild prompt context after state-changing actions.
 5. Repeat until the request is complete, then return final response.
 
+Run execution is now lifecycle-tracked per session (`queued` → `preparing` → `planning` → `tool_execution` → `responding` → terminal state). Only one run may be active per session at a time.
+
 Autonomy rules keep behavior practical:
 
 - Act when intent is clear.
@@ -68,6 +70,12 @@ Session {
   metadata: {
     compactionSummary,           // Summarized old messages
     activeThreadId,              // Named conversation branch
+    agentRuntime: {
+      activeRun,                 // Current run phase + mode + cancel state
+      recentRuns,                // Archived run metadata + telemetry
+      shortTermSummary,          // Last-turn continuity summary
+      durableNotes               // Stable preferences/decisions
+    }
   }
 }
 ```
@@ -101,7 +109,11 @@ This creates a **chained summarization** pattern - each compaction preserves the
 
 **Storage**: `memory` table in `sessions.db` with category, content, keywords, importance (1-5), recall tracking.
 
-Currently only compaction produces memories, but the schema supports `fact`, `preference`, `decision`, `file_operation` for future use.
+Memory sources now include:
+
+1. Compaction summaries (`compaction_summary`)
+2. Durable turn notes inferred from explicit user preference/decision language
+3. Runtime action memories for workflow/workspace decisions
 
 **Recall algorithm** (`session/store.ts`):
 

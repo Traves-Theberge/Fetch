@@ -51,6 +51,15 @@ const mockSessionManager = {
     timestamp: new Date().toISOString(),
   }),
   updateSession: vi.fn(),
+  cancelAgentRun: vi.fn().mockResolvedValue({ cancelled: false }),
+  acquireAgentRun: vi.fn().mockResolvedValue({
+    acquired: true,
+    run: { runId: 'run_1', phase: 'queued', promptMode: 'full' },
+    signal: new AbortController().signal,
+  }),
+  updateAgentRunPhase: vi.fn().mockResolvedValue(undefined),
+  completeAgentRun: vi.fn().mockResolvedValue(undefined),
+  getActiveAgentRun: vi.fn().mockReturnValue(undefined),
 };
 
 vi.mock('../../src/session/manager.js', () => ({
@@ -60,6 +69,7 @@ vi.mock('../../src/session/manager.js', () => ({
 vi.mock('../../src/agent/core.js', () => ({
   processMessage: vi.fn().mockResolvedValue({ text: 'LLM response', toolCalls: [] }),
   generateProgressMessage: vi.fn().mockReturnValue('Thinking...'),
+  selectPromptMode: vi.fn().mockReturnValue('full'),
 }));
 
 vi.mock('../../src/commands/parser.js', () => ({
@@ -140,7 +150,11 @@ describe('Handler — Message Flow', () => {
     expect(processMessage).toHaveBeenCalledWith(
       'build a REST API',
       expect.any(Object), // session
-      expect.any(Function) // onProgress wrapper
+      expect.any(Function), // onProgress wrapper
+      expect.objectContaining({
+        runId: expect.any(String),
+        promptMode: expect.any(String),
+      })
     );
   });
 
@@ -201,6 +215,33 @@ describe('Handler — Message Flow', () => {
 
     expect(processMessage).toHaveBeenCalledOnce();
     expect(responses[0]).toContain('LLM response');
+  });
+
+  it('should return busy message when a run is already active', async () => {
+    mockSessionManager.acquireAgentRun.mockResolvedValueOnce({
+      acquired: false,
+      activeRun: { runId: 'run_busy', phase: 'planning', promptMode: 'full' },
+    });
+
+    const responses = await handleMessage('user1', 'new request while busy');
+
+    expect(processMessage).not.toHaveBeenCalled();
+    expect(responses[0]).toContain('still working on your previous request');
+  });
+
+  it('should trigger runtime cancellation before handling /stop', async () => {
+    vi.mocked(parseCommand).mockResolvedValueOnce({
+      handled: true,
+      responses: ['Stopped'],
+    });
+
+    await handleMessage('user1', '/stop');
+
+    expect(mockSessionManager.cancelAgentRun).toHaveBeenCalledOnce();
+    expect(mockSessionManager.cancelAgentRun).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ses_1' }),
+      'Cancelled by /stop'
+    );
   });
 
   // ─── Response formatting ─────────────────────────────────────────

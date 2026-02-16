@@ -16,8 +16,13 @@ import {
   Message,
   createMessage,
   ToolCall,
+  AgentRunState,
+  AgentRunPhase,
+  AgentTurnTelemetry,
+  PromptMode,
   type MemoryCategory,
   type MemoryEntry,
+  generateId,
 } from './types.js';
 import { SessionStore, getSessionStore } from './store.js';
 import { pipeline } from '../config/pipeline.js';
@@ -34,9 +39,191 @@ export class SessionManager {
   private store: SessionStore;
   private compactionFailures: Map<string, number> = new Map();
   private sessionWriteQueues: Map<string, Promise<void>> = new Map();
+  private activeAgentRuns: Map<string, AgentRunState> = new Map();
+  private runAbortControllers: Map<string, AbortController> = new Map();
 
   constructor(store?: SessionStore) {
     this.store = store || getSessionStore();
+  }
+
+  // ============================================================================
+  // Agent Run Lifecycle
+  // ============================================================================
+
+  /**
+   * Attempts to acquire a single active run slot for a session.
+   * Returns the active run when one is already in progress.
+   */
+  async acquireAgentRun(
+    session: Session,
+    message: string,
+    promptMode: PromptMode
+  ): Promise<{ acquired: true; run: AgentRunState; signal: AbortSignal } | { acquired: false; activeRun: AgentRunState }> {
+    return this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const active = this.activeAgentRuns.get(session.id);
+      if (active) {
+        return { acquired: false, activeRun: active };
+      }
+
+      const now = new Date().toISOString();
+      const run: AgentRunState = {
+        runId: `run_${generateId(10)}`,
+        phase: 'queued',
+        promptMode,
+        messagePreview: message.trim().slice(0, 140),
+        startedAt: now,
+        updatedAt: now,
+      };
+
+      const controller = new AbortController();
+      this.activeAgentRuns.set(session.id, run);
+      this.runAbortControllers.set(session.id, controller);
+      this.applyActiveRunToSession(current, run);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+
+      return { acquired: true, run, signal: controller.signal };
+    });
+  }
+
+  /**
+   * Returns active in-memory run state, if any.
+   */
+  getActiveAgentRun(sessionId: string): AgentRunState | undefined {
+    return this.activeAgentRuns.get(sessionId);
+  }
+
+  /**
+   * Updates the current run phase and optional details.
+   */
+  async updateAgentRunPhase(
+    session: Session,
+    runId: string,
+    phase: AgentRunPhase,
+    patch?: Partial<Pick<AgentRunState, 'lastError' | 'cancelRequested' | 'cancelReason'>>
+  ): Promise<void> {
+    await this.withSessionWriteLock(session.id, async () => {
+      const active = this.activeAgentRuns.get(session.id);
+      if (!active || active.runId !== runId) return;
+
+      const now = new Date().toISOString();
+      const updated: AgentRunState = {
+        ...active,
+        ...patch,
+        phase,
+        updatedAt: now,
+      };
+
+      this.activeAgentRuns.set(session.id, updated);
+      const current = await this.getLatestSessionOrFallback(session);
+      this.applyActiveRunToSession(current, updated);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+    });
+  }
+
+  /**
+   * Cancels the active run (if present) and aborts in-flight model/tool calls.
+   */
+  async cancelAgentRun(session: Session, reason: string = 'Cancelled by user'): Promise<{ cancelled: boolean; runId?: string }> {
+    return this.withSessionWriteLock(session.id, async () => {
+      const active = this.activeAgentRuns.get(session.id);
+      if (!active) {
+        return { cancelled: false };
+      }
+
+      const now = new Date().toISOString();
+      const updated: AgentRunState = {
+        ...active,
+        phase: 'cancelled',
+        cancelRequested: true,
+        cancelReason: reason,
+        updatedAt: now,
+      };
+
+      this.activeAgentRuns.set(session.id, updated);
+      this.runAbortControllers.get(session.id)?.abort(reason);
+
+      const current = await this.getLatestSessionOrFallback(session);
+      this.applyActiveRunToSession(current, updated);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+
+      return { cancelled: true, runId: active.runId };
+    });
+  }
+
+  /**
+   * Completes and archives an active run record.
+   */
+  async completeAgentRun(
+    session: Session,
+    runId: string,
+    phase: 'completed' | 'failed' | 'cancelled',
+    details?: { lastError?: string; telemetry?: AgentTurnTelemetry }
+  ): Promise<void> {
+    await this.withSessionWriteLock(session.id, async () => {
+      const active = this.activeAgentRuns.get(session.id);
+      if (!active || active.runId !== runId) return;
+
+      const now = new Date().toISOString();
+      const finalRun: AgentRunState = {
+        ...active,
+        phase,
+        updatedAt: now,
+        ...(details?.lastError ? { lastError: details.lastError } : {}),
+      };
+
+      const current = await this.getLatestSessionOrFallback(session);
+      const runtime = this.getRuntimeMetadata(current);
+      const existingHistory = Array.isArray(runtime.recentRuns) ? runtime.recentRuns : [];
+      const historyEntry = {
+        ...finalRun,
+        finishedAt: now,
+        telemetry: details?.telemetry,
+      };
+      runtime.recentRuns = [historyEntry, ...existingHistory].slice(0, pipeline.runHistoryLimit);
+      runtime.lastTelemetry = details?.telemetry ?? runtime.lastTelemetry;
+      delete runtime.activeRun;
+      current.metadata.agentRuntime = runtime;
+
+      this.activeAgentRuns.delete(session.id);
+      this.runAbortControllers.delete(session.id);
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+    });
+  }
+
+  /**
+   * Writes lightweight short-term and durable memory tiers for agent turns.
+   */
+  async recordMemoryTiers(
+    session: Session,
+    data: {
+      userMessage: string;
+      assistantMessage: string;
+      toolNames: string[];
+      durableNotes: string[];
+    }
+  ): Promise<void> {
+    await this.withSessionWriteLock(session.id, async () => {
+      const current = await this.getLatestSessionOrFallback(session);
+      const runtime = this.getRuntimeMetadata(current);
+      runtime.shortTermSummary = this.buildShortTermSummary(data.userMessage, data.assistantMessage, data.toolNames);
+      runtime.shortTermUpdatedAt = new Date().toISOString();
+
+      const existingDurable = Array.isArray(runtime.durableNotes) ? runtime.durableNotes : [];
+      const merged = [...data.durableNotes, ...existingDurable]
+        .map(n => n.trim())
+        .filter(Boolean)
+        .filter((note, idx, arr) => arr.indexOf(note) === idx)
+        .slice(0, pipeline.durableNotesLimit);
+      runtime.durableNotes = merged;
+      current.metadata.agentRuntime = runtime;
+      await this.store.update(current);
+      this.syncSessionReference(session, current);
+    });
   }
 
   /**
@@ -406,6 +593,32 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   private syncSessionReference(target: Session, source: Session): void {
     if (target === source) return;
     Object.assign(target, source);
+  }
+
+  private getRuntimeMetadata(session: Session): Record<string, unknown> {
+    if (!session.metadata) session.metadata = {};
+    const runtime = session.metadata.agentRuntime;
+    if (!runtime || typeof runtime !== 'object') {
+      session.metadata.agentRuntime = {};
+    }
+    return session.metadata.agentRuntime as Record<string, unknown>;
+  }
+
+  private applyActiveRunToSession(session: Session, run: AgentRunState): void {
+    const runtime = this.getRuntimeMetadata(session);
+    runtime.activeRun = run;
+    session.metadata.agentRuntime = runtime;
+  }
+
+  private buildShortTermSummary(
+    userMessage: string,
+    assistantMessage: string,
+    toolNames: string[]
+  ): string {
+    const user = userMessage.trim().replace(/\s+/g, ' ').slice(0, 140);
+    const assistant = assistantMessage.trim().replace(/\s+/g, ' ').slice(0, 180);
+    const tools = toolNames.length > 0 ? `Tools: ${toolNames.join(', ')}` : 'Tools: none';
+    return `User asked: "${user}" | Assistant: "${assistant}" | ${tools}`;
   }
 
 }

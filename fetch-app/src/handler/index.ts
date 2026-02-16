@@ -12,7 +12,7 @@
  */
 
 import { SessionManager, getSessionManager } from '../session/manager.js';
-import { processMessage, type AgentResponse } from '../agent/core.js';
+import { processMessage, selectPromptMode, type AgentResponse } from '../agent/core.js';
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
 import { formatForWhatsApp } from '../agent/whatsapp-format.js';
@@ -220,6 +220,12 @@ export async function handleMessage(
     session.lastActivityAt = new Date().toISOString();
     await sManager.updateSession(session);
 
+    // Allow deterministic stop/cancel to interrupt an in-flight run.
+    const lowerMessage = message.trim().toLowerCase();
+    if (lowerMessage === '/stop' || lowerMessage === '/cancel' || lowerMessage.startsWith('/stop ') || lowerMessage.startsWith('/cancel ')) {
+      await sManager.cancelAgentRun(session, 'Cancelled by /stop');
+    }
+
     // Check for commands (slash commands AND natural language triggers like "what can you do")
     const { parseCommand } = await import('../commands/parser.js');
     const result = await parseCommand(message, session, sManager);
@@ -227,6 +233,14 @@ export async function handleMessage(
       // Format command responses for WhatsApp too
       return (result.responses || []).map(r => formatForWhatsApp(r));
     }
+
+    const promptMode = selectPromptMode(message);
+    const runAcquire = await sManager.acquireAgentRun(session, message, promptMode);
+    if (!runAcquire.acquired) {
+      return [formatForWhatsApp('🐕 I am still working on your previous request. Send /stop to interrupt it first.')];
+    }
+
+    const runId = runAcquire.run.runId;
 
     // Process with agent
     // Add a "thinking" message if it takes more than 3 seconds on the first try
@@ -256,6 +270,15 @@ export async function handleMessage(
       response = await processMessage(message, session, (text) => {
         initialSent = true; // Any progress (even from retry) suppresses the initial timer
         return onProgress ? onProgress(text) : Promise.resolve();
+      }, {
+        runId,
+        promptMode,
+        abortSignal: runAcquire.signal,
+        onLifecycle: async (phase, details) => {
+          await sManager.updateAgentRunPhase(session, runId, phase, {
+            ...(details?.error ? { lastError: details.error } : {}),
+          });
+        },
       });
     } finally {
       settled = true;
@@ -275,10 +298,24 @@ export async function handleMessage(
     // Store messages via SessionManager (triggers compaction + proper persistence)
     await sManager.addUserMessage(session, message);
     await sManager.addAssistantMessage(session, response.text);
+    const completionPhase = /stopped\. i cancelled/i.test(response.text) ? 'cancelled' : 'completed';
+    await sManager.completeAgentRun(session, runId, completionPhase, { telemetry: response.telemetry });
 
     return responses;
   } catch (error) {
     logger.error('Message handling failed', error);
+
+    try {
+      const existing = await sManager.getOrCreateSession(userId);
+      const active = sManager.getActiveAgentRun(existing.id);
+      if (active) {
+        await sManager.completeAgentRun(existing, active.runId, 'failed', {
+          lastError: error instanceof Error ? error.message : String(error),
+        });
+      }
+    } catch (cleanupError) {
+      logger.warn('Failed to finalize agent run state after handler error', cleanupError);
+    }
 
     const errorMessage = sanitizeError(error);
     return [

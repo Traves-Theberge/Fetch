@@ -134,6 +134,26 @@ export async function buildContextSection(session: Session, userMessage?: string
     }
   }
 
+  const runtime = session.metadata?.agentRuntime as Record<string, unknown> | undefined;
+  const activeRun = runtime?.activeRun as { phase?: string; promptMode?: string; startedAt?: string } | undefined;
+  if (activeRun?.phase) {
+    parts.push(`⚙️ **Active run**: ${activeRun.phase}${activeRun.promptMode ? ` (${activeRun.promptMode})` : ''}`);
+  }
+  const shortTermSummary = runtime?.shortTermSummary;
+  if (typeof shortTermSummary === 'string' && shortTermSummary.trim()) {
+    parts.push('\n## Short-Term Memory');
+    parts.push(shortTermSummary);
+  }
+  const durableNotes = runtime?.durableNotes;
+  if (Array.isArray(durableNotes) && durableNotes.length > 0) {
+    parts.push('\n## Durable Notes');
+    for (const note of durableNotes.slice(0, 8)) {
+      if (typeof note === 'string' && note.trim()) {
+        parts.push(`- ${note}`);
+      }
+    }
+  }
+
   // Compaction summary
   if (session.metadata?.compactionSummary) {
     parts.push('\n## Conversation History 🧠');

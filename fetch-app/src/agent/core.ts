@@ -13,7 +13,7 @@
  */
 
 import OpenAI from 'openai';
-import { Session } from '../session/types.js';
+import { Session, PromptMode, AgentRunPhase, AgentTurnTelemetry, ToolTelemetry } from '../session/types.js';
 import { logger } from '../utils/logger.js';
 import {
   buildTaskFramePrompt,
@@ -39,6 +39,10 @@ export interface AgentResponse {
   text: string;
   /** Tool calls made (for logging) */
   toolCalls?: ToolCallRecord[];
+  /** Turn-level runtime telemetry */
+  telemetry?: AgentTurnTelemetry;
+  /** Selected prompt mode for this turn */
+  promptMode?: PromptMode;
   /** Whether a task was started */
   taskStarted?: boolean;
   /** Task ID if started */
@@ -52,6 +56,17 @@ export interface ToolCallRecord {
   name: string;
   args: Record<string, unknown>;
   result: unknown;
+}
+
+/** Optional controls and hooks for one processMessage turn. */
+export interface AgentProcessOptions {
+  promptMode?: PromptMode;
+  runId?: string;
+  abortSignal?: AbortSignal;
+  onLifecycle?: (
+    phase: AgentRunPhase,
+    details?: { toolName?: string; toolCallCount?: number; promptMode?: PromptMode; error?: string }
+  ) => Promise<void> | void;
 }
 
 // =============================================================================
@@ -98,6 +113,31 @@ function sanitizeForPersistence(value: unknown): unknown {
 function resolveMaxToolCallsForTurn(sessionMaxIterations: number | undefined): number {
   if (!Number.isInteger(sessionMaxIterations)) return MAX_TOOL_CALLS;
   return Math.max(1, Math.min(MAX_TOOL_CALLS, sessionMaxIterations as number));
+}
+
+/**
+ * Select prompt mode for this turn.
+ * Minimal mode is used for short conversational messages to reduce context load.
+ */
+export function selectPromptMode(message: string): PromptMode {
+  const text = message.trim().toLowerCase();
+  if (!text) return 'minimal';
+
+  const conversationalPatterns = [
+    /^(hi|hello|hey|yo|sup|thanks|thank you)[!.]*$/i,
+    /^how are you[?.!]*$/i,
+    /^what can you do[?.!]*$/i,
+    /^who are you[?.!]*$/i,
+  ];
+  if (conversationalPatterns.some((pattern) => pattern.test(text))) {
+    return 'minimal';
+  }
+
+  const actionWords = /\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app)\b/i;
+  if (text.length <= 80 && !actionWords.test(text)) {
+    return 'minimal';
+  }
+  return 'full';
 }
 
 // =============================================================================
@@ -159,6 +199,9 @@ function getBackoffTime(sessionId: string): number {
  */
 function isRetriableError(error: unknown, attempt: number): boolean {
   if (error instanceof Error) {
+    if (error.name === 'AbortError' || /cancelled|canceled|aborted/i.test(error.message)) {
+      return false;
+    }
     // Check for HTTP status codes in error message or properties
     const errorAny = error as Error & { status?: number; statusCode?: number; code?: string };
     const status = errorAny.status ?? errorAny.statusCode;
@@ -293,12 +336,20 @@ function getOpenAI(): OpenAI {
 export async function processMessage(
   message: string,
   session: Session,
-  onProgress?: (text: string) => Promise<void>
+  onProgress?: (text: string) => Promise<void>,
+  options?: AgentProcessOptions
 ): Promise<AgentResponse> {
   const startTime = Date.now();
   const sManager = await getSessionManager();
+  const promptMode = options?.promptMode ?? selectPromptMode(message);
+  let retryAttempts = 1;
+  await options?.onLifecycle?.('preparing', { promptMode });
 
   try {
+    if (options?.abortSignal?.aborted) {
+      throw new Error(options.abortSignal.reason ? String(options.abortSignal.reason) : 'Operation cancelled');
+    }
+
     // Check circuit breaker
     const tracker = errorTracker.get(session.id);
     if (tracker && tracker.count >= MAX_CONSECUTIVE_ERRORS) {
@@ -330,10 +381,17 @@ export async function processMessage(
 
     // Store progress callback for tool-level progress messages
     activeProgressCallback = onProgress;
+    await options?.onLifecycle?.('planning', { promptMode });
 
     // Single path: LLM with ALL tools — the LLM IS the router
     const response = await handleWithRetry(
-      (attempt) => handleWithTools(message, session, attempt),
+      async (attempt) => {
+        retryAttempts = Math.max(retryAttempts, attempt);
+        return handleWithTools(message, session, attempt, {
+          ...options,
+          promptMode,
+        });
+      },
       session.id,
       message,
       onProgress
@@ -343,10 +401,53 @@ export async function processMessage(
 
     // Success - reset error count
     resetErrorCount(session.id);
-    return response;
+    const durationMs = Date.now() - startTime;
+    const telemetry: AgentTurnTelemetry = response.telemetry ?? {
+      promptMode,
+      model: MODEL,
+      retries: Math.max(0, retryAttempts - 1),
+      totalToolCalls: response.toolCalls?.length ?? 0,
+      successfulToolCalls: response.toolCalls?.length ?? 0,
+      failedToolCalls: 0,
+      tools: [],
+      durationMs,
+      startedAt: new Date(startTime).toISOString(),
+      finishedAt: new Date().toISOString(),
+    };
+
+    const toolNames = response.toolCalls?.map((tc) => tc.name) ?? [];
+    const durableNotes = deriveDurableNotes(message, response.text, toolNames);
+    await sManager.recordMemoryTiers(session, {
+      userMessage: message,
+      assistantMessage: response.text,
+      toolNames,
+      durableNotes,
+    });
+    for (const note of durableNotes) {
+      const lowered = note.toLowerCase();
+      const category: 'preference' | 'decision' | 'fact' =
+        lowered.includes('prefers') ? 'preference' : lowered.includes('decided') ? 'decision' : 'fact';
+      sManager.addMemory(session.id, category, note, `runtime durable note ${toolNames.join(' ')}`.trim(), 2);
+    }
+
+    await options?.onLifecycle?.('completed', { promptMode });
+    return { ...response, telemetry, promptMode };
 
   } catch (error) {
+    if (options?.abortSignal?.aborted) {
+      const cancelledMsg = "🐕 Stopped. I cancelled that run.";
+      await options?.onLifecycle?.('cancelled', { error: cancelledMsg, promptMode });
+      return {
+        text: cancelledMsg,
+        promptMode,
+      };
+    }
+
     logger.error('Agent error', { error, sessionId: session.id });
+    await options?.onLifecycle?.('failed', {
+      error: sanitizeErrorForUser(error),
+      promptMode,
+    });
 
     // Track error for circuit breaker
     const shouldContinue = trackError(session.id);
@@ -365,11 +466,13 @@ export async function processMessage(
       const safeMsg = sanitizeErrorForUser(error);
       return {
         text: `🐕 Something went wrong: ${safeMsg}`,
+        promptMode,
       };
     }
 
     return {
       text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
+      promptMode,
     };
   } finally {
     const duration = Date.now() - startTime;
@@ -397,14 +500,22 @@ let activeProgressCallback: ((text: string) => Promise<void>) | undefined;
 async function handleWithTools(
   message: string,
   session: Session,
-  attempt: number = 1
+  attempt: number = 1,
+  options?: AgentProcessOptions
 ): Promise<AgentResponse> {
+  if (options?.abortSignal?.aborted) {
+    throw new Error(options.abortSignal.reason ? String(options.abortSignal.reason) : 'Operation cancelled');
+  }
+
+  const turnStartedAt = Date.now();
   const openai = getOpenAI();
   const registry = getToolRegistry();
   const tools = registry.toOpenAIFormat();
   const toolCalls: ToolCallRecord[] = [];
+  const toolTelemetry: ToolTelemetry[] = [];
   const identityManager = getIdentityManager();
   await identityManager.whenReady();
+  const promptMode = options?.promptMode ?? selectPromptMode(message);
 
   // Match skills against this message and build activated context
   const skillManager = getSkillManager();
@@ -435,7 +546,7 @@ async function handleWithTools(
 
   // Build messages
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-    { role: 'system', content: identityManager.buildSystemPrompt(activatedContext, sessionContext) },
+    { role: 'system', content: identityManager.buildSystemPrompt(activatedContext, sessionContext, { mode: promptMode }) },
     ...finalHistory,
     { role: 'user', content: message },
   ];
@@ -447,7 +558,7 @@ async function handleWithTools(
     tool_choice: 'auto',
     max_tokens: pipeline.toolMaxTokens,
     temperature: pipeline.toolTemperature,
-  });
+  }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
 
   let callCount = 0;
   const maxToolCallsForTurn = resolveMaxToolCallsForTurn(session.preferences.maxIterations);
@@ -458,6 +569,7 @@ async function handleWithTools(
     response.choices[0].message.tool_calls.length > 0 &&
     callCount < maxToolCallsForTurn
   ) {
+    await options?.onLifecycle?.('tool_execution', { toolCallCount: callCount, promptMode });
     const assistantMessage = response.choices[0].message;
     const currentToolCalls = assistantMessage.tool_calls!;
     messages.push(assistantMessage);
@@ -489,6 +601,9 @@ async function handleWithTools(
 
     // Execute each tool call
     for (const toolCall of currentToolCalls) {
+      if (options?.abortSignal?.aborted) {
+        throw new Error(options.abortSignal.reason ? String(options.abortSignal.reason) : 'Operation cancelled');
+      }
       callCount++;
 
       // Handle both standard and custom tool call formats
@@ -585,12 +700,32 @@ async function handleWithTools(
       }
 
       // Execute via registry (pass session context for session-aware tools)
-      const result = await registry.execute(toolName, finalArgs, {
-        sessionId: session.id,
-        autonomyLevel: session.preferences.autonomyLevel,
-      });
+      await options?.onLifecycle?.('tool_execution', { toolName, toolCallCount: callCount, promptMode });
+
+      let result;
+      try {
+        result = await registry.execute(toolName, finalArgs, {
+          sessionId: session.id,
+          autonomyLevel: session.preferences.autonomyLevel,
+        });
+      } catch (error) {
+        if (toolProgressTimer) clearTimeout(toolProgressTimer);
+        toolTelemetry.push({
+          name: toolName,
+          success: false,
+          durationMs: Date.now() - toolStart,
+          error: sanitizeErrorForUser(error),
+        });
+        throw error;
+      }
 
       if (toolProgressTimer) clearTimeout(toolProgressTimer);
+      toolTelemetry.push({
+        name: toolName,
+        success: result.success,
+        durationMs: Date.now() - toolStart,
+        ...(result.success ? {} : { error: result.output }),
+      });
 
       toolCalls.push({
         name: toolName,
@@ -638,7 +773,7 @@ async function handleWithTools(
             const updatedContext = await buildContextSection(session);
             messages[0] = {
               role: 'system',
-              content: identityManager.buildSystemPrompt(activatedContext, updatedContext),
+              content: identityManager.buildSystemPrompt(activatedContext, updatedContext, { mode: promptMode }),
             };
             logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
           }
@@ -673,7 +808,7 @@ async function handleWithTools(
             const updatedContext = await buildContextSection(session);
             messages[0] = {
               role: 'system',
-              content: identityManager.buildSystemPrompt(activatedContext, updatedContext),
+              content: identityManager.buildSystemPrompt(activatedContext, updatedContext, { mode: promptMode }),
             };
             logger.info('System prompt rebuilt after workspace creation', { project: created.name });
           }
@@ -716,10 +851,11 @@ async function handleWithTools(
       tool_choice: 'auto',
       max_tokens: pipeline.toolMaxTokens,
       temperature: pipeline.toolTemperature,
-    });
+    }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
   }
 
   // Get final text response
+  await options?.onLifecycle?.('responding', { promptMode });
   const text =
     response.choices[0]?.message?.content ??
     "Done! 🐕 Let me know if you need anything else.";
@@ -732,9 +868,26 @@ async function handleWithTools(
     ? ((taskCall.result as Record<string, unknown>).metadata as Record<string, unknown>)?.taskId as string
     : undefined;
 
+  const durationMs = Date.now() - turnStartedAt;
+  const successfulToolCalls = toolTelemetry.filter((t) => t.success).length;
+  const telemetry: AgentTurnTelemetry = {
+    promptMode,
+    model: MODEL,
+    retries: Math.max(0, attempt - 1),
+    totalToolCalls: toolTelemetry.length,
+    successfulToolCalls,
+    failedToolCalls: toolTelemetry.length - successfulToolCalls,
+    tools: toolTelemetry,
+    durationMs,
+    startedAt: new Date(turnStartedAt).toISOString(),
+    finishedAt: new Date().toISOString(),
+  };
+
   return {
     text,
     toolCalls,
+    telemetry,
+    promptMode,
     taskStarted: !!taskCall,
     taskId,
   };
@@ -839,6 +992,44 @@ function extractToolArgsFromMessage(
     default:
       return null;
   }
+}
+
+/**
+ * Extract durable notes from one turn for long-horizon personalization.
+ */
+function deriveDurableNotes(
+  userMessage: string,
+  assistantMessage: string,
+  toolNames: string[]
+): string[] {
+  const notes: string[] = [];
+  const text = userMessage.trim();
+  const lower = text.toLowerCase();
+
+  const preferenceMatch = text.match(/\b(i prefer|always|never|call me)\b(.+)/i);
+  if (preferenceMatch?.[0]) {
+    notes.push(`User prefers: ${preferenceMatch[0].trim()}`);
+  }
+
+  if (toolNames.includes('workspace_select') || toolNames.includes('workspace_create')) {
+    notes.push('User decided to work in the currently selected workspace for this turn.');
+  }
+  if (toolNames.includes('workflow_create')) {
+    notes.push('User decided to automate a repeatable flow with a saved workflow.');
+  }
+  if (toolNames.includes('cron_create')) {
+    notes.push('User decided to schedule workflow automation with cron.');
+  }
+
+  if (!notes.length && (lower.includes('remember this') || lower.includes('note this'))) {
+    notes.push(`User explicit note: ${text.slice(0, 180)}`);
+  }
+
+  if (assistantMessage.toLowerCase().includes('completed') && toolNames.length > 0) {
+    notes.push(`Completed tool-based action path: ${toolNames.join(', ')}.`);
+  }
+
+  return notes.slice(0, 4);
 }
 
 // =============================================================================
@@ -1026,6 +1217,8 @@ export const __testing = {
   sanitizeErrorForUser,
   isRetriableError,
   sanitizeProgressRewrite,
+  selectPromptMode,
+  deriveDurableNotes,
 };
 
 /**

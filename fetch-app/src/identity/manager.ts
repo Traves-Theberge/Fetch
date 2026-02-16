@@ -18,6 +18,7 @@ import chokidar from 'chokidar';
 import { logger } from '../utils/logger.js';
 import { env, VERSION } from '../config/env.js';
 import { pipeline } from '../config/pipeline.js';
+import type { PromptMode } from '../session/types.js';
 
 // Default "Orchestrator" Identity
 const DEFAULT_IDENTITY: AgentIdentity = {
@@ -174,11 +175,17 @@ export class IdentityManager {
    * 
    * @param activatedSkillsContext - Optional pre-built context from matched skills
    * @param sessionContext - Optional pre-built session context (workspace, task, git, etc.)
+   * @param options - Prompt assembly options
    */
-  public buildSystemPrompt(activatedSkillsContext?: string, sessionContext?: string): string {
+  public buildSystemPrompt(
+    activatedSkillsContext?: string,
+    sessionContext?: string,
+    options?: { mode?: PromptMode }
+  ): string {
     const skills = getSkillManager().buildSkillsSummary();
     const date = new Date().toISOString();
     const hasActivatedSkills = Boolean((activatedSkillsContext || '').trim());
+    const promptMode = options?.mode ?? 'full';
 
     const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as procedural guidance for tool selection and call order.\n- If no skill applies, proceed with general tool usage rules.` : '';
 
@@ -186,7 +193,7 @@ export class IdentityManager {
     let sessionSection = sessionContext || '';
 
     // Capabilities section for "what can you do" queries
-    const capabilitiesSection = `
+    const fullCapabilitiesSection = `
 ## YOUR CAPABILITIES
 
 **CRITICAL**: When asked "what can you do", "what are your capabilities", "help", or similar questions:
@@ -269,6 +276,15 @@ export class IdentityManager {
 - **OpenCode** 🔧 — Versatile coding agent, OpenRouter-native, general-purpose
 - **Codex** 🤖 — Agentic coding with OpenAI models, JSON Lines streaming
 `;
+    const minimalCapabilitiesSection = `
+## YOUR CAPABILITIES
+
+- Handle conversational requests directly when no tool is needed.
+- Use tools for real-world state: workspace, git, files, web, browser, workflows, and runtime checks.
+- Use /help for the exhaustive command list.
+- Prefer concise, action-first replies with one clear next step.
+`;
+    const capabilitiesSection = promptMode === 'minimal' ? minimalCapabilitiesSection : fullCapabilitiesSection;
 
     // Context budget enforcement — truncate variable sections if over budget
     const budgetTokens = pipeline.contextBudget;

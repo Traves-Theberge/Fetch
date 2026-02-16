@@ -95,12 +95,15 @@ const mockSessionManager = {
   init: vi.fn(),
   getSession: vi.fn(),
   updateSession: vi.fn(),
+  isRepoMapStale: vi.fn().mockReturnValue(false),
   saveMessage: vi.fn(),
   getRecentMessages: vi.fn().mockResolvedValue([]),
   addUserMessage: vi.fn().mockResolvedValue({ id: 'msg_1', role: 'user', content: '', timestamp: '' }),
   addAssistantMessage: vi.fn().mockResolvedValue({ id: 'msg_2', role: 'assistant', content: '', timestamp: '' }),
   addAssistantToolCallMessage: vi.fn().mockResolvedValue({ id: 'msg_3', role: 'assistant', content: '', timestamp: '' }),
   addToolMessage: vi.fn().mockResolvedValue({ id: 'msg_4', role: 'tool', content: '', timestamp: '' }),
+  recordMemoryTiers: vi.fn().mockResolvedValue(undefined),
+  addMemory: vi.fn(),
 };
 
 vi.mock('../../src/session/manager.js', () => ({
