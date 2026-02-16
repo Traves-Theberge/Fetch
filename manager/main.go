@@ -274,16 +274,16 @@ func initialModel() model {
 		{Icon: "\U0001f4da", Label: "Documentation"},
 		{Icon: "\U0001f511", Label: "GitHub Auth"},
 		{Icon: "\u2699\ufe0f ", Label: "Settings"},
-		{Icon: "\U0001f4ac", Label: "Global Sessions"},
-		{Icon: "\u2139\ufe0f ", Label: "Version"},
-		{Icon: "\u274c", Label: "Exit"},
+		{Icon: "\U0001f4ac", Label: "Global Sessions", PinToBottom: true},
+		{Icon: "\u2139\ufe0f ", Label: "Version", PinToBottom: true},
+		{Icon: "\u274c", Label: "Exit", PinToBottom: true},
 	}, 40)
 
 	settingsMenu := components.NewMenu("", []components.MenuItem{
 		{Icon: "\u2699\ufe0f ", Label: "General Configuration"},
 		{Icon: "\U0001f436", Label: "Harnesses"},
 		{Icon: "\U0001f510", Label: "Trusted Numbers"},
-		{Icon: "\u21a9\ufe0f ", Label: "Back"},
+		{Icon: "\u21a9\ufe0f ", Label: "Back", PinToBottom: true},
 	}, 40)
 
 	return model{
@@ -1890,8 +1890,15 @@ func (m model) viewMenu() string {
 	// Available height for main content (above status bar)
 	contentHeight := height - statusBarHeight
 
-	// Build menu panel
-	menuPanel := m.renderMenuPanel()
+	// Build menu panel; reserve vertical space so pinned items stay at the bottom.
+	menuPanelHeight := contentHeight - 10
+	if layout.IsCompact(width) {
+		menuPanelHeight = contentHeight - 6
+	}
+	if menuPanelHeight < 8 {
+		menuPanelHeight = 8
+	}
+	menuPanel := m.renderMenuPanel(menuPanelHeight)
 
 	// Action message (show above menu if present)
 	var actionMsg string
@@ -1976,13 +1983,13 @@ func (m model) getStatusString() string {
 	return "stopped"
 }
 
-func (m model) renderMenuPanel() string {
+func (m model) renderMenuPanel(panelHeight int) string {
 	// Update badges with live state
 	m.buildMenuBadges()
 
 	menuTitle := theme.MenuPanelTitle.Render("✨ Main Menu ✨")
 
-	return "  " + menuTitle + "\n" + m.mainMenu.ViewCompact()
+	return "  " + menuTitle + "\n" + m.mainMenu.ViewCompactWithHeight(panelHeight)
 }
 
 func (m model) viewSplash() string {
@@ -2051,7 +2058,11 @@ func (m model) viewConfig() string {
 				sItems[1].Badge = ""
 			}
 			m.settingsMenu.Items = sItems
-			content = "\n" + m.settingsMenu.ViewCompact()
+			menuHeight := height - 12
+			if menuHeight < 6 {
+				menuHeight = 6
+			}
+			content = "\n" + m.settingsMenu.ViewCompactWithHeight(menuHeight)
 		}
 		helpKeys = []string{"↑/↓ Navigate", "Enter Select", "Esc Back"}
 		breadcrumb = []string{"Main Menu", "Settings"}

@@ -70,6 +70,11 @@ The main menu shows the Fetch mascot on the left and a navigable menu on the rig
 
 Badges update in real-time based on container status and harness authentication state.
 
+**Pinned bottom navigation:** Utility items are anchored to the bottom of the menu area for consistency:
+
+- Main menu: `Global Sessions`, `Version`, and `Exit`
+- Settings sub-menu: `Back`
+
 ---
 
 ### WhatsApp Setup
