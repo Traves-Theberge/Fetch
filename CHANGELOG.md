@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.75] - 2026-02-16
+
 ### Changed
 
 - **TUI menu consistency** — Added bottom-pinned menu sections so utility navigation stays anchored: `Global Sessions`/`Version`/`Exit` on Main Menu and `Back` on Settings sub-menu.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.75`.
 
 ## [0.0.74] - 2026-02-16
 
