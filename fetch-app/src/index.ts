@@ -112,7 +112,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       bootstrapTimer = setInterval(() => {
         void startBridge();
       }, 2000);
-      bootstrapTimer.unref();
+      // Keep the process alive in setup mode so /api/status and /docs remain available.
     }
   };
 

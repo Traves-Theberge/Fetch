@@ -74,6 +74,12 @@ Optional but common:
 2. Open `fetch tui` and verify harness auth/install status.
 3. Complete WhatsApp pairing from bridge logs (`docker logs -f fetch-bridge`).
 4. Send `/status` and `/version` from WhatsApp to verify end-to-end health.
+5. Open `http://localhost:8765/docs` to verify docs/status server availability.
+
+Notes:
+
+- Docs/status are served from the bridge process and are expected to remain reachable during setup mode.
+- If `OWNER_PHONE_NUMBER` is missing, WhatsApp auth/bridge startup will not complete; set it in `.env` and restart.
 
 ## Common Commands
 
@@ -88,13 +94,18 @@ fetch logs
 fetch tui
 ```
 
+Service command targeting:
+
+- `fetch up/down/status/logs` now operate on the Fetch repo in your current working directory when applicable.
+- This prevents controlling a different installed repo stack by accident.
+
 Install/update management:
 
 ```bash
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.70
+fetch self pin v0.0.71
 fetch uninstall
 ```
 

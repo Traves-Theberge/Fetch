@@ -238,6 +238,8 @@ Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** edito
 |---------|----------|
 | QR code not appearing | Check `docker logs fetch-bridge` — Chromium may need extra deps |
 | "Not authorized" response | Verify `OWNER_PHONE_NUMBER` matches your WhatsApp number exactly |
+| `http://localhost:8765/docs` unreachable | Check `docker compose ps` and `docker logs fetch-bridge`; ensure bridge process is running and restart with `fetch up` after fixing `.env` |
+| Bridge stuck restarting with missing env errors | Set required keys in `.env` (`OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`) and restart |
 | Harness not found | Ensure the CLI is installed in the Kennel and auth is mounted |
 | Container won't start | Check `.env` for syntax errors; run `docker compose logs` |
 | WhatsApp disconnects | Fetch auto-reconnects with exponential backoff (up to 10 retries) |

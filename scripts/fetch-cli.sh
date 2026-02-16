@@ -14,6 +14,7 @@ if command -v readlink >/dev/null 2>&1; then
 fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+LAUNCH_CWD="${PWD:-$(pwd)}"
 FETCH_HOME_DEFAULT="${HOME}/.fetch"
 BIN_DIR_DEFAULT="$INVOKED_DIR"
 FETCH_REPO_SLUG="${FETCH_REPO_SLUG:-Traves-Theberge/Fetch}"
@@ -79,6 +80,47 @@ need_repo() {
   }
 }
 
+is_fetch_repo_dir() {
+  local dir="$1"
+  [[ -f "$dir/docker-compose.yml" && -d "$dir/fetch-app" ]]
+}
+
+resolve_compose_repo_dir() {
+  if [[ -n "${FETCH_REPO_DIR:-}" ]]; then
+    echo "$REPO_DIR"
+    return
+  fi
+
+  local launch_resolved
+  launch_resolved="$(cd "$LAUNCH_CWD" 2>/dev/null && pwd -P || true)"
+  if [[ -n "$launch_resolved" ]] && is_fetch_repo_dir "$launch_resolved"; then
+    local installed_resolved
+    installed_resolved="$(cd "$REPO_DIR" 2>/dev/null && pwd -P || true)"
+    if [[ "$launch_resolved" != "$installed_resolved" ]]; then
+      echo "[fetch] Using current repo for service control: $launch_resolved" >&2
+    fi
+    echo "$launch_resolved"
+    return
+  fi
+
+  echo "$REPO_DIR"
+}
+
+need_compose_repo() {
+  local compose_repo="$1"
+  [[ -f "$compose_repo/docker-compose.yml" ]] || {
+    echo "[fetch] Not a Fetch repo: $compose_repo" >&2
+    exit 1
+  }
+}
+
+compose_cmd() {
+  local compose_repo
+  compose_repo="$(resolve_compose_repo_dir)"
+  need_compose_repo "$compose_repo"
+  docker compose --project-directory "$compose_repo" -f "$compose_repo/docker-compose.yml" "$@"
+}
+
 run_build() {
   if command -v go >/dev/null 2>&1; then
     chmod +x "$REPO_DIR/scripts/build_manager.sh"
@@ -89,13 +131,11 @@ run_build() {
 }
 
 cmd_up() {
-  need_repo
-  docker compose up -d --build
+  compose_cmd up -d --build
 }
 
 cmd_down() {
-  need_repo
-  docker compose down
+  compose_cmd down
 }
 
 cmd_restart() {
@@ -105,16 +145,14 @@ cmd_restart() {
 }
 
 cmd_status() {
-  need_repo
-  docker compose ps
+  compose_cmd ps
 }
 
 cmd_logs() {
-  need_repo
   if [[ $# -gt 0 ]]; then
-    docker compose logs -f "$1"
+    compose_cmd logs -f "$1"
   else
-    docker compose logs -f
+    compose_cmd logs -f
   fi
 }
 

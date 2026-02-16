@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.71] - 2026-02-16
+
+### Changed
+
+- **Setup-mode docs/status availability hardening** — Fixed bridge runtime setup loop so the process remains alive while env is incomplete, keeping `http://localhost:8765/docs` and `/api/status` reachable during configuration.
+- **Repo-aware service lifecycle commands** — Updated `fetch` CLI service commands (`up`, `down`, `status`, `logs`) to target the Fetch repo in the current working directory when present, preventing accidental control of a different installed stack.
+- **Troubleshooting documentation refresh** — Updated README/setup/install/testing docs with explicit guidance for docs endpoint failures, required env validation (`OWNER_PHONE_NUMBER`), and service command targeting behavior.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.71`.
+
 ## [0.0.70] - 2026-02-16
 
 ### Changed

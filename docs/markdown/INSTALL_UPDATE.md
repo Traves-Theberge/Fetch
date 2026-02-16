@@ -79,7 +79,7 @@ fetch uninstall
 Exact manifest version pin:
 
 ```bash
-fetch self pin v0.0.61
+fetch self pin v0.0.71
 ```
 
 ## Service Lifecycle
@@ -91,6 +91,11 @@ fetch logs
 fetch down
 fetch tui
 ```
+
+Service command targeting:
+
+- `fetch up/down/status/logs` operate on the Fetch repo in your current working directory when that directory contains a Fetch `docker-compose.yml`.
+- If no local repo is detected, commands fall back to the managed install repo at `~/.fetch/repo`.
 
 ## Legacy Migration
 

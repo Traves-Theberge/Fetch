@@ -1,6 +1,6 @@
 # Testing Guide
 
-> Manual verification checklist for Fetch’s WhatsApp workflow, tools, and metrics. Run sections in order; later phases depend on earlier setup.
+> Manual verification checklist for Fetch’s WhatsApp workflow, tools, runtime behavior, and metrics. Run sections in order; later phases depend on earlier setup.
 
 ## Prerequisites
 
@@ -8,6 +8,12 @@
 - [ ] Bridge ready in logs: `docker logs -f fetch-bridge` (look for “Fetch is Ready!”)
 - [ ] WhatsApp connected (QR scanned or session cached)
 - [ ] At least one workspace exists and is accessible in `/workspace`
+
+Tooling layer mental model used in this guide:
+
+- Delegation: `task_*` for open-ended implementation.
+- Interactive: `web_*` + browser session tools for exploration.
+- Execution: `app_run`, `app_test`, `browser_test` for deterministic pass/fail steps.
 
 Quick release regression checks (local):
 
@@ -133,6 +139,33 @@ These messages should go through the normal LLM path (not deterministic `/help` 
 - [ ] Output suggests one concrete next action Fetch can take immediately
 - [ ] `/help` still returns the deterministic full help catalog
 
+### 2.2c Runtime Lifecycle + Prompt Mode
+
+Validate run-state behavior introduced in recent runtime updates.
+
+```text
+@fetch hi
+@fetch create a workflow called smoke-check with steps: workspace_status, app_test
+```
+
+- [ ] Short conversational message responds quickly without unnecessary tool usage (`minimal` behavior)
+- [ ] Execution-heavy message uses normal tool-planning path (`full` behavior)
+- [ ] `/status` reflects active work when a longer run is in progress
+
+### 2.2d Single-Run Lock + Cancel Interrupt
+
+Start a longer run, then send another request and interrupt:
+
+```text
+@fetch run in workspace <project-name>: npm run build
+@fetch also run tests right now
+/stop
+```
+
+- [ ] Second request while first run is active returns a clear "already working/busy" style response
+- [ ] `/stop` (or `/cancel`) cancels the active in-flight run, not only delegated tasks
+- [ ] Next request can start normally after cancellation
+
 ### 2.2b Autonomy Safety Policy Checks
 
 Validate dangerous-tool policy behavior by autonomy level:
@@ -226,7 +259,7 @@ Browser:
 @fetch take a browser screenshot
 ```
 
-Workflow + cron + runtime:
+Workflow + cron + execution:
 
 ```text
 @fetch create workflow nightly-check for workspace <project-name> with steps: workspace_status, app_test, workspace_sync
@@ -245,6 +278,7 @@ Workflow + cron + runtime:
 - [ ] Each message produces concise human-readable output
 - [ ] No raw JSON payload dumps are shown to the user
 - [ ] Failures include clear cause + next action
+- [ ] Workflow steps remain deterministic (avoid reasoning-heavy delegation inside workflow definitions)
 
 ---
 
@@ -332,4 +366,5 @@ Capture these for each testing run:
 - [ ] Task counts (started/completed/failed/cancelled)
 - [ ] Durations for task start → completion
 - [ ] Number of progress updates per task
+- [ ] Runtime lifecycle observations (lock contention seen, cancel path validated, deterministic workflow failures)
 - [ ] Any flake/retry notes and relevant logs or screenshots
