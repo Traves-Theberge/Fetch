@@ -170,11 +170,32 @@ type qrRefreshTickMsg time.Time
 // logTickMsg triggers periodic log updates
 type logTickMsg time.Time
 
+// actionClearMsg clears transient action feedback in the UI.
+type actionClearMsg struct{}
+
 // splashDoneMsg signals splash screen timeout
 type splashDoneMsg struct{}
 
 // QR code refresh interval (WhatsApp QR codes expire after ~20 seconds)
 const qrRefreshInterval = 20 * time.Second
+
+// Action feedback auto-clear interval.
+const actionClearInterval = 6 * time.Second
+
+type actionPhase string
+
+const (
+	actionPhaseIdle    actionPhase = "idle"
+	actionPhaseLoading actionPhase = "loading"
+	actionPhaseSuccess actionPhase = "success"
+	actionPhaseError   actionPhase = "error"
+	actionPhaseInfo    actionPhase = "info"
+)
+
+type actionState struct {
+	phase   actionPhase
+	message string
+}
 
 // model is the main Bubble Tea model for the TUI
 type model struct {
@@ -185,8 +206,7 @@ type model struct {
 	bridgeRunning    bool
 	kennelRunning    bool
 	statusLoaded     bool
-	actionMessage    string
-	actionSuccess    bool
+	action           actionState
 	logLines         []string
 	logViewer        *components.LogViewer
 	historyViewer    *components.LogViewer
@@ -214,7 +234,6 @@ type model struct {
 	qrRefreshPending bool
 	lastQRCodeValue  string
 	lastQRCodeAt     time.Time
-	actionBusy       bool
 	actionSpinner    *components.Spinner
 	// Session management state
 	sessions       []status.SessionSummary
@@ -387,6 +406,51 @@ func qrRefreshTickCmd() tea.Cmd {
 	})
 }
 
+func actionClearCmd() tea.Cmd {
+	return tea.Tick(actionClearInterval, func(time.Time) tea.Msg {
+		return actionClearMsg{}
+	})
+}
+
+func (m *model) clearAction() {
+	m.action = actionState{phase: actionPhaseIdle}
+	m.actionSpinner = nil
+}
+
+func (m *model) setActionLoading(message, spinnerLabel string) tea.Cmd {
+	m.action = actionState{phase: actionPhaseLoading, message: message}
+	m.actionSpinner = components.NewSpinner(components.SpinnerDot, spinnerLabel)
+	return m.actionSpinner.Init()
+}
+
+func (m *model) setActionSuccess(message string) tea.Cmd {
+	m.action = actionState{phase: actionPhaseSuccess, message: message}
+	m.actionSpinner = nil
+	return actionClearCmd()
+}
+
+func (m *model) setActionError(message string) tea.Cmd {
+	m.action = actionState{phase: actionPhaseError, message: message}
+	m.actionSpinner = nil
+	return actionClearCmd()
+}
+
+func (m *model) setActionInfo(message string) tea.Cmd {
+	m.action = actionState{phase: actionPhaseInfo, message: message}
+	m.actionSpinner = nil
+	return actionClearCmd()
+}
+
+func (m model) renderActionBanner() string {
+	if m.action.phase == actionPhaseLoading && m.actionSpinner != nil {
+		return m.actionSpinner.View()
+	}
+	if m.action.message == "" {
+		return ""
+	}
+	return components.Toast(m.action.message, components.ToastKind(m.action.phase))
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -411,19 +475,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case actionResultMsg:
-		m.actionMessage = msg.message
-		m.actionSuccess = msg.success
-		m.actionBusy = false
-		m.actionSpinner = nil
-		return m, checkStatus
+		if msg.success {
+			return m, tea.Batch(m.setActionSuccess(msg.message), checkStatus)
+		}
+		return m, tea.Batch(m.setActionError(msg.message), checkStatus)
 
 	case updateFetchDoneMsg:
-		m.actionBusy = false
-		m.actionSpinner = nil
 		if msg.err != nil {
-			m.actionMessage = fmt.Sprintf("Update failed: %v", msg.err)
-			m.actionSuccess = false
-			return m, nil
+			return m, m.setActionError(fmt.Sprintf("Update failed: %v", msg.err))
 		}
 		fmt.Println("[fetch-manager] Update complete. Please relaunch with: fetch tui")
 		m.quitting = true
@@ -455,12 +514,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.lastQRCodeValue = newQRCode
 					m.lastQRCodeAt = time.Now()
 					if m.qrRefreshPending {
-						m.actionMessage = "✅ QR code refreshed."
-						m.actionSuccess = true
+						return m, m.setActionSuccess("QR code refreshed.")
 					}
 				} else if m.qrRefreshPending {
-					m.actionMessage = "ℹ️ QR code still valid; waiting for next token."
-					m.actionSuccess = true
+					return m, m.setActionInfo("QR code still valid; waiting for next token.")
 				}
 			}
 			m.qrRefreshPending = false
@@ -468,47 +525,39 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case harnessAuthResultMsg:
-		m.actionBusy = false
-		m.actionSpinner = nil
+		var actionCmd tea.Cmd
 		if msg.err != nil {
-			m.actionMessage = fmt.Sprintf("%s auth failed: %v", harnessName(msg.harness), msg.err)
-			m.actionSuccess = false
+			actionCmd = m.setActionError(fmt.Sprintf("%s auth failed: %v", harnessName(msg.harness), msg.err))
 		} else {
 			if msg.harness == harnessGitHub {
 				if syncErr := syncGitHubTokenFromCLI(); syncErr != nil {
-					m.actionMessage = fmt.Sprintf("✅ %s authenticated, but GH_TOKEN sync failed: %v", harnessName(msg.harness), syncErr)
-					m.actionSuccess = false
+					actionCmd = m.setActionError(fmt.Sprintf("%s authenticated, but GH_TOKEN sync failed: %v", harnessName(msg.harness), syncErr))
 				} else {
-					m.actionMessage = "✅ GitHub authenticated and GH_TOKEN synced to .env."
-					m.actionSuccess = true
+					actionCmd = m.setActionSuccess("GitHub authenticated and GH_TOKEN synced to .env.")
 				}
 			} else {
-				m.actionMessage = fmt.Sprintf("✅ %s authenticated! Restart Fetch to apply.", harnessName(msg.harness))
-				m.actionSuccess = true
+				actionCmd = m.setActionSuccess(fmt.Sprintf("%s authenticated. Restart Fetch to apply.", harnessName(msg.harness)))
 			}
 		}
 		// Re-check status after login/logout attempt
 		if m.screen == screenHarnessAuth {
 			m.harnessChecking = true
-			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd(), reloadConfigCmd(m.statusClient))
+			return m, tea.Batch(actionCmd, checkAllHarnessStatusCmd(), loadHarnessConfigCmd(), reloadConfigCmd(m.statusClient))
 		}
-		return m, nil
+		return m, actionCmd
 
 	case harnessManageResultMsg:
-		m.actionBusy = false
-		m.actionSpinner = nil
+		var actionCmd tea.Cmd
 		if msg.err != nil {
-			m.actionMessage = fmt.Sprintf("%s %s failed: %v", harnessName(msg.harness), msg.action, msg.err)
-			m.actionSuccess = false
+			actionCmd = m.setActionError(fmt.Sprintf("%s %s failed: %v", harnessName(msg.harness), msg.action, msg.err))
 		} else {
-			m.actionMessage = fmt.Sprintf("✅ %s %s complete", harnessName(msg.harness), msg.action)
-			m.actionSuccess = true
+			actionCmd = m.setActionSuccess(fmt.Sprintf("%s %s complete", harnessName(msg.harness), msg.action))
 		}
 		if m.screen == screenHarnessAuth {
 			m.harnessChecking = true
-			return m, tea.Batch(checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
+			return m, tea.Batch(actionCmd, checkAllHarnessStatusCmd(), loadHarnessConfigCmd())
 		}
-		return m, nil
+		return m, actionCmd
 
 	case harnessStatusMsg:
 		m.harnessChecking = false
@@ -557,8 +606,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err == nil {
 			m.sessions = msg.sessions
 		} else {
-			m.actionMessage = fmt.Sprintf("Error fetching sessions: %v", msg.err)
-			m.actionSuccess = false
+			return m, m.setActionError(fmt.Sprintf("Error fetching sessions: %v", msg.err))
 		}
 		return m, nil
 
@@ -592,9 +640,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.historyViewer.SetLogs(entries)
 			}
 		} else {
-			m.actionMessage = fmt.Sprintf("Error fetching history: %v", msg.err)
-			m.actionSuccess = false
+			actionCmd := m.setActionError(fmt.Sprintf("Error fetching history: %v", msg.err))
 			m.screen = screenSessions
+			return m, actionCmd
 		}
 		return m, nil
 
@@ -635,10 +683,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case bubblespinner.TickMsg:
-		if m.actionBusy && m.actionSpinner != nil {
+		if m.action.phase == actionPhaseLoading && m.actionSpinner != nil {
 			var cmd tea.Cmd
 			m.actionSpinner, cmd = m.actionSpinner.Update(msg)
 			return m, cmd
+		}
+		return m, nil
+
+	case actionClearMsg:
+		if m.action.phase != actionPhaseLoading {
+			m.clearAction()
 		}
 		return m, nil
 
@@ -664,9 +718,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.screen = screenMenu
 			return m, nil
 		}
-
-		// Clear action message on any key
-		m.actionMessage = ""
 
 		switch m.screen {
 		case screenMenu:
@@ -720,29 +771,17 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mainMenu.Down()
 
 	case "enter", " ":
-		if m.actionBusy {
+		if m.action.phase == actionPhaseLoading {
 			return m, nil
 		}
 
 		switch m.mainMenu.Selected() {
 		case 0: // Start Fetch
-			m.actionMessage = "Starting Fetch services..."
-			m.actionSuccess = true
-			m.actionBusy = true
-			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Working...")
-			return m, tea.Batch(m.actionSpinner.Init(), startFetchCmd())
+			return m, tea.Batch(m.setActionLoading("Starting Fetch services...", "Working..."), startFetchCmd())
 		case 1: // Stop Fetch
-			m.actionMessage = "Stopping Fetch services..."
-			m.actionSuccess = true
-			m.actionBusy = true
-			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Working...")
-			return m, tea.Batch(m.actionSpinner.Init(), stopFetchCmd())
+			return m, tea.Batch(m.setActionLoading("Stopping Fetch services...", "Working..."), stopFetchCmd())
 		case 2: // Update Fetch
-			m.actionMessage = "Updating Fetch..."
-			m.actionSuccess = true
-			m.actionBusy = true
-			m.actionSpinner = components.NewSpinner(components.SpinnerDot, "Applying update...")
-			return m, tea.Batch(m.actionSpinner.Init(), updateFetchCmd())
+			return m, tea.Batch(m.setActionLoading("Updating Fetch...", "Applying update..."), updateFetchCmd())
 		case 3: // Setup WhatsApp
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
@@ -1012,15 +1051,11 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "l":
 		// Login selected harness
 		if selected.id != harnessGitHub && !selected.installed {
-			m.actionMessage = fmt.Sprintf("%s CLI is not installed", selected.name)
-			m.actionSuccess = false
-			return m, nil
+			return m, m.setActionError(fmt.Sprintf("%s CLI is not installed", selected.name))
 		}
 		if selected.id == harnessGitHub {
 			if _, err := exec.LookPath("gh"); err != nil {
-				m.actionMessage = "GitHub CLI is not installed"
-				m.actionSuccess = false
-				return m, nil
+				return m, m.setActionError("GitHub CLI is not installed")
 			}
 		}
 		return m, loginHarnessCmd(selected.id)
@@ -1029,9 +1064,7 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if selected.id == harnessGitHub {
 			return m, installGitHubCLICmd()
 		}
-		m.actionMessage = "GitHub CLI install is only available on the GitHub harness row."
-		m.actionSuccess = false
-		return m, nil
+		return m, m.setActionError("GitHub CLI install is only available on the GitHub harness row.")
 	case "n":
 		// Install selected harness CLI
 		if selected.id == harnessGitHub {
@@ -1042,9 +1075,7 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if !ghReady {
-				m.actionMessage = "GitHub auth required first. Press 'l' to run gh auth login or set GH_TOKEN, then press 'n'."
-				m.actionSuccess = false
-				return m, nil
+				return m, m.setActionError("GitHub auth required first. Press 'l' to run gh auth login or set GH_TOKEN, then press 'n'.")
 			}
 		}
 		return m, installHarnessCmd(selected.id)
@@ -1054,9 +1085,7 @@ func (m model) updateHarnessAuth(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "d":
 		// Logout selected harness
 		if !selected.authed {
-			m.actionMessage = fmt.Sprintf("%s is not authenticated.", selected.name)
-			m.actionSuccess = false
-			return m, nil
+			return m, m.setActionError(fmt.Sprintf("%s is not authenticated.", selected.name))
 		}
 		ghUser := ""
 		if selected.id == harnessGitHub && len(selected.ghAccounts) > 0 && selected.ghCursor < len(selected.ghAccounts) {
@@ -1758,10 +1787,8 @@ func (m model) viewSessions() string {
 	}
 
 	var actionMsg string
-	if m.actionBusy && m.actionSpinner != nil {
-		actionMsg = m.actionSpinner.View() + "\n\n"
-	} else if m.actionMessage != "" {
-		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
+	if banner := m.renderActionBanner(); banner != "" {
+		actionMsg = banner + "\n\n"
 	}
 
 	help := lipgloss.NewStyle().
@@ -1868,8 +1895,8 @@ func (m model) viewMenu() string {
 
 	// Action message (show above menu if present)
 	var actionMsg string
-	if m.actionMessage != "" {
-		actionMsg = components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n"
+	if banner := m.renderActionBanner(); banner != "" {
+		actionMsg = banner + "\n\n"
 	}
 
 	var mainContent string
@@ -2113,8 +2140,8 @@ func (m model) viewHarnessAuth() string {
 	if m.harnessChecking {
 		content.WriteString(theme.StatusInfo.Render("   Checking harness auth status...") + "\n\n")
 	}
-	if m.actionMessage != "" {
-		content.WriteString("   " + components.ActionMessage(m.actionMessage, m.actionSuccess) + "\n\n")
+	if banner := m.renderActionBanner(); banner != "" {
+		content.WriteString("   " + banner + "\n\n")
 	}
 
 	// Summary line

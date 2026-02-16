@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **TUI action-state model** — Replaced scattered action flags with explicit `idle/loading/success/error/info` state handling, including auto-clear for transient feedback.
+- **Unified toast feedback** — Added a reusable toast renderer used across menu, setup, sessions, and harness screens for consistent success/error/info messaging.
+- **Action UX hardening** — Menu actions now use centralized loading state and block duplicate submit while an action is in flight.
+
 ## [0.0.73] - 2026-02-16
 
 ### Changed

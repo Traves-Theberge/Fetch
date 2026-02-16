@@ -113,6 +113,19 @@ Pressing Stop now gives immediate in-UI feedback (`Stopping Fetch services...`) 
 
 ---
 
+### Unified Action Feedback
+
+Action feedback is now centralized and consistent across Menu, Sessions, WhatsApp Setup, and Harnesses:
+
+- **Loading state**: long-running actions render an inline spinner immediately.
+- **Result state**: success/error/info messages render as a styled toast banner.
+- **Auto-clear**: result toasts clear automatically after ~6 seconds.
+- **No duplicate actions**: pressing `Enter` repeatedly during an active loading state is ignored.
+
+This reduces stale status text and keeps feedback behavior predictable regardless of screen.
+
+---
+
 ### Harnesses
 
 The unified management screen for all 5 AI CLI harnesses. Each harness shows its authentication status, enable/disable state, API key, and model — all editable from one place.
