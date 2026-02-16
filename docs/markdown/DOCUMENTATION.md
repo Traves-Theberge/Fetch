@@ -11,6 +11,7 @@ This is the master documentation index for Fetch.
 - [Security Runbook](SECURITY_RUNBOOK.md) — Production hardening and incident checklist
 - [TUI Guide](TUI_GUIDE.md) — Using the Manager terminal interface
 - [Commands](COMMANDS.md) — Safety escapes, natural language patterns, orchestrator tools
+- [WhatsApp Workflows](WHATSAPP_WORKFLOWS.md) — End-to-end workflow/cron/runtime usage from chat
 
 ## Reference
 

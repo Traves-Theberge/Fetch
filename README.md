@@ -186,6 +186,7 @@ Core docs:
 - [TUI Guide](docs/markdown/TUI_GUIDE.md)
 - [Configuration](docs/markdown/CONFIGURATION.md)
 - [Commands](docs/markdown/COMMANDS.md)
+- [WhatsApp Workflows](docs/markdown/WHATSAPP_WORKFLOWS.md)
 - [Architecture](docs/markdown/ARCHITECTURE.md)
 - [Harness System](docs/markdown/HARNESS_SYSTEM.md)
 - [API Reference](docs/markdown/API_REFERENCE.md)

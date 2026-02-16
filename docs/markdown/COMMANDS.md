@@ -14,7 +14,7 @@ In direct (1:1) chats with Fetch, the `@fetch` prefix is optional.
 
 ## Architecture: LLM-First with Safety Escapes
 
-Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 29 orchestrator tools.
+Fetch uses an **LLM-first** architecture. There are no slash commands for project management, settings, identity, or skills — the LLM handles all of those through natural language and its 40 orchestrator tools.
 
 The only slash commands that exist are **8 safety escapes** — deterministic commands that bypass the LLM entirely. These exist because they need to work even when the LLM is unreachable or stuck.
 
@@ -39,7 +39,7 @@ Note: natural-language capability prompts like "what can you do?" now use the LL
 
 ## Natural Language (Everything Else)
 
-The LLM has access to 29 orchestrator tools and decides which to call based on your message. Here are examples:
+The LLM has access to 40 orchestrator tools and decides which to call based on your message. Here are examples:
 
 ### Workspace Management
 
@@ -94,6 +94,19 @@ The LLM has access to 29 orchestrator tools and decides which to call based on y
 | "Open <https://example.com> in the browser" | Calls `browser_open` — navigates and returns accessibility tree |
 | "Click the login button" | Calls `browser_action` — performs click on referenced element |
 | "Take a screenshot of the page" | Calls `browser_screenshot` — captures current browser state |
+
+### Workflows, Cron, and Runtime Checks
+
+| Message | What Fetch Does |
+|---------|----------------|
+| "Create workflow nightly-check: status, npm test, sync" | Calls `workflow_create` — saves reusable multi-step flow |
+| "Run workflow nightly-check now" | Calls `workflow_run` — executes all workflow steps in order |
+| "Schedule nightly-check at 0 3 * * *" | Calls `cron_create` — creates UTC cron schedule |
+| "Show my cron jobs" | Calls `cron_list` — lists scheduled workflow triggers |
+| "Run cron nightly-check now" | Calls `cron_run` — triggers the cron workflow immediately |
+| "Run npm run build in my app" | Calls `app_run` — executes app command in Kennel workspace |
+| "Run tests for this project" | Calls `app_test` — runs explicit or inferred test command |
+| "Browser test example.com for Login text" | Calls `browser_test` — runs snapshot-based browser assertion |
 
 ### Identity & Skills
 

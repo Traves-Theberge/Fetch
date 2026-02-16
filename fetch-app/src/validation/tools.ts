@@ -675,7 +675,7 @@ export const WorkflowStepSchema = z.strictObject({
     .describe('Registered tool name to execute for this step'),
 
   /** Tool args */
-  args: z.record(z.unknown())
+  args: z.record(z.string(), z.unknown())
     .optional()
     .describe('Arguments to send to the step tool'),
 });
