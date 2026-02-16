@@ -53,10 +53,8 @@ Treat that folder as canonical for the live built-in set.
 | **GitHub Operations** | `pull request`, `issue`, `branch`, `actions` | PR, issue, branch, workflow, and repo search operations |
 | **Web Research** | `docs`, `research`, `look up`, `search web` | `web_search` and `web_fetch` research workflows |
 | **Browser Automation** | `open browser`, `fill form`, `screenshot page` | `browser_open`/`snapshot`/`action`/`screenshot` loops |
+| **Workflow Automation** | `workflow`, `cron`, `schedule`, `automate` | `workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test` |
 | **Interaction Control** | `clarify`, `confirm`, `status update`, `approval` | `ask_user` and `report_progress` usage patterns |
-
-> [!TIP]
-> Workflow and cron requests are usually handled by the general LLM tool loop (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`) rather than a dedicated built-in workflow skill.
 
 ### Tool Usage Playbooks
 
@@ -67,7 +65,8 @@ Use these standard sequences when writing or reviewing skill instructions:
 3. GitHub: `workspace_status` -> (`github_pr_*` / `github_issue_*` / `github_branch_create`) -> `github_action_status`
 4. Web: `web_search` -> `web_fetch` -> summarize with links
 5. Browser: `browser_open` -> `browser_snapshot` -> `browser_action` loop -> `browser_screenshot`
-6. Interaction: `ask_user` for ambiguity/approval, `report_progress` for milestone updates
+6. Workflow/Cron: `workflow_create` -> `workflow_run` -> `cron_create` -> `cron_list`/`cron_run`/`cron_delete`
+7. Interaction: `ask_user` for ambiguity/approval, `report_progress` for milestone updates
 
 ### Tool Alignment Rules
 
@@ -102,6 +101,7 @@ Use this map to keep skill instructions tied to concrete handlers.
 | GitHub Operations | `github_*` | `fetch-app/src/tools/github.ts` |
 | Web Research | `web_fetch`, `web_search` | `fetch-app/src/tools/web.ts` |
 | Browser Automation | `browser_*` | `fetch-app/src/tools/browser.ts` |
+| Workflow Automation | `workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test` | `fetch-app/src/tools/workflow.ts` |
 | Fetch Meta | Status/capability queries (prompt guidance, minimal direct tool usage) | `fetch-app/src/agent/prompts.ts` and `fetch-app/src/agent/core.ts` |
 
 ### Skill Anatomy
