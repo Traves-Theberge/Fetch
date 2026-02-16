@@ -1,4 +1,4 @@
-# WhatsApp Workflows
+# Workflow Automation
 
 This guide explains exactly how users trigger and manage **workflows, cron jobs, and runtime checks** from WhatsApp.
 
