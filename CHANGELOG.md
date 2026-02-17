@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI startup UX** — `fetch up` now streams Docker Compose progress in real time instead of buffering output until completion, with explicit startup/success status lines.
+- **Version commit source fallback** — Manager build scripts now read `INSTALL_GIT_REF` from `.fetch-install-meta` when `.git` is unavailable (release tarball installs), so TUI Version shows the actual release commit.
+- **Version screen commit fallback label** — TUI now shows `unknown` instead of misleading `local` when commit metadata cannot be resolved.
+
 ## [0.0.76] - 2026-02-16
 
 ### Changed

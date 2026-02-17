@@ -11,6 +11,12 @@ cd "$(dirname "$0")"
 # Version info for ldflags injection
 VERSION=$(cat ../VERSION)
 COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+if [[ "$COMMIT" == "unknown" && -f ../.fetch-install-meta ]]; then
+  META_COMMIT="$(awk -F= '/^INSTALL_GIT_REF=/{print $2; exit}' ../.fetch-install-meta | tr -d '[:space:]')"
+  if [[ -n "$META_COMMIT" ]]; then
+    COMMIT="${META_COMMIT:0:7}"
+  fi
+fi
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 LDFLAGS="-s -w"

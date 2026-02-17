@@ -100,7 +100,7 @@ func Version(info VersionInfo, width, height int) string {
 	// Line 7: Commit
 	commit := info.GitCommit
 	if commit == "unknown" {
-		commit = "local"
+		commit = "unknown"
 	} else if len(commit) > 7 {
 		commit = commit[:7]
 	}

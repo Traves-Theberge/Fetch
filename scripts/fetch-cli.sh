@@ -131,18 +131,22 @@ run_build() {
 }
 
 cmd_up() {
-  local output
-  if output="$(compose_cmd up -d --build 2>&1)"; then
-    echo "$output"
+  local output_file
+  output_file="$(mktemp)"
+  trap 'rm -f "$output_file"' RETURN
+
+  echo "[fetch] starting services (build + detach)"
+  if compose_cmd up -d --build 2>&1 | tee "$output_file"; then
+    echo "[fetch] services are up"
     return 0
   fi
 
-  echo "$output" >&2
-  if [[ "$output" == *"already in use by container"* ]] && \
-     ([[ "$output" == *"container name \"/fetch-"* ]] || [[ "$output" == *"container name \"/searxng\""* ]]); then
+  if grep -q "already in use by container" "$output_file" && \
+     grep -Eq "container name \"/fetch-|container name \"/searxng\"" "$output_file"; then
     echo "[fetch] detected stale legacy container name conflict; cleaning up and retrying" >&2
     docker rm -f fetch-bridge fetch-kennel fetch-searxng searxng >/dev/null 2>&1 || true
     compose_cmd up -d --build
+    echo "[fetch] services are up"
     return 0
   fi
 
