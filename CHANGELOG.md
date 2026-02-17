@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.87] - 2026-02-17
+
+### Changed
+
+- **Docs/version parity sweep** — Updated docs shell version labels (`docs/index.html`) and runtime examples to the current release line.
+- **README tagline alignment** — Updated top-line README tagline to `Unleash Multi-agent Orchestration.` for consistency with TUI/docs branding.
+- **Install docs pin update** — Updated self-pin examples to `v0.0.87`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.87`.
+
 ## [0.0.86] - 2026-02-17
 
 ### Changed

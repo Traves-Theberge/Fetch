@@ -1,6 +1,6 @@
 # Fetch
 
-Your faithful code companion.
+Unleash Multi-agent Orchestration.
 
 ```text
   ⠀⠀⠀⠀⠀⠀⠀⢀⣠⣤⣠⣶⠚⠛⠿⠷⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.86
+fetch self pin v0.0.87
 fetch uninstall
 ```
 
