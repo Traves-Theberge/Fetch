@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.84] - 2026-02-17
+
 ### Fixed
 
 - **WhatsApp completion spam guard** — Task completion summaries now use adapter-extracted summaries instead of raw harness output, with structured JSONL lifecycle lines stripped and length-capped to prevent giant event dumps in user chats.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.84`.
 
 ## [0.0.83] - 2026-02-17
 
