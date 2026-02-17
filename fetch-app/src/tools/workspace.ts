@@ -469,7 +469,9 @@ export async function handleWorkspaceSync(
           ? `Pushed changes to GitHub`
           : result.filesChanged > 0
             ? `Committed ${result.filesChanged} change(s) locally (no remote configured)`
-            : 'Everything is up to date with GitHub',
+            : result.remoteUrl
+              ? 'Everything is up to date with GitHub'
+              : 'Repository is clean, but no GitHub remote is configured',
     };
 
     // Build narrative output for LLM
@@ -483,9 +485,17 @@ export async function handleWorkspaceSync(
     if (result.pushed) {
       parts.push(`pushed to ${result.remoteUrl ?? 'origin'}`);
     } else if (result.filesChanged === 0) {
-      parts.push('Everything is up to date');
+      if (result.remoteUrl) {
+        parts.push('Everything is up to date with GitHub');
+      } else {
+        parts.push('No GitHub remote configured, so there is nothing to push');
+      }
     }
-    const output = parts.join(', ');
+    const output = parts.length > 0
+      ? parts.join(', ')
+      : (result.remoteUrl
+        ? 'Everything is up to date with GitHub'
+        : 'No GitHub remote configured, so there is nothing to push');
 
     return {
       success: true,
