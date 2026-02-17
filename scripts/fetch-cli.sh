@@ -133,10 +133,10 @@ run_build() {
 cmd_up() {
   local output_file
   output_file="$(mktemp)"
-  trap 'rm -f "$output_file"' RETURN
 
   echo "[fetch] starting services (build + detach)"
   if compose_cmd up -d --build 2>&1 | tee "$output_file"; then
+    rm -f "$output_file"
     echo "[fetch] services are up"
     return 0
   fi
@@ -146,10 +146,12 @@ cmd_up() {
     echo "[fetch] detected stale legacy container name conflict; cleaning up and retrying" >&2
     docker rm -f fetch-bridge fetch-kennel fetch-searxng searxng >/dev/null 2>&1 || true
     compose_cmd up -d --build
+    rm -f "$output_file"
     echo "[fetch] services are up"
     return 0
   fi
 
+  rm -f "$output_file"
   return 1
 }
 
