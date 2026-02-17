@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.79] - 2026-02-17
+
 ### Changed
 
 - **Compose project consistency** — `fetch` CLI now forces a stable Docker Compose project name (`fetch`) to prevent path-dependent project drift (`repo_` vs `fetch_`) and reduce container-name conflicts after update/path switches.
 - **Conflict retry efficiency** — On stale container-name conflicts, `fetch up` now retries with `up -d` (without a second rebuild) after cleanup.
 - **GitHub auth bootstrap on startup** — `fetch up` now auto-syncs `GH_TOKEN` from host `gh auth token` into repo `.env` when missing, so kennel GitHub operations can use the host-authenticated account.
 - **Workspace sync truthfulness** — `workspace_sync` now fails explicitly when no remote is configured/authenticated and nothing was pushed, preventing false-positive “synced to GitHub” outcomes.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.79`.
 
 ## [0.0.78] - 2026-02-17
 
