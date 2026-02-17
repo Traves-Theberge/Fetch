@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.86] - 2026-02-17
+
+### Changed
+
+- **Intent-gated tool routing** — Added a two-stage intent gate (deterministic then heuristic) and per-turn tool subset selection so capability/tool-summary chatter no longer exposes the full toolset to the model by default.
+- **Lower-noise conversational turns** — Greeting/capability/tool-inventory intents now run with no tool schema attached, reducing accidental tool loops and improving response consistency.
+- **Tool registry targeting** — `ToolRegistry.toOpenAIFormat()` now supports filtered tool-name lists for strict per-turn routing.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.86`.
+
 ## [0.0.85] - 2026-02-17
 
 ### Fixed

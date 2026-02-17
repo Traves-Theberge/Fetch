@@ -4,6 +4,7 @@
  * @module agent/response-policy
  */
 import type { Session } from '../session/types.js';
+import { ToolInputSchemas } from '../validation/tools.js';
 
 /** Intent classes used to tune prompt mode and deterministic response paths. */
 export type ResponseIntent =
@@ -13,6 +14,11 @@ export type ResponseIntent =
   | 'status'
   | 'action_request'
   | 'general';
+
+export interface IntentGateDecision {
+  intent: ResponseIntent;
+  stage: 'deterministic' | 'heuristic';
+}
 
 export type ResponseDetail = 'brief' | 'standard' | 'deep';
 export type ResponseTone = 'direct' | 'conversational';
@@ -31,9 +37,9 @@ export const DEFAULT_RESPONSE_PREFERENCES: ResponsePreferences = {
 };
 
 /**
- * Classify a user message into a coarse conversational intent.
+ * Stage 1 intent gate: deterministic patterns for high-confidence categories.
  */
-export function classifyIntent(message: string): ResponseIntent {
+function deterministicIntent(message: string): ResponseIntent | null {
   const text = message.trim().toLowerCase();
   if (!text) return 'general';
 
@@ -56,11 +62,39 @@ export function classifyIntent(message: string): ResponseIntent {
     return 'status';
   }
 
-  if (/\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app)\b/i.test(text)) {
+  return null;
+}
+
+/**
+ * Stage 2 intent gate: broader heuristic classification for action requests.
+ */
+function heuristicIntent(message: string): ResponseIntent {
+  const text = message.trim().toLowerCase();
+  if (!text) return 'general';
+
+  if (/\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|publish|sync)\b/i.test(text)) {
     return 'action_request';
   }
 
   return 'general';
+}
+
+/**
+ * Two-stage intent gate used by core agent runtime.
+ */
+export function evaluateIntentGate(message: string): IntentGateDecision {
+  const deterministic = deterministicIntent(message);
+  if (deterministic) {
+    return { intent: deterministic, stage: 'deterministic' };
+  }
+  return { intent: heuristicIntent(message), stage: 'heuristic' };
+}
+
+/**
+ * Classify a user message into a coarse conversational intent.
+ */
+export function classifyIntent(message: string): ResponseIntent {
+  return evaluateIntentGate(message).intent;
 }
 
 /**
@@ -100,6 +134,108 @@ export function wantsFullInventory(message: string): boolean {
     /all (tools|commands)/.test(text) ||
     /^\/help$/.test(text)
   );
+}
+
+function existingToolSet(): Set<string> {
+  return new Set(Object.keys(ToolInputSchemas));
+}
+
+function addByPrefix(out: Set<string>, available: Set<string>, prefix: string): void {
+  for (const name of available) {
+    if (name.startsWith(prefix)) out.add(name);
+  }
+}
+
+/**
+ * Select a narrowed tool subset for this turn.
+ *
+ * This keeps conversational turns lightweight while preserving full capability
+ * on clear action requests.
+ */
+export function selectToolNamesForTurn(
+  message: string,
+  intent: ResponseIntent,
+  session?: Session
+): string[] {
+  const text = message.trim().toLowerCase();
+  const available = existingToolSet();
+  const out = new Set<string>();
+
+  const add = (name: string): void => {
+    if (available.has(name)) out.add(name);
+  };
+
+  if (session?.activeTaskId) {
+    add('task_status');
+    add('task_cancel');
+    add('task_respond');
+  }
+
+  if (intent === 'greeting' || intent === 'capability_summary' || intent === 'tool_inventory') {
+    return [];
+  }
+
+  if (intent === 'status') {
+    add('workspace_status');
+    add('task_status');
+    add('github_action_status');
+    return Array.from(out);
+  }
+
+  // Generic, low-risk fallback set for ambiguous asks.
+  if (intent === 'general') {
+    add('workspace_status');
+    add('task_status');
+    add('ask_user');
+    return Array.from(out);
+  }
+
+  // action_request
+  add('ask_user');
+  add('report_progress');
+
+  if (/\b(workspace|project|repo|directory|folder|file|next|nextjs|react)\b/.test(text)) {
+    addByPrefix(out, available, 'workspace_');
+    add('file_delete');
+    add('folder_delete');
+  }
+
+  if (/\b(task|delegate|implement|refactor|bug|fix|use codex|use claude|use copilot|use gemini)\b/.test(text)) {
+    addByPrefix(out, available, 'task_');
+  }
+
+  if (/\b(github|git|commit|push|pull request|pr|issue|branch|sync|publish|ci|workflow status|actions?)\b/.test(text)) {
+    addByPrefix(out, available, 'github_');
+    add('workspace_sync');
+    add('workspace_publish');
+    add('workspace_status');
+  }
+
+  if (/\b(web|search|research|docs|documentation|lookup|look up)\b/.test(text)) {
+    addByPrefix(out, available, 'web_');
+  }
+
+  if (/\b(browser|navigate|open page|screenshot|click|ui test|playwright)\b/.test(text)) {
+    addByPrefix(out, available, 'browser_');
+    add('browser_test');
+  }
+
+  if (/\b(workflow|cron|schedule|nightly|automation|app run|app test|run tests?)\b/.test(text)) {
+    addByPrefix(out, available, 'workflow_');
+    addByPrefix(out, available, 'cron_');
+    add('app_run');
+    add('app_test');
+    add('browser_test');
+  }
+
+  // If no category matched, keep core execution tools available.
+  if (out.size <= 2) {
+    add('workspace_status');
+    add('task_create');
+    add('task_status');
+  }
+
+  return Array.from(out);
 }
 
 /**

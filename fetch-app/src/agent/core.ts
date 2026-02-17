@@ -22,6 +22,8 @@ import {
 import { buildCapabilitySummary, buildToolInventory } from './capability-cards.js';
 import {
   classifyIntent,
+  evaluateIntentGate,
+  selectToolNamesForTurn,
   shouldUseMinimalMode,
   wantsFullInventory,
   type ResponseIntent,
@@ -355,7 +357,8 @@ export async function processMessage(
 ): Promise<AgentResponse> {
   const startTime = Date.now();
   const sManager = await getSessionManager();
-  const intent = classifyIntent(message);
+  const intentDecision = evaluateIntentGate(message);
+  const intent = intentDecision.intent;
   const promptMode = options?.promptMode ?? (shouldUseMinimalMode(intent) ? 'minimal' : selectPromptMode(message));
   const responsePreferences = getResponsePreferences(session);
   let retryAttempts = 1;
@@ -594,7 +597,17 @@ async function handleWithTools(
   const turnStartedAt = Date.now();
   const openai = getOpenAI();
   const registry = getToolRegistry();
-  const tools = registry.toOpenAIFormat();
+  const intent = classifyIntent(message);
+  const selectedToolNames = selectToolNamesForTurn(message, intent, session);
+  const tools = selectedToolNames.length > 0
+    ? registry.toOpenAIFormat(selectedToolNames)
+    : [];
+  const toolSchemas = tools.length > 0 ? tools as OpenAI.Chat.Completions.ChatCompletionTool[] : undefined;
+  logger.info('Turn tool routing', {
+    intent,
+    selectedTools: selectedToolNames,
+    selectedCount: selectedToolNames.length,
+  });
   const toolCalls: ToolCallRecord[] = [];
   const toolTelemetry: ToolTelemetry[] = [];
   const identityManager = getIdentityManager();
@@ -638,8 +651,7 @@ async function handleWithTools(
   let response = await openai.chat.completions.create({
     model: MODEL,
     messages,
-    tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
-    tool_choice: 'auto',
+    ...(toolSchemas ? { tools: toolSchemas, tool_choice: 'auto' as const } : {}),
     max_tokens: pipeline.toolMaxTokens,
     temperature: pipeline.toolTemperature,
   }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
@@ -931,8 +943,7 @@ async function handleWithTools(
     response = await openai.chat.completions.create({
       model: MODEL,
       messages,
-      tools: tools as OpenAI.Chat.Completions.ChatCompletionTool[],
-      tool_choice: 'auto',
+      ...(toolSchemas ? { tools: toolSchemas, tool_choice: 'auto' as const } : {}),
       max_tokens: pipeline.toolMaxTokens,
       temperature: pipeline.toolTemperature,
     }, options?.abortSignal ? { signal: options.abortSignal } : undefined);

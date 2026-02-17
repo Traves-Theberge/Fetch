@@ -289,8 +289,13 @@ export class ToolRegistry {
 
   /** Returns registered tools in OpenAI function-calling format. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public toOpenAIFormat(): any[] {
-    const result = Array.from(this.tools.values()).map(tool => _mapToOpenAIFunction(tool));
+  public toOpenAIFormat(toolNames?: string[]): any[] {
+    const selected = toolNames && toolNames.length > 0
+      ? toolNames
+        .map((name) => this.tools.get(name))
+        .filter((tool): tool is OrchestratorTool => !!tool)
+      : Array.from(this.tools.values());
+    const result = selected.map(tool => _mapToOpenAIFunction(tool));
 
     // Log schemas once on first call for debugging
     if (!this._schemaLogged) {

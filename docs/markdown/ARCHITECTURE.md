@@ -157,7 +157,7 @@ flowchart TD
 1. WhatsApp message arrives via whatsapp-web.js
 2. **SecurityGate** checks `@fetch` trigger, phone whitelist, rate limit, input validation
 3. **Safety Gate** checks for 8 deterministic escape commands (`/stop`, `/undo`, `/clear`, `/help`, `/status`, `/version`, `/usage`, `/trust`) — if matched, responds immediately without LLM
-4. **Everything else** goes to the LLM with **full registered toolset** available
+4. **Everything else** goes to the LLM through an **intent gate** (deterministic, then heuristic) that selects a per-turn tool subset
 5. **Agent core** builds message history in OpenAI multi-turn format (with `tool_calls` + `tool_call_id`) and runs the LLM
 6. The LLM enters a ReAct loop — it decides whether to chat, call tools, or delegate to a harness
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
@@ -239,7 +239,7 @@ src/
 ├── handler/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
-│   ├── core.ts           # Single-path LLM handler, ReAct loop, full registered toolset, bounded progress rewrite fallback
+│   ├── core.ts           # Single-path LLM handler, intent-gated tool routing, ReAct loop, bounded progress rewrite fallback
 │   ├── notifications.ts  # Hybrid LLM/template notifications with timeout + sanitizer + template fallback
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders (profile-aware workspace context)
@@ -315,7 +315,7 @@ src/
 
 ## Systems Integration
 
-The diagram below shows how every internal system feeds into the agent core loop. There is no router or classifier - the LLM sees the complete system prompt (identity + context + skills + full registered toolset) on every message and decides what to do.
+The diagram below shows how every internal system feeds into the agent core loop. Intent gating is applied before each LLM tool call so conversational turns can run with minimal/no tools while action-oriented turns receive a targeted subset.
 
 ```mermaid
 flowchart TB

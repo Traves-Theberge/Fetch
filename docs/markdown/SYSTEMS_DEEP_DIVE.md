@@ -276,7 +276,7 @@ processMessage(message, session)
       +-- INITIAL LLM CALL
       |   '-- openai.chat.completions.create({
       |        messages: [system, ...history, user],
-      |        tools: registry.toOpenAIFormat(),  // full registered toolset
+      |        tools: registry.toOpenAIFormat(selectedToolNames),  // intent-gated subset
       |        tool_choice: 'auto'
       |      })
       |
@@ -404,7 +404,7 @@ flowchart TB
 
 ### The critical insight
 
-There is **no routing**. The LLM sees the complete system prompt (identity + context + skills + full registered toolset) on every single message and makes its own decisions. Skills guide it, tools empower it, context informs it, but nothing pre-classifies or restricts what it can do.
+Tool routing is **intent-gated** per turn. The system prompt still includes identity + context + skills, but tool schemas are narrowed (or omitted) for conversational intents and expanded for clear action intents.
 
 ---
 
