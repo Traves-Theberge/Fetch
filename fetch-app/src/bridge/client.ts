@@ -538,9 +538,33 @@ export class Bridge {
       }
     };
 
+    // Codex emits structured JSONL lifecycle events on stdout. These are
+    // useful for internal telemetry but should never be forwarded verbatim
+    // to WhatsApp users.
+    const isStructuredHarnessEventLine = (raw: string): boolean => {
+      const line = raw.trim();
+      if (!line.startsWith('{') || !line.endsWith('}')) return false;
+      try {
+        const parsed = JSON.parse(line) as { type?: unknown; item?: { type?: unknown } };
+        const type = typeof parsed.type === 'string' ? parsed.type : '';
+        if (
+          type.startsWith('thread.') ||
+          type.startsWith('turn.') ||
+          type.startsWith('item.')
+        ) {
+          return true;
+        }
+        const itemType = typeof parsed.item?.type === 'string' ? parsed.item.type : '';
+        return itemType === 'command_execution' || itemType === 'reasoning' || itemType === 'file_change';
+      } catch {
+        return false;
+      }
+    };
+
     integration.on('task:progress', async (event: TaskProgressEvent) => {
       const { sessionId, message } = event;
       if (!sessionId || !message) return;
+      if (isStructuredHarnessEventLine(message)) return;
 
       const targetId = await resolveTarget(sessionId);
       if (!targetId) return;
