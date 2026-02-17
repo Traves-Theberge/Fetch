@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Compose project consistency** — `fetch` CLI now forces a stable Docker Compose project name (`fetch`) to prevent path-dependent project drift (`repo_` vs `fetch_`) and reduce container-name conflicts after update/path switches.
+- **Conflict retry efficiency** — On stale container-name conflicts, `fetch up` now retries with `up -d` (without a second rebuild) after cleanup.
+
 ## [0.0.78] - 2026-02-17
 
 ### Changed

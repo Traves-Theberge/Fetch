@@ -111,6 +111,7 @@ Service command targeting:
 
 - `fetch up/down/status/logs` operate on the Fetch repo in your current working directory when that directory contains a Fetch `docker-compose.yml`.
 - If no local repo is detected, commands fall back to the managed install repo at `~/.fetch/repo`.
+- Fetch uses a stable Compose project name (`fetch`) so service/container names stay consistent across local repo and managed install paths.
 - `fetch up` now streams Docker Compose progress live and prints explicit startup/success status lines.
 
 ## Legacy Migration

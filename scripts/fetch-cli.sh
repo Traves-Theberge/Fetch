@@ -22,6 +22,7 @@ FETCH_REPO_SLUG="${FETCH_REPO_SLUG:-Traves-Theberge/Fetch}"
 FETCH_HOME="${FETCH_HOME:-$FETCH_HOME_DEFAULT}"
 BIN_DIR="${BIN_DIR:-$BIN_DIR_DEFAULT}"
 MANIFEST_URL="${FETCH_MANIFEST_URL:-https://raw.githubusercontent.com/${FETCH_REPO_SLUG}/main/release-manifest.json}"
+COMPOSE_PROJECT="${FETCH_COMPOSE_PROJECT:-fetch}"
 
 if [[ -n "${FETCH_REPO_DIR:-}" ]]; then
   REPO_DIR="$FETCH_REPO_DIR"
@@ -118,7 +119,7 @@ compose_cmd() {
   local compose_repo
   compose_repo="$(resolve_compose_repo_dir)"
   need_compose_repo "$compose_repo"
-  docker compose --project-directory "$compose_repo" -f "$compose_repo/docker-compose.yml" "$@"
+  docker compose -p "$COMPOSE_PROJECT" --project-directory "$compose_repo" -f "$compose_repo/docker-compose.yml" "$@"
 }
 
 run_build() {
@@ -145,7 +146,7 @@ cmd_up() {
      grep -Eq "container name \"/fetch-|container name \"/searxng\"" "$output_file"; then
     echo "[fetch] detected stale legacy container name conflict; cleaning up and retrying" >&2
     docker rm -f fetch-bridge fetch-kennel fetch-searxng searxng >/dev/null 2>&1 || true
-    compose_cmd up -d --build
+    compose_cmd up -d
     rm -f "$output_file"
     echo "[fetch] services are up"
     return 0
