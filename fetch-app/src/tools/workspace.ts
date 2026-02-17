@@ -455,6 +455,27 @@ export async function handleWorkspaceSync(
       };
     }
 
+    // Avoid false positives for push/sync requests when no remote is configured
+    // and nothing was pushed.
+    if (!result.remoteUrl && !result.pushed) {
+      const detail = result.filesChanged > 0
+        ? `Committed ${result.filesChanged} change(s) locally, but GitHub push could not run because no remote is configured/authenticated for workspace '${workspaceId}'.`
+        : `No GitHub remote is configured/authenticated for workspace '${workspaceId}', so there was nothing to push.`;
+      return {
+        success: false,
+        output: '',
+        error: `${detail} Configure GH auth (GH_TOKEN) and publish/link the repo, then retry workspace_sync.`,
+        duration: Date.now() - start,
+        metadata: {
+          workspace: workspaceId,
+          commitHash: result.commitHash,
+          filesChanged: result.filesChanged,
+          pushed: false,
+          remoteUrl: result.remoteUrl,
+        },
+      };
+    }
+
     const syncData = {
       workspace: workspaceId,
       commitHash: result.commitHash,

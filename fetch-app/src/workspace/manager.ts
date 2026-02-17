@@ -716,18 +716,14 @@ export class WorkspaceManager extends EventEmitter {
   // ==========================================================================
 
   /**
-   * Check if GitHub integration is available (GH_TOKEN set in kennel)
+   * Check if GitHub integration is available.
+   *
+   * This validates live GitHub API access from inside kennel. GH_TOKEN is one
+   * supported path, but mounted gh auth state may also work when valid.
    */
   async isGitHubAvailable(): Promise<boolean> {
-    // Basic env check
-    const envResult = await dockerExec('sh', ['-c', 'test -n "$GH_TOKEN"']);
-    if (envResult.exitCode !== 0) {
-      logger.debug('GitHub unavailable: GH_TOKEN not set');
-      return false;
-    }
-
     // Connectivity test (similar to github-mcp-server "get_me")
-    // gh auth status is too strict and fails on minor sync issues; 
+    // gh auth status is too strict and fails on minor sync issues;
     // gh api user is a direct proof of connectivity.
     const authResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,

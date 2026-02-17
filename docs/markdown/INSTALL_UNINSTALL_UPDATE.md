@@ -113,6 +113,7 @@ Service command targeting:
 - If no local repo is detected, commands fall back to the managed install repo at `~/.fetch/repo`.
 - Fetch uses a stable Compose project name (`fetch`) so service/container names stay consistent across local repo and managed install paths.
 - `fetch up` now streams Docker Compose progress live and prints explicit startup/success status lines.
+- If `GH_TOKEN` is missing in `.env`, `fetch up` will try to sync it from host `gh auth token` automatically.
 
 ## Legacy Migration
 

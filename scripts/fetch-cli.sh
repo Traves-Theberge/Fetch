@@ -132,6 +132,11 @@ run_build() {
 }
 
 cmd_up() {
+  local compose_repo
+  compose_repo="$(resolve_compose_repo_dir)"
+  need_compose_repo "$compose_repo"
+  ensure_gh_token_for_compose "$compose_repo"
+
   local output_file
   output_file="$(mktemp)"
 
@@ -231,6 +236,49 @@ env_get() {
       }
     }
   ' "$file"
+}
+
+ensure_gh_token_for_compose() {
+  local compose_repo="$1"
+  local env_file="$compose_repo/.env"
+  [[ -f "$env_file" ]] || return 0
+
+  local current=""
+  current="$(awk -F= '
+    /^[[:space:]]*#/ {next}
+    /^[[:space:]]*$/ {next}
+    {
+      line=$0
+      sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+      key=line
+      sub(/=.*/, "", key)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", key)
+      if (key=="GH_TOKEN") {
+        val=line
+        sub(/^[^=]*=/, "", val)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", val)
+        gsub(/^"|"$/, "", val)
+        gsub(/^'\''|'\''$/, "", val)
+        print val
+        exit
+      }
+    }
+  ' "$env_file")"
+
+  [[ -n "$current" ]] && return 0
+  command -v gh >/dev/null 2>&1 || return 0
+
+  local host_token=""
+  host_token="$(gh auth token 2>/dev/null || true)"
+  [[ -n "$host_token" ]] || return 0
+
+  if grep -Eq '^[[:space:]]*(export[[:space:]]+)?GH_TOKEN=' "$env_file"; then
+    sed -i "s|^[[:space:]]*\\(export[[:space:]]\\+\\)\\?GH_TOKEN=.*$|GH_TOKEN=${host_token}|" "$env_file"
+  else
+    printf "\nGH_TOKEN=%s\n" "$host_token" >> "$env_file"
+  fi
+
+  echo "[fetch] synced GH_TOKEN from host gh auth into ${env_file}"
 }
 
 ensure_admin_token() {
