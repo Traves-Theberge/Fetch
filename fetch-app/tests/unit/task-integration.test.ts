@@ -67,6 +67,28 @@ describe('TaskIntegration Event Mapping', () => {
     expect(emittedLine).toBe('stream line text');
   });
 
+  it('suppresses structured JSONL progress lines from callback/event output', async () => {
+    const integration = new TaskIntegration();
+    await integration.initialize();
+
+    const onProgress = vi.fn();
+    (integration as any).progressCallbacks.set('tsk_1', onProgress);
+    (integration as any).taskSessions.set('tsk_1', 'ses_1');
+
+    let emittedLine: string | undefined;
+    integration.on('task:output', (event) => {
+      emittedLine = event.line;
+    });
+
+    executorEmitter.emit('harness:output', {
+      taskId: 'tsk_1',
+      data: { line: '{"type":"item.completed","item":{"type":"reasoning","text":"x"}}' },
+    });
+
+    expect(onProgress).not.toHaveBeenCalled();
+    expect(emittedLine).toBe('');
+  });
+
   it('pauses task manager when harness emits a question event', async () => {
     const integration = new TaskIntegration();
     await integration.initialize();

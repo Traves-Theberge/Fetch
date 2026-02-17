@@ -59,4 +59,18 @@ describe('formatForWhatsApp', () => {
     expect(chunks.join('\n')).toContain('show full tool list');
     expect(getWhatsAppFormatMetrics().chunkedCount).toBe(1);
   });
+
+  it('strips structured runtime event traces from output', () => {
+    const input = [
+      '✅ {"type":"thread.started","thread_id":"abc"}',
+      '{"type":"item.completed","item":{"type":"reasoning","text":"x"}}',
+      'Implemented the fix and updated docs.',
+    ].join('\n');
+
+    const output = formatForWhatsApp(input);
+
+    expect(output).toContain('Implemented the fix and updated docs.');
+    expect(output).not.toContain('thread.started');
+    expect(output).not.toContain('"item.completed"');
+  });
 });

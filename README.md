@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.84
+fetch self pin v0.0.85
 fetch uninstall
 ```
 
@@ -136,7 +136,9 @@ fetch harness uninstall github
   - built-in `gh copilot` command (newer GitHub CLI)
   - `github/gh-copilot` extension (legacy path)
 - If GitHub auth is missing, run `gh auth login` on host and re-check `fetch harness status`.
+- If `GH_TOKEN` is stale but host `gh` auth is still valid, Fetch now falls back to mounted `~/.config/gh` auth inside kennel.
 - Use `fetch setup --install-harnesses` after changing harness enable flags.
+- `workspace_sync` only reports success when a push/publication is actually verifiable; otherwise it returns a clear actionable error.
 
 ## Workflow Automation
 

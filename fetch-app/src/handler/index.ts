@@ -443,7 +443,14 @@ function normalizeTaskFailure(error?: string): string {
   if (BROKEN_CODEX_SKILL_LINK_PATTERN.test(raw)) {
     return 'Codex skill links were misconfigured in the runtime. Fetch repaired the broken links; retry the task.';
   }
-  return raw;
+  const dejson = raw
+    .replace(/\{\s*"type"\s*:\s*"(?:thread|turn|item)\.[\s\S]*?(?=\n|$)/g, '')
+    .trim();
+  const safe = sanitizeError(dejson || raw);
+  if (!safe || /^(process failed:\s*)?$/i.test(safe)) {
+    return 'Task failed due to runtime/tooling error. Check logs and retry.';
+  }
+  return safe;
 }
 
 // =============================================================================

@@ -70,6 +70,9 @@ export class WorkspaceManager extends EventEmitter {
   /** Last GitHub operation error for user-facing diagnostics */
   private lastGitHubError: string | null = null;
 
+  /** Last detected GitHub auth mode for diagnostics */
+  private lastGitHubAuthMode: 'token' | 'mounted_gh_auth' | 'none' = 'none';
+
   // ==========================================================================
   // Workspace Listing
   // ==========================================================================
@@ -753,19 +756,41 @@ export class WorkspaceManager extends EventEmitter {
    * supported path, but mounted gh auth state may also work when valid.
    */
   async isGitHubAvailable(): Promise<boolean> {
-    // Connectivity test (similar to github-mcp-server "get_me")
-    // gh auth status is too strict and fails on minor sync issues;
-    // gh api user is a direct proof of connectivity.
-    const authResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
+    this.lastGitHubAuthMode = 'none';
+
+    // Primary path: current environment auth (typically GH_TOKEN).
+    const primary = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,
     });
-
-    if (authResult.exitCode !== 0) {
-      logger.warn('GitHub authentication check failed', { error: authResult.stderr });
-      return false;
+    if (primary.exitCode === 0 && primary.stdout.trim()) {
+      this.lastGitHubAuthMode = 'token';
+      this.lastGitHubError = null;
+      return true;
     }
 
-    return true;
+    // Fallback path: mounted gh auth state from host, bypassing stale GH_TOKEN.
+    // GH_TOKEN can become stale after self-update; mounted gh auth may still be valid.
+    const fallback = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
+      timeoutMs: 10000,
+      env: { GH_TOKEN: '' },
+    });
+    if (fallback.exitCode === 0 && fallback.stdout.trim()) {
+      this.lastGitHubAuthMode = 'mounted_gh_auth';
+      this.lastGitHubError = null;
+      logger.warn('GitHub auth recovered via mounted gh config (GH_TOKEN appears stale).');
+      return true;
+    }
+
+    const primaryErr = primary.stderr.trim() || primary.stdout.trim() || 'unknown error';
+    const fallbackErr = fallback.stderr.trim() || fallback.stdout.trim() || 'unknown error';
+    this.lastGitHubError =
+      `Kennel GitHub auth failed. token-path="${primaryErr}". mounted-gh-path="${fallbackErr}". ` +
+      'Run `fetch setup --sync-gh-token` (or `gh auth login`) and retry.';
+    logger.warn('GitHub authentication check failed', {
+      tokenPathError: primaryErr,
+      mountedPathError: fallbackErr,
+    });
+    return false;
   }
 
   /**
@@ -1006,24 +1031,51 @@ export class WorkspaceManager extends EventEmitter {
         };
       }
     }
+    if (!remoteUrl && changedFiles > 0) {
+      return {
+        success: false,
+        commitHash,
+        commitMessage,
+        remoteUrl,
+        filesChanged: changedFiles,
+        pushed: false,
+        repoCreated,
+        error: this.lastGitHubError || `Committed locally but could not publish '${workspaceId}' to GitHub.`,
+      };
+    }
 
     // Push if remote exists
     let pushed = false;
     if (remoteUrl) {
       // Check if we actually have anything to push (local commits vs remote)
       const unpushedResult = await dockerExec('git', ['-C', wsPath, 'rev-list', '--count', '@{upstream}..HEAD']);
-      const hasUnpushed = unpushedResult.exitCode === 0 && parseInt(unpushedResult.stdout.trim()) > 0;
+      const hasTrackingInfo = unpushedResult.exitCode === 0;
+      const hasUnpushed = hasTrackingInfo && parseInt(unpushedResult.stdout.trim()) > 0;
+      const shouldAttemptPush = !hasTrackingInfo || hasUnpushed || changedFiles > 0 || !!commitHash;
 
-      if (hasUnpushed || changedFiles > 0 || commitHash) {
+      if (shouldAttemptPush) {
         logger.info(`Pushing changes to GitHub for workspace ${workspaceId}...`);
+        const pushArgs = hasTrackingInfo
+          ? ['-C', wsPath, 'push']
+          : ['-C', wsPath, 'push', '-u', 'origin', 'HEAD'];
         const pushResult = await dockerExec(
-          'git', ['-C', wsPath, 'push'],
+          'git', pushArgs,
           { timeoutMs: 30000 }
         );
         pushed = pushResult.exitCode === 0;
 
         if (!pushed) {
           logger.warn(`Push failed for ${workspaceId}: ${pushResult.stderr}`);
+          return {
+            success: false,
+            commitHash,
+            commitMessage,
+            remoteUrl,
+            filesChanged: changedFiles,
+            pushed: false,
+            repoCreated,
+            error: `Push failed: ${pushResult.stderr.trim() || 'unknown git push failure'}`,
+          };
         }
       } else {
         logger.info(`Workspace ${workspaceId} is already up to date with remote.`);

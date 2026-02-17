@@ -400,6 +400,29 @@ describe('Workspace Tools', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('Push rejected');
     });
+
+    it('should fail loudly when commit happened but no remote/auth is available', async () => {
+      mockGetWorkspace.mockResolvedValue({
+        id: 'my-app',
+        name: 'my-app',
+        path: '/workspace/my-app',
+      });
+      mockSyncWorkspace.mockResolvedValue({
+        success: true,
+        commitHash: 'abc1234',
+        commitMessage: 'feat: local work',
+        filesChanged: 2,
+        remoteUrl: undefined,
+        pushed: false,
+        repoCreated: false,
+      });
+
+      const result = await handleWorkspaceSync({ name: 'my-app' });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('could not run because no remote is configured/authenticated');
+      expect(result.metadata?.commitHash).toBe('abc1234');
+    });
   });
 
   // ─── workspace_publish ────────────────────────────────────────

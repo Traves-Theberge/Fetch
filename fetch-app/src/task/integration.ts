@@ -46,6 +46,7 @@ type ProgressCallback = (
 
 const MAX_SUMMARY_LENGTH = 1200;
 const STRUCTURED_EVENT_PREFIX = /^(thread|turn|item)\./;
+const STRUCTURED_EVENT_SIGNAL = /"type"\s*:\s*"(thread|turn|item)\./;
 
 // ============================================================================
 // TaskIntegration Class
@@ -206,9 +207,10 @@ export class TaskIntegration extends EventEmitter {
       const callback = this.progressCallbacks.get(taskId);
       const sessionId = this.taskSessions.get(taskId);
       const payload = data as { line?: unknown; data?: unknown } | undefined;
-      const line = typeof payload?.line === 'string'
+      const rawLine = typeof payload?.line === 'string'
         ? payload.line
         : (typeof payload?.data === 'string' ? payload.data : undefined);
+      const line = rawLine ? this.cleanProgressLine(rawLine) : undefined;
 
       if (callback && line) {
         callback(taskId, line);
@@ -392,7 +394,8 @@ export class TaskIntegration extends EventEmitter {
   private cleanSummaryText(text: string): string {
     if (!text) return '';
 
-    const lines = text
+    const normalized = this.stripStructuredJsonFragments(text);
+    const lines = normalized
       .split('\n')
       .map((line) => line.trim())
       .filter(Boolean)
@@ -411,6 +414,7 @@ export class TaskIntegration extends EventEmitter {
    */
   private isStructuredHarnessEventLine(line: string): boolean {
     const trimmed = line.trim();
+    if (STRUCTURED_EVENT_SIGNAL.test(trimmed)) return true;
     if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
     try {
       const parsed = JSON.parse(trimmed) as {
@@ -425,6 +429,25 @@ export class TaskIntegration extends EventEmitter {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Removes structured JSON lifecycle objects embedded inside larger chunks.
+   */
+  private stripStructuredJsonFragments(text: string): string {
+    return text
+      .replace(/\{\s*"type"\s*:\s*"(?:thread|turn|item)\.[\s\S]*?(?=\n|$)/g, '')
+      .replace(/\{\s*"type"\s*:\s*"item\.completed"\s*,\s*"item"\s*:\s*\{[\s\S]*?(?=\n|$)/g, '');
+  }
+
+  /**
+   * Sanitizes one streamed progress line before relaying it to user-facing sinks.
+   */
+  private cleanProgressLine(line: string): string {
+    const normalized = this.stripStructuredJsonFragments(line).trim();
+    if (!normalized) return '';
+    if (this.isStructuredHarnessEventLine(normalized)) return '';
+    return normalized.length > 280 ? `${normalized.slice(0, 280).trim()}...` : normalized;
   }
 }
 

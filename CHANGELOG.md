@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.85] - 2026-02-17
+
+### Fixed
+
+- **GitHub sync truthfulness hardening** — `workspace_sync` now fails when push/publication cannot be proven (push failures, missing remote after local commit), preventing false-positive “synced to GitHub” responses.
+- **GitHub auth fallback in kennel** — GitHub availability checks now try token auth first and automatically fall back to mounted `gh` auth state when `GH_TOKEN` is stale, with clearer diagnostics.
+- **Structured log suppression** — Added stronger filtering of Codex/harness JSON lifecycle traces from task progress, task failure messages, and WhatsApp formatting output.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.85`.
+
 ## [0.0.84] - 2026-02-17
 
 ### Fixed

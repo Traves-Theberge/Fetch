@@ -57,6 +57,11 @@ export function formatForWhatsApp(text: string): string {
   // Normalize line endings first for predictable transforms.
   let formatted = text.replace(/\r\n?/g, '\n');
 
+  // Drop structured runtime event traces that should never be sent to end users.
+  formatted = formatted
+    .replace(/\{\s*"type"\s*:\s*"(?:thread|turn|item)\.[\s\S]*?(?=\n|$)/g, '')
+    .replace(/^\s*(?:✅\s*)?\{[\s\S]*"type"\s*:\s*"(?:thread|turn|item)\.[\s\S]*$/gm, '');
+
   // Split collapsed markdown bullets that often arrive as one wrapped paragraph.
   formatted = formatted
     .replace(/\s*-\s+\*\*([^*]+)\*\*:/g, '\n• *$1*:')

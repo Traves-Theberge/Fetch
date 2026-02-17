@@ -145,7 +145,7 @@ describe('WorkspaceManager', () => {
     it('should check if GitHub is available', async () => {
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0,
-        stdout: '',
+        stdout: 'TestUser',
         stderr: '',
         timedOut: false,
       });
@@ -161,19 +161,43 @@ describe('WorkspaceManager', () => {
         stderr: 'not logged in',
         timedOut: false,
       });
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 1,
+        stdout: '',
+        stderr: 'no oauth token',
+        timedOut: false,
+      });
 
       const available = await manager.isGitHubAvailable();
       expect(available).toBe(false);
     });
 
-    it('should create a GitHub repo for a workspace', async () => {
-      // isGitHubAvailable: env check (test -n "$GH_TOKEN")
+    it('should fall back to mounted gh auth when GH_TOKEN path fails', async () => {
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
-        exitCode: 0, stdout: '', stderr: '', timedOut: false,
+        exitCode: 1,
+        stdout: '',
+        stderr: 'token expired',
+        timedOut: false,
       });
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: 'TestUser',
+        stderr: '',
+        timedOut: false,
+      });
+
+      const available = await manager.isGitHubAvailable();
+      expect(available).toBe(true);
+    });
+
+    it('should create a GitHub repo for a workspace', async () => {
       // isGitHubAvailable: gh api user connectivity check
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
+      });
+      // ensureGitSafeDirectory
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
       });
 
       // gh repo create
@@ -196,13 +220,13 @@ describe('WorkspaceManager', () => {
     });
 
     it('should handle repo already exists by linking', async () => {
-      // isGitHubAvailable: env check (test -n "$GH_TOKEN")
-      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
-        exitCode: 0, stdout: '', stderr: '', timedOut: false,
-      });
       // isGitHubAvailable: gh api user connectivity check
       vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
         exitCode: 0, stdout: 'TestUser', stderr: '', timedOut: false,
+      });
+      // ensureGitSafeDirectory (createGitHubRepo)
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
       });
 
       // gh repo create → already exists
@@ -211,6 +235,11 @@ describe('WorkspaceManager', () => {
         stdout: '',
         stderr: 'already exists',
         timedOut: false,
+      });
+
+      // ensureGitSafeDirectory (linkExistingRepo)
+      vi.mocked(dockerUtils.dockerExec).mockResolvedValueOnce({
+        exitCode: 0, stdout: '', stderr: '', timedOut: false,
       });
 
       // linkExistingRepo: gh api user (for username)
@@ -261,6 +290,7 @@ describe('WorkspaceManager', () => {
       (manager as any).lastCacheRefresh = Date.now();
 
       vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // git status --porcelain
@@ -276,6 +306,68 @@ describe('WorkspaceManager', () => {
       expect(result.success).toBe(true);
       expect(result.filesChanged).toBe(1);
       expect(result.pushed).toBe(true);
+      expect(result.commitHash).toBe('abc1234');
+    });
+
+    it('returns failure when push is required but git push fails', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // status
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1 file changed\n', stderr: '', timedOut: false }) // diff --cached --stat
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'abc1234', stderr: '', timedOut: false }) // log -1
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'https://github.com/TestUser/test-project', stderr: '', timedOut: false }) // remote get-url
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1', stderr: '', timedOut: false }) // rev-list
+        .mockResolvedValueOnce({ exitCode: 1, stdout: '', stderr: 'permission denied', timedOut: false }); // push
+
+      const result = await manager.syncWorkspace('test-project');
+
+      expect(result.success).toBe(false);
+      expect(result.pushed).toBe(false);
+      expect(result.error).toContain('Push failed');
+    });
+
+    it('returns failure when local commit is created but no remote can be configured', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // status
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1 file changed\n', stderr: '', timedOut: false }) // diff --cached --stat
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'abc1234', stderr: '', timedOut: false }) // log -1
+        .mockResolvedValueOnce({ exitCode: 1, stdout: '', stderr: 'no remote', timedOut: false }) // remote get-url
+        .mockResolvedValueOnce({ exitCode: 1, stdout: '', stderr: 'auth failed', timedOut: false }) // gh api user (token)
+        .mockResolvedValueOnce({ exitCode: 1, stdout: '', stderr: 'auth failed', timedOut: false }); // gh api user (mounted)
+
+      const result = await manager.syncWorkspace('test-project');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Kennel GitHub auth failed');
       expect(result.commitHash).toBe('abc1234');
     });
 
