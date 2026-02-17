@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.80] - 2026-02-17
+
 ### Changed
 
 - **Git workspace ownership hardening** — Workspace git/GitHub flows now auto-register each workspace path as git `safe.directory` inside kennel to prevent false failures caused by Docker bind-mount ownership checks.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.80`.
 
 ## [0.0.79] - 2026-02-17
 
