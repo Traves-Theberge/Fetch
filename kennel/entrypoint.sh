@@ -5,6 +5,29 @@
 
 set -e
 
+cleanup_broken_codex_skill_links() {
+  local skills_dir="/root/.codex/skills"
+  local cleaned=0
+
+  if [ ! -d "$skills_dir" ]; then
+    return 0
+  fi
+
+  while IFS= read -r -d '' link; do
+    if [ -L "$link" ] && [ ! -e "$link" ]; then
+      rm -f "$link"
+      cleaned=$((cleaned + 1))
+      echo "⚠️  Removed broken Codex skill symlink: $link"
+    fi
+  done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type l -print0 2>/dev/null)
+
+  if [ "$cleaned" -gt 0 ]; then
+    echo "✅ Cleaned $cleaned broken Codex skill symlink(s)"
+  fi
+}
+
+cleanup_broken_codex_skill_links
+
 if [ -n "$GH_TOKEN" ]; then
   # Configure gh CLI to use the token (overrides mounted hosts.yml)
   gh auth setup-git 2>/dev/null || true

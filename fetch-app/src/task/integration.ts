@@ -10,6 +10,8 @@
  */
 
 import { EventEmitter } from 'events';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { getTaskManager, TaskManager } from './manager.js';
 import { getHarnessExecutor } from '../harness/executor.js';
 import { workspaceManager } from '../workspace/manager.js';
@@ -17,6 +19,9 @@ import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import type { Task, TaskId, AgentType } from './types.js';
 import type { HarnessResult } from '../harness/types.js';
+import { KENNEL_CONTAINER } from '../harness/types.js';
+
+const execFileAsync = promisify(execFile);
 
 // ============================================================================
 // Types
@@ -107,6 +112,7 @@ export class TaskIntegration extends EventEmitter {
 
       // Determine agent type
       const agent = this.selectAgent(task.agent);
+      await this.prepareAgentRuntime(agent);
 
       // Update task status
       await this.manager!.startTask(task.id);
@@ -273,6 +279,51 @@ export class TaskIntegration extends EventEmitter {
       throw new Error('No harnesses are currently enabled.');
     }
     return agent as AgentType;
+  }
+
+  /**
+   * Performs lightweight runtime checks/repairs before launching a harness.
+   */
+  private async prepareAgentRuntime(agent: AgentType): Promise<void> {
+    if (agent !== 'codex') return;
+    await this.cleanupBrokenCodexSkillSymlinks();
+  }
+
+  /**
+   * Removes broken symlinks under `/root/.codex/skills` in the kennel container.
+   *
+   * Codex can fail fast when one dangling skill symlink is present. We prune
+   * only links that do not resolve so valid custom skills remain untouched.
+   */
+  private async cleanupBrokenCodexSkillSymlinks(): Promise<void> {
+    const script = [
+      'set -e',
+      'skills_dir="/root/.codex/skills"',
+      'if [ ! -d "$skills_dir" ]; then echo "ok"; exit 0; fi',
+      'cleaned=0',
+      'while IFS= read -r -d "" link; do',
+      '  if [ -L "$link" ] && [ ! -e "$link" ]; then',
+      '    rm -f "$link"',
+      '    cleaned=$((cleaned + 1))',
+      '  fi',
+      'done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type l -print0 2>/dev/null)',
+      'if [ "$cleaned" -gt 0 ]; then echo "cleaned:$cleaned"; else echo "ok"; fi',
+    ].join('; ');
+
+    try {
+      const { stdout } = await execFileAsync(
+        'docker',
+        ['exec', KENNEL_CONTAINER, 'bash', '-lc', script],
+        { timeout: 8000, maxBuffer: 1024 * 256 }
+      );
+
+      const output = String(stdout ?? '').trim();
+      if (output.startsWith('cleaned:')) {
+        logger.warn(`Pre-task Codex skill cleanup applied (${output})`);
+      }
+    } catch (error) {
+      logger.warn('Pre-task Codex skill cleanup skipped', error);
+    }
   }
 
   /** Maps a harness result into task-manager completion/failure updates. */

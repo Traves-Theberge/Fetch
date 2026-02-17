@@ -35,6 +35,9 @@ let initialized = false;
 /** Optional sender used for proactive task notifications. */
 let sendWhatsApp: ((userId: string, text: string) => Promise<void>) | null = null;
 
+const BROKEN_CODEX_SKILL_LINK_PATTERN =
+  /failed to stat skills entry .*\/root\/\.codex\/skills\/|missing symlink.*\/root\/\.codex\/skills\//i;
+
 /**
  * Registers a callback used to send proactive WhatsApp messages.
  */
@@ -157,7 +160,8 @@ export async function initializeHandler(): Promise<void> {
         return;
       }
 
-      await sManager.addAssistantMessage(session, `❌ Task failed: ${error ?? 'Unknown error'}`);
+      const userFacingError = normalizeTaskFailure(error);
+      await sManager.addAssistantMessage(session, `❌ Task failed: ${userFacingError}`);
 
       session.activeTaskId = null;
       await sManager.updateSession(session);
@@ -165,7 +169,7 @@ export async function initializeHandler(): Promise<void> {
       // Send WhatsApp notification
       if (sendWhatsApp) {
         const notification = await formatNotification('task:failed', {
-          error: error ?? 'Unknown error',
+          error: userFacingError,
           scopeKey: session.id,
         });
         await sendWhatsApp(session.userId, `🐕 ❌ ${notification}`);
@@ -429,6 +433,17 @@ function sanitizeError(error: unknown): string {
   }
 
   return msg.trim() || 'Unknown error';
+}
+
+/**
+ * Maps raw task failures into short user-facing messages.
+ */
+function normalizeTaskFailure(error?: string): string {
+  const raw = (error ?? 'Unknown error').trim();
+  if (BROKEN_CODEX_SKILL_LINK_PATTERN.test(raw)) {
+    return 'Codex skill links were misconfigured in the runtime. Fetch repaired the broken links; retry the task.';
+  }
+  return raw;
 }
 
 // =============================================================================
