@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.82] - 2026-02-17
+
 ### Changed
 
 - **WhatsApp task progress filtering** — Suppressed structured harness JSON lifecycle events (`thread.*`, `turn.*`, `item.*`) from proactive WhatsApp progress messages so users only receive human-readable updates.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.82`.
 
 ## [0.0.81] - 2026-02-17
 
