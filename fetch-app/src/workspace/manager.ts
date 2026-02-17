@@ -341,6 +341,8 @@ export class WorkspaceManager extends EventEmitter {
     }
 
     try {
+      await this.ensureGitSafeDirectory(path);
+
       // Get branch name
       const branchResult = await dockerExec(
         'git',
@@ -706,9 +708,26 @@ export class WorkspaceManager extends EventEmitter {
   }
 
   private async initializeGit(path: string): Promise<void> {
+    await this.ensureGitSafeDirectory(path);
     await dockerExec('git', ['-C', path, 'init']);
     await dockerExec('git', ['-C', path, 'add', '.']);
     await dockerExec('git', ['-C', path, 'commit', '-m', 'Initial commit']);
+  }
+
+  /**
+   * Ensure git trusts this workspace path inside kennel.
+   *
+   * Docker bind mounts can surface ownership that differs from the exec user.
+   * Git then blocks operations with "detected dubious ownership". Registering
+   * safe.directory avoids false "not a git repository" failures on gh flows.
+   */
+  private async ensureGitSafeDirectory(workspacePath: string): Promise<void> {
+    const result = await dockerExec('git', ['config', '--global', '--add', 'safe.directory', workspacePath], {
+      timeoutMs: 5000,
+    });
+    if (result.exitCode !== 0) {
+      logger.debug('Failed to add git safe.directory', { workspacePath, stderr: result.stderr });
+    }
   }
 
   // ==========================================================================
@@ -758,6 +777,8 @@ export class WorkspaceManager extends EventEmitter {
       return undefined;
     }
 
+    await this.ensureGitSafeDirectory(workspacePath);
+
     try {
       // Build gh repo create command
       // --private: default to private repos
@@ -782,6 +803,10 @@ export class WorkspaceManager extends EventEmitter {
       });
 
       if (result.exitCode !== 0) {
+        if (result.stderr.includes('detected dubious ownership')) {
+          logger.error(`Git safe.directory rejected workspace ${workspacePath}: ${result.stderr}`);
+          return undefined;
+        }
         // Repo might already exist — try to add remote and push instead
         if (result.stderr.includes('already exists')) {
           logger.info(`GitHub repo ${name} already exists, linking...`);
@@ -812,6 +837,8 @@ export class WorkspaceManager extends EventEmitter {
     workspacePath: string,
     name: string
   ): Promise<string | undefined> {
+    await this.ensureGitSafeDirectory(workspacePath);
+
     // Get the authenticated user's GitHub username
     const userResult = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,
@@ -879,6 +906,7 @@ export class WorkspaceManager extends EventEmitter {
     }
 
     const wsPath = getWorkspacePath(workspaceId);
+    await this.ensureGitSafeDirectory(wsPath);
 
     // Check if it's a git repo
     const gitCheck = await dockerExec('test', ['-d', `${wsPath}/.git`]);
@@ -1013,6 +1041,7 @@ export class WorkspaceManager extends EventEmitter {
     }
 
     const wsPath = getWorkspacePath(workspaceId);
+    await this.ensureGitSafeDirectory(wsPath);
 
     // Ensure git repo exists
     const gitCheck = await dockerExec('test', ['-d', `${wsPath}/.git`]);
