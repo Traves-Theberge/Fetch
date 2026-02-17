@@ -127,4 +127,17 @@ describe('TaskIntegration Event Mapping', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Workspace not found');
   });
+
+  it('strips structured harness JSONL from user-facing summaries', () => {
+    const integration = new TaskIntegration();
+    const cleaned = (integration as any).cleanSummaryText([
+      '{"type":"thread.started","thread_id":"abc"}',
+      '{"type":"item.completed","item":{"type":"reasoning","text":"x"}}',
+      'Implemented the zinc shadcn refactor and kept gameplay behavior unchanged.',
+    ].join('\n'));
+
+    expect(cleaned).toContain('Implemented the zinc shadcn refactor');
+    expect(cleaned).not.toContain('thread.started');
+    expect(cleaned).not.toContain('"type":"item.completed"');
+  });
 });

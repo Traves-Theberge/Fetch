@@ -14,6 +14,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { getTaskManager, TaskManager } from './manager.js';
 import { getHarnessExecutor } from '../harness/executor.js';
+import { getAdapter } from '../harness/registry.js';
 import { workspaceManager } from '../workspace/manager.js';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
@@ -42,6 +43,9 @@ type ProgressCallback = (
   message: string,
   percent?: number
 ) => void;
+
+const MAX_SUMMARY_LENGTH = 1200;
+const STRUCTURED_EVENT_PREFIX = /^(thread|turn|item)\./;
 
 // ============================================================================
 // TaskIntegration Class
@@ -140,7 +144,7 @@ export class TaskIntegration extends EventEmitter {
       );
 
       // Process result
-      return this.processResult(task.id, result);
+      return this.processResult(task.id, result, agent);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error(`Task execution failed: ${task.id}`, { error: errorMessage });
@@ -329,14 +333,17 @@ export class TaskIntegration extends EventEmitter {
   /** Maps a harness result into task-manager completion/failure updates. */
   private async processResult(
     taskId: TaskId,
-    result: HarnessResult
+    result: HarnessResult,
+    agent: AgentType
   ): Promise<TaskExecutionResult> {
     if (result.success) {
+      const summary = this.buildUserFacingSummary(agent, result.output ?? '');
+
       // Build TaskResult object
       // Note: filesModified would be parsed from output in real implementation
       const taskResult = {
         success: true,
-        summary: result.output ?? 'Task completed successfully',
+        summary,
         filesModified: [] as string[], // Not yet parsed from harness output — adapters have extractFileOperations() but executor doesn't expose it
         filesCreated: [] as string[],
         filesDeleted: [] as string[],
@@ -349,7 +356,7 @@ export class TaskIntegration extends EventEmitter {
       return {
         taskId,
         success: true,
-        output: result.output,
+        output: summary,
       };
     } else {
       await this.manager!.failTask(taskId, result.error ?? 'Unknown error');
@@ -359,6 +366,64 @@ export class TaskIntegration extends EventEmitter {
         success: false,
         error: result.error,
       };
+    }
+  }
+
+  /**
+   * Converts raw harness output into a concise, user-facing completion summary.
+   */
+  private buildUserFacingSummary(agent: AgentType, output: string): string {
+    try {
+      const adapter = getAdapter(agent);
+      const extracted = adapter.extractSummary(output) ?? '';
+      const cleaned = this.cleanSummaryText(extracted);
+      if (cleaned) return cleaned;
+    } catch (error) {
+      logger.warn('Failed to extract adapter summary; using fallback summarizer', error);
+    }
+
+    const fallback = this.cleanSummaryText(output);
+    return fallback || 'Task completed successfully.';
+  }
+
+  /**
+   * Strips structured event noise and bounds message size for notifications.
+   */
+  private cleanSummaryText(text: string): string {
+    if (!text) return '';
+
+    const lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter((line) => !this.isStructuredHarnessEventLine(line))
+      .filter((line) => !line.startsWith('```'))
+      .filter((line) => !line.startsWith('```json'));
+
+    const compact = lines.join('\n').trim();
+    if (!compact) return '';
+    if (compact.length <= MAX_SUMMARY_LENGTH) return compact;
+    return `${compact.slice(0, MAX_SUMMARY_LENGTH).trim()}...`;
+  }
+
+  /**
+   * Detects Codex/structured JSONL lifecycle events that should not surface to users.
+   */
+  private isStructuredHarnessEventLine(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) return false;
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        type?: unknown;
+        item?: { type?: unknown };
+      };
+      const type = typeof parsed.type === 'string' ? parsed.type : '';
+      if (STRUCTURED_EVENT_PREFIX.test(type)) return true;
+
+      const itemType = typeof parsed.item?.type === 'string' ? parsed.item.type : '';
+      return itemType === 'command_execution' || itemType === 'reasoning' || itemType === 'file_change';
+    } catch {
+      return false;
     }
   }
 }
