@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.83] - 2026-02-17
+
 ### Fixed
 
 - **Codex skills symlink resilience** — Added automatic cleanup of broken symlinks under `/root/.codex/skills` during kennel startup and immediately before Codex task execution, preventing task failures caused by dangling skill links.
 - **Task failure clarity** — Added a user-facing failure message mapping for broken Codex skill-link errors so WhatsApp users get actionable guidance instead of a raw runtime stack message.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.83`.
 
 ## [0.0.82] - 2026-02-17
 

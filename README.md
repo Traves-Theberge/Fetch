@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.82
+fetch self pin v0.0.83
 fetch uninstall
 ```
 
