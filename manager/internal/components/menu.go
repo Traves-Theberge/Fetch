@@ -150,8 +150,6 @@ func (m *Menu) ViewCompactWithHeight(height int) string {
 			for i := 0; i < gap; i++ {
 				b.WriteString("\n")
 			}
-		} else if len(topLines) > 0 {
-			b.WriteString("\n")
 		}
 		writeLineGroup(bottomLines)
 	}

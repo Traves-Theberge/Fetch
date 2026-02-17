@@ -274,14 +274,14 @@ func initialModel() model {
 		{Icon: "\U0001f4dc", Label: "View Logs"},
 		{Icon: "\U0001f4da", Label: "Documentation"},
 		{Icon: "\U0001f511", Label: "GitHub Auth"},
-		{Icon: "\u2699\ufe0f ", Label: "Settings"},
+		{Icon: "\u2699\ufe0f", Label: "Settings"},
 		{Icon: "\U0001f4ac", Label: "Global Sessions", PinToBottom: true},
 		{Icon: "\u2139\ufe0f ", Label: "Version", PinToBottom: true},
 		{Icon: "\u274c", Label: "Exit", PinToBottom: true},
 	}, 40)
 
 	settingsMenu := components.NewMenu("", []components.MenuItem{
-		{Icon: "\u2699\ufe0f ", Label: "General Configuration"},
+		{Icon: "\u2699\ufe0f", Label: "General Configuration"},
 		{Icon: "\U0001f436", Label: "Harnesses"},
 		{Icon: "\U0001f510", Label: "Trusted Numbers"},
 		{Icon: "\u21a9\ufe0f ", Label: "Back", PinToBottom: true},
@@ -1740,22 +1740,25 @@ func (m model) viewSessions() string {
 	if width == 0 {
 		width = 80
 	}
+	height := m.height
+	if height == 0 {
+		height = 24
+	}
 
-	title := theme.Title.Render("Global Sessions")
 	subtitle := theme.Subtitle.Render(fmt.Sprintf("%d active sessions found", len(m.sessions)))
 
 	var content string
 	if m.sessionLoading && len(m.sessions) == 0 {
-		content = "\n  Loading sessions...\n"
+		content = "   Loading sessions..."
 	} else if len(m.sessions) == 0 {
-		content = "\n  No active sessions found.\n"
+		content = "   No active sessions found."
 	} else {
 		header := lipgloss.NewStyle().
 			Foreground(theme.Primary).
 			Bold(true).
 			Render(fmt.Sprintf("%-10s %-18s %-10s %-20s %s", "ID", "User", "Msgs", "Last Activity", "Project"))
 
-		rows := []string{header, ""}
+		rows := []string{"   " + header, ""}
 
 		for i, s := range m.sessions {
 			style := lipgloss.NewStyle()
@@ -1782,27 +1785,27 @@ func (m model) viewSessions() string {
 				lastActivity,
 				project,
 			)
-			rows = append(rows, style.Render(row))
+			rows = append(rows, "   "+style.Render(row))
 		}
 		content = strings.Join(rows, "\n")
 	}
 
-	var actionMsg string
+	var body strings.Builder
+	body.WriteString("   " + subtitle + "\n\n")
+
 	if banner := m.renderActionBanner(); banner != "" {
-		actionMsg = banner + "\n\n"
+		body.WriteString("   " + banner + "\n\n")
 	}
+	body.WriteString(content)
 
-	help := lipgloss.NewStyle().
-		Foreground(theme.TextSecondary).
-		Render("\n  ↑/↓: Navigate • r: Refresh • x: Delete Session • c: Clear History • esc: Back")
-
-	return lipgloss.JoinVertical(lipgloss.Left,
-		title,
-		subtitle,
-		"",
-		actionMsg+content,
-		help,
-	)
+	return layout.ScreenLayout{
+		Title:      "💬 Global Sessions",
+		Content:    body.String(),
+		HelpKeys:   []string{"↑/↓ Navigate", "Enter View", "r Refresh", "x Delete", "c Clear History", "Esc Back"},
+		Breadcrumb: []string{"Main Menu", "Global Sessions"},
+		Width:      width,
+		Height:     height,
+	}.Render()
 }
 
 func (m model) updateSessionHistory(msg tea.KeyMsg) (tea.Model, tea.Cmd) {

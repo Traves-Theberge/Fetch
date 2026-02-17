@@ -667,6 +667,7 @@ export class Bridge {
 
     // SECURITY GATE 2: Rate limiting
     const rateLimitId = participantId || senderId;
+    const sessionUserId = await this.resolveCanonicalSessionUserId(message, senderId, participantId);
     if (!this.rateLimiter.isAllowed(rateLimitId)) {
       await message.reply('⏳ Slow down! You\'re sending too many requests. Please wait a moment.');
       return;
@@ -696,7 +697,7 @@ export class Bridge {
 
       // Process through agentic handler
       const responses = await handleMessage(
-        rateLimitId,
+        sessionUserId,
         validation.sanitized,
         async (text) => {
           let output = text;
@@ -730,6 +731,53 @@ export class Bridge {
       logger.error('Failed to process message', error);
       await message.reply('❌ Sorry, I encountered an error processing your request.');
     }
+  }
+
+  /**
+   * Resolve a stable per-user session identifier.
+   *
+   * Prefer phone-number JIDs (e.g. `15551234567@c.us`) so sessions don't bind
+   * to opaque WhatsApp LID identifiers (`...@lid`) when a number is available.
+   */
+  private async resolveCanonicalSessionUserId(
+    message: Message,
+    senderId: string,
+    participantId: string | undefined,
+  ): Promise<string> {
+    const isGroup = senderId.endsWith('@g.us');
+    const baseId = (isGroup ? (participantId || senderId) : senderId) || senderId;
+
+    // Already canonical.
+    if (baseId.endsWith('@c.us')) {
+      return baseId;
+    }
+
+    try {
+      const contact = await message.getContact();
+      // whatsapp-web.js commonly exposes `number` and `id._serialized`.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime shape varies by WA account mode
+      const contactAny = contact as any;
+      const number = String(contactAny?.number || '').replace(/\D/g, '');
+      if (number.length >= 10 && number.length <= 15) {
+        return `${number}@c.us`;
+      }
+
+      const serialized = String(contactAny?.id?._serialized || '');
+      if (serialized.endsWith('@c.us')) {
+        return serialized;
+      }
+    } catch {
+      // Ignore contact lookup failures and continue with fallback normalization.
+    }
+
+    const atIndex = baseId.indexOf('@');
+    const local = atIndex >= 0 ? baseId.slice(0, atIndex) : baseId;
+    const digits = local.replace(/\D/g, '');
+    if (digits.length >= 10 && digits.length <= 15) {
+      return `${digits}@c.us`;
+    }
+
+    return baseId;
   }
 
   // ===========================================================================
