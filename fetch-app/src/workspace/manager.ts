@@ -67,6 +67,9 @@ export class WorkspaceManager extends EventEmitter {
   /** Last cache refresh time */
   private lastCacheRefresh = 0;
 
+  /** Last GitHub operation error for user-facing diagnostics */
+  private lastGitHubError: string | null = null;
+
   // ==========================================================================
   // Workspace Listing
   // ==========================================================================
@@ -730,6 +733,15 @@ export class WorkspaceManager extends EventEmitter {
     }
   }
 
+  /**
+   * Returns the last GitHub operation error and clears it.
+   */
+  consumeLastGitHubError(): string | null {
+    const err = this.lastGitHubError;
+    this.lastGitHubError = null;
+    return err;
+  }
+
   // ==========================================================================
   // GitHub Sync
   // ==========================================================================
@@ -772,39 +784,52 @@ export class WorkspaceManager extends EventEmitter {
     name: string,
     description?: string
   ): Promise<string | undefined> {
+    this.lastGitHubError = null;
     if (!(await this.isGitHubAvailable())) {
       logger.warn('GitHub not available — skipping repo creation');
+      this.lastGitHubError = 'GitHub API is not reachable from kennel (authentication unavailable).';
       return undefined;
     }
 
     await this.ensureGitSafeDirectory(workspacePath);
 
+    // Build gh repo create command
+    // --private: default to private repos
+    // --source=.: use current directory as source
+    // --push: push the initial commit
+    const args = [
+      'repo', 'create', name,
+      '--private',
+      `--source=${workspacePath}`,
+      '--push',
+    ];
+
+    if (description) {
+      args.push('--description', description);
+    }
+
+    const runCreate = async () => dockerExec('gh', args, {
+      cwd: workspacePath,
+      timeoutMs: 30000,
+    });
+
     try {
-      // Build gh repo create command
-      // --private: default to private repos
-      // --source=.: use current directory as source
-      // --push: push the initial commit
-      const args = [
-        'repo', 'create', name,
-        '--private',
-        `--source=${workspacePath}`,
-        '--push',
-      ];
-
-      if (description) {
-        args.push('--description', description);
-      }
-
       this.emitEvent('workspace:scaffolding', name, { status: 'github-creating' });
 
-      const result = await dockerExec('gh', args, {
-        cwd: workspacePath,
-        timeoutMs: 30000,
-      });
+      let result = await runCreate();
+      if (
+        result.exitCode !== 0 &&
+        (result.stderr.includes('detected dubious ownership') || result.stderr.includes('not a git repository'))
+      ) {
+        // Repair safety context and retry once before returning a hard failure.
+        await this.ensureGitSafeDirectory(workspacePath);
+        result = await runCreate();
+      }
 
       if (result.exitCode !== 0) {
         if (result.stderr.includes('detected dubious ownership')) {
           logger.error(`Git safe.directory rejected workspace ${workspacePath}: ${result.stderr}`);
+          this.lastGitHubError = 'Git blocked workspace access due to ownership safety checks (safe.directory).';
           return undefined;
         }
         // Repo might already exist — try to add remote and push instead
@@ -813,6 +838,7 @@ export class WorkspaceManager extends EventEmitter {
           return await this.linkExistingRepo(workspacePath, name);
         }
         logger.error(`Failed to create GitHub repo: ${result.stderr}`);
+        this.lastGitHubError = result.stderr.trim() || 'GitHub repository creation failed.';
         return undefined;
       }
 
@@ -826,6 +852,7 @@ export class WorkspaceManager extends EventEmitter {
       return url;
     } catch (err) {
       logger.error('GitHub repo creation failed', { error: err });
+      this.lastGitHubError = err instanceof Error ? err.message : String(err);
       return undefined;
     }
   }
@@ -864,6 +891,7 @@ export class WorkspaceManager extends EventEmitter {
 
     if (pushResult.exitCode !== 0) {
       logger.warn(`Push to ${repoUrl} failed: ${pushResult.stderr}`);
+      this.lastGitHubError = pushResult.stderr.trim() || `Failed to push to ${repoUrl}`;
       return undefined;
     }
 
@@ -1034,9 +1062,11 @@ export class WorkspaceManager extends EventEmitter {
     description?: string,
     isPublic = false
   ): Promise<string | undefined> {
+    this.lastGitHubError = null;
     const workspace = await this.getWorkspace(workspaceId);
     if (!workspace) {
       logger.error(`Workspace not found: ${workspaceId}`);
+      this.lastGitHubError = `Workspace not found: ${workspaceId}`;
       return undefined;
     }
 
@@ -1065,6 +1095,7 @@ export class WorkspaceManager extends EventEmitter {
     // Create GitHub repo
     if (!(await this.isGitHubAvailable())) {
       logger.warn('GitHub integration not available or authentication failed');
+      this.lastGitHubError = 'GitHub integration not available or authentication failed.';
       return undefined;
     }
 
@@ -1100,6 +1131,7 @@ export class WorkspaceManager extends EventEmitter {
     if (result.exitCode !== 0) {
       logger.error(`Failed to create GitHub repo: ${result.stderr}`);
       this.emitEvent('workspace:scaffolding', workspaceId, { status: 'github-failed', error: result.stderr });
+      this.lastGitHubError = result.stderr.trim() || 'Failed to create GitHub repository.';
       return undefined;
     }
 

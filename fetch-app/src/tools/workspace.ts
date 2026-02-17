@@ -601,10 +601,13 @@ export async function handleWorkspacePublish(
     );
 
     if (!repoUrl) {
+      const detail = workspaceManager.consumeLastGitHubError();
       return {
         success: false,
         output: '',
-        error: 'Failed to create GitHub repository. Check that gh CLI is authenticated.',
+        error: detail
+          ? `Failed to create GitHub repository: ${detail}`
+          : 'Failed to create GitHub repository.',
         duration: Date.now() - start,
       };
     }
