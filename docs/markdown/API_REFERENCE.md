@@ -51,7 +51,7 @@ Returns system health and WhatsApp connection state.
   "uptime": 3600,
   "messageCount": 42,
   "lastError": null,
-  "version": "0.0.76",
+  "version": "0.0.77",
   "notificationMetrics": {
     "total": 120,
     "templateEphemeral": 70,
