@@ -88,7 +88,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       const errorStack = error instanceof Error ? error.stack : undefined;
       logger.error('Failed to initialize Fetch Bridge:', { message: errorMessage, stack: errorStack });
       updateStatus({ state: 'error', lastError: errorMessage });
-      exit(1);
+      logger.warn('Bridge initialization failed; runtime will remain alive and retry.');
     } finally {
       bridgeStarting = false;
     }

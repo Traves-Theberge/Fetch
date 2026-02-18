@@ -55,7 +55,7 @@ This is the master documentation index for Fetch.
 8. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
 9. **Tools** execute with `ToolContext { sessionId, autonomyLevel }` — dangerous-tool policy is enforced at registry level, and tool calls/results are persisted to the session with argument redaction
 10. **Compaction** triggers automatically when messages exceed the threshold — older messages are summarized and trimmed
-11. **Response** is formatted for WhatsApp and sent back. Task completions push proactive notifications
+11. **Response pipeline** uses a shared envelope renderer (`ResponseEnvelope` → composer → WhatsApp formatter/chunker) for both normal replies and proactive lifecycle notifications (`started`, `progress`, `file_op`, `question`, `completed`, `failed`)
 
 ## Security Model
 

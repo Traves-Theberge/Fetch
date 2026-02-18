@@ -215,36 +215,29 @@ The LLM has access to the registered tools:
 
 ## Response Formats
 
-When Fetch is working on a task, you'll see structured responses:
+Fetch now renders both normal replies and proactive task updates through one structured path:
 
-**Task started:**
+`ResponseEnvelope` → `composeWhatsAppResponse` → `formatAndChunkForWhatsApp`
 
-```
-🚀 Task started: Add input validation
-🤖 Using Claude Code
-📁 Project: my-api
-```
+This keeps wording and formatting consistent across:
 
-**Progress update:**
+- conversational responses
+- deterministic natural-language command routes (`status`, workspace list, sync/push intents)
+- task lifecycle updates (`started`, `progress`, `file_op`, `question`, `completed`, `failed`)
 
-```
-📝 Editing src/routes/auth.ts...
-📝 Creating src/middleware/validate.ts...
-```
+Typical output pattern:
 
-**Task complete:**
-
-```
-✅ Task complete!
-Changed 3 files:
-  • src/routes/auth.ts (modified)
-  • src/middleware/validate.ts (created)
-  • tests/auth.test.ts (created)
+```text
+🐕 ✅ *Task Completed*
+✅ Implemented auth middleware and added tests.
+• Next: open PR | run tests
+What should I do next?
 ```
 
-**Approval required (destructive action):**
+Approval-required actions remain explicit and safety-gated:
 
-```
-⚠️ This will delete 5 files. Approve?
-Reply: yes/no
+```text
+🐕 ⚠️ *Confirmation Required*
+⚠️ This action is destructive and needs approval.
+Reply yes/no.
 ```

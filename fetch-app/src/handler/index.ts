@@ -16,7 +16,9 @@ import { processMessage, selectPromptMode, type AgentResponse } from '../agent/c
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
 import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../agent/whatsapp-format.js';
+import { composeWhatsAppResponse } from '../agent/composer.js';
 import { formatNotification } from '../agent/notifications.js';
+import type { ResponseEnvelope } from '../agent/envelope.js';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -44,6 +46,20 @@ const BROKEN_CODEX_SKILL_LINK_PATTERN =
 export function registerWhatsAppSender(fn: (userId: string, text: string) => Promise<void>): void {
   sendWhatsApp = fn;
   logger.info('WhatsApp sender registered for proactive messages');
+}
+
+function renderEnvelopeChunks(envelope: ResponseEnvelope, intent?: AgentResponse['intent']): string[] {
+  const composed = composeWhatsAppResponse(envelope);
+  const chunks = formatAndChunkForWhatsApp(composed, intent);
+  return chunks.map((chunk) => `🐕 ${chunk}`);
+}
+
+async function sendEnvelopeNotification(userId: string, envelope: ResponseEnvelope): Promise<void> {
+  if (!sendWhatsApp) return;
+  const messages = renderEnvelopeChunks(envelope);
+  for (const msg of messages) {
+    await sendWhatsApp(userId, msg);
+  }
 }
 
 // =============================================================================
@@ -95,7 +111,14 @@ export async function initializeHandler(): Promise<void> {
           goal,
           scopeKey: session.id,
         });
-        await sendWhatsApp(session.userId, `🐕 ${notification}`);
+        await sendEnvelopeNotification(session.userId, {
+          kind: 'progress',
+          severity: 'info',
+          mode: 'conversational',
+          emojiLevel: 'normal',
+          title: 'Task Started',
+          summary: notification,
+        });
       }
     } catch (err) {
       logger.error('Failed to handle task:started event', err);
@@ -119,9 +142,7 @@ export async function initializeHandler(): Promise<void> {
 
       if (!task) return;
 
-      // Add completion message to session history
       const summary = task.result?.summary ?? 'Task completed';
-      await sManager.addAssistantMessage(session, `✅ Task completed: ${summary}`);
 
       // Clear active task
       session.activeTaskId = null;
@@ -132,16 +153,25 @@ export async function initializeHandler(): Promise<void> {
         ? Math.round((new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime()) / 1000)
         : undefined;
 
+      const notification = await formatNotification('task:completed', {
+        summary,
+        filesCreated: task.result?.filesCreated,
+        filesModified: task.result?.filesModified,
+        filesDeleted: task.result?.filesDeleted,
+        durationSec,
+        scopeKey: session.id,
+      });
+      const completedEnvelope: ResponseEnvelope = {
+        kind: 'action_result',
+        severity: 'success',
+        mode: 'conversational',
+        emojiLevel: 'normal',
+        title: 'Task Completed',
+        summary: notification,
+      };
+      await sManager.addAssistantMessage(session, composeWhatsAppResponse(completedEnvelope));
       if (sendWhatsApp) {
-        const notification = await formatNotification('task:completed', {
-          summary,
-          filesCreated: task.result?.filesCreated,
-          filesModified: task.result?.filesModified,
-          filesDeleted: task.result?.filesDeleted,
-          durationSec,
-          scopeKey: session.id,
-        });
-        await sendWhatsApp(session.userId, `🐕 ✅ ${notification}`);
+        await sendEnvelopeNotification(session.userId, completedEnvelope);
       }
     } catch (err) {
       logger.error('Failed to handle task:completed event', err);
@@ -161,18 +191,26 @@ export async function initializeHandler(): Promise<void> {
       }
 
       const userFacingError = normalizeTaskFailure(error);
-      await sManager.addAssistantMessage(session, `❌ Task failed: ${userFacingError}`);
 
       session.activeTaskId = null;
       await sManager.updateSession(session);
 
       // Send WhatsApp notification
+      const notification = await formatNotification('task:failed', {
+        error: userFacingError,
+        scopeKey: session.id,
+      });
+      const failedEnvelope: ResponseEnvelope = {
+        kind: 'error',
+        severity: 'error',
+        mode: 'conversational',
+        emojiLevel: 'normal',
+        title: 'Task Failed',
+        summary: notification,
+      };
+      await sManager.addAssistantMessage(session, composeWhatsAppResponse(failedEnvelope));
       if (sendWhatsApp) {
-        const notification = await formatNotification('task:failed', {
-          error: userFacingError,
-          scopeKey: session.id,
-        });
-        await sendWhatsApp(session.userId, `🐕 ❌ ${notification}`);
+        await sendEnvelopeNotification(session.userId, failedEnvelope);
       }
     } catch (err) {
       logger.error('Failed to handle task:failed event', err);
@@ -234,6 +272,13 @@ export async function handleMessage(
     const { parseCommand } = await import('../commands/parser.js');
     const result = await parseCommand(message, session, sManager);
     if (result.handled) {
+      if (result.envelopes?.length) {
+        const rendered: string[] = [];
+        for (const envelope of result.envelopes) {
+          rendered.push(...renderEnvelopeChunks(envelope));
+        }
+        return rendered;
+      }
       // Format command responses for WhatsApp too
       return (result.responses || []).map(r => formatForWhatsApp(r));
     }
@@ -337,6 +382,11 @@ export async function handleMessage(
  */
 function buildResponses(response: AgentResponse): string[] {
   const responses: string[] = [];
+
+  if (response.envelope) {
+    responses.push(...renderEnvelopeChunks(response.envelope, response.intent));
+    return responses;
+  }
 
   // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {

@@ -26,8 +26,10 @@
 import { Session } from '../session/types.js';
 import { SessionManager } from '../session/manager.js';
 import { formatHelp, formatStatus, formatUsage } from '../agent/format.js';
+import { envelopeFromToolResult } from '../agent/envelope.js';
 import { handleStop, handleUndo, handleUndoAll } from './task.js';
 import { handleTrust } from './trust.js';
+import { handleWorkspaceList, handleWorkspaceStatus, handleWorkspaceSync } from '../tools/workspace.js';
 import { VERSION } from '../config/env.js';
 import type { CommandResult } from './types.js';
 
@@ -54,8 +56,63 @@ export async function parseCommand(
   sessionManager: SessionManager
 ): Promise<CommandResult> {
   const trimmed = message.trim();
+  const normalized = trimmed.toLowerCase();
 
   if (!trimmed.startsWith('/')) {
+    // Deterministic natural-language routes for high-signal operational intents.
+    if (/^(status|project status|workspace status)$/i.test(trimmed)) {
+      const result = await handleWorkspaceStatus({});
+      const envelope = envelopeFromToolResult(result, {
+        kind: 'status',
+        title: 'Workspace Status',
+        successAsk: 'Want me to sync or inspect project files next?',
+        failureAsk: 'Want me to list available workspaces first?',
+        rawToolRef: 'workspace_status',
+      });
+      return {
+        handled: true,
+        envelopes: [envelope],
+      };
+    }
+
+    if (/^(what workspaces do i have|what projects do i have|list projects|list workspaces)$/i.test(trimmed)) {
+      const result = await handleWorkspaceList({});
+      const envelope = envelopeFromToolResult(result, {
+        kind: 'status',
+        title: 'Available Workspaces',
+        successAsk: 'Want me to select one and continue?',
+        failureAsk: 'Unable to list workspaces right now. Want me to check container status?',
+        rawToolRef: 'workspace_list',
+      });
+      return {
+        handled: true,
+        envelopes: [envelope],
+      };
+    }
+
+    if (
+      /\b(commit|sync|push)\b/i.test(trimmed) &&
+      /\b(push|sync)\b/i.test(trimmed)
+    ) {
+      const result = await handleWorkspaceSync({ message: 'chore: sync changes via fetch' });
+      const envelope = envelopeFromToolResult(result, {
+        kind: 'action_result',
+        title: 'Git Sync',
+        successAsk: 'Want me to open a PR next?',
+        failureAsk: 'Want me to check GitHub auth and repo remote configuration?',
+        rawToolRef: 'workspace_sync',
+      });
+      return {
+        handled: true,
+        envelopes: [envelope],
+      };
+    }
+
+    if (normalized === 'yes' || normalized === 'y') {
+      // Keep acknowledgements conversational when no deterministic command is pending.
+      return { handled: false, shouldProcess: true };
+    }
+
     return { handled: false, shouldProcess: true };
   }
 

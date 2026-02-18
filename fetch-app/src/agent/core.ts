@@ -15,6 +15,7 @@
 import OpenAI from 'openai';
 import { Session, PromptMode, AgentRunPhase, AgentTurnTelemetry, ToolTelemetry } from '../session/types.js';
 import { logger } from '../utils/logger.js';
+import type { ResponseEnvelope } from './envelope.js';
 import {
   buildTaskFramePrompt,
   buildContextSection,
@@ -48,6 +49,8 @@ import { pipeline } from '../config/pipeline.js';
 export interface AgentResponse {
   /** Text response to user */
   text: string;
+  /** Structured response envelope for unified final rendering */
+  envelope?: ResponseEnvelope;
   /** Detected response intent used by renderer behavior */
   intent?: ResponseIntent;
   /** Tool calls made (for logging) */
@@ -385,6 +388,20 @@ export async function processMessage(
           '',
           'I will use these defaults in future replies.',
         ].join('\n'),
+        envelope: {
+          kind: 'status',
+          severity: 'info',
+          mode: session.metadata.responsePreferences.tone === 'direct' ? 'direct' : 'conversational',
+          emojiLevel: session.metadata.responsePreferences.emoji === 'low' ? 'low' : 'normal',
+          title: 'Response Preferences Updated',
+          summary: 'Saved your response defaults.',
+          facts: [
+            { label: 'Detail', value: String(session.metadata.responsePreferences.detail) },
+            { label: 'Tone', value: String(session.metadata.responsePreferences.tone) },
+            { label: 'Emoji', value: String(session.metadata.responsePreferences.emoji) },
+          ],
+          ask: 'Want me to apply this style to a status check now?',
+        },
         telemetry: {
           promptMode,
           model: MODEL,
@@ -446,6 +463,15 @@ export async function processMessage(
         });
         return {
           text: "🐕 I'm taking a short break after some hiccups. Try again in a moment!",
+          envelope: {
+            kind: 'error',
+            severity: 'warning',
+            mode: responsePreferences.tone,
+            emojiLevel: responsePreferences.emoji,
+            title: 'Temporary Pause',
+            summary: 'I hit repeated runtime issues and paused briefly.',
+            ask: 'Try again in a moment, or ask me for a lightweight status check.',
+          },
           intent,
         };
       }
@@ -522,6 +548,15 @@ export async function processMessage(
       await options?.onLifecycle?.('cancelled', { error: cancelledMsg, promptMode });
       return {
         text: cancelledMsg,
+        envelope: {
+          kind: 'action_result',
+          severity: 'warning',
+          mode: responsePreferences.tone,
+          emojiLevel: responsePreferences.emoji,
+          title: 'Run Cancelled',
+          summary: 'Stopped the current run.',
+          ask: 'Want me to start over with a fresh attempt?',
+        },
         intent,
         promptMode,
       };
@@ -542,6 +577,15 @@ export async function processMessage(
     if (!shouldContinue) {
       return {
         text: "🐕 I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
+        envelope: {
+          kind: 'error',
+          severity: 'error',
+          mode: responsePreferences.tone,
+          emojiLevel: responsePreferences.emoji,
+          title: 'Too Many Failures',
+          summary: 'I hit repeated errors and paused execution.',
+          ask: 'Try again in a few minutes, or ask for a quick status check first.',
+        },
         intent,
       };
     }
@@ -551,6 +595,15 @@ export async function processMessage(
       const safeMsg = sanitizeErrorForUser(error);
       return {
         text: `🐕 Something went wrong: ${safeMsg}`,
+        envelope: {
+          kind: 'error',
+          severity: 'error',
+          mode: responsePreferences.tone,
+          emojiLevel: responsePreferences.emoji,
+          title: 'Request Failed',
+          summary: safeMsg,
+          ask: 'Want me to retry with a narrower action?',
+        },
         intent,
         promptMode,
       };
@@ -558,6 +611,15 @@ export async function processMessage(
 
     return {
       text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
+      envelope: {
+        kind: 'error',
+        severity: 'error',
+        mode: responsePreferences.tone,
+        emojiLevel: responsePreferences.emoji,
+        title: 'Unexpected Error',
+        summary: 'I hit an unexpected runtime issue.',
+        ask: 'What should I retry first?',
+      },
       intent,
       promptMode,
     };

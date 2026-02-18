@@ -29,6 +29,27 @@ import {
 } from '../validation/tools.js';
 import type { ToolResult } from './types.js';
 
+async function resolveWorkspaceId(
+  explicitName: string | undefined
+): Promise<string | null> {
+  const fromInput = explicitName?.trim();
+  if (fromInput) return fromInput;
+
+  const active = workspaceManager.getActiveWorkspaceId();
+  if (active) return active;
+
+  try {
+    const listed = await workspaceManager.listWorkspaces();
+    if (listed.count === 1 && listed.workspaces[0]?.id) {
+      return listed.workspaces[0].id;
+    }
+  } catch {
+    // Fall through to null when listing fails.
+  }
+
+  return null;
+}
+
 // ============================================================================
 // workspace_list
 // ============================================================================
@@ -183,18 +204,7 @@ export async function handleWorkspaceStatus(
   // 1) explicit name
   // 2) active workspace
   // 3) if only one workspace exists, auto-target it
-  let workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
-
-  if (!workspaceId) {
-    try {
-      const listed = await workspaceManager.listWorkspaces();
-      if (listed.count === 1 && listed.workspaces[0]?.id) {
-        workspaceId = listed.workspaces[0].id;
-      }
-    } catch {
-      // Fall through to existing error path.
-    }
-  }
+  const workspaceId = await resolveWorkspaceId(name);
 
   if (!workspaceId) {
     return {
@@ -435,13 +445,13 @@ export async function handleWorkspaceSync(
   const { name, message } = parseResult.data as WorkspaceSyncInput;
 
   // Use active workspace if not specified
-  const workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+  const workspaceId = await resolveWorkspaceId(name);
 
   if (!workspaceId) {
     return {
       success: false,
       output: '',
-      error: 'No workspace specified and no active workspace selected',
+      error: 'No workspace specified and no active workspace selected. Use workspace_select or workspace_list first.',
       duration: Date.now() - start,
     };
   }
@@ -573,13 +583,13 @@ export async function handleWorkspacePublish(
   const { name, description, isPublic } = parseResult.data as WorkspacePublishInput;
 
   // Use active workspace if not specified
-  const workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+  const workspaceId = await resolveWorkspaceId(name);
 
   if (!workspaceId) {
     return {
       success: false,
       output: '',
-      error: 'No workspace specified and no active workspace selected',
+      error: 'No workspace specified and no active workspace selected. Use workspace_select or workspace_list first.',
       duration: Date.now() - start,
     };
   }

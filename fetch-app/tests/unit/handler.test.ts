@@ -62,6 +62,18 @@ const mockSessionManager = {
   getActiveAgentRun: vi.fn().mockReturnValue(undefined),
 };
 
+const mockTaskManager = {
+  on: vi.fn(),
+  removeAllListeners: vi.fn(),
+  getCurrentTask: vi.fn().mockReturnValue(null),
+  getTask: vi.fn().mockReturnValue(null),
+};
+
+const mockTaskIntegration = {
+  on: vi.fn(),
+  removeAllListeners: vi.fn(),
+};
+
 vi.mock('../../src/session/manager.js', () => ({
   getSessionManager: vi.fn().mockResolvedValue(mockSessionManager),
 }));
@@ -82,20 +94,16 @@ vi.mock('../../src/agent/whatsapp-format.js', () => ({
 }));
 
 vi.mock('../../src/task/manager.js', () => ({
-  getTaskManager: vi.fn().mockResolvedValue({
-    on: vi.fn(),
-    removeAllListeners: vi.fn(),
-    getCurrentTask: vi.fn().mockReturnValue(null),
-    getTask: vi.fn().mockReturnValue(null),
-  }),
+  getTaskManager: vi.fn().mockResolvedValue(mockTaskManager),
 }));
 
 vi.mock('../../src/task/integration.js', () => ({
   initializeTaskIntegration: vi.fn(),
-  getTaskIntegration: vi.fn().mockReturnValue({
-    on: vi.fn(),
-    removeAllListeners: vi.fn(),
-  }),
+  getTaskIntegration: vi.fn().mockReturnValue(mockTaskIntegration),
+}));
+
+vi.mock('../../src/agent/notifications.js', () => ({
+  formatNotification: vi.fn().mockResolvedValue('Working on it'),
 }));
 
 vi.mock('../../src/utils/logger.js', () => ({
@@ -113,27 +121,30 @@ vi.mock('../../src/utils/logger.js', () => ({
 // IMPORT AFTER MOCKS
 // =============================================================================
 
-const { handleMessage, initializeHandler, registerWhatsAppSender } = await import(
+const { handleMessage, initializeHandler, registerWhatsAppSender, shutdown } = await import(
   '../../src/handler/index.js'
 );
 const { parseCommand } = await import('../../src/commands/parser.js');
 const { processMessage } = await import('../../src/agent/core.js');
 const { formatForWhatsApp } = await import('../../src/agent/whatsapp-format.js');
 const { formatAndChunkForWhatsApp } = await import('../../src/agent/whatsapp-format.js');
+const { formatNotification } = await import('../../src/agent/notifications.js');
 
 // =============================================================================
 // TESTS
 // =============================================================================
 
 describe('Handler — Message Flow', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await shutdown();
 
     // Reset default mock behaviors
     vi.mocked(parseCommand).mockResolvedValue({ handled: false, shouldProcess: true });
     vi.mocked(processMessage).mockResolvedValue({ text: 'LLM response', toolCalls: [] });
     vi.mocked(formatForWhatsApp).mockImplementation((text: string) => text);
     vi.mocked(formatAndChunkForWhatsApp).mockImplementation((text: string) => [text]);
+    vi.mocked(formatNotification).mockResolvedValue('Working on it');
   });
 
   // ─── Normal message flow ─────────────────────────────────────────
@@ -260,6 +271,27 @@ describe('Handler — Message Flow', () => {
     expect(formatAndChunkForWhatsApp).toHaveBeenCalled();
   });
 
+  it('should render envelope responses via composer path', async () => {
+    vi.mocked(processMessage).mockResolvedValue({
+      text: 'fallback text',
+      envelope: {
+        kind: 'status',
+        severity: 'success',
+        mode: 'conversational',
+        emojiLevel: 'normal',
+        title: 'Workspace Status',
+        summary: 'Workspace is clean on main',
+      },
+      toolCalls: [],
+    });
+
+    const responses = await handleMessage('user1', 'status');
+
+    expect(responses).toHaveLength(1);
+    expect(responses[0]).toContain('Workspace Status');
+    expect(responses[0]).toContain('Workspace is clean on main');
+  });
+
   it('should call formatForWhatsApp on command responses', async () => {
     vi.mocked(parseCommand).mockResolvedValue({
       handled: true,
@@ -285,6 +317,26 @@ describe('Handler — Message Flow', () => {
     expect(responses[0]).toBe('Part 1 of help');
     expect(responses[1]).toBe('Part 2 of help');
     expect(responses[2]).toBe('Part 3 of help');
+  });
+
+  it('should compose envelope command responses when provided by parser', async () => {
+    vi.mocked(parseCommand).mockResolvedValue({
+      handled: true,
+      envelopes: [{
+        kind: 'status',
+        severity: 'success',
+        mode: 'conversational',
+        emojiLevel: 'normal',
+        title: 'Workspace Status',
+        summary: 'test-project on main',
+      }],
+    });
+
+    const responses = await handleMessage('user1', 'status');
+
+    expect(responses).toHaveLength(1);
+    expect(responses[0]).toContain('Workspace Status');
+    expect(responses[0]).toContain('test-project on main');
   });
 
   // ─── Error handling ──────────────────────────────────────────────
@@ -330,6 +382,65 @@ describe('Handler — Message Flow', () => {
       expect.objectContaining({
         lastActivityAt: expect.any(String),
       })
+    );
+  });
+
+  it('should send task started notification via envelope composer', async () => {
+    const sendWhatsApp = vi.fn().mockResolvedValue(undefined);
+    registerWhatsAppSender(sendWhatsApp);
+    await initializeHandler();
+
+    const startedHandler = mockTaskIntegration.on.mock.calls.find(([event]) => event === 'task:started')?.[1];
+    expect(startedHandler).toBeTypeOf('function');
+    if (typeof startedHandler !== 'function') {
+      throw new Error('task:started handler not registered');
+    }
+
+    vi.mocked(formatNotification).mockResolvedValueOnce('Starting implementation now');
+    await startedHandler({ taskId: 'task_1', sessionId: 'ses_1', goal: 'Implement feature X' });
+
+    expect(sendWhatsApp).toHaveBeenCalledWith(
+      'user1',
+      expect.stringContaining('Task Started')
+    );
+    expect(sendWhatsApp).toHaveBeenCalledWith(
+      'user1',
+      expect.stringContaining('Starting implementation now')
+    );
+  });
+
+  it('should persist and send task completed notification using the same envelope rendering path', async () => {
+    const sendWhatsApp = vi.fn().mockResolvedValue(undefined);
+    registerWhatsAppSender(sendWhatsApp);
+    await initializeHandler();
+
+    const completedHandler = mockTaskIntegration.on.mock.calls.find(([event]) => event === 'task:completed')?.[1];
+    expect(completedHandler).toBeTypeOf('function');
+    if (typeof completedHandler !== 'function') {
+      throw new Error('task:completed handler not registered');
+    }
+
+    mockTaskManager.getTask.mockReturnValueOnce({
+      id: 'task_1',
+      result: { summary: 'Implemented feature X' },
+      startedAt: new Date(Date.now() - 5000).toISOString(),
+      completedAt: new Date().toISOString(),
+    });
+    vi.mocked(formatNotification).mockResolvedValueOnce('Done and verified');
+
+    await completedHandler({ taskId: 'task_1', sessionId: 'ses_1' });
+
+    expect(mockSessionManager.addAssistantMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ses_1' }),
+      expect.stringContaining('Task Completed')
+    );
+    expect(sendWhatsApp).toHaveBeenCalledWith(
+      'user1',
+      expect.stringContaining('Task Completed')
+    );
+    expect(sendWhatsApp).toHaveBeenCalledWith(
+      'user1',
+      expect.stringContaining('Done and verified')
     );
   });
 });

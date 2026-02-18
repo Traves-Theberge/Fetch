@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.92
+fetch self pin v0.0.93
 fetch uninstall
 ```
 
@@ -265,6 +265,20 @@ Fetch can persist per-session response style from natural language:
 - "use fewer emojis"
 
 These preferences affect conversational capability/tool-inventory responses and carry across future turns in the same session.
+
+### Conversational Output Pipeline
+
+Fetch now uses a shared structured-response pipeline before sending WhatsApp text:
+
+- `ResponseEnvelope` contract (`fetch-app/src/agent/envelope.ts`) for normalized response shape
+- `composeWhatsAppResponse` renderer (`fetch-app/src/agent/composer.ts`) for final user-facing copy
+- shared formatting/chunking (`fetch-app/src/agent/whatsapp-format.ts`) for mobile-safe delivery
+
+This same path is used for:
+
+- normal conversational/tool responses
+- deterministic NL command responses that return envelopes
+- proactive task lifecycle updates (`started`, `progress`, `file_op`, `question`, `completed`, `failed`)
 
 ## Deterministic Safety Commands
 

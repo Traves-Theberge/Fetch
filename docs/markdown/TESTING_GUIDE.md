@@ -157,6 +157,20 @@ These messages should go through the normal LLM path (not deterministic `/help` 
 - [ ] Output suggests one concrete next action Fetch can take immediately
 - [ ] `/help` still returns the deterministic full help catalog
 
+### 2.2f Unified Response Rendering (Envelope Path)
+
+Validate that both reactive and proactive responses use the same formatting contract.
+
+```text
+@fetch what can you do?
+@fetch status
+@fetch use codex to add a small README section and report progress
+```
+
+- [ ] Responses use consistent title/summary/action style formatting
+- [ ] No raw structured lifecycle JSON (`thread.*`, `turn.*`, `item.*`) appears in WhatsApp output
+- [ ] Proactive progress/file/question updates match the same conversational style as normal replies
+
 ### 2.2e Preference Persistence
 
 ```text

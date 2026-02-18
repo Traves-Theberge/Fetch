@@ -163,7 +163,7 @@ flowchart TD
 7. **System prompt rebuilds** after state-changing tools (`workspace_select`, `workspace_create`, `task_create`) so the LLM always sees current context
 8. `task_create` tool spawns a CLI process in the Kennel container via `docker exec`
 9. Task/progress status text is rendered through a bounded path: template base → optional LLM rewrite → sanitizer, with automatic template fallback on timeout/error/invalid output
-10. Response is formatted and sent back via WhatsApp
+10. All user-facing output is unified through `ResponseEnvelope` → composer → WhatsApp formatter/chunker before send
 
 ## Boot Sequence
 
@@ -229,7 +229,8 @@ src/
 ├── api/
 │   └── status.ts         # HTTP status API (port 8765), docs server, health check
 ├── bridge/
-│   └── client.ts         # WhatsApp client, security gating, event dedup, media preprocessing, reconnection
+│   ├── client.ts         # WhatsApp client, security gating, event dedup, media preprocessing, reconnection
+│   └── progress-message.ts # Envelope-based proactive task update composition
 ├── security/
 │   ├── index.ts          # Barrel exports
 │   ├── gate.ts           # @fetch trigger + phone authorization
@@ -240,6 +241,8 @@ src/
 │   └── index.ts          # Message entry point, session lifecycle, safety-gate dispatch, response building
 ├── agent/
 │   ├── core.ts           # Single-path LLM handler, intent-gated tool routing, ReAct loop, bounded progress rewrite fallback
+│   ├── envelope.ts       # Structured response contract (pre-render)
+│   ├── composer.ts       # Envelope -> WhatsApp user text renderer
 │   ├── notifications.ts  # Hybrid LLM/template notifications with timeout + sanitizer + template fallback
 │   ├── format.ts         # Response formatting
 │   ├── prompts.ts        # System prompt builders (profile-aware workspace context)

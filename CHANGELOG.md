@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.93] - 2026-02-18
+
+### Changed
+
+- **Unified conversational response rendering** — Added a shared structured response pipeline (`ResponseEnvelope` + composer + WhatsApp formatter) for both normal replies and deterministic NL command routes.
+- **Proactive task update consistency** — Task lifecycle notifications now use the same envelope rendering path across `started`, `progress`, `file_op`, `question`, `completed`, and `failed` updates.
+- **Documentation parity update** — Updated README, Architecture, Command Reference, API Reference, and Testing Guide to reflect the unified envelope-based response flow.
+- **Envelope rendering deduplication** — Consolidated handler-side envelope rendering into a single shared helper to remove duplicate compose/chunk/prefix logic paths.
+- **Lifecycle history consistency** — Task completion/failure session-history assistant entries now persist the same composed envelope output style sent to WhatsApp.
+- **Progress fallback consistency hardening** — Progress notification fallback now remains in the envelope/composer path instead of reverting to raw text.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.93`.
+
 ## [0.0.92] - 2026-02-18
 
 ### Fixed

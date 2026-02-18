@@ -24,6 +24,7 @@ import { getTaskManager } from '../task/manager.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
 import { transcribeAudio, isTranscriptionAvailable } from '../transcription/index.js';
 import { analyzeImage, isVisionAvailable } from '../vision/index.js';
+import { composeTaskFileOpMessages, composeTaskProgressMessages, composeTaskQuestionMessages } from './progress-message.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -601,7 +602,10 @@ export class Bridge {
 
       if (isPriority || (now - lastUpdate > THROTTLE_MS)) {
         try {
-          await this.client.sendMessage(targetId, `🐕 ${message}`);
+          const chunks = await composeTaskProgressMessages(message, sessionId);
+          for (const chunk of chunks) {
+            await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+          }
           lastProgressUpdate.set(sessionId, now);
         } catch (error) {
           logger.error('Failed to send progress message', error);
@@ -611,16 +615,16 @@ export class Bridge {
 
     integration.on('task:file_op', async (event: TaskFileOpEvent) => {
       const { sessionId, operation, path } = event;
-      if (!sessionId) return;
+      if (!sessionId || !operation || !path) return;
 
       const targetId = await resolveTarget(sessionId);
       if (!targetId) return;
 
       try {
-        const emoji = operation === 'create' ? '🆕' : operation === 'modify' ? '✏️' : '🗑️';
-        const action = operation === 'modify' ? 'Modifying' : operation === 'create' ? 'Creating' : 'Deleting';
-
-        await this.client.sendMessage(targetId, `${emoji} ${action} ${path}...`);
+        const chunks = composeTaskFileOpMessages(operation, path);
+        for (const chunk of chunks) {
+          await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+        }
       } catch (error) {
         logger.error('Failed to send file_op message', error);
       }
@@ -634,10 +638,10 @@ export class Bridge {
       if (!targetId) return;
 
       try {
-        await this.client.sendMessage(
-          targetId,
-          `❓ *Fetch needs your help:*\n\n${question}\n\n_(Reply to this message to answer)_`
-        );
+        const chunks = composeTaskQuestionMessages(question);
+        for (const chunk of chunks) {
+          await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+        }
       } catch (error) {
         logger.error('Failed to send task question', error);
       }

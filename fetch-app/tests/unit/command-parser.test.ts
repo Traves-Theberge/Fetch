@@ -24,6 +24,16 @@ vi.mock('../../src/task/manager.js', () => ({
   })),
 }));
 
+const mockHandleWorkspaceList = vi.fn();
+const mockHandleWorkspaceStatus = vi.fn();
+const mockHandleWorkspaceSync = vi.fn();
+
+vi.mock('../../src/tools/workspace.js', () => ({
+  handleWorkspaceList: (...args: unknown[]) => mockHandleWorkspaceList(...args),
+  handleWorkspaceStatus: (...args: unknown[]) => mockHandleWorkspaceStatus(...args),
+  handleWorkspaceSync: (...args: unknown[]) => mockHandleWorkspaceSync(...args),
+}));
+
 // Import after mocks
 const { parseCommand } = await import('../../src/commands/parser.js');
 
@@ -51,6 +61,9 @@ describe('Command Parser — Safety Gate', () => {
   beforeEach(() => {
     session = createMockSession();
     sm = mockSessionManager();
+    mockHandleWorkspaceList.mockReset();
+    mockHandleWorkspaceStatus.mockReset();
+    mockHandleWorkspaceSync.mockReset();
   });
 
   // ─── Pass-through behaviour ────────────────────────────────────────
@@ -65,6 +78,30 @@ describe('Command Parser — Safety Gate', () => {
     const result = await parseCommand('what can you do?', session, sm);
     expect(result.handled).toBe(false);
     expect(result.shouldProcess).toBe(true);
+  });
+
+  it('should deterministically handle natural-language status', async () => {
+    mockHandleWorkspaceStatus.mockResolvedValue({ success: true, output: 'test-project - on main', duration: 1 });
+    const result = await parseCommand('status', session, sm);
+    expect(result.handled).toBe(true);
+    expect(result.envelopes?.[0]?.summary).toContain('test-project');
+    expect(mockHandleWorkspaceStatus).toHaveBeenCalledWith({});
+  });
+
+  it('should deterministically handle natural-language workspace listing', async () => {
+    mockHandleWorkspaceList.mockResolvedValue({ success: true, output: '1 workspace: test-project', duration: 1 });
+    const result = await parseCommand('what workspaces do i have', session, sm);
+    expect(result.handled).toBe(true);
+    expect(result.envelopes?.[0]?.summary).toContain('1 workspace');
+    expect(mockHandleWorkspaceList).toHaveBeenCalledWith({});
+  });
+
+  it('should deterministically handle natural-language commit/push requests', async () => {
+    mockHandleWorkspaceSync.mockResolvedValue({ success: true, output: 'Pushed changes to GitHub', duration: 1 });
+    const result = await parseCommand('lets commit the changes and push', session, sm);
+    expect(result.handled).toBe(true);
+    expect(result.envelopes?.[0]?.summary).toContain('Pushed changes');
+    expect(mockHandleWorkspaceSync).toHaveBeenCalledWith({ message: 'chore: sync changes via fetch' });
   });
 
   it('should pass unknown /commands through to LLM (not error)', async () => {

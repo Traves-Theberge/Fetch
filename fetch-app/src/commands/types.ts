@@ -3,6 +3,7 @@
  *
  * @module commands/types
  */
+import type { ResponseEnvelope } from '../agent/envelope.js';
 
 /**
  * Result returned by command parser/handlers.
@@ -15,6 +16,8 @@ export type CommandResult = {
   handled: boolean;
   /** Response messages (if handled) */
   responses?: string[];
+  /** Structured envelopes (preferred over plain responses when present) */
+  envelopes?: ResponseEnvelope[];
   /** Continue to agent processing (if not handled) */
   shouldProcess?: boolean;
 };

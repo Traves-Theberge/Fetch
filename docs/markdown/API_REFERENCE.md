@@ -11,8 +11,8 @@
 ```mermaid
 flowchart LR
     Client["Manager / Browser / cURL"] --> API["Bridge API :8765"]
-    API --> Status["/api/status + /api/health"]
-    API --> Admin["/api/logout + /api/config/reload + /api/sessions*"]
+    API --> Status["status + health endpoints"]
+    API --> Admin["admin endpoints (logout, reload, sessions)"]
     Admin --> Auth{"Bearer ADMIN_TOKEN"}
     Auth -->|valid| Actions["Execute action"]
     Auth -->|invalid| Reject["401/403"]
@@ -51,7 +51,7 @@ Returns system health and WhatsApp connection state.
   "uptime": 3600,
   "messageCount": 42,
   "lastError": null,
-  "version": "0.0.92",
+  "version": "0.0.93",
   "notificationMetrics": {
     "total": 120,
     "templateEphemeral": 70,
@@ -236,6 +236,8 @@ The registry entry point is `fetch-app/src/tools/registry.ts`, and input schemas
 | Runtime version lookup | `fetch-app/src/utils/version.ts` |
 | Task/progress id generation | `fetch-app/src/utils/id.ts` |
 | Bridge logging + log-level filtering | `fetch-app/src/utils/logger.ts` |
+| Envelope response contract + renderer | `fetch-app/src/agent/envelope.ts`, `fetch-app/src/agent/composer.ts` |
+| Proactive task message composition | `fetch-app/src/bridge/progress-message.ts` |
 | Voice-note transcription (`whisper-cpp`) | `fetch-app/src/transcription/index.ts` |
 | Image analysis (vision model calls) | `fetch-app/src/vision/index.ts` |
 | Workspace lifecycle + git/GitHub operations | `fetch-app/src/workspace/manager.ts` |
