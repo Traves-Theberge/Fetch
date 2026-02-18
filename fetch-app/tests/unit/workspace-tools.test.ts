@@ -207,11 +207,33 @@ describe('Workspace Tools', () => {
 
     it('should return error when no workspace specified and no active workspace', async () => {
       mockGetActiveWorkspaceId.mockReturnValue(null);
+      mockListWorkspaces.mockResolvedValue({ workspaces: [], count: 0 });
 
       const result = await handleWorkspaceStatus({});
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('No workspace specified and no active workspace');
+    });
+
+    it('should auto-target the only workspace when no active workspace is set', async () => {
+      mockGetActiveWorkspaceId.mockReturnValue(null);
+      mockListWorkspaces.mockResolvedValue({
+        workspaces: [{ id: 'test-project', name: 'test-project', projectType: 'node', isActive: false }],
+        count: 1,
+      });
+      mockGetWorkspaceStatus.mockResolvedValue({
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node',
+        isActive: false,
+        git: { branch: 'main', dirty: false },
+      });
+
+      const result = await handleWorkspaceStatus({});
+
+      expect(result.success).toBe(true);
+      expect(mockGetWorkspaceStatus).toHaveBeenCalledWith('test-project');
     });
   });
 

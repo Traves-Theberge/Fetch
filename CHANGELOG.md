@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.92] - 2026-02-18
+
+### Fixed
+
+- **Workspace status recovery after reconnect/reset** — `workspace_status` now auto-targets the only available workspace when no active workspace is set, reducing false "no workspace selected" failures.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.92`.
+
 ## [0.0.91] - 2026-02-18
 
 ### Fixed

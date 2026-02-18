@@ -179,14 +179,28 @@ export async function handleWorkspaceStatus(
   // Schema uses 'name' field (optional)
   const { name } = parseResult.data as WorkspaceStatusInput;
 
-  // If no workspace specified, use active
-  const workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+  // Resolve workspace target:
+  // 1) explicit name
+  // 2) active workspace
+  // 3) if only one workspace exists, auto-target it
+  let workspaceId = name ?? workspaceManager.getActiveWorkspaceId();
+
+  if (!workspaceId) {
+    try {
+      const listed = await workspaceManager.listWorkspaces();
+      if (listed.count === 1 && listed.workspaces[0]?.id) {
+        workspaceId = listed.workspaces[0].id;
+      }
+    } catch {
+      // Fall through to existing error path.
+    }
+  }
 
   if (!workspaceId) {
     return {
       success: false,
       output: '',
-      error: 'No workspace specified and no active workspace selected',
+      error: 'No workspace specified and no active workspace selected. Use workspace_select or workspace_list first.',
       duration: Date.now() - start,
     };
   }
