@@ -48,6 +48,7 @@ manager/fetch-manager-arm64
 tui_output.txt
 test_tool.js
 data/whitelist.json
+data/workflows.json
 .claude/settings.json
 .claude/settings.json
 .entire/.gitignore
