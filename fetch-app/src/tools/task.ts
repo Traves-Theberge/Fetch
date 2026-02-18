@@ -31,6 +31,27 @@ function isEnabled(flag: unknown): boolean {
   return String(flag).trim().toLowerCase() === 'true';
 }
 
+function isStructuredLifecycleNoise(text: string): boolean {
+  const t = text.trim();
+  if (!t.startsWith('{') || !t.endsWith('}')) return false;
+  return /"type"\s*:\s*"(thread|turn|item)\./.test(t);
+}
+
+function normalizeTaskSummary(summary: string): string {
+  const withoutEmbeddedLifecycle = summary.replace(
+    /\{[^\n{}]*"type"\s*:\s*"(?:thread|turn|item)\.[^{}]*?(?:\{[^{}]*\}[^{}]*?)*\}/g,
+    ' ',
+  );
+
+  const stripped = withoutEmbeddedLifecycle
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !isStructuredLifecycleNoise(line))
+    .join(' ');
+  const compact = stripped.replace(/\s+/g, ' ').trim();
+  return compact.length > 220 ? `${compact.slice(0, 217)}...` : compact;
+}
+
 function getEnabledAgentChoices(): string[] {
   const enabled: string[] = [];
   if (isEnabled(env.ENABLE_COPILOT)) enabled.push('copilot');
@@ -258,7 +279,12 @@ export async function handleTaskStatus(
     const latestProgress = task.progress.length > 0 ? task.progress[task.progress.length - 1] : undefined;
     if (latestProgress?.message) parts.push(`Last: ${latestProgress.message}`);
     if (task.pendingQuestion) parts.push(`Waiting for input: "${task.pendingQuestion}"`);
-    if (task.result?.summary) parts.push(`Result: ${task.result.summary}`);
+    if (task.result?.summary) {
+      const cleanSummary = normalizeTaskSummary(task.result.summary);
+      if (cleanSummary) {
+        parts.push(`Result: ${cleanSummary}`);
+      }
+    }
 
     const output = parts.join(' - ');
 

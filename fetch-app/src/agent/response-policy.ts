@@ -72,7 +72,7 @@ function heuristicIntent(message: string): ResponseIntent {
   const text = message.trim().toLowerCase();
   if (!text) return 'general';
 
-  if (/\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|publish|sync)\b/i.test(text)) {
+  if (/\b(create|build|fix|make|change|update|modify|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|publish|sync|codex|claude|copilot|gemini|opencode)\b/i.test(text)) {
     return 'action_request';
   }
 
@@ -185,7 +185,6 @@ export function selectToolNamesForTurn(
   // Generic, low-risk fallback set for ambiguous asks.
   if (intent === 'general') {
     add('workspace_status');
-    add('task_status');
     add('ask_user');
     return Array.from(out);
   }

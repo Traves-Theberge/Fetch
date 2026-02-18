@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.91] - 2026-02-18
+
+### Fixed
+
+- **Stale task-status leak in conversational turns** — Expanded action-intent heuristics (e.g. `make`, `update`, `codex`) so requests like “make it blue use codex” no longer route through generic fallback.
+- **General-tool fallback hardening** — Removed `task_status` from generic conversational tool fallback to prevent repeated stale task lookups on non-status chat turns.
+- **Task summary sanitization** — `task_status` now strips embedded structured lifecycle JSON (`thread.*`, `turn.*`, `item.*`) and bounds summary length, preventing old task trace payloads from leaking into user replies.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.91`.
+
 ## [0.0.90] - 2026-02-18
 
 ### Fixed

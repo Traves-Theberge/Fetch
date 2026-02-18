@@ -28,6 +28,10 @@ describe('response policy', () => {
       intent: 'action_request',
       stage: 'heuristic',
     });
+    expect(evaluateIntentGate('can you make it blue use codex')).toEqual({
+      intent: 'action_request',
+      stage: 'heuristic',
+    });
   });
 
   it('keeps action requests out of minimal mode', () => {
@@ -74,5 +78,13 @@ describe('response policy', () => {
     const session = createSession('user-no-tools');
     const tools = selectToolNamesForTurn('hey', 'greeting', session);
     expect(tools).toEqual([]);
+  });
+
+  it('keeps general fallback tools minimal and excludes task_status', () => {
+    const session = createSession('user-general-fallback');
+    const tools = selectToolNamesForTurn('what is up', 'general', session);
+    expect(tools).toContain('workspace_status');
+    expect(tools).toContain('ask_user');
+    expect(tools).not.toContain('task_status');
   });
 });

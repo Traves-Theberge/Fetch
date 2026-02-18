@@ -108,4 +108,27 @@ describe('task tool ambiguity choices', () => {
     expect(mockManager.cancelTask).toHaveBeenCalledWith('tsk_1234567890');
     expect(result.metadata?.processTerminated).toBe(true);
   });
+
+  it('task_status sanitizes structured lifecycle noise from result summaries', async () => {
+    mockManager.getCurrentTaskId.mockReturnValue('tsk_abc');
+    mockManager.getTask.mockReturnValue({
+      id: 'tsk_abc',
+      status: 'completed',
+      goal: 'Do the thing',
+      progress: [],
+      result: {
+        summary:
+          'Done. {\"type\":\"thread.started\",\"thread_id\":\"abc\"}\\n{\"type\":\"item.completed\",\"item\":{\"type\":\"reasoning\"}}\\nFinal summary line.',
+      },
+    });
+
+    const { handleTaskStatus } = await import('../../src/tools/task.js');
+    const result = await handleTaskStatus({});
+
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('Result:');
+    expect(result.output).toContain('Final summary line.');
+    expect(result.output).not.toContain('thread.started');
+    expect(result.output).not.toContain('item.completed');
+  });
 });
