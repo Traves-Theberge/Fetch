@@ -1,6 +1,6 @@
 {
   "name": "fetch-bridge",
-  "version": "0.0.89",
+  "version": "0.0.90",
   "description": "Fetch - WhatsApp AI Assistant",
   "type": "module",
   "main": "dist/index.js",

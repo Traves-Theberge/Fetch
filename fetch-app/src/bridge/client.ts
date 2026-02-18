@@ -173,6 +173,18 @@ export class Bridge {
   private isReconnecting = false;
   private destroyed = false;
 
+  /**
+   * Disconnection reasons that should not trigger automatic reconnect loops.
+   *
+   * QR retry exhaustion is an operator-driven state (no scan happened), not a
+   * transient transport failure. Auto-retrying immediately just recreates QR
+   * churn and reaches the same terminal reason again.
+   */
+  private shouldPauseAutoReconnect(reason: string): boolean {
+    const normalized = reason.toLowerCase();
+    return normalized.includes('max qrcode retries reached');
+  }
+
   constructor() {
     this.client = new Client({
       authStrategy: new LocalAuth({
@@ -297,6 +309,18 @@ export class Bridge {
 
       // Attempt reconnection unless intentionally destroyed
       if (!this.destroyed) {
+        if (this.shouldPauseAutoReconnect(reason)) {
+          if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+          }
+          this.isReconnecting = false;
+          this.reconnectAttempts = 0;
+          logger.warn(
+            'Auto-reconnect paused after QR retry exhaustion; waiting for manual restart/setup',
+          );
+          return;
+        }
         this.reconnect();
       }
     });

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.90] - 2026-02-18
+
+### Fixed
+
+- **WhatsApp QR retry loop control** — Bridge now pauses automatic reconnect when disconnection reason is `Max qrcode retries reached`, preventing repeated background QR churn and immediate re-timeouts before manual setup.
+
+### Changed
+
+- **Version bump** — Bumped project/runtime package versions to `v0.0.90`.
+
 ## [0.0.89] - 2026-02-18
 
 ### Changed
