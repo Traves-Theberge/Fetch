@@ -4,6 +4,10 @@
 # Build stage
 FROM node:20-slim AS builder
 
+# Keep build logs clean/reproducible: don't print npm update/funding notices on every build.
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false
+
 # Install build dependencies for native modules (better-sqlite3)
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -30,6 +34,10 @@ RUN npm run build
 
 # Production stage
 FROM node:20-slim
+
+# Keep runtime dependency install logs clean/reproducible.
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false
 
 # Install dependencies for Puppeteer (whatsapp-web.js requirement), SQLite runtime, and whisper.cpp
 RUN apt-get update && apt-get install -y \
@@ -103,7 +111,7 @@ WORKDIR /app
 COPY fetch-app/package*.json ./
 
 # Install production dependencies only
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist

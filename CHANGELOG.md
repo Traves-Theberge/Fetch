@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.89] - 2026-02-18
+
+### Changed
+
+- **Docker build log cleanup** — Disabled npm update/funding notifier output in bridge Docker build/runtime stages to avoid repeated “new npm version available” noise during `fetch up`.
+- **Production install flag cleanup** — Switched bridge production dependency install from `npm ci --only=production` to `npm ci --omit=dev`.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.89`.
+
 ## [0.0.88] - 2026-02-18
 
 ### Fixed
