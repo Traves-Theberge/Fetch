@@ -112,7 +112,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.87
+fetch self pin v0.0.88
 fetch uninstall
 ```
 
@@ -324,6 +324,8 @@ npm run lint
 npm run test:run
 npx vitest run --coverage
 ```
+
+`npm run lint` performs strict TypeScript static checks via `tsc --noEmit`.
 
 Manager:
 

@@ -70,9 +70,6 @@ export class WorkspaceManager extends EventEmitter {
   /** Last GitHub operation error for user-facing diagnostics */
   private lastGitHubError: string | null = null;
 
-  /** Last detected GitHub auth mode for diagnostics */
-  private lastGitHubAuthMode: 'token' | 'mounted_gh_auth' | 'none' = 'none';
-
   // ==========================================================================
   // Workspace Listing
   // ==========================================================================
@@ -756,14 +753,11 @@ export class WorkspaceManager extends EventEmitter {
    * supported path, but mounted gh auth state may also work when valid.
    */
   async isGitHubAvailable(): Promise<boolean> {
-    this.lastGitHubAuthMode = 'none';
-
     // Primary path: current environment auth (typically GH_TOKEN).
     const primary = await dockerExec('gh', ['api', 'user', '--jq', '.login'], {
       timeoutMs: 10000,
     });
     if (primary.exitCode === 0 && primary.stdout.trim()) {
-      this.lastGitHubAuthMode = 'token';
       this.lastGitHubError = null;
       return true;
     }
@@ -775,7 +769,6 @@ export class WorkspaceManager extends EventEmitter {
       env: { GH_TOKEN: '' },
     });
     if (fallback.exitCode === 0 && fallback.stdout.trim()) {
-      this.lastGitHubAuthMode = 'mounted_gh_auth';
       this.lastGitHubError = null;
       logger.warn('GitHub auth recovered via mounted gh config (GH_TOKEN appears stale).');
       return true;

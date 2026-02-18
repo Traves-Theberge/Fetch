@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.88] - 2026-02-18
+
+### Fixed
+
+- **Dependency audit cleanup** — Removed vulnerable ESLint dev dependency chain (`eslint`, `@typescript-eslint/*`, `typescript-eslint`) that was pulling `ajv@6` advisories, resolving the reported 9 moderate vulnerabilities.
+
+### Changed
+
+- **Lint command update** — `npm run lint` now runs `tsc --noEmit` for strict TypeScript static checks.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.88`.
+
 ## [0.0.87] - 2026-02-17
 
 ### Changed
