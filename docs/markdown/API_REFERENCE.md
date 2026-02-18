@@ -10,12 +10,12 @@
 
 ```mermaid
 flowchart LR
-    Client[Manager / Browser / cURL] --> API[Bridge API :8765]
-    API --> Status[/api/status + /api/health]
-    API --> Admin[/api/logout + /api/config/reload + /api/sessions*]
-    Admin --> Auth{Bearer ADMIN_TOKEN}
-    Auth -->|valid| Actions[Execute action]
-    Auth -->|invalid| Reject[401/403]
+    Client["Manager / Browser / cURL"] --> API["Bridge API :8765"]
+    API --> Status["/api/status + /api/health"]
+    API --> Admin["/api/logout + /api/config/reload + /api/sessions*"]
+    Admin --> Auth{"Bearer ADMIN_TOKEN"}
+    Auth -->|valid| Actions["Execute action"]
+    Auth -->|invalid| Reject["401/403"]
 ```
 
 ## Status API
