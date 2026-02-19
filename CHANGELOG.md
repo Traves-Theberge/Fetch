@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.94] - 2026-02-18
+
 ### Fixed
 
 - **On-demand WhatsApp pairing startup** — Bridge runtime now keeps WhatsApp disconnected at boot and starts pairing only when explicitly requested from Setup WhatsApp (`/api/whatsapp/start`), preventing pre-setup QR retry exhaustion.
 - **In-TUI QR refresh without full Fetch restart** — Added WhatsApp restart control endpoint (`/api/whatsapp/restart`) and wired Setup-screen `r` to request a fresh pairing cycle directly.
 - **Stop verification hardening** — Manager stop flow now performs post-down wait/cleanup checks and force-removes lingering fixed-name containers before reporting failure.
+- **Version bump** — Bumped project/runtime package versions to `v0.0.94`.
 
 ## [0.0.93] - 2026-02-18
 
