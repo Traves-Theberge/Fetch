@@ -10,7 +10,7 @@ import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import { Bridge } from './bridge/client.js';
 import { logger } from './utils/logger.js';
-import { startStatusServer, setLogoutCallback, updateStatus } from './api/status.js';
+import { startStatusServer, setLogoutCallback, setWhatsAppControlCallbacks, updateStatus } from './api/status.js';
 import { validateEnv } from './config/env.js';
 import { getSessionStore } from './session/store.js';
 import { getTaskStore } from './task/store.js';
@@ -44,6 +44,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   let bootstrapTimer: ReturnType<typeof setInterval> | null = null;
   let bridgeStarting = false;
   let workflowInitialized = false;
+  let bridgeRequested = false;
 
   const clearBootstrapTimer = (): void => {
     if (bootstrapTimer) {
@@ -94,23 +95,49 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
     }
   };
 
+  const requestBridgeStart = async (): Promise<void> => {
+    bridgeRequested = true;
+    await startBridge();
+  };
+
+  const restartBridge = async (): Promise<void> => {
+    if (bridgeStarting || shuttingDown) return;
+    try {
+      if (activeBridge) {
+        await activeBridge.destroy();
+        activeBridge = null;
+      }
+      updateStatus({ state: 'initializing', lastError: null, qrCode: null, qrUrl: null });
+    } catch (error) {
+      logger.warn('Failed to fully destroy bridge during restart, continuing', error);
+    }
+    bridgeRequested = true;
+    await startBridge();
+  };
+
   const main = async (): Promise<void> => {
     const version = getVersion();
     logger.info(`🐕 Fetch Bridge ${version} starting...`);
 
     // Start status API first so TUI can configure missing env in setup mode.
     startStatusServer();
+    setWhatsAppControlCallbacks({
+      start: requestBridgeStart,
+      restart: restartBridge,
+    });
 
     if (!workflowInitialized) {
       await getWorkflowManager();
       workflowInitialized = true;
     }
 
-    // Attempt immediate startup. If env is incomplete, remain in setup mode and retry.
-    await startBridge();
+    // Stay alive in setup mode; start WhatsApp only when explicitly requested.
+    updateStatus({ state: 'disconnected', lastError: 'WhatsApp not started. Open Setup WhatsApp to begin pairing.' });
     if (!activeBridge && !shuttingDown) {
       bootstrapTimer = setInterval(() => {
-        void startBridge();
+        if (bridgeRequested) {
+          void startBridge();
+        }
       }, 2000);
       // Keep the process alive in setup mode so /api/status and /docs remain available.
     }

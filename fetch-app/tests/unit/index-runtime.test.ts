@@ -18,6 +18,7 @@ describe('index runtime', () => {
     vi.doMock('../../src/api/status.js', () => ({
       startStatusServer,
       setLogoutCallback: vi.fn(),
+      setWhatsAppControlCallbacks: vi.fn(),
       updateStatus,
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
@@ -74,6 +75,7 @@ describe('index runtime', () => {
     vi.doMock('../../src/api/status.js', () => ({
       startStatusServer: vi.fn(),
       setLogoutCallback: vi.fn(),
+      setWhatsAppControlCallbacks: vi.fn(),
       updateStatus: vi.fn(),
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
@@ -119,7 +121,7 @@ describe('index runtime', () => {
     await runtime.shutdown('SIGTERM');
 
     expect(poolKillAll).toHaveBeenCalledTimes(1);
-    expect(destroyMock).toHaveBeenCalledTimes(1);
+    expect(destroyMock).toHaveBeenCalledTimes(0);
     expect(exitMock).toHaveBeenCalledTimes(1);
     expect(exitMock).toHaveBeenCalledWith(0);
   });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getStatus, isValidSessionId } from '../../src/api/status.js';
+import {
+  getStatus,
+  isValidSessionId,
+  setWhatsAppControlCallbacks,
+  triggerWhatsAppRestart,
+  triggerWhatsAppStart,
+} from '../../src/api/status.js';
 
 describe('Status API Session ID Validation', () => {
   it('accepts alphanumeric, underscore, and hyphen ids', () => {
@@ -21,5 +27,21 @@ describe('Status API Session ID Validation', () => {
     expect(typeof status.notificationMetrics.total).toBe('number');
     expect(status.responseFormattingMetrics).toBeDefined();
     expect(typeof status.responseFormattingMetrics.normalizedCount).toBe('number');
+  });
+
+  it('executes registered WhatsApp start/restart callbacks', async () => {
+    let started = false;
+    let restarted = false;
+    setWhatsAppControlCallbacks({
+      start: async () => { started = true; },
+      restart: async () => { restarted = true; },
+    });
+
+    const startOk = await triggerWhatsAppStart();
+    const restartOk = await triggerWhatsAppRestart();
+    expect(startOk).toBe(true);
+    expect(restartOk).toBe(true);
+    expect(started).toBe(true);
+    expect(restarted).toBe(true);
   });
 });

@@ -169,7 +169,7 @@ Select **🚀 Start Fetch** to launch the Docker containers.
 
 ### 5. Authenticate WhatsApp
 
-On first launch, the Bridge container generates a QR code.
+On first launch, Fetch keeps WhatsApp disconnected until pairing is explicitly requested from the TUI.
 
 - In the TUI: Select **📱 Setup WhatsApp**.
 - Scan the QR code with your phone (Settings → Linked Devices).
@@ -251,7 +251,7 @@ Add these to your `.env` file or use the TUI Manager's **⚙️ Settings** edito
 
 | Problem | Solution |
 |---------|----------|
-| QR code not appearing | Check `docker logs fetch-bridge` — Chromium may need extra deps |
+| QR code not appearing | Open **Setup WhatsApp** first, then press `r` to request a fresh QR session; if still failing, check `docker logs fetch-bridge` |
 | "Not authorized" response | Verify `OWNER_PHONE_NUMBER` matches your WhatsApp number exactly |
 | `http://localhost:8765/docs` unreachable | Check `docker compose ps` and `docker logs fetch-bridge`; ensure bridge process is running and restart with `fetch up` after fixing `.env` |
 | Bridge stuck restarting with missing env errors | Set required keys in `.env` (`OPENROUTER_API_KEY`, `OWNER_PHONE_NUMBER`) and restart |

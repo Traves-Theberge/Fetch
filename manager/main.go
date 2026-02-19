@@ -476,10 +476,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case actionResultMsg:
-		if msg.success {
-			return m, tea.Batch(m.setActionSuccess(msg.message), checkStatus)
+		extra := []tea.Cmd{checkStatus}
+		if m.screen == screenSetup {
+			extra = append(extra, fetchBridgeStatusCmd(m.statusClient))
 		}
-		return m, tea.Batch(m.setActionError(msg.message), checkStatus)
+		if msg.success {
+			cmds := append([]tea.Cmd{m.setActionSuccess(msg.message)}, extra...)
+			return m, tea.Batch(cmds...)
+		}
+		cmds := append([]tea.Cmd{m.setActionError(msg.message)}, extra...)
+		return m, tea.Batch(cmds...)
 
 	case updateFetchDoneMsg:
 		if msg.err != nil {
@@ -787,7 +793,7 @@ func (m model) updateMenu(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenSetup
 			m.qrCountdown = m.qrMaxCountdown // Reset countdown
 			m.qrRefreshPending = false
-			return m, tea.Batch(fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
+			return m, tea.Batch(startWhatsAppCmd(m.statusClient), fetchBridgeStatusCmd(m.statusClient), tickCmd(), qrRefreshTickCmd())
 		case 4: // View Logs
 			m.screen = screenLogs
 			return m, tea.Batch(fetchLogs, logTickCmd())
@@ -832,7 +838,11 @@ func (m model) updateSetup(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "r":
 		m.qrRefreshPending = true
 		m.qrCountdown = m.qrMaxCountdown
-		return m, fetchBridgeStatusCmd(m.statusClient)
+		return m, tea.Batch(
+			m.setActionLoading("Refreshing WhatsApp session...", "Refreshing..."),
+			restartWhatsAppCmd(m.statusClient),
+			fetchBridgeStatusCmd(m.statusClient),
+		)
 	case "o":
 		// Open QR URL in browser
 		if m.bridgeStatus != nil && m.bridgeStatus.QRUrl != nil {
@@ -1351,6 +1361,28 @@ func reloadConfigCmd(client *status.Client) tea.Cmd {
 			return actionResultMsg{success: true, message: "✅ Config saved (no changes to apply)."}
 		}
 		return actionResultMsg{success: true, message: fmt.Sprintf("⚡ Hot-reloaded %d key(s): %s", len(result.UpdatedKeys), strings.Join(result.UpdatedKeys, ", "))}
+	}
+}
+
+func startWhatsAppCmd(client *status.Client) tea.Cmd {
+	return func() tea.Msg {
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		if err := client.StartWhatsApp(adminToken); err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to start WhatsApp setup: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "WhatsApp setup started. Waiting for QR..."}
+	}
+}
+
+func restartWhatsAppCmd(client *status.Client) tea.Cmd {
+	return func() tea.Msg {
+		envValues := config.ReadEnvValues([]string{"ADMIN_TOKEN"})
+		adminToken := envValues["ADMIN_TOKEN"]
+		if err := client.RestartWhatsApp(adminToken); err != nil {
+			return actionResultMsg{success: false, message: fmt.Sprintf("Failed to refresh WhatsApp setup: %v", err)}
+		}
+		return actionResultMsg{success: true, message: "Requested a fresh WhatsApp QR session."}
 	}
 }
 
@@ -2492,7 +2524,7 @@ func (m model) viewSetup() string {
 			if m.bridgeStatus.LastError != nil {
 				content.WriteString(theme.Subtitle.Render(fmt.Sprintf("Reason: %s", *m.bridgeStatus.LastError)) + "\n")
 			}
-			content.WriteString("\nTry restarting Fetch to reconnect.\n")
+			content.WriteString("\nPress 'r' to request a fresh QR session.\n")
 
 		case "error":
 			content.WriteString(theme.StatusError.Render("An error occurred.") + "\n")

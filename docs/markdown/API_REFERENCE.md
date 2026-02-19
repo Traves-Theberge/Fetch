@@ -29,6 +29,8 @@ The Bridge exposes an HTTP API on port 8765.
 | `GET` | `/api/status` | none | Current bridge status payload |
 | `GET` | `/api/health` | none | Lightweight health probe |
 | `POST` | `/api/logout` | bearer token | Disconnect WhatsApp session |
+| `POST` | `/api/whatsapp/start` | bearer token | Start WhatsApp bridge session (on-demand setup) |
+| `POST` | `/api/whatsapp/restart` | bearer token | Restart WhatsApp bridge session (fresh QR cycle) |
 | `POST` | `/api/config/reload` | bearer token | Reload mounted `.env` values into runtime env |
 | `GET` | `/api/sessions` | bearer token | List sessions (summary view) |
 | `GET` | `/api/sessions/:id` | bearer token | Retrieve one full session |

@@ -214,6 +214,54 @@ func (c *Client) ReloadConfig(adminToken string) (*ConfigReloadResponse, error) 
 	return &result, nil
 }
 
+// StartWhatsApp requests bridge startup for WhatsApp pairing/auth flows.
+func (c *Client) StartWhatsApp(adminToken string) error {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+	req, err := http.NewRequest("POST", baseURL+"/api/whatsapp/start", bytes.NewReader(nil))
+	if err != nil {
+		return fmt.Errorf("failed to create start request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("unauthorized: invalid admin token")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("start failed with status code: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// RestartWhatsApp requests bridge restart to refresh pairing state/QR generation.
+func (c *Client) RestartWhatsApp(adminToken string) error {
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")
+	req, err := http.NewRequest("POST", baseURL+"/api/whatsapp/restart", bytes.NewReader(nil))
+	if err != nil {
+		return fmt.Errorf("failed to create restart request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to connect to bridge: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return fmt.Errorf("unauthorized: invalid admin token")
+	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("restart failed with status code: %d", resp.StatusCode)
+	}
+	return nil
+}
+
 // ListSessions fetches the list of active sessions from the bridge.
 func (c *Client) ListSessions(adminToken string) ([]SessionSummary, error) {
 	baseURL := strings.TrimSuffix(c.baseURL, "/api/status")

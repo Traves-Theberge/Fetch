@@ -18,6 +18,8 @@
  * | GET | /api/status | Current bridge status (JSON) |
  * | GET | /api/health | Lightweight health check (Go TUI) |
  * | POST | /api/logout | Disconnect WhatsApp (admin token required) |
+ * | POST | /api/whatsapp/start | Start WhatsApp bridge session (admin token required) |
+ * | POST | /api/whatsapp/restart | Restart WhatsApp bridge session (admin token required) |
  * | POST | /api/config/reload | Reload mounted `.env` into process env (admin token required) |
  * | GET | /api/sessions | List sessions (admin token required) |
  * | GET | /api/sessions/:id | Read one session (admin token required) |
@@ -99,6 +101,8 @@ const startTime = Date.now();
 
 /** Callback for logout action */
 let logoutCallback: (() => Promise<void>) | null = null;
+let startCallback: (() => Promise<void>) | null = null;
+let restartCallback: (() => Promise<void>) | null = null;
 let envWatcherInitialized = false;
 
 /** Optional admin token for protected endpoints (logout/config/session APIs). */
@@ -118,6 +122,15 @@ export function setLogoutCallback(callback: () => Promise<void>): void {
   logoutCallback = callback;
 }
 
+/** Register callback used by WhatsApp start/restart control endpoints. */
+export function setWhatsAppControlCallbacks(callbacks: {
+  start?: () => Promise<void>;
+  restart?: () => Promise<void>;
+}): void {
+  startCallback = callbacks.start ?? null;
+  restartCallback = callbacks.restart ?? null;
+}
+
 /**
  * Execute the registered logout callback, if available.
  *
@@ -134,6 +147,30 @@ export async function triggerLogout(): Promise<boolean> {
     }
   }
   return false;
+}
+
+/** Execute the registered WhatsApp start callback, if available. */
+export async function triggerWhatsAppStart(): Promise<boolean> {
+  if (!startCallback) return false;
+  try {
+    await startCallback();
+    return true;
+  } catch (error) {
+    logger.error('WhatsApp start failed:', error);
+    return false;
+  }
+}
+
+/** Execute the registered WhatsApp restart callback, if available. */
+export async function triggerWhatsAppRestart(): Promise<boolean> {
+  if (!restartCallback) return false;
+  try {
+    await restartCallback();
+    return true;
+  } catch (error) {
+    logger.error('WhatsApp restart failed:', error);
+    return false;
+  }
 }
 
 // =============================================================================
@@ -266,6 +303,42 @@ export function startStatusServer(): void {
       } else {
         res.writeHead(500);
         res.end(JSON.stringify({ success: false, message: 'Logout failed or not available' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/whatsapp/start') {
+      res.setHeader('Content-Type', 'application/json');
+      if (!isAdminAuthorized(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+      const success = await triggerWhatsAppStart();
+      if (success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: 'WhatsApp startup requested' }));
+      } else {
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'WhatsApp start unavailable or failed' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/whatsapp/restart') {
+      res.setHeader('Content-Type', 'application/json');
+      if (!isAdminAuthorized(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+      const success = await triggerWhatsAppRestart();
+      if (success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: 'WhatsApp restart requested' }));
+      } else {
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'WhatsApp restart unavailable or failed' }));
       }
       return;
     }

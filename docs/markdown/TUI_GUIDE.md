@@ -79,7 +79,7 @@ Badges update in real-time based on container status and harness authentication 
 
 ### WhatsApp Setup
 
-Shows the QR code rendered directly in the terminal using Unicode block characters. Includes a countdown timer — WhatsApp QR codes expire after ~20 seconds, so the TUI auto-refreshes.
+Shows the QR code rendered directly in the terminal using Unicode block characters. WhatsApp setup is now **on-demand**: entering this screen requests bridge startup for pairing and begins QR generation only from this flow.
 
 **Why:** WhatsApp requires a one-time QR scan to link Fetch as a paired device. This screen handles that flow without needing `docker logs`.
 
@@ -96,13 +96,13 @@ Shows the QR code rendered directly in the terminal using Unicode block characte
 
 | Key | Action |
 |-----|--------|
-| `r` | Force refresh QR token immediately |
+| `r` | Restart WhatsApp pairing session and request a fresh QR cycle |
 | `o` | Open QR code in browser (alternative scan method) |
 | `Esc` | Return to main menu |
 
 The session persists across restarts. You only need to scan once unless you manually log out.
 
-**Live status refresh:** While this screen is open, the Manager continuously polls Bridge status. If the Bridge moves from `disconnected` to `qr_pending` or `authenticated`, the view updates automatically without restarting Fetch.
+**Live status refresh:** While this screen is open, the Manager continuously polls Bridge status. If the Bridge moves from `disconnected` to `qr_pending` or `authenticated`, the view updates automatically.
 
 **Small terminal behavior:** If the terminal is too small to render the full QR block cleanly, the TUI now avoids clipped QR output and prompts you to open the QR URL in browser (`o`).
 
@@ -110,7 +110,7 @@ The session persists across restarts. You only need to scan once unless you manu
 
 ### Stop Fetch Feedback
 
-Pressing Stop now gives immediate in-UI feedback (`Stopping Fetch services...`) while the command runs, then reports explicit outcomes after container-state verification:
+Pressing Stop now gives immediate in-UI feedback (`Stopping Fetch services...`) while the command runs, then reports explicit outcomes after container-state verification and a short post-stop wait/cleanup pass:
 
 - `🛑 Fetch services stopped.` — services were running and are now stopped
 - `ℹ️ Fetch services were already stopped.` — nothing was running

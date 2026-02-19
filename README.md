@@ -72,7 +72,7 @@ Optional but common:
 
 1. Run `fetch self doctor` and confirm no missing prerequisites.
 2. Open `fetch tui` and verify harness auth/install status.
-3. Complete WhatsApp pairing from bridge logs (`docker logs -f fetch-bridge`).
+3. Open `fetch tui` -> `Setup WhatsApp` to start pairing (QR generation is on-demand from this screen).
 4. Send `/status` and `/version` from WhatsApp to verify end-to-end health.
 5. Open `http://localhost:8765/docs` to verify docs/status server availability.
 

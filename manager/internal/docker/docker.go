@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/fetch/manager/internal/paths"
 )
@@ -53,7 +54,33 @@ func StopServices() error {
 	if err != nil {
 		return fmt.Errorf("%v: %s", err, string(output))
 	}
-	return nil
+
+	names := []string{"fetch-bridge", "fetch-kennel", "fetch-searxng"}
+	deadline := time.Now().Add(15 * time.Second)
+	forced := false
+	for {
+		running := make([]string, 0, len(names))
+		for _, name := range names {
+			if IsContainerRunning(name) {
+				running = append(running, name)
+			}
+		}
+		if len(running) == 0 {
+			return nil
+		}
+
+		if !forced {
+			// Best-effort cleanup for stale fixed-name containers.
+			cleanupArgs := append([]string{"rm", "-f"}, running...)
+			_ = exec.Command("docker", cleanupArgs...).Run()
+			forced = true
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("containers still running after stop: %s", strings.Join(running, ", "))
+		}
+		time.Sleep(300 * time.Millisecond)
+	}
 }
 
 // RestartBridge restarts only the bridge container with fresh auth.
