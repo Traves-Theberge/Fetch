@@ -462,7 +462,7 @@ export async function processMessage(
           backoffRemaining: backoff - timeSinceError,
         });
         return {
-          text: "🐕 I'm taking a short break after some hiccups. Try again in a moment!",
+          text: "I'm taking a short break after some hiccups. Try again in a moment!",
           envelope: {
             kind: 'error',
             severity: 'warning',
@@ -544,7 +544,7 @@ export async function processMessage(
 
   } catch (error) {
     if (options?.abortSignal?.aborted) {
-      const cancelledMsg = "🐕 Stopped. I cancelled that run.";
+      const cancelledMsg = "Stopped. I cancelled that run.";
       await options?.onLifecycle?.('cancelled', { error: cancelledMsg, promptMode });
       return {
         text: cancelledMsg,
@@ -576,7 +576,7 @@ export async function processMessage(
 
     if (!shouldContinue) {
       return {
-        text: "🐕 I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
+        text: "I've run into too many issues. Let me rest for a bit. Try again in a few minutes!",
         envelope: {
           kind: 'error',
           severity: 'error',
@@ -594,7 +594,7 @@ export async function processMessage(
       // Non-retriable errors (400, 401, 404) - don't suggest retry
       const safeMsg = sanitizeErrorForUser(error);
       return {
-        text: `🐕 Something went wrong: ${safeMsg}`,
+        text: `Something went wrong: ${safeMsg}`,
         envelope: {
           kind: 'error',
           severity: 'error',
@@ -609,8 +609,9 @@ export async function processMessage(
       };
     }
 
+    console.error('DEBUG TEST ERROR:', error instanceof Error ? error.stack : error);
     return {
-      text: "🐕 Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
+      text: "Oops! Something went wrong. Let me shake that off and try again. What were you trying to do?",
       envelope: {
         kind: 'error',
         severity: 'error',
@@ -822,7 +823,7 @@ async function handleWithTools(
             task_create: 'setting up the task',
           };
           const label = toolLabels[toolName] ?? toolName;
-          progressCb(`🐕 Still ${label}... 🔄`).catch(() => { });
+          progressCb(`Still ${label}... 🔄`).catch(() => { });
         }, 4000);
       }
 
@@ -924,23 +925,20 @@ async function handleWithTools(
       role: 'system',
       content: 'CRITICAL: You have reached the maximum allowed tool iterations for this turn. STOP calling tools. Summarize what has been accomplished so far and inform the user that you need to wait for their next message to continue further actions.'
     });
+
+    await options?.onLifecycle?.('responding', { promptMode });
+    const finalModel = env.SUMMARY_MODEL ?? MODEL;
+    response = await openai.chat.completions.create({
+      model: finalModel,
+      messages,
+      max_tokens: pipeline.toolMaxTokens,
+      temperature: pipeline.toolTemperature,
+    }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
   }
 
-  // Get final text response
-  await options?.onLifecycle?.('responding', { promptMode });
-
-  const useSpecializedModel = loopBailout || toolTelemetry.length > 2;
-  const finalModel = useSpecializedModel ? (env.SUMMARY_MODEL ?? MODEL) : MODEL;
-
-  response = await openai.chat.completions.create({
-    model: finalModel,
-    messages,
-    max_tokens: pipeline.toolMaxTokens,
-    temperature: pipeline.toolTemperature,
-  }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
   const text =
     response.choices[0]?.message?.content ??
-    "Done! 🐕 Let me know if you need anything else.";
+    "Done! Let me know if you need anything else.";
 
   // Check if a task was started
   const taskCall = toolCalls.find((tc) => tc.name === 'task_create');
@@ -1272,11 +1270,11 @@ function generateFactualProgressMessage(userMessage: string, attempt: number = 1
 
   if (attempt === 1) {
     const initial = [
-      `On it! I'm ${action} 🐕`,
+      `On it! I'm ${action}`,
       `Working on it - ${action}! 🦴`,
       `Let me handle that - ${action} now 🐾`,
       `Woof! Just a sec while I'm ${action}`,
-      `Got it, ${action}! 🐕`,
+      `Got it, ${action}!`,
     ];
     return pick(initial);
   }
@@ -1284,7 +1282,7 @@ function generateFactualProgressMessage(userMessage: string, attempt: number = 1
   const retries = [
     `Still ${action}, almost there! 🐾`,
     `One more moment - ${action}...`,
-    `Hanging in there! Still ${action} 🐕`,
+    `Hanging in there! Still ${action}`,
     `Making progress on this - ${action}`,
     `Nearly done, just finishing up! 🦴`,
   ];

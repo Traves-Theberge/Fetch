@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.96] - 2026-02-20
+
+### Changed
+
+- **UI and Branding** — Exhaustively removed all instances of the "🐕" emoji and dog-themed persona directives from the application's output (notifications, errors, startup logs, agent progress) to present a more neutral, professional tone.
+
+### Fixed
+
+- **Integration Tests** — Fixed a regression in `handleWithTools` causing integration tests to fail by accidentally triggering an unmocked background final completion call during tool loops.
+
 ## [0.0.95] - 2026-02-20
 
 ### Added

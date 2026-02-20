@@ -18,7 +18,7 @@ import { VERSION, env } from '../config/env.js';
  * @returns Formatted status message
  */
 export async function formatStatus(session: Session): Promise<string> {
-  let message = `🐕 *FETCH SYSTEM REPORT* (${VERSION})\n`;
+  let message = `*FETCH SYSTEM REPORT* (${VERSION})\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
   // Active project
   message += `📂 *PROJECT CONTEXT*\n`;
@@ -63,7 +63,7 @@ export async function formatStatus(session: Session): Promise<string> {
  * @returns Formatted command/tool overview
  */
 export function formatHelp(): string {
-  return `🐕 *Fetch ${VERSION} — AI Coding Assistant*
+  return `*Fetch ${VERSION} — AI Coding Assistant*
 
 *Slash commands:*
 /stop - Cancel running task
@@ -105,7 +105,7 @@ export function formatHelp(): string {
 - OpenCode 🔧: Multi-provider coding
 - Codex 📦: Autonomous sandboxed tasks
 
-Just describe what you need in plain language! 🐕`;
+Just describe what you need in plain language!`;
 }
 
 
@@ -136,7 +136,7 @@ function formatTaskStatus(status: string): string {
 export async function formatUsage(): Promise<string> {
   const apiKey = env.OPENROUTER_API_KEY;
   if (!apiKey) {
-    return '🐕 No OpenRouter API key configured.';
+    return 'No OpenRouter API key configured.';
   }
 
   try {
@@ -145,7 +145,7 @@ export async function formatUsage(): Promise<string> {
     });
 
     if (!res.ok) {
-      return `🐕 Failed to fetch usage (HTTP ${res.status}). Check your API key.`;
+      return `Failed to fetch usage (HTTP ${res.status}). Check your API key.`;
     }
 
     const body = await res.json() as {
@@ -163,13 +163,13 @@ export async function formatUsage(): Promise<string> {
 
     const d = body.data;
     if (!d) {
-      return '🐕 Unexpected response from OpenRouter.';
+      return 'Unexpected response from OpenRouter.';
     }
 
     const fmt = (v: number | undefined | null) =>
       v != null ? `$${v.toFixed(2)}` : '-';
 
-    let msg = `🐕 *OPENROUTER USAGE*\n`;
+    let msg = `*OPENROUTER USAGE*\n`;
     msg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `💰 *Total*: ${fmt(d.usage)}\n`;
     msg += `📅 *Today*: ${fmt(d.usage_daily)}\n`;
@@ -192,6 +192,6 @@ export async function formatUsage(): Promise<string> {
     return msg;
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    return `🐕 Could not reach OpenRouter: ${errMsg}`;
+    return `Could not reach OpenRouter: ${errMsg}`;
   }
 }

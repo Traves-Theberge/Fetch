@@ -117,7 +117,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
 
   const main = async (): Promise<void> => {
     const version = getVersion();
-    logger.info(`🐕 Fetch Bridge ${version} starting...`);
+    logger.info(`Fetch Bridge ${version} starting...`);
 
     // Start status API first so TUI can configure missing env in setup mode.
     startStatusServer();

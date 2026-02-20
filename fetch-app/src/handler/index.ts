@@ -51,7 +51,7 @@ export function registerWhatsAppSender(fn: (userId: string, text: string) => Pro
 function renderEnvelopeChunks(envelope: ResponseEnvelope, intent?: AgentResponse['intent']): string[] {
   const composed = composeWhatsAppResponse(envelope);
   const chunks = formatAndChunkForWhatsApp(composed, intent);
-  return chunks.map((chunk) => `🐕 ${chunk}`);
+  return chunks;
 }
 
 async function sendEnvelopeNotification(userId: string, envelope: ResponseEnvelope): Promise<void> {
@@ -248,7 +248,7 @@ export async function handleMessage(
 
   // Validate non-empty message
   if (!message || !message.trim()) {
-    return ['🐕 I didn\'t catch that - could you send a message?'];
+    return ['I didn\'t catch that - could you send a message?'];
   }
 
   // Type-safety assertions
@@ -286,7 +286,7 @@ export async function handleMessage(
     const promptMode = selectPromptMode(message);
     const runAcquire = await sManager.acquireAgentRun(session, message, promptMode);
     if (!runAcquire.acquired) {
-      return [formatForWhatsApp('🐕 I am still working on your previous request. Send /stop to interrupt it first.')];
+      return [formatForWhatsApp('I am still working on your previous request. Send /stop to interrupt it first.')];
     }
 
     const runId = runAcquire.run.runId;
@@ -368,7 +368,7 @@ export async function handleMessage(
 
     const errorMessage = sanitizeError(error);
     return [
-      `🐕 Oops! Something went wrong: ${errorMessage}\n\nTry again or type /help.`,
+      `Oops! Something went wrong: ${errorMessage}\n\nTry again or type /help.`,
     ];
   }
 }
@@ -390,7 +390,7 @@ function buildResponses(response: AgentResponse): string[] {
 
   // Main text response — format for WhatsApp (single formatting point)
   if (response.text) {
-    // Strip leading 🐕 from LLM response to avoid duplication (we add our own prefix)
+    // Strip leading 🐕 from LLM response to avoid duplication (legacy safety)
     let cleanText = response.text.replace(/^🐕\s*/, '').trim();
     // Replace em dashes and en dashes with hyphens (LLM doesn't always follow the rule)
     cleanText = cleanText.replace(/[—–]/g, '-');
@@ -400,7 +400,7 @@ function buildResponses(response: AgentResponse): string[] {
 
     const chunks = formatAndChunkForWhatsApp(cleanText, response.intent);
     for (const chunk of chunks) {
-      responses.push(`🐕 ${chunk}`);
+      responses.push(chunk);
     }
   }
 
