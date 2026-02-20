@@ -34,6 +34,8 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
   compactionThreshold: { type: 'int', key: 'FETCH_COMPACTION_THRESHOLD', fallback: 40 },
   compactionMaxTokens: { type: 'int', key: 'FETCH_COMPACTION_MAX_TOKENS', fallback: 500 },
   compactionModel: { type: 'envStr', key: 'FETCH_COMPACTION_MODEL', envFallbackKey: 'SUMMARY_MODEL', fallback: 'openai/gpt-4o-mini' },
+  compactionTokenThreshold: { type: 'int', key: 'FETCH_COMPACTION_TOKEN_THRESHOLD', fallback: 4000 },
+  embeddingModel: { type: 'str', key: 'FETCH_EMBEDDING_MODEL', fallback: 'text-embedding-3-small' },
 
   // ─── Notification LLM ────────────────────────────────────────
   notificationModel: { type: 'envStr', key: 'FETCH_NOTIFICATION_MODEL', envFallbackKey: 'SUMMARY_MODEL', fallback: 'openai/gpt-4o-mini' },
@@ -156,6 +158,8 @@ interface PipelineConfig {
   compactionThreshold: number;
   compactionMaxTokens: number;
   compactionModel: string;
+  compactionTokenThreshold: number;
+  embeddingModel: string;
   notificationModel: string;
   notificationMaxTokens: number;
   notificationTemperature: number;

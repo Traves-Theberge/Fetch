@@ -7,6 +7,8 @@
  */
 
 import { logger } from '../utils/logger.js';
+import { getSessionStore } from '../session/store.js';
+import crypto from 'crypto';
 
 // =============================================================================
 // RATE LIMITER CLASS
@@ -16,8 +18,6 @@ import { logger } from '../utils/logger.js';
  * Sliding-window limiter implementation.
  */
 export class RateLimiter {
-  /** Per-key arrays of request timestamps (epoch ms) */
-  private timestamps: Map<string, number[]> = new Map();
   private readonly maxRequests: number;
   private readonly windowMs: number;
   private evictionTimer: ReturnType<typeof setInterval> | null = null;
@@ -41,13 +41,8 @@ export class RateLimiter {
    */
   private prune(key: string): number[] {
     const cutoff = Date.now() - this.windowMs;
-    const ts = this.timestamps.get(key);
-    if (!ts) return [];
-
-    while (ts.length > 0 && ts[0] <= cutoff) {
-      ts.shift();
-    }
-    return ts;
+    const store = getSessionStore();
+    return store.getRateLimits(key, cutoff);
   }
 
   /**
@@ -56,20 +51,17 @@ export class RateLimiter {
    * @returns true if allowed, false if rate limited
    */
   isAllowed(key: string): boolean {
-    let ts = this.timestamps.get(key);
-    if (!ts) {
-      ts = [];
-      this.timestamps.set(key, ts);
-    }
-
-    this.prune(key);
+    const ts = this.prune(key);
 
     if (ts.length >= this.maxRequests) {
       logger.warn(`Rate limit exceeded for ${key}`);
       return false;
     }
 
-    ts.push(Date.now());
+    const now = Date.now();
+    const store = getSessionStore();
+    store.insertRateLimit(key, now, crypto.randomUUID());
+
     return true;
   }
 
@@ -85,14 +77,16 @@ export class RateLimiter {
    * Clears stored timestamps for one key.
    */
   clear(key: string): void {
-    this.timestamps.delete(key);
+    const store = getSessionStore();
+    store.clearRateLimits(key);
   }
 
   /**
    * Clears all limiter state.
    */
   clearAll(): void {
-    this.timestamps.clear();
+    const store = getSessionStore();
+    store.clearAllRateLimits();
   }
 
   /**
@@ -113,10 +107,7 @@ export class RateLimiter {
   /** Remove keys whose newest timestamp is older than the window. */
   private evictStale(): void {
     const cutoff = Date.now() - this.windowMs;
-    for (const [key, ts] of this.timestamps) {
-      if (ts.length === 0 || ts[ts.length - 1] <= cutoff) {
-        this.timestamps.delete(key);
-      }
-    }
+    const store = getSessionStore();
+    store.pruneStaleRateLimits(cutoff);
   }
 }

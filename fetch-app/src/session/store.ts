@@ -136,7 +136,27 @@ export class SessionStore {
         CREATE INDEX IF NOT EXISTS idx_memory_session ON memory(session_id);
         CREATE INDEX IF NOT EXISTS idx_memory_category ON memory(category);
         CREATE INDEX IF NOT EXISTS idx_memory_keywords ON memory(keywords);
+
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          id TEXT PRIMARY KEY,
+          key TEXT NOT NULL,
+          timestamp INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_rate_limits_key ON rate_limits(key);
       `);
+
+      // Database migrations (e.g. adding new columns to existing tables)
+      try {
+        this.db.pragma('foreign_keys=off');
+        const hasEmbedding = this.db.prepare("SELECT COUNT(*) as c FROM pragma_table_info('memory') WHERE name='embedding'").get() as { c: number };
+        if (hasEmbedding.c === 0) {
+          logger.info('Migrating DB: Adding embedding column to memory table');
+          this.db.exec(`ALTER TABLE memory ADD COLUMN embedding TEXT`);
+        }
+        this.db.pragma('foreign_keys=on');
+      } catch (mErr) {
+        logger.error('Failed to run migrations', mErr);
+      }
 
       // Prepare statements
       this.stmtGetById = this.db.prepare('SELECT * FROM sessions WHERE id = ?');
@@ -155,11 +175,11 @@ export class SessionStore {
 
       // Memory statements
       this.stmtMemoryInsert = this.db.prepare(`
-        INSERT INTO memory (id, session_id, category, content, keywords, importance, created_at)
-        VALUES (@id, @session_id, @category, @content, @keywords, @importance, @created_at)
+        INSERT INTO memory (id, session_id, category, content, keywords, importance, created_at, embedding)
+        VALUES (@id, @session_id, @category, @content, @keywords, @importance, @created_at, @embedding)
       `);
       this.stmtMemorySearch = this.db.prepare(`
-        SELECT * FROM memory WHERE session_id = ? ORDER BY importance DESC, created_at DESC LIMIT ?
+        SELECT * FROM memory WHERE session_id = ?
       `);
       this.stmtMemoryUpdateRecall = this.db.prepare(`
         UPDATE memory SET last_recalled_at = @last_recalled_at, recall_count = recall_count + 1 WHERE id = @id
@@ -392,7 +412,8 @@ export class SessionStore {
     category: MemoryCategory,
     content: string,
     keywords: string,
-    importance: number = 1
+    importance: number = 1,
+    embedding?: string
   ): MemoryEntry {
     this.ensureInitialized();
 
@@ -406,6 +427,7 @@ export class SessionStore {
       createdAt: new Date().toISOString(),
       lastRecalledAt: null,
       recallCount: 0,
+      embedding,
     };
 
     this.stmtMemoryInsert!.run({
@@ -416,19 +438,20 @@ export class SessionStore {
       keywords: entry.keywords,
       importance: entry.importance,
       created_at: entry.createdAt,
+      embedding: entry.embedding || null,
     });
 
     return entry;
   }
 
   /**
-   * Recalls session memories using keyword-weighted scoring.
+   * Recalls session memories using keyword-weighted scoring and vector similarity.
    */
-  recallMemories(sessionId: string, query: string, limit: number = 5): MemoryEntry[] {
+  recallMemories(sessionId: string, query: string, limit: number = 5, queryEmbedding?: number[]): MemoryEntry[] {
     this.ensureInitialized();
 
     // Fetch candidate memories for this session
-    const rows = this.stmtMemorySearch!.all(sessionId, limit * 3) as Array<{
+    const rows = this.stmtMemorySearch!.all(sessionId) as Array<{
       id: string;
       session_id: string;
       category: string;
@@ -438,25 +461,51 @@ export class SessionStore {
       created_at: string;
       last_recalled_at: string | null;
       recall_count: number;
+      embedding: string | null;
     }>;
 
     if (rows.length === 0) return [];
 
-    // BM25-style keyword scoring
+    // Helper for cosine similarity
+    const cosineSimilarity = (vecA: number[], vecB: number[]) => {
+      let dotProduct = 0;
+      let normA = 0;
+      let normB = 0;
+      for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+      }
+      return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB) || 1);
+    };
+
+    // BM25-style keyword scoring + Vector Similarity
     const queryTerms = query.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    if (queryTerms.length === 0) {
-      // No meaningful query terms - return top by importance
-      return rows.slice(0, limit).map(r => this.rowToMemory(r));
-    }
 
     const scored = rows.map(row => {
       const keywords = row.keywords.toLowerCase();
       const content = row.content.toLowerCase();
       let score = 0;
 
-      for (const term of queryTerms) {
-        if (keywords.includes(term)) score += 3;
-        if (content.includes(term)) score += 1;
+      // keyword score
+      if (queryTerms.length > 0) {
+        for (const term of queryTerms) {
+          if (keywords.includes(term)) score += 3;
+          if (content.includes(term)) score += 1;
+        }
+      }
+
+      // vector similarity score
+      if (queryEmbedding && row.embedding) {
+        try {
+          const rowVec = JSON.parse(row.embedding) as number[];
+          if (Array.isArray(rowVec) && rowVec.length === queryEmbedding.length) {
+            const similarity = cosineSimilarity(queryEmbedding, rowVec);
+            score += Math.max(0, similarity * 10);
+          }
+        } catch (e) {
+          logger.warn('Failed to parse embedding for memory', { id: row.id });
+        }
       }
 
       // Boost by importance
@@ -468,7 +517,7 @@ export class SessionStore {
     // Sort by score descending, take top N
     scored.sort((a, b) => b.score - a.score);
     const results = scored
-      .filter(s => s.score > 0)
+      .filter(s => s.score > 0 || queryTerms.length === 0) // Allow importance fallback if no terms
       .slice(0, limit)
       .map(s => this.rowToMemory(s.row));
 
@@ -492,6 +541,7 @@ export class SessionStore {
     created_at: string;
     last_recalled_at: string | null;
     recall_count: number;
+    embedding?: string | null;
   }): MemoryEntry {
     return {
       id: row.id,
@@ -503,7 +553,59 @@ export class SessionStore {
       createdAt: row.created_at,
       lastRecalledAt: row.last_recalled_at,
       recallCount: row.recall_count,
+      embedding: row.embedding || undefined,
     };
+  }
+
+  // ==========================================================================
+  // RATE LIMITS
+  // ==========================================================================
+
+  public insertRateLimit(key: string, timestamp: number, id: string): void {
+    if (!this.initialized) return;
+    try {
+      this.db!.prepare(`INSERT INTO rate_limits (id, key, timestamp) VALUES (?, ?, ?)`).run(id, key, timestamp);
+    } catch (error) {
+      logger.error('Failed to insert rate limit', error);
+    }
+  }
+
+  public getRateLimits(key: string, since: number): number[] {
+    if (!this.initialized) return [];
+    try {
+      const rows = this.db!.prepare(`SELECT timestamp FROM rate_limits WHERE key = ? AND timestamp > ? ORDER BY timestamp ASC`).all(key, since) as { timestamp: number }[];
+      return rows.map(r => r.timestamp);
+    } catch (error) {
+      logger.error('Failed to get rate limits', error);
+      return [];
+    }
+  }
+
+  public clearRateLimits(key: string): void {
+    if (!this.initialized) return;
+    try {
+      this.db!.prepare(`DELETE FROM rate_limits WHERE key = ?`).run(key);
+    } catch (error) {
+      logger.error('Failed to clear rate limits', error);
+    }
+  }
+
+  public clearAllRateLimits(): void {
+    if (!this.initialized) return;
+    try {
+      this.db!.prepare(`DELETE FROM rate_limits`).run();
+    } catch (error) {
+      logger.error('Failed to clear all rate limits', error);
+    }
+  }
+
+  public pruneStaleRateLimits(cutoff: number): void {
+    if (!this.initialized) return;
+    try {
+      this.db!.prepare(`DELETE FROM rate_limits WHERE timestamp <= ?`).run(cutoff);
+    } catch (error) {
+      logger.error('Failed to prune rate limits', error);
+    }
   }
 
   /**

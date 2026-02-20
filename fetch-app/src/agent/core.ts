@@ -735,8 +735,6 @@ async function handleWithTools(
     const sManager = await getSessionManager();
 
     // Persist assistant's tool_call request IMMEDIATELY (before executing tools)
-    // This prevents malformed history if tool execution or turn transition fails.
-    // filter out degenerate tool calls (whitespace-only args)
     const persistableToolCalls = currentToolCalls
       .filter(tc => {
         if (!('function' in tc) || !tc.function) return false;
@@ -764,82 +762,53 @@ async function handleWithTools(
       }
       callCount++;
 
-      // Handle both standard and custom tool call formats
       const fn = 'function' in toolCall ? toolCall.function : null;
       if (!fn) continue;
 
       const toolName = fn.name;
       let toolArgs: Record<string, unknown> | null = null;
-
-      // Detect degenerate arguments (LLM sometimes emits whitespace-only instead of JSON)
-      // Note: {} is valid empty JSON for no-arg tools like workspace_list
       const rawArgs = fn.arguments?.trim() ?? '';
-      if (!rawArgs || /^\s*$/.test(rawArgs)) {
-        logger.warn('Degenerate tool call arguments (whitespace-only)', {
-          tool: toolName,
-          rawLength: fn.arguments?.length ?? 0,
-        });
 
-        // Attempt natural language argument extraction from the user's message
+      if (!rawArgs || /^\s*$/.test(rawArgs)) {
+        logger.warn('Degenerate tool call arguments (whitespace-only)', { tool: toolName });
         const extractedArgs = extractToolArgsFromMessage(toolName, message);
         if (extractedArgs) {
-          logger.info('Recovered tool args from user message', { tool: toolName, extractedArgs });
           toolArgs = extractedArgs;
         } else {
           const errorResult = {
             success: false,
-            output: `Tool call failed: arguments were empty or whitespace-only. For ${toolName}, provide valid JSON like {"name": "my-project"}.`,
+            output: `Tool call failed: arguments were empty or whitespace-only for ${toolName}.`,
           };
-          messages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(errorResult),
-          });
+          messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(errorResult) });
           continue;
         }
       }
 
       if (!toolArgs) {
-        // Safely parse tool call arguments — LLM may produce truncated JSON
         try {
           toolArgs = JSON.parse(rawArgs);
         } catch (parseError) {
-          logger.error('Failed to parse tool call arguments (likely truncated)', {
-            tool: toolName,
-            rawArgs: rawArgs.substring(0, 200),
-            error: parseError,
-          });
-
-          // Try natural language extraction as fallback
+          logger.error('Failed to parse tool call arguments (likely truncated)', { tool: toolName, rawArgs: rawArgs.substring(0, 200) });
           const extractedArgs = extractToolArgsFromMessage(toolName, message);
           if (extractedArgs) {
-            logger.info('Recovered tool args from user message after JSON parse failure', { tool: toolName, extractedArgs });
             toolArgs = extractedArgs;
           } else {
-            // Push an error result so the LLM can self-correct
             const errorResult = {
               success: false,
-              output: `Tool call failed: invalid JSON in arguments for ${toolName}. Send proper JSON like {"name": "value"}.`,
+              output: `Tool call failed: invalid JSON in arguments for ${toolName}.`,
             };
-            messages.push({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: JSON.stringify(errorResult),
-            });
+            messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(errorResult) });
             continue;
           }
         }
       }
 
       const toolStart = Date.now();
-
-      // At this point toolArgs is guaranteed non-null (all null paths `continue` above)
       const finalArgs = toolArgs!;
       const sanitizedArgs = sanitizeForPersistence(finalArgs) as Record<string, unknown>;
 
-      logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id, args: sanitizedArgs });
+      logger.info(`LLM requested tool call: ${toolName}`, { tool_call_id: toolCall.id });
 
-      // Send progress message for slow tools after 4 seconds
       let toolProgressTimer: ReturnType<typeof setTimeout> | undefined;
       if (SLOW_TOOLS.has(toolName) && activeProgressCallback) {
         const progressCb = activeProgressCallback;
@@ -857,7 +826,6 @@ async function handleWithTools(
         }, 4000);
       }
 
-      // Execute via registry (pass session context for session-aware tools)
       await options?.onLifecycle?.('tool_execution', { toolName, toolCallCount: callCount, promptMode });
 
       let result;
@@ -885,18 +853,13 @@ async function handleWithTools(
         ...(result.success ? {} : { error: result.output }),
       });
 
-      toolCalls.push({
-        name: toolName,
-        args: sanitizedArgs,
-        result,
-      });
+      toolCalls.push({ name: toolName, args: sanitizedArgs, result });
 
-      // Persist tool result to session (AFTER successful execution to avoid orphaned entries)
-      // Compress large tool results to prevent session bloat
       const maxPersist = pipeline.toolResultMaxPersist;
       const persistResult = result.output && result.output.length > maxPersist
         ? result.output.slice(0, maxPersist / 2) + `\n... [truncated, full output was ${result.output.length} chars]`
         : result.output;
+
       await sManager.addToolMessage(
         session,
         { name: toolName, args: sanitizedArgs, result: persistResult, duration: Date.now() - toolStart },
@@ -904,13 +867,11 @@ async function handleWithTools(
         toolCall.id
       );
 
-      // SYNC SESSION STATE BASED ON TOOLS
-      if (toolName === 'workspace_select' && result.success) {
+      // Sync session state based on tools
+      if ((toolName === 'workspace_select' || toolName === 'workspace_create') && result.success) {
         try {
           const workspace = result.metadata as Record<string, unknown> | undefined;
-          if (!workspace?.name || !workspace?.path) {
-            logger.warn('workspace_select returned incomplete data, skipping session sync');
-          } else {
+          if (workspace?.name && workspace?.path) {
             const profile = workspace.profile as Record<string, unknown> | undefined;
             session.currentProject = {
               name: workspace.name as string,
@@ -923,83 +884,27 @@ async function handleWithTools(
               hasUncommitted: (workspace.git as Record<string, unknown>)?.dirty as boolean || false,
               refreshedAt: new Date().toISOString()
             };
-            session.repoMap = null; // Clear old map
-
-            await sManager.updateSession(session);
-
-            // Rebuild system prompt so LLM sees the new workspace
-            const updatedContext = await buildContextSection(session);
-            messages[0] = {
-              role: 'system',
-              content: identityManager.buildSystemPrompt(activatedContext, updatedContext, { mode: promptMode }),
-            };
-            logger.info('System prompt rebuilt after workspace change', { project: workspace.name });
-          }
-        } catch (e) {
-          logger.error('Failed to sync session after workspace_select', e);
-        }
-      }
-
-      // Sync session after workspace_create too
-      if (toolName === 'workspace_create' && result.success) {
-        try {
-          const created = result.metadata as Record<string, unknown> | undefined;
-          if (!created?.name || !created?.path) {
-            logger.warn('workspace_create returned incomplete data, skipping session sync');
-          } else {
-            const profile = created.profile as Record<string, unknown> | undefined;
-            session.currentProject = {
-              name: created.name as string,
-              path: created.path as string,
-              type: ((created.projectType as string) || 'unknown') as import('../workspace/types.js').ProjectType,
-              mainFiles: (profile?.entryPoints as string[]) || [],
-              profile: profile as import('../workspace/types.js').ProjectProfile | undefined,
-              gitBranch: (created.git as Record<string, unknown>)?.branch as string || 'main',
-              lastCommit: null,
-              hasUncommitted: false,
-              refreshedAt: new Date().toISOString()
-            };
             session.repoMap = null;
-
             await sManager.updateSession(session);
-
             const updatedContext = await buildContextSection(session);
             messages[0] = {
               role: 'system',
               content: identityManager.buildSystemPrompt(activatedContext, updatedContext, { mode: promptMode }),
             };
-            logger.info('System prompt rebuilt after workspace creation', { project: created.name });
           }
-        } catch (e) {
-          logger.error('Failed to sync session after workspace_create', e);
-        }
+        } catch (e) { logger.error('Sync failed', e); }
       }
 
-      // Sync after task_create
       if (toolName === 'task_create' && result.success) {
-        try {
-          const taskResult = result.metadata as Record<string, unknown> | undefined;
-          if (!taskResult?.taskId) {
-            logger.warn('task_create returned incomplete data, skipping session sync');
-          } else {
-            session.activeTaskId = taskResult.taskId as import('../task/types.js').TaskId;
-            await sManager.updateSession(session);
-          }
-        } catch (e) {
-          logger.error('Failed to sync session after task_create', e);
+        const taskResult = result.metadata as Record<string, unknown> | undefined;
+        if (taskResult?.taskId) {
+          session.activeTaskId = taskResult.taskId as import('../task/types.js').TaskId;
+          await sManager.updateSession(session);
         }
       }
 
-      // Add tool result to messages
-      messages.push({
-        role: 'tool',
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(result),
-      });
+      messages.push({ role: 'tool', tool_call_id: toolCall.id, content: JSON.stringify(result) });
     }
-
-    // Clean up toolCalls local var for logging (not for history, already persisted)
-    // Removed duplicate persistence here as it's now handled before the loop starts
 
     // Get next response
     response = await openai.chat.completions.create({
@@ -1011,8 +916,28 @@ async function handleWithTools(
     }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
   }
 
+  // Check if we hit the limit
+  const loopBailout = callCount >= maxToolCallsForTurn && response.choices[0]?.message?.tool_calls && response.choices[0].message.tool_calls.length > 0;
+  if (loopBailout) {
+    logger.warn('Tool loop iteration limit reached, bailing out to final summary', { sessionId: session.id, callCount });
+    messages.push({
+      role: 'system',
+      content: 'CRITICAL: You have reached the maximum allowed tool iterations for this turn. STOP calling tools. Summarize what has been accomplished so far and inform the user that you need to wait for their next message to continue further actions.'
+    });
+  }
+
   // Get final text response
   await options?.onLifecycle?.('responding', { promptMode });
+
+  const useSpecializedModel = loopBailout || toolTelemetry.length > 2;
+  const finalModel = useSpecializedModel ? (env.SUMMARY_MODEL ?? MODEL) : MODEL;
+
+  response = await openai.chat.completions.create({
+    model: finalModel,
+    messages,
+    max_tokens: pipeline.toolMaxTokens,
+    temperature: pipeline.toolTemperature,
+  }, options?.abortSignal ? { signal: options.abortSignal } : undefined);
   const text =
     response.choices[0]?.message?.content ??
     "Done! 🐕 Let me know if you need anything else.";

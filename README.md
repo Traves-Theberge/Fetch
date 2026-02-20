@@ -22,6 +22,14 @@ Unleash Multi-agent Orchestration.
 Fetch is a self-hosted, multi-agent coding orchestrator controlled from WhatsApp.
 It routes work to CLI harnesses (Copilot, Claude, Gemini, OpenCode, Codex) inside a sandboxed Docker container and gives you a Go TUI for ops.
 
+## Key Features
+
+- **Semantic Memory** — Hybrid recall using OpenAI vector embeddings + BM25 keyword matching.
+- **Dynamic Compaction** — Token-based context window management to prevent LLM overflow.
+- **Safety Loops** — Automatic bailout for infinite tool loops with model-specialized summaries.
+- **Resilient Threads** — Fixed self-reply loops for seamless WhatsApp thread interactions.
+- **Persistent Safety** — State-backed rate limiting and cautious mode confirmation gates.
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org)
@@ -112,7 +120,7 @@ Install/update management:
 fetch self version
 fetch self update
 fetch self update --channel beta
-fetch self pin v0.0.94
+fetch self pin v0.0.95
 fetch uninstall
 ```
 
@@ -140,6 +148,9 @@ fetch harness uninstall github
 - Use `fetch setup --install-harnesses` after changing harness enable flags.
 - `workspace_sync` only reports success when a push/publication is actually verifiable; otherwise it returns a clear actionable error.
 - Tool exposure is now intent-gated per turn (deterministic + heuristic), so conversational asks keep tool schemas minimized unless the request is clearly action-oriented.
+- Current `npm audit` may report high-severity findings from the `whatsapp-web.js` transitive tree (`archiver/glob/minimatch`).
+- This is an upstream dependency-chain issue; there is no safe non-breaking `npm audit fix` path in the current package line.
+- Track this in release notes/changelog and re-audit after each `whatsapp-web.js` update.
 
 ## Workflow Automation
 
@@ -173,7 +184,7 @@ Example asks from WhatsApp:
 - "Create a nightly workflow that runs tests and syncs to GitHub."
 - "Schedule that workflow at `0 3 * * *` UTC."
 - "Run app tests now in my active workspace."
-- "Open https://example.com and verify the login button exists."
+- "Open <https://example.com> and verify the login button exists."
 
 ## Workspace Operations
 
@@ -250,9 +261,9 @@ Safety notes:
 Example asks from WhatsApp:
 
 - "Search for TypeScript Zod validation best practices."
-- "Fetch https://example.com/docs and summarize the auth section."
-- "Open https://example.com, click login, and take a screenshot."
-- "Run a browser test on https://example.com and confirm 'Login' appears."
+- "Fetch <https://example.com/docs> and summarize the auth section."
+- "Open <https://example.com>, click login, and take a screenshot."
+- "Run a browser test on <https://example.com> and confirm 'Login' appears."
 
 ## Conversational Preferences
 
@@ -312,10 +323,12 @@ Fetch runs as a three-container stack plus a host manager:
 - Single active run per session with explicit lifecycle phases (`queued`, `preparing`, `planning`, `tool_execution`, `responding`, terminal state).
 - Prompt mode selection per turn (`minimal` for short conversational turns, `full` for execution-heavy turns).
 - Interrupt path for `/stop` and `/cancel` now aborts active in-flight runs, not only delegated tasks.
-- Turn telemetry is captured for every run (retries, tool counts, per-tool duration/success).
 - Two memory tiers are persisted in session metadata:
-- `shortTermSummary` for immediate continuity across nearby turns.
-- `durableNotes` for stable preferences/decisions that should survive compaction.
+  - `shortTermSummary` for immediate continuity across nearby turns.
+  - `durableNotes` for stable preferences/decisions that should survive compaction.
+- **Semantic Memory Recall** — Uses vector embeddings for meaning-aware retrieval.
+- **LLM Tool Loop Bailout** — Hard safety break after max tool iterations per turn.
+- **Model Specialization** — Uses dedicated `SUMMARY_MODEL` for complex turn finalization.
 
 ## Project Structure
 

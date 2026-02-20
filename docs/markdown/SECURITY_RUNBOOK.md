@@ -98,3 +98,22 @@ sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
 newgrp docker
 ```
+
+## 8. Dependency Advisory (Current)
+
+`npm audit` may report high-severity vulnerabilities from Fetch's WhatsApp stack dependency chain:
+
+- Direct package: `whatsapp-web.js`
+- Transitive packages typically flagged: `archiver`, `glob`, `minimatch`, `readdir-glob`, `zip-stream`
+
+Current state:
+
+- Findings are upstream dependency-chain advisories, not custom Fetch runtime code.
+- `npm audit fix` does not currently provide a safe non-breaking resolution path on this package line.
+- `npm audit fix --force` may propose breaking package changes and should not be applied blindly in production.
+
+Operator guidance:
+
+1. Re-run audits after every Fetch/`whatsapp-web.js` update.
+2. Treat this as tracked risk until upstream resolves in a compatible release.
+3. Keep bridge/admin services on trusted networks only and avoid exposing admin endpoints publicly.

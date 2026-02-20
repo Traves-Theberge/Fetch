@@ -162,6 +162,8 @@ export class Bridge {
   private rateLimiter: RateLimiter;
   private deduplicator = new MessageDeduplicator();
   private reactionDedup = new Map<string, number>();
+  private botRecentMessageIds: string[] = []; // LRU cache for bot sent messages
+  private readonly maxBotRecentMessages = 1000;
   private isReady = false;
   private readyAt = 0;
   private readonly reactionWarmupMs = 60_000;
@@ -229,10 +231,11 @@ export class Bridge {
     registerWhatsAppSender(async (userId: string, text: string) => {
       try {
         logger.info(`Sending proactive message to ${userId}`);
-        // Ensure userId is a clean JID (e.g. 123456@c.us)
-        // If it's a raw number, append @c.us
         const targetId = userId.includes('@') ? userId : `${userId}@c.us`;
-        await this.client.sendMessage(targetId, text);
+        const sentMsg = await this.client.sendMessage(targetId, text);
+        if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+          this.trackBotMessage(sentMsg.id._serialized);
+        }
         logger.success(`Proactive message sent to ${targetId}`);
       } catch (err) {
         logger.error(`Failed to send proactive WhatsApp message to ${userId}`, err);
@@ -439,16 +442,7 @@ export class Bridge {
       }
 
       // Check if this is a reply to a Fetch message (thread continuation)
-      // IMPORTANT: Only check for non-fromMe messages. For fromMe messages,
-      // we CANNOT use thread replies because Fetch's own bot responses also
-      // have fromMe=true (same WhatsApp account as the owner). Allowing
-      // thread replies for fromMe causes an infinite loop:
-      //   Owner sends @fetch → Fetch replies (quotes original) →
-      //   message_create fires (fromMe=true, quotes fromMe msg) →
-      //   isReplyToFetch=true → processes Fetch's own reply → loop forever
-      // DISABLE THREAD REPLIES due to inability to distinguish Owner vs Bot messages (both fromMe=true)
-      // This prevents Fetch from interrupting human conversations when someone replies to the Owner.
-      const isReplyToFetch = false; // message.fromMe ? false : await this.isReplyToFetchMessage(message);
+      const isReplyToFetch = message.fromMe ? false : await this.isReplyToFetchMessage(message);
       const hasFetchTrigger = message.body.toLowerCase().trim().startsWith('@fetch');
 
       // For messages from us (fromMe=true), ONLY process with explicit @fetch trigger.
@@ -472,18 +466,27 @@ export class Bridge {
   }
 
   /**
-   * Check if message is a reply to a Fetch bot message
-   * @deprecated Disabled to prevent false positives with Owner messages
+   * Tracks a message ID sent by the bot to allow thread replies out of the group.
+   * Keeps a bounded list of recent IDs.
    */
-  /*
+  private trackBotMessage(messageId: string): void {
+    this.botRecentMessageIds.push(messageId);
+    if (this.botRecentMessageIds.length > this.maxBotRecentMessages) {
+      this.botRecentMessageIds.shift(); // Remove oldest
+    }
+  }
+
+  /**
+   * Check if message is a reply to a Fetch bot message
+   */
   private async isReplyToFetchMessage(message: Message): Promise<boolean> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatsapp-web.js getQuotedMessage not in type defs
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const quotedMsg = await (message as any).getQuotedMessage();
-      if (!quotedMsg) return false;
+      if (!quotedMsg || !quotedMsg.id || !quotedMsg.id._serialized) return false;
 
-      // Check if the quoted message is from us (fromMe)
-      if (quotedMsg.fromMe) {
+      // Check if the quoted message's ID is in our cache of recent bot-sent messages
+      if (this.botRecentMessageIds.includes(quotedMsg.id._serialized)) {
         logger.debug('Message is reply to Fetch response');
         return true;
       }
@@ -492,7 +495,6 @@ export class Bridge {
       return false;
     }
   }
-  */
 
   /**
    * Download and analyze image messages, then append analysis to message body.
@@ -604,7 +606,10 @@ export class Bridge {
         try {
           const chunks = await composeTaskProgressMessages(message, sessionId);
           for (const chunk of chunks) {
-            await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+            const sentMsg = await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+            if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+              this.trackBotMessage(sentMsg.id._serialized);
+            }
           }
           lastProgressUpdate.set(sessionId, now);
         } catch (error) {
@@ -623,7 +628,10 @@ export class Bridge {
       try {
         const chunks = composeTaskFileOpMessages(operation, path);
         for (const chunk of chunks) {
-          await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+          const sentMsg = await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+          if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+            this.trackBotMessage(sentMsg.id._serialized);
+          }
         }
       } catch (error) {
         logger.error('Failed to send file_op message', error);
@@ -640,7 +648,10 @@ export class Bridge {
       try {
         const chunks = composeTaskQuestionMessages(question);
         for (const chunk of chunks) {
-          await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+          const sentMsg = await this.client.sendMessage(targetId, `🐕 ${chunk}`);
+          if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+            this.trackBotMessage(sentMsg.id._serialized);
+          }
         }
       } catch (error) {
         logger.error('Failed to send task question', error);
@@ -720,7 +731,7 @@ export class Bridge {
     // SECURITY GATE 2: Rate limiting
     const rateLimitId = participantId || senderId;
     const sessionUserId = await this.resolveCanonicalSessionUserId(message, senderId, participantId);
-    if (!this.rateLimiter.isAllowed(rateLimitId)) {
+    if (!(await this.rateLimiter.isAllowed(rateLimitId))) {
       await message.reply('⏳ Slow down! You\'re sending too many requests. Please wait a moment.');
       return;
     }
@@ -757,7 +768,10 @@ export class Bridge {
             output = mediaPrefix + output;
             firstMessageSent = true;
           }
-          await message.reply(output);
+          const sentMsg = await message.reply(output);
+          if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+            this.trackBotMessage(sentMsg.id._serialized);
+          }
         }
       );
 
@@ -771,7 +785,10 @@ export class Bridge {
           firstMessageSent = true; // Mark as sent so subsequent responses don't get it
         }
 
-        await message.reply(response);
+        const sentMsg = await message.reply(response);
+        if (sentMsg && sentMsg.id && sentMsg.id._serialized) {
+          this.trackBotMessage(sentMsg.id._serialized);
+        }
         logger.success(`Reply sent (${response.length} chars)`);
 
         // Small delay between messages to avoid rate limiting

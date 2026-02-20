@@ -85,7 +85,7 @@ export async function buildContextSection(session: Session, userMessage?: string
 
   // Thread metadata
   const threadId = session.metadata?.activeThreadId;
-  if(threadId) parts.push(`🧵 **Thread**: \`${threadId}\``);
+  if (threadId) parts.push(`🧵 **Thread**: \`${threadId}\``);
 
   // WORKSPACE — This is the MOST IMPORTANT context for the LLM
   if (session.currentProject) {
@@ -126,8 +126,8 @@ export async function buildContextSection(session: Session, userMessage?: string
     const taskManager = await getTaskManager();
     const task = taskManager.getTask(session.activeTaskId);
     if (task) {
-      const goalPreview = task.goal.length > 50 
-        ? task.goal.substring(0, 50) + '...' 
+      const goalPreview = task.goal.length > 50
+        ? task.goal.substring(0, 50) + '...'
         : task.goal;
       parts.push(`🎯 **Active task**: ${goalPreview}`);
       parts.push(`📊 **Status**: ${task.status}`);
@@ -183,7 +183,7 @@ export async function buildContextSection(session: Session, userMessage?: string
     try {
       const { getSessionManager } = await import('../session/manager.js');
       const sManager = await getSessionManager();
-      const memories = sManager.recallMemories(session.id, userMessage);
+      const memories = await sManager.recallMemories(session.id, userMessage);
       if (memories.length > 0) {
         parts.push('\n## Recalled Context');
         for (const mem of memories) {

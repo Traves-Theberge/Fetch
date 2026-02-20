@@ -7,7 +7,6 @@
 - Runtime state dirs: `data/`, `workspace/`.
 - Validation tests: `fetch-app/tests/unit/session-store.test.ts`, `fetch-app/tests/unit/task-store.test.ts`, `fetch-app/tests/unit/task-integration.test.ts`.
 
-
 > Fetch persists state across three layers: **Session** (Message History), **Workspace** (Git/File Context), and **Task** (Active Jobs). All state is backed by SQLite (WAL mode) for crash-safety and zero-config deployment.
 
 ```mermaid
@@ -82,7 +81,15 @@ CREATE TABLE memory (
   content TEXT NOT NULL,
   keywords TEXT NOT NULL,
   importance INTEGER DEFAULT 1,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  embedding TEXT -- JSON array
+);
+
+CREATE TABLE rate_limits (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  points INTEGER NOT NULL,
+  expire_at TEXT NOT NULL
 );
 ```
 

@@ -157,7 +157,7 @@ describe('Tool Registry', () => {
 
       const blocked = await registry.execute('test_danger_confirm', { confirm: false }, { autonomyLevel: 'cautious' });
       expect(blocked.success).toBe(false);
-      expect(blocked.output).toContain('requires explicit confirmation');
+      expect(blocked.output).toContain('requires manual confirmation in Cautious Mode');
 
       const allowed = await registry.execute('test_danger_confirm', { confirm: true }, { autonomyLevel: 'cautious' });
       expect(allowed.success).toBe(true);

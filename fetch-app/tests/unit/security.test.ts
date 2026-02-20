@@ -4,7 +4,7 @@
  * Tests for SecurityGate, RateLimiter, and input validator.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // ── Validator tests (pure functions, no mocks needed) ────────────────────────
 import { validateInput, sanitizePath } from '../../src/security/validator.js';
@@ -122,12 +122,20 @@ describe('Input Validator', () => {
 
 // ── RateLimiter tests ────────────────────────────────────────────────────────
 import { RateLimiter } from '../../src/security/rateLimiter.js';
+import { getSessionStore, resetSessionStoreForTests } from '../../src/session/store.js';
 
 describe('RateLimiter', () => {
   let limiter: RateLimiter;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    resetSessionStoreForTests();
+    const store = getSessionStore(':memory:');
+    await store.init();
     limiter = new RateLimiter(3, 1000); // 3 req/sec for fast testing
+  });
+
+  afterEach(() => {
+    resetSessionStoreForTests();
   });
 
   it('should allow requests within the limit', () => {

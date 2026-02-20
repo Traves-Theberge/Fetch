@@ -7,7 +7,6 @@
 - Infra topology: `docker-compose.yml`, `kennel/Dockerfile`, `kennel/browser-agent.mjs`.
 - Validation tests: `fetch-app/tests/integration/agent-loop.test.ts`, `fetch-app/tests/unit/tool-registry.test.ts`.
 
-
 ## System Overview
 
 ```mermaid
@@ -192,6 +191,7 @@ Global `uncaughtException` handler triggers this same shutdown path. `unhandledR
 ### EventEmitter Subclasses
 
 Several managers extend `EventEmitter` and implement `shutdown()` methods to clean up resources:
+
 - **SkillManager** — Closes chokidar file watcher, removes event listeners
 - **IdentityManager** — Closes chokidar file watcher, removes event listeners
 
@@ -425,8 +425,8 @@ flowchart TB
 | **Skills** (SKILL.md files) | Domain expertise, harness hints | System prompt (summary + activated instructions) |
 | **Tools** (27 built-in + custom JSON) | Actions the LLM can take | OpenAI function-calling schema + execution handlers |
 | **Sessions** (SQLite) | Conversation state, preferences, active workspace/task | Message history + session context section |
-| **Compaction** | Summarizes old messages via LLM | Session context + saves summaries as memory entries |
-| **Memory** (BM25) | Cross-session recall from keyword-scored entries | "Recalled Context" section in system prompt |
+| **Compaction** | Summarizes old messages via LLM (triggers on message or token count) | Session context + saves summaries as memory entries |
+| **Memory** (BM25 + Vectors) | Cross-session recall from keyword and vector-scored entries | "Recalled Context" section in system prompt |
 | **Workspace** | Project discovery, git state, repo map | Session context (workspace info + file tree) |
 | **Agent Core** | ReAct loop (reason, act, observe, repeat up to 5 rounds) | Consumes all of the above, produces tool calls + responses |
 
@@ -520,8 +520,9 @@ The harness spawner automatically wraps commands with `docker exec` when the ada
 | Table | Purpose | Key Fields |
 | --- | --- | --- |
 | `sessions` | Session blobs | `id`, `user_id`, `data` (JSON), `created_at`, `updated_at` |
-| `memory` | Structured memory entries | `id`, `session_id`, `category`, `content`, `keywords`, `importance`, `recall_count` |
+| `memory` | Structured memory entries | `id`, `session_id`, `category`, `content`, `keywords`, `importance`, `recall_count`, `embedding` |
 | `meta` | Key-value metadata | `key`, `value` |
+| `rate_limits` | Persistent rate limits | `id`, `user_id`, `points`, `expire_at` |
 
 ### tasks.db
 

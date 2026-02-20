@@ -5,7 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.95] - 2026-02-20
+
+### Added
+
+- **Semantic Memory Recall** — Memory retrieval now uses OpenAI vector embeddings and cosine similarity alongside traditional keyword matching. This allows Fetch to understand the *meaning* of past interactions even if keywords don't match exactly.
+- **Dynamic Token-Based Compaction** — Session compaction now triggers based on estimated token counts (using a 4:1 character-to-token ratio) in addition to message count, preventing context window overflow in high-density conversations.
+- **LLM Tool Loop Bailout** — Implemented a hard safety break in the tool execution loop. If a single turn exceeds the maximum iteration limit, Fetch will automatically stop calling tools and provide a final summary.
+- **Model Specialization** — Complex turns or bailout scenarios now use the `SUMMARY_MODEL` (configurable) for the final response, ensuring higher-quality summaries for long execution paths.
+- **Improved Cautious Mode Guidance** — Tool registry now provides explicit instructions to the LLM when a tool requires confirmation, guiding it to use the `ask_user` tool correctly.
+
+### Fixed
+
+- **Thread Reply Resilience** — Re-enabled thread replies with a localized `botRecentMessageIds` cache to prevent infinite self-reply loops.
+- **Persistent Rate Limiting** — Rate limit timestamps are now persisted in SQLite, ensuring they survive application restarts.
 
 ## [0.0.94] - 2026-02-18
 

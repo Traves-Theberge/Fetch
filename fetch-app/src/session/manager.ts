@@ -400,7 +400,14 @@ export class SessionManager {
 
   private async compactIfNeededInternal(sessionId: string, fallbackSession?: Session): Promise<void> {
     const session = await this.getLatestSessionOrFallback(fallbackSession, sessionId);
-    if (session.messages.length <= pipeline.compactionThreshold) return;
+
+    const totalChars = session.messages.reduce((sum, m) => sum + m.content.length, 0);
+    const estimatedTokens = Math.ceil(totalChars / 4);
+
+    const overMessageCount = session.messages.length > pipeline.compactionThreshold;
+    const overTokenCount = estimatedTokens > pipeline.compactionTokenThreshold;
+
+    if (!overMessageCount && !overTokenCount) return;
 
     const keep = pipeline.historyWindow;
     const oldMessages = session.messages.slice(0, -keep);
@@ -540,23 +547,72 @@ Keep it under ${pipeline.compactionMaxTokens} tokens.${chainContext}`
   // ============================================================================
 
   /**
-   * Adds a memory entry for a session.
+   * Adds a memory entry for a session with optional vector embedding generation.
    */
-  addMemory(
+  async addMemory(
     sessionId: string,
     category: MemoryCategory,
     content: string,
     keywords: string,
     importance: number = 1
-  ): MemoryEntry {
-    return this.store.addMemory(sessionId, category, content, keywords, importance);
+  ): Promise<MemoryEntry> {
+    let embedding: string | undefined;
+
+    try {
+      const vec = await this.generateEmbedding(content);
+      if (vec) {
+        embedding = JSON.stringify(vec);
+      }
+    } catch (e) {
+      logger.warn('Failed to generate embedding for new memory', e);
+    }
+
+    return this.store.addMemory(sessionId, category, content, keywords, importance, embedding);
   }
 
   /**
-   * Recalls top matching memories for a query.
+   * Recalls top matching memories for a query using keyword and semantic similarity.
    */
-  recallMemories(sessionId: string, query: string, limit?: number): MemoryEntry[] {
-    return this.store.recallMemories(sessionId, query, limit ?? pipeline.recallLimit);
+  async recallMemories(sessionId: string, query: string, limit?: number): Promise<MemoryEntry[]> {
+    let queryEmbedding: number[] | undefined;
+
+    try {
+      const vec = await this.generateEmbedding(query);
+      if (vec) {
+        queryEmbedding = vec;
+      }
+    } catch (e) {
+      logger.warn('Failed to generate embedding for memory recall query', e);
+    }
+
+    return this.store.recallMemories(sessionId, query, limit ?? pipeline.recallLimit, queryEmbedding);
+  }
+
+  /**
+   * Generates a vector embedding for a string using the configured model.
+   */
+  private async generateEmbedding(text: string): Promise<number[] | null> {
+    try {
+      const OpenAI = (await import('openai')).default;
+      const { env } = await import('../config/env.js');
+
+      if (!env.OPENROUTER_API_KEY) return null;
+
+      const openai = new OpenAI({
+        apiKey: env.OPENROUTER_API_KEY,
+        baseURL: 'https://openrouter.ai/api/v1',
+      });
+
+      const response = await openai.embeddings.create({
+        model: pipeline.embeddingModel,
+        input: text,
+      });
+
+      return response.data[0]?.embedding ?? null;
+    } catch (err) {
+      logger.error('Embedding generation failed', err);
+      return null;
+    }
   }
 
   private async withSessionWriteLock<T>(sessionId: string, work: () => Promise<T>): Promise<T> {

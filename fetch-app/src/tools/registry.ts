@@ -344,7 +344,7 @@ export class ToolRegistry {
         if (autonomyLevel === 'cautious' && !hasExplicitConfirmation(args)) {
           return {
             success: false,
-            output: `Safety policy requires explicit confirmation for dangerous tool '${name}' in cautious mode (set confirm: true).`,
+            output: `Tool '${name}' requires manual confirmation in Cautious Mode. You MUST use the 'ask_user' tool to request permission from the operator explaining exactly what you intend to do. If they approve, retry this action with 'confirm: true'.`,
             duration: Date.now() - startTime,
           };
         }

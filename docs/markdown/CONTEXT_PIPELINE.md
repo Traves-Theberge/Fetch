@@ -7,7 +7,6 @@
 - Pipeline tuning source: `fetch-app/src/config/pipeline.ts`.
 - Validation tests: `fetch-app/tests/unit/context-pipeline.test.ts`, `fetch-app/tests/unit/project-profiler.test.ts`, `fetch-app/tests/unit/repo-map.test.ts`.
 
-
 > Fetch's memory system — how conversations persist across turns, how old context is compressed, and how tool call history stays visible to the LLM without leaking raw data to WhatsApp.
 
 ```mermaid
@@ -41,7 +40,7 @@ The pipeline applies six layers of runtime/context memory:
 
 1. **Sliding Window**: Last 20 messages (configurable) in full OpenAI format.
 2. **Compaction**: Older messages are summarized into a chained system prompt section. Previous summaries are preserved as structured memory entries.
-3. **Structured Memory**: Key facts, preferences, and decisions stored in a `memory` table with BM25-style keyword recall. Recalled entries are injected into the system prompt.
+3. **Structured Memory**: Key facts, preferences, and decisions stored in a `memory` table with BM25-style keyword recall and OpenAI vector embeddings (cosine similarity). Recalled entries are injected into the system prompt.
 4. **Short-Term Summary**: Last-turn continuity summary stored in `session.metadata.agentRuntime.shortTermSummary`.
 5. **Durable Notes**: Stable preferences/decisions in `session.metadata.agentRuntime.durableNotes`.
 6. **Repo Map**: Current file structure and git status (capped at 3000 chars by default, configurable via `maxOutputChars`).
@@ -52,15 +51,15 @@ Fetch automatically detects the project type when a workspace is selected, then 
 
 ### Supported Auto-Detection
 
-* **Node.js** (`package.json`)
-* **TypeScript** (`tsconfig.json`)
-* **Python** (`requirements.txt`, `pyproject.toml`)
-* **Rust** (`Cargo.toml`)
-* **Go** (`go.mod`)
-* **Java** (`pom.xml`, `build.gradle`)
-* **Ruby** (`Gemfile`)
-* **PHP** (`composer.json`)
-* **DotNet** (`*.csproj`)
+- **Node.js** (`package.json`)
+- **TypeScript** (`tsconfig.json`)
+- **Python** (`requirements.txt`, `pyproject.toml`)
+- **Rust** (`Cargo.toml`)
+- **Go** (`go.mod`)
+- **Java** (`pom.xml`, `build.gradle`)
+- **Ruby** (`Gemfile`)
+- **PHP** (`composer.json`)
+- **DotNet** (`*.csproj`)
 
 ### Project Profiling
 
@@ -88,9 +87,9 @@ The context pipeline handles message persistence and compaction automatically:
 
 1. **Incoming Message**: Added to `sqlite` immediately.
 2. **Context Construction**:
-    * Fetch retrieves the last N messages (Sliding Window).
-    * If total tokens > limit, older messages are compacted.
-    * System prompt is assembled with "The Pack" tools and Identity.
+    - Fetch retrieves the last N messages (Sliding Window).
+    - If total tokens > limit, older messages are compacted.
+    - System prompt is assembled with "The Pack" tools and Identity.
 
 ### Compaction Engine
 

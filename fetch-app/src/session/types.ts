@@ -190,6 +190,7 @@ export interface MemoryEntry {
   createdAt: string;
   lastRecalledAt: string | null;
   recallCount: number;
+  embedding?: string;
 }
 
 // ============================================================================
@@ -211,17 +212,17 @@ export interface Session {
   /** Flexible metadata storage */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata: Record<string, any>;
-  
+
   // Conversation
   /** Full message history */
   messages: Message[];
-  
+
   // Project Context
   /** Currently active project (null if none selected) */
   currentProject: ProjectContext | null;
   /** List of available project names in workspace */
   availableProjects: string[];
-  
+
   // Context
   /** Files user is actively working with */
   activeFiles: string[];
@@ -229,19 +230,19 @@ export interface Session {
   repoMap: string | null;
   /** When repo map was last updated */
   repoMapUpdatedAt: string | null;
-  
+
   // Preferences
   /** User's autonomy and behavior preferences */
   preferences: UserPreferences;
-  
+
   // Task tracking (TaskManager is sole authority)
   /** Active task ID (null if idle). Task data lives in TaskManager. */
   activeTaskId: TaskId | null;
-  
+
   // Git tracking
   /** Commit hash at session start (for undo all) */
   gitStartCommit: string | null;
-  
+
   // Timestamps
   /** When session was created */
   createdAt: string;

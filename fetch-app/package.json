@@ -1,6 +1,6 @@
 {
   "name": "fetch-bridge",
-  "version": "0.0.94",
+  "version": "0.0.95",
   "description": "Fetch - WhatsApp AI Assistant",
   "type": "module",
   "main": "dist/index.js",
@@ -40,6 +40,9 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "minimatch": "10.2.1"
   },
   "engines": {
     "node": ">=20.0.0"
