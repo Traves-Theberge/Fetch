@@ -42,6 +42,9 @@ apps/manager/fetch-manager
 apps/manager/fetch-manager-arm64
 /fetch-manager*
 
+# Test/runtime data generated inside apps
+apps/bridge/data/
+
 # SQLite databases (runtime-generated)
 *.db
 *.db-shm
