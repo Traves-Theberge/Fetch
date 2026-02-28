@@ -84,8 +84,83 @@ async function getPage(browser) {
 // ============================================================================
 
 async function getSnapshot(page) {
-  // Get the accessibility tree
-  const snapshot = await page.accessibility.snapshot();
+  // Build an accessibility-like tree via DOM evaluation
+  // (page.accessibility was removed in Playwright 1.58)
+  const snapshot = await page.evaluate(() => {
+    const INTERACTIVE_ROLES = new Set([
+      'link', 'button', 'textbox', 'checkbox', 'radio',
+      'combobox', 'menuitem', 'tab', 'slider', 'spinbutton',
+    ]);
+
+    const TAG_ROLE_MAP = {
+      A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textbox',
+      SELECT: 'combobox', H1: 'heading', H2: 'heading', H3: 'heading',
+      H4: 'heading', H5: 'heading', H6: 'heading', IMG: 'img',
+      NAV: 'navigation', MAIN: 'main', HEADER: 'banner', FOOTER: 'contentinfo',
+      ASIDE: 'complementary', FORM: 'form', TABLE: 'table', UL: 'list',
+      OL: 'list', LI: 'listitem', P: 'paragraph', SECTION: 'region',
+    };
+
+    const INPUT_TYPE_ROLE = {
+      checkbox: 'checkbox', radio: 'radio', range: 'slider',
+      number: 'spinbutton', submit: 'button', reset: 'button', button: 'button',
+    };
+
+    function getRole(el) {
+      const explicit = el.getAttribute('role');
+      if (explicit) return explicit;
+      const tag = el.tagName;
+      if (tag === 'INPUT') return INPUT_TYPE_ROLE[el.type] || 'textbox';
+      return TAG_ROLE_MAP[tag] || 'generic';
+    }
+
+    function getName(el) {
+      const ariaLabel = el.getAttribute('aria-label');
+      if (ariaLabel) return ariaLabel;
+      const labelledBy = el.getAttribute('aria-labelledby');
+      if (labelledBy) {
+        const ref = document.getElementById(labelledBy);
+        if (ref) return ref.textContent?.trim() || '';
+      }
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+        const id = el.id;
+        if (id) {
+          const label = document.querySelector(`label[for="${id}"]`);
+          if (label) return label.textContent?.trim() || '';
+        }
+        return el.placeholder || '';
+      }
+      if (el.tagName === 'IMG') return el.alt || '';
+      if (el.tagName === 'A') return el.textContent?.trim() || el.href || '';
+      return el.textContent?.trim().slice(0, 80) || '';
+    }
+
+    function walk(el) {
+      if (!el || el.nodeType !== 1) return null;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return null;
+
+      const role = getRole(el);
+      const name = getName(el);
+      const children = [];
+      for (const child of el.children) {
+        const c = walk(child);
+        if (c) children.push(c);
+      }
+      const node = { role, name };
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        node.value = el.value || undefined;
+      }
+      if (role === 'checkbox' || role === 'radio') {
+        node.checked = el.checked;
+      }
+      if (children.length > 0) node.children = children;
+      return node;
+    }
+
+    return walk(document.body);
+  });
+
   if (!snapshot) {
     return { url: page.url(), title: await page.title(), elements: [], text: 'Page has no accessible content' };
   }
@@ -139,10 +214,19 @@ async function getSnapshot(page) {
 
 async function handleOpen(browser, params) {
   const page = await getPage(browser);
-  await page.goto(params.url, {
-    waitUntil: params.waitUntil || 'load',
-    timeout: 20000,
-  });
+  // Always use 'domcontentloaded' — 'networkidle' hangs on SPAs with
+  // persistent connections (SSE, websockets, analytics, etc.).
+  try {
+    await page.goto(params.url, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+  } catch (navErr) {
+    // If navigation times out, still try to snapshot whatever loaded
+    if (!navErr.message?.includes('Timeout')) throw navErr;
+  }
+  // Brief pause for JS rendering after DOMContentLoaded
+  await page.waitForTimeout(1500);
   const snapshot = await getSnapshot(page);
   return snapshot;
 }
@@ -161,7 +245,7 @@ async function handleAction(browser, params) {
     case 'click': {
       if (ref !== undefined) {
         // Click by accessibility ref — find the element
-        const snapshot = await page.accessibility.snapshot();
+        const snapshot = await getAccessibilityTree(page);
         const element = findElementByRef(snapshot, ref);
         if (!element) {
           return { success: false, error: `Element ref [${ref}] not found` };
@@ -178,7 +262,7 @@ async function handleAction(browser, params) {
     }
     case 'type': {
       if (ref !== undefined && text) {
-        const snapshot = await page.accessibility.snapshot();
+        const snapshot = await getAccessibilityTree(page);
         const element = findElementByRef(snapshot, ref);
         if (!element) {
           return { success: false, error: `Element ref [${ref}] not found` };
@@ -221,7 +305,7 @@ async function handleScreenshot(browser) {
     title: await page.title(),
     format: 'png',
     size: buffer.length,
-    base64: base64.slice(0, 1000) + (base64.length > 1000 ? '...(truncated)' : ''),
+    base64,
     description: `Screenshot captured of ${page.url()} (${buffer.length} bytes)`,
   };
 }
@@ -231,6 +315,58 @@ async function handleScreenshot(browser) {
 // ============================================================================
 
 let refCounter = 0;
+
+/**
+ * Get a lightweight accessibility-like tree from the page DOM.
+ * Replaces the removed page.accessibility.snapshot() API.
+ */
+async function getAccessibilityTree(page) {
+  return page.evaluate(() => {
+    const TAG_ROLE_MAP = {
+      A: 'link', BUTTON: 'button', INPUT: 'textbox', TEXTAREA: 'textbox',
+      SELECT: 'combobox', H1: 'heading', H2: 'heading', H3: 'heading',
+      H4: 'heading', H5: 'heading', H6: 'heading', IMG: 'img',
+      NAV: 'navigation', MAIN: 'main', HEADER: 'banner', FOOTER: 'contentinfo',
+      ASIDE: 'complementary', FORM: 'form', TABLE: 'table', UL: 'list',
+      OL: 'list', LI: 'listitem', P: 'paragraph', SECTION: 'region',
+    };
+    const INPUT_TYPE_ROLE = {
+      checkbox: 'checkbox', radio: 'radio', range: 'slider',
+      number: 'spinbutton', submit: 'button', reset: 'button', button: 'button',
+    };
+    function getRole(el) {
+      const explicit = el.getAttribute('role');
+      if (explicit) return explicit;
+      if (el.tagName === 'INPUT') return INPUT_TYPE_ROLE[el.type] || 'textbox';
+      return TAG_ROLE_MAP[el.tagName] || 'generic';
+    }
+    function getName(el) {
+      const ariaLabel = el.getAttribute('aria-label');
+      if (ariaLabel) return ariaLabel;
+      if (el.tagName === 'IMG') return el.alt || '';
+      if (el.tagName === 'A') return el.textContent?.trim() || el.href || '';
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return el.placeholder || '';
+      return el.textContent?.trim().slice(0, 80) || '';
+    }
+    function walk(el) {
+      if (!el || el.nodeType !== 1) return null;
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return null;
+      const role = getRole(el);
+      const name = getName(el);
+      const children = [];
+      for (const child of el.children) {
+        const c = walk(child);
+        if (c) children.push(c);
+      }
+      const node = { role, name };
+      if (role === 'checkbox' || role === 'radio') node.checked = el.checked;
+      if (children.length > 0) node.children = children;
+      return node;
+    }
+    return walk(document.body);
+  });
+}
 
 function findElementByRef(snapshot, targetRef) {
   refCounter = 0;
@@ -319,9 +455,11 @@ async function main() {
   } catch (e) {
     console.log(JSON.stringify({ error: e.message }));
   } finally {
-    // Don't close browser — keep it alive for subsequent commands
-    // It will be cleaned up when the container restarts
+    // Close browser and exit — each invocation is a fresh process via docker exec,
+    // so keeping the browser alive just prevents the process from exiting.
+    try { await browser.close(); } catch {}
     saveState(state);
+    process.exit(0);
   }
 }
 

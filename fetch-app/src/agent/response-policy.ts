@@ -72,7 +72,7 @@ function heuristicIntent(message: string): ResponseIntent {
   const text = message.trim().toLowerCase();
   if (!text) return 'general';
 
-  if (/\b(create|build|fix|make|change|update|modify|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|publish|sync|codex|claude|copilot|gemini|opencode)\b/i.test(text)) {
+  if (/\b(create|build|fix|make|change|update|modify|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|publish|sync|codex|claude|copilot|gemini|opencode|go to|visit|navigate|fetch|look at|check out|scrape|crawl)\b/i.test(text) || /https?:\/\/|\.com\b|\.io\b|\.dev\b|\.org\b|\.net\b/i.test(text)) {
     return 'action_request';
   }
 
@@ -193,7 +193,7 @@ export function selectToolNamesForTurn(
   add('ask_user');
   add('report_progress');
 
-  if (/\b(workspace|project|repo|directory|folder|file|next|nextjs|react)\b/.test(text)) {
+  if (/\b(workspace|project|repo|directory|folder|file|next|nextjs|react|create|scaffold|init|new)\b/.test(text)) {
     addByPrefix(out, available, 'workspace_');
     add('file_delete');
     add('folder_delete');
@@ -214,8 +214,9 @@ export function selectToolNamesForTurn(
     addByPrefix(out, available, 'web_');
   }
 
-  if (/\b(browser|navigate|open page|screenshot|click|ui test|playwright)\b/.test(text)) {
+  if (/\b(browser|navigate|open page|screenshot|click|ui test|playwright|go to|visit|look at|check out|scrape|crawl)\b/.test(text) || /https?:\/\/|\.com\b|\.io\b|\.dev\b|\.org\b|\.net\b/.test(text)) {
     addByPrefix(out, available, 'browser_');
+    addByPrefix(out, available, 'web_');
     add('browser_test');
   }
 

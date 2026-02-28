@@ -105,7 +105,7 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
   // ─── Web / Browser ─────────────────────────────────────────
   searxngUrl: { type: 'str', key: 'FETCH_SEARXNG_URL', fallback: 'http://searxng:8080' },
   webFetchMaxLength: { type: 'int', key: 'FETCH_WEB_FETCH_MAX_LENGTH', fallback: 50_000 },
-  browserTimeout: { type: 'int', key: 'FETCH_BROWSER_TIMEOUT', fallback: 30_000 },
+  browserTimeout: { type: 'int', key: 'FETCH_BROWSER_TIMEOUT', fallback: 60_000 },
 };
 
 // =============================================================================

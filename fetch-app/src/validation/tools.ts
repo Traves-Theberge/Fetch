@@ -649,11 +649,17 @@ export const BrowserActionInputSchema = z
   })
   .describe('Perform an action on the browser page using element references from snapshot');
 
-/** Input schema for `browser_screenshot` (no params). */
+/** Input schema for `browser_screenshot`. */
 export const BrowserScreenshotInputSchema = z
-  .object({})
+  .object({
+    prompt: z
+      .string()
+      .max(500, 'Prompt too long (max 500 characters)')
+      .optional()
+      .describe('Optional prompt describing what to analyze in the screenshot (e.g. "describe the colors used on this page")'),
+  })
   .strict()
-  .describe('Capture a screenshot of the current browser page');
+  .describe('Capture and visually analyze a screenshot of the current browser page');
 
 // ============================================================================
 // Workflow / Cron / Runtime Tool Schemas

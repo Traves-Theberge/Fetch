@@ -116,7 +116,7 @@ export async function buildContextSection(session: Session, userMessage?: string
     if (session.availableProjects?.length) {
       const projectList = session.availableProjects.slice(0, 5).join(', ');
       parts.push(`Available projects: ${projectList}`);
-      parts.push(`Help the user select one with workspace_select before doing any file work.`);
+      parts.push(`Help the user select one with workspace_select before doing any file/code work. Browser, web search, and general questions do NOT require a workspace.`);
     }
   }
 

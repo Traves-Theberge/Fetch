@@ -48,9 +48,10 @@ RUN npm install -g @anthropic-ai/claude-code @google/gemini-cli opencode-ai@late
 RUN npx playwright install --with-deps chromium
 
 # ============================================
-# Install browser agent script
+# Install browser agent script + its dependencies
 # ============================================
 COPY browser-agent.mjs /usr/local/lib/fetch-browser/browser-agent.mjs
+RUN cd /usr/local/lib/fetch-browser && npm init -y && npm install playwright
 
 # ============================================
 # Configure git identity for init/commit operations

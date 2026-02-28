@@ -9,6 +9,8 @@
 
 import { pipeline } from '../config/pipeline.js';
 import { dockerExec } from '../utils/docker.js';
+import { analyzeImage, isVisionAvailable } from '../vision/index.js';
+import { logger } from '../utils/logger.js';
 import {
   BrowserOpenInputSchema,
   BrowserSnapshotInputSchema,
@@ -23,8 +25,9 @@ import type { ToolResult } from './types.js';
 // Constants
 // ============================================================================
 
-const BROWSER_TIMEOUT_MS = pipeline.browserTimeout ?? 30_000;
+const BROWSER_TIMEOUT_MS = pipeline.browserTimeout ?? 60_000;
 const BROWSER_SCRIPT_PATH = '/usr/local/lib/fetch-browser/browser-agent.mjs';
+const BROWSER_CWD = '/usr/local/lib/fetch-browser';
 
 // ============================================================================
 // Helper: run browser command in kennel
@@ -36,6 +39,7 @@ async function runBrowserCommand(action: string, params: Record<string, unknown>
   const encoded = Buffer.from(payload).toString('base64');
   const result = await dockerExec('node', [BROWSER_SCRIPT_PATH, '--payload', encoded], {
     timeoutMs: BROWSER_TIMEOUT_MS,
+    cwd: BROWSER_CWD,
   });
   if (result.exitCode !== 0) {
     throw new Error(result.stderr || `Browser command failed with exit code ${result.exitCode}`);
@@ -149,13 +153,44 @@ export async function handleBrowserScreenshot(input: unknown): Promise<ToolResul
     return { success: false, output: '', error: `Invalid input: ${parseResult.error.message}`, duration: Date.now() - start };
   }
 
+  const { prompt } = parseResult.data;
+
   try {
-    const result = await runBrowserCommand('screenshot');
+    const rawResult = await runBrowserCommand('screenshot');
+    const screenshot = JSON.parse(rawResult) as {
+      url: string;
+      title: string;
+      format: string;
+      size: number;
+      base64: string;
+      description: string;
+    };
+
+    // Attempt vision analysis if available
+    if (isVisionAvailable() && screenshot.base64) {
+      try {
+        const analysis = await analyzeImage(
+          screenshot.base64,
+          'image/png',
+          prompt ?? '',
+        );
+        return {
+          success: true,
+          output: `Screenshot of ${screenshot.url} (${screenshot.title}):\n\n${analysis}`,
+          duration: Date.now() - start,
+          metadata: { tool: 'browser_screenshot', url: screenshot.url },
+        };
+      } catch (visionErr) {
+        logger.warn('Vision analysis failed, returning metadata only', visionErr);
+      }
+    }
+
+    // Fallback: return metadata without base64
     return {
       success: true,
-      output: result,
+      output: `Screenshot captured: ${screenshot.description} (${screenshot.url})`,
       duration: Date.now() - start,
-      metadata: { tool: 'browser_screenshot' },
+      metadata: { tool: 'browser_screenshot', url: screenshot.url },
     };
   } catch (err) {
     return {
@@ -186,6 +221,6 @@ export const browserTools: Record<string, { description: string }> = {
   },
   browser_screenshot: {
     description:
-      'Capture a screenshot of the current browser page. Returns a base64-encoded PNG image description. Use this to visually verify page state or capture visual information.',
+      'Capture and visually analyze a screenshot of the current browser page. A vision model describes what it sees and returns a text description. Optionally pass a prompt to focus the analysis (e.g. "describe the colors" or "read the error message"). Use this to inspect visual details, verify page state, or read on-screen content.',
   },
 };
