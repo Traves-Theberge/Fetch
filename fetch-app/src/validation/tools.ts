@@ -182,6 +182,12 @@ export const WorkspaceSyncInputSchema = z
       .max(256, 'Commit message too long (max 256 characters)')
       .optional()
       .describe('Commit message (auto-generated from changes if not provided)'),
+
+    /** Allow syncing sqlite/db artifacts (blocked by default for safety) */
+    allowDatabaseFiles: z.boolean()
+      .optional()
+      .default(false)
+      .describe('Allow committing database artifacts (*.db, *.db-wal, *.db-shm, *.sqlite*) when true'),
   })
   .strict()
   .describe('Sync workspace to GitHub — stages changes, commits, creates repo if needed, and pushes');

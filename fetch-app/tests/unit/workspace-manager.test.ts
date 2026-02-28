@@ -292,6 +292,7 @@ describe('WorkspaceManager', () => {
       vi.mocked(dockerUtils.dockerExec)
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: ' M src/index.ts\n', stderr: '', timedOut: false }) // pre-stage status --porcelain
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // git status --porcelain
         .mockResolvedValueOnce({ exitCode: 0, stdout: ' 1 file changed, 10 insertions(+)\n', stderr: '', timedOut: false }) // git diff --cached --stat
@@ -324,6 +325,7 @@ describe('WorkspaceManager', () => {
       vi.mocked(dockerUtils.dockerExec)
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: ' M src/index.ts\n', stderr: '', timedOut: false }) // pre-stage status --porcelain
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // status
         .mockResolvedValueOnce({ exitCode: 0, stdout: '1 file changed\n', stderr: '', timedOut: false }) // diff --cached --stat
@@ -355,6 +357,7 @@ describe('WorkspaceManager', () => {
       vi.mocked(dockerUtils.dockerExec)
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: ' M src/index.ts\n', stderr: '', timedOut: false }) // pre-stage status --porcelain
         .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
         .mockResolvedValueOnce({ exitCode: 0, stdout: 'M  src/index.ts\n', stderr: '', timedOut: false }) // status
         .mockResolvedValueOnce({ exitCode: 0, stdout: '1 file changed\n', stderr: '', timedOut: false }) // diff --cached --stat
@@ -383,6 +386,62 @@ describe('WorkspaceManager', () => {
       const result = await manager.syncWorkspace('nonexistent');
       expect(result.success).toBe(false);
       expect(result.error).toContain('not found');
+    });
+
+    it('blocks database artifacts by default before staging', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '?? data/sessions.db\n', stderr: '', timedOut: false }); // pre-stage status --porcelain
+
+      const result = await manager.syncWorkspace('test-project');
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Refusing to sync database artifacts');
+      expect(result.error).toContain('data/sessions.db');
+      expect(vi.mocked(dockerUtils.dockerExec)).toHaveBeenCalledTimes(3);
+    });
+
+    it('allows database artifacts when allowDatabaseFiles is true', async () => {
+      const mockWorkspace = {
+        id: 'test-project',
+        name: 'test-project',
+        path: '/workspace/test-project',
+        projectType: 'node' as const,
+        isActive: false,
+      };
+
+      (manager as any).workspaceCache.set('test-project', mockWorkspace);
+      (manager as any).lastCacheRefresh = Date.now();
+
+      vi.mocked(dockerUtils.dockerExec)
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // safe.directory
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // test -d .git
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git add -A
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'A  data/sessions.db\n', stderr: '', timedOut: false }) // git status --porcelain
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1 file changed\n', stderr: '', timedOut: false }) // git diff --cached --stat
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }) // git commit
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'abc1234', stderr: '', timedOut: false }) // git log -1
+        .mockResolvedValueOnce({ exitCode: 0, stdout: 'https://github.com/TestUser/test-project', stderr: '', timedOut: false }) // git remote get-url
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '1', stderr: '', timedOut: false }) // git rev-list
+        .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '', timedOut: false }); // git push
+
+      const result = await manager.syncWorkspace('test-project', undefined, true);
+
+      expect(result.success).toBe(true);
+      expect(result.pushed).toBe(true);
+      expect(result.filesChanged).toBe(1);
     });
   });
 

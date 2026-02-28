@@ -442,7 +442,7 @@ export async function handleWorkspaceSync(
     };
   }
 
-  const { name, message } = parseResult.data as WorkspaceSyncInput;
+  const { name, message, allowDatabaseFiles } = parseResult.data as WorkspaceSyncInput;
 
   // Use active workspace if not specified
   const workspaceId = await resolveWorkspaceId(name);
@@ -468,7 +468,7 @@ export async function handleWorkspaceSync(
       };
     }
 
-    const result = await workspaceManager.syncWorkspace(workspaceId, message);
+    const result = await workspaceManager.syncWorkspace(workspaceId, message, allowDatabaseFiles);
 
     if (!result.success) {
       return {

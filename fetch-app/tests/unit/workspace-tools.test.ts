@@ -402,7 +402,27 @@ describe('Workspace Tools', () => {
 
       await handleWorkspaceSync({ name: 'my-app', message: 'fix: resolve bug' });
 
-      expect(mockSyncWorkspace).toHaveBeenCalledWith('my-app', 'fix: resolve bug');
+      expect(mockSyncWorkspace).toHaveBeenCalledWith('my-app', 'fix: resolve bug', false);
+    });
+
+    it('should forward allowDatabaseFiles override to syncWorkspace', async () => {
+      mockGetWorkspace.mockResolvedValue({
+        id: 'my-app',
+        name: 'my-app',
+        path: '/workspace/my-app',
+      });
+      mockSyncWorkspace.mockResolvedValue({
+        success: true,
+        commitHash: 'fedcba9',
+        commitMessage: 'chore: checkpoint db',
+        filesChanged: 1,
+        pushed: false,
+        repoCreated: false,
+      });
+
+      await handleWorkspaceSync({ name: 'my-app', allowDatabaseFiles: true });
+
+      expect(mockSyncWorkspace).toHaveBeenCalledWith('my-app', undefined, true);
     });
 
     it('should handle sync failure from manager', async () => {

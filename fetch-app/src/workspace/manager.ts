@@ -696,18 +696,85 @@ export class WorkspaceManager extends EventEmitter {
     let content = '';
     switch (type) {
       case 'node':
-        content = 'node_modules/\n.env\n.env.local\ndist/\n.next/\n*.log';
+        content = 'node_modules/\n.env\n.env.local\ndist/\n.next/\n*.log\n*.db\n*.db-wal\n*.db-shm\n*.db-journal\n*.sqlite*';
         break;
       case 'python':
-        content = '__pycache__/\n*.py[cod]\n.env\nvenv/\n.venv/\n*.egg-info/';
+        content = '__pycache__/\n*.py[cod]\n.env\nvenv/\n.venv/\n*.egg-info/\n*.db\n*.db-wal\n*.db-shm\n*.db-journal\n*.sqlite*';
         break;
       case 'go':
-        content = '*.exe\n*.dll\n*.so\n*.dylib\n*.test\n*.out\nvendor/';
+        content = '*.exe\n*.dll\n*.so\n*.dylib\n*.test\n*.out\nvendor/\n*.db\n*.db-wal\n*.db-shm\n*.db-journal\n*.sqlite*';
         break;
       default:
-        content = '.env\n*.log\n.DS_Store';
+        content = '.env\n*.log\n.DS_Store\n*.db\n*.db-wal\n*.db-shm\n*.db-journal\n*.sqlite*';
     }
     await dockerExec('sh', ['-c', `cat > "${path}/.gitignore" << 'FETCHEOF'\n${content}\nFETCHEOF`]);
+  }
+
+  /** Returns true when a git path is a database/runtime sidecar artifact. */
+  private isDatabaseArtifact(filePath: string): boolean {
+    const normalized = filePath.trim().replace(/^"|"$/g, '').toLowerCase();
+    return normalized.endsWith('.db')
+      || normalized.endsWith('.db-wal')
+      || normalized.endsWith('.db-shm')
+      || normalized.endsWith('.db-journal')
+      || normalized.includes('.sqlite');
+  }
+
+  /** Extracts file paths from `git status --porcelain` output lines. */
+  private extractStatusPaths(statusOutput: string): string[] {
+    return statusOutput
+      .split('\n')
+      .map((line) => line.trimEnd())
+      .filter((line) => line.length >= 4)
+      .map((line) => {
+        const pathPart = line.substring(3).trim();
+        const renameSep = ' -> ';
+        if (pathPart.includes(renameSep)) {
+          return pathPart.split(renameSep).pop() ?? pathPart;
+        }
+        return pathPart;
+      });
+  }
+
+  /** Finds db/sqlite artifacts from porcelain status output. */
+  private extractDatabaseArtifactsFromStatus(statusOutput: string): string[] {
+    return this.extractStatusPaths(statusOutput).filter((file) => this.isDatabaseArtifact(file));
+  }
+
+  /** Scans workspace files for db/sqlite artifacts (used before git init). */
+  private async scanWorkspaceForDatabaseArtifacts(workspacePath: string): Promise<string[]> {
+    const findCmd = 'find . -type f \\('
+      + ' -name "*.db"'
+      + ' -o -name "*.db-wal"'
+      + ' -o -name "*.db-shm"'
+      + ' -o -name "*.db-journal"'
+      + ' -o -name "*.sqlite*"'
+      + ' \\) -not -path "./.git/*" -print';
+
+    const result = await dockerExec('sh', ['-c', findCmd], {
+      cwd: workspacePath,
+      timeoutMs: 10000,
+    });
+
+    if (result.exitCode !== 0) {
+      logger.debug('Failed to scan workspace for database artifacts', {
+        workspacePath,
+        stderr: result.stderr,
+      });
+      return [];
+    }
+
+    return result.stdout
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.replace(/^\.\//, ''));
+  }
+
+  private databaseArtifactError(files: string[]): string {
+    const listed = files.slice(0, 8).join(', ');
+    const extra = files.length > 8 ? ` (+${files.length - 8} more)` : '';
+    return `Refusing to sync database artifacts: ${listed}${extra}. Remove these files, add them to .gitignore, or set allowDatabaseFiles=true if intentional.`;
   }
 
   private async initializeGit(path: string): Promise<void> {
@@ -928,7 +995,8 @@ export class WorkspaceManager extends EventEmitter {
    */
   async syncWorkspace(
     workspaceId: WorkspaceId,
-    message?: string
+    message?: string,
+    allowDatabaseFiles = false
   ): Promise<{
     success: boolean;
     commitHash?: string;
@@ -957,8 +1025,37 @@ export class WorkspaceManager extends EventEmitter {
     // Check if it's a git repo
     const gitCheck = await dockerExec('test', ['-d', `${wsPath}/.git`]);
     if (gitCheck.exitCode !== 0) {
+      if (!allowDatabaseFiles) {
+        const dbFiles = await this.scanWorkspaceForDatabaseArtifacts(wsPath);
+        if (dbFiles.length > 0) {
+          return {
+            success: false,
+            commitMessage: '',
+            filesChanged: 0,
+            pushed: false,
+            repoCreated: false,
+            error: this.databaseArtifactError(dbFiles),
+          };
+        }
+      }
+
       // Initialize git if not already
       await this.initializeGit(wsPath);
+    } else if (!allowDatabaseFiles) {
+      const preStageStatus = await dockerExec('git', ['-C', wsPath, 'status', '--porcelain']);
+      if (preStageStatus.exitCode === 0) {
+        const dbFiles = this.extractDatabaseArtifactsFromStatus(preStageStatus.stdout);
+        if (dbFiles.length > 0) {
+          return {
+            success: false,
+            commitMessage: '',
+            filesChanged: 0,
+            pushed: false,
+            repoCreated: false,
+            error: this.databaseArtifactError(dbFiles),
+          };
+        }
+      }
     }
 
     // Stage all changes
