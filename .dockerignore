@@ -1,40 +1,44 @@
-# Data directory (has session files with restricted permissions)
-data/.wwebjs_auth
-data/sessions.db
-data/sessions.db-wal
-data/sessions.db-shm
-data/tasks.db
-data/tasks.db-wal
-data/tasks.db-shm
+# Dependencies (reinstalled inside Docker)
+**/node_modules
 
-# Git
+# Build outputs (rebuilt inside Docker)
+**/dist
+
+# Turborepo cache
+.turbo
+
+# Git history
 .git
 .gitignore
 
-# Manager (Go TUI - not needed in Docker)
-manager/
+# Runtime data (not part of build)
+data/
+workspace/
+
+# Go manager (built separately in CI, not needed in bridge image)
+apps/manager/fetch-manager*
 
 # Kennel (separate build context)
 kennel/
 
-# IDE
+# IDE / OS
 .vscode
 .idea
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Documentation site assets (keep docs/ for container serving)
+# Secrets (injected at runtime via env_file)
+.env
+.env.*
+!.env.example
 
-# Test files
+# Test files (not needed in production image)
 **/*.test.ts
 **/tests
 **/coverage
 
-# Markdown docs at root
+# Markdown docs at root (keep docs/ directory for container serving)
 *.md
-!fetch-app/README.md
 
 # Build artifacts
 **/.nyc_output

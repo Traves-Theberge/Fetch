@@ -31,34 +31,32 @@ if ! command -v docker &> /dev/null; then
 fi
 echo "✅ Docker $(docker --version | cut -d' ' -f3 | tr -d ',')"
 
-# Setup fetch-app
+# Install workspace dependencies (Turborepo + all packages)
 echo ""
-echo "📦 Installing fetch-app dependencies..."
-cd fetch-app
+echo "📦 Installing workspace dependencies..."
 npm install
-echo "✅ fetch-app dependencies installed"
+echo "✅ Workspace dependencies installed"
 
-# Build TypeScript
+# Build all TypeScript packages via Turborepo
 echo ""
-echo "🔨 Building TypeScript..."
-npm run build
+echo "🔨 Building TypeScript packages..."
+npx turbo run build --filter='./packages/*' --filter='@fetch/bridge'
 echo "✅ TypeScript compiled"
 
 # Setup manager (if Go is available)
-cd ../manager
 if command -v go &> /dev/null; then
     echo ""
     echo "📦 Installing Go dependencies..."
+    cd apps/manager
     go mod tidy
     echo "✅ Go dependencies installed"
-    
+
     echo ""
     echo "🔨 Building Manager..."
     go build -o fetch-manager .
     echo "✅ Manager built"
+    cd ../..
 fi
-
-cd ..
 
 # Create directories
 echo ""
@@ -96,7 +94,7 @@ echo "  2. Run: docker compose up -d"
 echo "  3. Scan QR code: docker logs -f fetch-bridge"
 echo ""
 echo "For local development:"
-echo "  cd fetch-app && npm run dev"
+echo "  turbo run dev --filter=@fetch/bridge"
 echo ""
 echo "For Manager TUI:"
-echo "  cd manager && ./fetch-manager"
+echo "  cd apps/manager && ./fetch-manager"

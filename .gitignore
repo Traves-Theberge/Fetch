@@ -2,6 +2,9 @@
 node_modules/
 dist/
 
+# Turborepo
+.turbo/
+
 # Environment files (contain secrets!)
 .env
 .env.local
@@ -28,15 +31,15 @@ Thumbs.db
 # Logs
 *.log
 logs/
-!manager/internal/logs/
-!manager/internal/logs/*.go
+!apps/manager/internal/logs/
+!apps/manager/internal/logs/*.go
 
 # Build artifacts
 *.tgz
 
 # Go binaries
-manager/fetch-manager
-manager/fetch-manager-arm64
+apps/manager/fetch-manager
+apps/manager/fetch-manager-arm64
 /fetch-manager*
 
 # SQLite databases (runtime-generated)
@@ -50,9 +53,6 @@ test_tool.js
 data/whitelist.json
 data/workflows.json
 .claude/settings.json
-.claude/settings.json
-.entire/.gitignore
-.entire/settings.json
 .entire/.gitignore
 .entire/settings.json
 

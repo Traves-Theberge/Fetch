@@ -83,7 +83,7 @@ need_repo() {
 
 is_fetch_repo_dir() {
   local dir="$1"
-  [[ -f "$dir/docker-compose.yml" && -d "$dir/fetch-app" ]]
+  [[ -f "$dir/docker-compose.yml" && -d "$dir/apps/bridge" ]]
 }
 
 resolve_compose_repo_dir() {
@@ -208,11 +208,11 @@ cmd_logs() {
 
 cmd_tui() {
   need_repo
-  if [[ ! -x "$REPO_DIR/manager/fetch-manager" ]]; then
-    echo "[fetch] manager/fetch-manager not found; building first"
+  if [[ ! -x "$REPO_DIR/apps/manager/fetch-manager" ]]; then
+    echo "[fetch] apps/manager/fetch-manager not found; building first"
     run_build
   fi
-  exec "$REPO_DIR/manager/fetch-manager"
+  exec "$REPO_DIR/apps/manager/fetch-manager"
 }
 
 env_get() {
@@ -363,7 +363,7 @@ self_doctor() {
   docker compose version >/dev/null 2>&1 && has_compose=1 || true
   docker ps >/dev/null 2>&1 && has_docker_access=1 || true
   [[ -f "$REPO_DIR/.env" ]] && has_env=1
-  [[ -f "$REPO_DIR/manager/fetch-manager" ]] && has_manager=1
+  [[ -f "$REPO_DIR/apps/manager/fetch-manager" ]] && has_manager=1
   command -v node >/dev/null 2>&1 && has_node=1
   command -v npm >/dev/null 2>&1 && has_npm=1
   command -v gh >/dev/null 2>&1 && has_gh=1

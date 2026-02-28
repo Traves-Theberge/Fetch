@@ -6,7 +6,7 @@ services:
   fetch-bridge:
     build:
       context: .
-      dockerfile: fetch-app/Dockerfile
+      dockerfile: apps/bridge/Dockerfile
     container_name: fetch-bridge
     restart: unless-stopped
     healthcheck:
@@ -63,7 +63,7 @@ services:
     networks:
       - fetch-network
 
-  # The Kennel - AI CLI execution sandbox
+  # The Kennel - AI CLI execution sandbox (stays top-level, not in Turborepo)
   fetch-kennel:
     build:
       context: ./kennel

@@ -1,7 +1,7 @@
 {
-  "name": "fetch-bridge",
+  "name": "@fetch/bridge",
   "version": "0.0.96",
-  "description": "Fetch - WhatsApp AI Assistant",
+  "description": "Fetch - WhatsApp/Discord AI Assistant Bridge",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -16,6 +16,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@fetch/types": "*",
     "@mozilla/readability": "^0.6.0",
     "better-sqlite3": "^12.6.2",
     "chokidar": "^5.0.0",
@@ -32,6 +33,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@fetch/typescript-config": "*",
     "@types/better-sqlite3": "^7.6.12",
     "@types/dockerode": "^4.0.1",
     "@types/jsdom": "^27.0.0",

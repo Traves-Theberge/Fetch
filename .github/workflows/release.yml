@@ -154,10 +154,10 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: manager/go.mod
+          go-version-file: apps/manager/go.mod
 
       - name: Build manager archive
-        working-directory: manager
+        working-directory: apps/manager
         env:
           GOOS: linux
           GOARCH: ${{ matrix.goarch }}
@@ -176,7 +176,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: manager-archives-${{ matrix.goarch }}
-          path: manager/fetch-manager-linux-${{ matrix.goarch }}.tar.gz
+          path: apps/manager/fetch-manager-linux-${{ matrix.goarch }}.tar.gz
 
   publish-release:
     runs-on: ubuntu-latest

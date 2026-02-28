@@ -1,0 +1,9 @@
+{
+  "name": "@fetch/manager",
+  "version": "0.0.96",
+  "private": true,
+  "scripts": {
+    "build": "bash build.sh",
+    "clean": "rm -f fetch-manager fetch-manager-arm64"
+  }
+}

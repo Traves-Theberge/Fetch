@@ -1,0 +1,8 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "outputs": ["fetch-manager", "fetch-manager-*"]
+    }
+  }
+}
