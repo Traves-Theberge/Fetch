@@ -18,7 +18,14 @@ import { z } from 'zod';
 const EnvSchema = z.object({
   // Required
   OPENROUTER_API_KEY: z.string().min(1, 'OPENROUTER_API_KEY is required'),
-  OWNER_PHONE_NUMBER: z.string().min(1, 'OWNER_PHONE_NUMBER is required'),
+  OWNER_PHONE_NUMBER: z.string().optional(),
+
+  // Bridge Mode
+  BRIDGE_MODE: z.enum(['whatsapp', 'discord']).default('whatsapp'),
+  DISCORD_BOT_TOKEN: z.string().optional(),
+  DISCORD_OWNER_ID: z.string().optional(),
+  DISCORD_TRUSTED_USER_IDS: z.string().optional(),
+  DISCORD_CHANNEL_IDS: z.string().optional(),
 
   // Models
   AGENT_MODEL: z.string().default('openai/gpt-4o-mini'),
@@ -138,6 +145,20 @@ export function validateEnv(): { valid: boolean; missing: string[] } {
   if (!result.success) {
     // Collect missing paths from Zod issues
     const missing = result.error.issues.map((i) => i.path.join('.'));
+    return { valid: false, missing };
+  }
+
+  // Mode-specific validation
+  const missing: string[] = [];
+  const mode = envVars.BRIDGE_MODE || 'whatsapp';
+  if (mode === 'whatsapp') {
+    if (!envVars.OWNER_PHONE_NUMBER) missing.push('OWNER_PHONE_NUMBER');
+  } else if (mode === 'discord') {
+    if (!envVars.DISCORD_BOT_TOKEN) missing.push('DISCORD_BOT_TOKEN');
+    if (!envVars.DISCORD_OWNER_ID) missing.push('DISCORD_OWNER_ID');
+  }
+
+  if (missing.length > 0) {
     return { valid: false, missing };
   }
 

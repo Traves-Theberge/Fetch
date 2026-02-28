@@ -7,6 +7,7 @@
  */
 
 export { SecurityGate } from './gate.js';
+export { DiscordSecurityGate } from './discord-gate.js';
 export { WhitelistStore, getWhitelistStore, getWhitelistStoreSync } from './whitelist.js';
 export { RateLimiter } from './rateLimiter.js';
 export { validateInput, sanitizePath, type ValidationResult } from './validator.js';

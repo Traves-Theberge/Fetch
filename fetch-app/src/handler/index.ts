@@ -16,10 +16,13 @@ import { processMessage, selectPromptMode, type AgentResponse } from '../agent/c
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
 import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../agent/whatsapp-format.js';
-import { composeWhatsAppResponse } from '../agent/composer.js';
+import { formatAndChunkForDiscord, formatForDiscord } from '../agent/discord-format.js';
+import { composeWhatsAppResponse, composeDiscordResponse } from '../agent/composer.js';
 import { formatNotification } from '../agent/notifications.js';
 import type { ResponseEnvelope } from '../agent/envelope.js';
 import { logger } from '../utils/logger.js';
+
+export type BridgeType = 'whatsapp' | 'discord';
 
 // =============================================================================
 // SINGLETON STATE
@@ -37,20 +40,57 @@ let initialized = false;
 /** Optional sender used for proactive task notifications. */
 let sendWhatsApp: ((userId: string, text: string) => Promise<void>) | null = null;
 
+/** Active bridge type for formatter dispatch. */
+let activeBridgeType: BridgeType = 'whatsapp';
+
 const BROKEN_CODEX_SKILL_LINK_PATTERN =
   /failed to stat skills entry .*\/root\/\.codex\/skills\/|missing symlink.*\/root\/\.codex\/skills\//i;
 
 /**
  * Registers a callback used to send proactive WhatsApp messages.
+ * @deprecated Use registerSender instead for bridge-agnostic registration.
  */
 export function registerWhatsAppSender(fn: (userId: string, text: string) => Promise<void>): void {
   sendWhatsApp = fn;
+  activeBridgeType = 'whatsapp';
   logger.info('WhatsApp sender registered for proactive messages');
 }
 
+/**
+ * Registers a callback used to send proactive messages for the given bridge type.
+ */
+export function registerSender(fn: (userId: string, text: string) => Promise<void>, bridge: BridgeType): void {
+  sendWhatsApp = fn;
+  activeBridgeType = bridge;
+  logger.info(`${bridge} sender registered for proactive messages`);
+}
+
+/** Returns the active bridge type. */
+export function getActiveBridgeType(): BridgeType {
+  return activeBridgeType;
+}
+
+function composeForActiveBridge(envelope: ResponseEnvelope): string {
+  return activeBridgeType === 'discord'
+    ? composeDiscordResponse(envelope)
+    : composeWhatsAppResponse(envelope);
+}
+
+function formatForActiveBridge(text: string): string {
+  return activeBridgeType === 'discord'
+    ? formatForDiscord(text)
+    : formatForWhatsApp(text);
+}
+
+function formatAndChunkForActiveBridge(text: string, intent?: AgentResponse['intent']): string[] {
+  return activeBridgeType === 'discord'
+    ? formatAndChunkForDiscord(text, intent)
+    : formatAndChunkForWhatsApp(text, intent);
+}
+
 function renderEnvelopeChunks(envelope: ResponseEnvelope, intent?: AgentResponse['intent']): string[] {
-  const composed = composeWhatsAppResponse(envelope);
-  const chunks = formatAndChunkForWhatsApp(composed, intent);
+  const composed = composeForActiveBridge(envelope);
+  const chunks = formatAndChunkForActiveBridge(composed, intent);
   return chunks;
 }
 
@@ -169,7 +209,7 @@ export async function initializeHandler(): Promise<void> {
         title: 'Task Completed',
         summary: notification,
       };
-      await sManager.addAssistantMessage(session, composeWhatsAppResponse(completedEnvelope));
+      await sManager.addAssistantMessage(session, composeForActiveBridge(completedEnvelope));
       if (sendWhatsApp) {
         await sendEnvelopeNotification(session.userId, completedEnvelope);
       }
@@ -208,7 +248,7 @@ export async function initializeHandler(): Promise<void> {
         title: 'Task Failed',
         summary: notification,
       };
-      await sManager.addAssistantMessage(session, composeWhatsAppResponse(failedEnvelope));
+      await sManager.addAssistantMessage(session, composeForActiveBridge(failedEnvelope));
       if (sendWhatsApp) {
         await sendEnvelopeNotification(session.userId, failedEnvelope);
       }
@@ -279,14 +319,14 @@ export async function handleMessage(
         }
         return rendered;
       }
-      // Format command responses for WhatsApp too
-      return (result.responses || []).map(r => formatForWhatsApp(r));
+      // Format command responses for active bridge
+      return (result.responses || []).map(r => formatForActiveBridge(r));
     }
 
     const promptMode = selectPromptMode(message);
     const runAcquire = await sManager.acquireAgentRun(session, message, promptMode);
     if (!runAcquire.acquired) {
-      return [formatForWhatsApp('I am still working on your previous request. Send /stop to interrupt it first.')];
+      return [formatForActiveBridge('I am still working on your previous request. Send /stop to interrupt it first.')];
     }
 
     const runId = runAcquire.run.runId;
@@ -398,7 +438,7 @@ function buildResponses(response: AgentResponse): string[] {
     // Safeguard: detect repetition loops
     cleanText = deduplicateResponse(cleanText);
 
-    const chunks = formatAndChunkForWhatsApp(cleanText, response.intent);
+    const chunks = formatAndChunkForActiveBridge(cleanText, response.intent);
     for (const chunk of chunks) {
       responses.push(chunk);
     }

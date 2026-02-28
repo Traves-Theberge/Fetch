@@ -9,9 +9,10 @@
 import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import { Bridge } from './bridge/client.js';
+import { DiscordBridge } from './bridge/discord-client.js';
 import { logger } from './utils/logger.js';
-import { startStatusServer, setLogoutCallback, setWhatsAppControlCallbacks, updateStatus } from './api/status.js';
-import { validateEnv } from './config/env.js';
+import { startStatusServer, setLogoutCallback, setWhatsAppControlCallbacks, setDiscordControlCallbacks, updateStatus } from './api/status.js';
+import { validateEnv, env } from './config/env.js';
 import { getSessionStore } from './session/store.js';
 import { getTaskStore } from './task/store.js';
 import { getSkillManager } from './skills/manager.js';
@@ -39,6 +40,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   const exit = options.exit ?? ((code: number) => process.exit(code));
 
   let activeBridge: Bridge | null = null;
+  let activeDiscordBridge: DiscordBridge | null = null;
   let shuttingDown = false;
   let handlersRegistered = false;
   let bootstrapTimer: ReturnType<typeof setInterval> | null = null;
@@ -54,7 +56,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   };
 
   const startBridge = async (): Promise<void> => {
-    if (bridgeStarting || shuttingDown || activeBridge) return;
+    if (bridgeStarting || shuttingDown || activeBridge || activeDiscordBridge) return;
     bridgeStarting = true;
 
     try {
@@ -71,19 +73,35 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       // Load skills (builtin + user) before bridge starts accepting messages
       await getSkillManager().init();
 
-      const bridge = new Bridge();
-      await bridge.initialize();
-      activeBridge = bridge;
+      const bridgeMode = env.BRIDGE_MODE || 'whatsapp';
 
-      // Register logout callback for the status API
-      setLogoutCallback(async () => {
-        logger.info('🔌 Logout requested via API, destroying bridge...');
-        await bridge.destroy();
-        activeBridge = null;
-        logger.info('✅ Bridge destroyed, WhatsApp disconnected');
-      });
+      if (bridgeMode === 'discord') {
+        const discordBridge = new DiscordBridge();
+        await discordBridge.initialize();
+        activeDiscordBridge = discordBridge;
 
-      logger.info('✅ Fetch Bridge is ready and listening!');
+        setLogoutCallback(async () => {
+          logger.info('Logout requested via API, destroying Discord bridge...');
+          await discordBridge.destroy();
+          activeDiscordBridge = null;
+          logger.info('Discord bridge destroyed');
+        });
+
+        logger.info('Fetch Bridge (Discord) is ready and listening!');
+      } else {
+        const bridge = new Bridge();
+        await bridge.initialize();
+        activeBridge = bridge;
+
+        setLogoutCallback(async () => {
+          logger.info('Logout requested via API, destroying bridge...');
+          await bridge.destroy();
+          activeBridge = null;
+          logger.info('Bridge destroyed, WhatsApp disconnected');
+        });
+
+        logger.info('Fetch Bridge (WhatsApp) is ready and listening!');
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : undefined;
@@ -107,6 +125,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
         await activeBridge.destroy();
         activeBridge = null;
       }
+      if (activeDiscordBridge) {
+        await activeDiscordBridge.destroy();
+        activeDiscordBridge = null;
+      }
       updateStatus({ state: 'initializing', lastError: null, qrCode: null, qrUrl: null });
     } catch (error) {
       logger.warn('Failed to fully destroy bridge during restart, continuing', error);
@@ -122,6 +144,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
     // Start status API first so TUI can configure missing env in setup mode.
     startStatusServer();
     setWhatsAppControlCallbacks({
+      start: requestBridgeStart,
+      restart: restartBridge,
+    });
+    setDiscordControlCallbacks({
       start: requestBridgeStart,
       restart: restartBridge,
     });
@@ -158,10 +184,14 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
         pool.getSpawner().killAll();
       } catch { /* pool may never have been created */ }
 
-      // 2. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
+      // 2. Destroy active bridge (WhatsApp or Discord)
       if (activeBridge) {
         await activeBridge.destroy();
         activeBridge = null;
+      }
+      if (activeDiscordBridge) {
+        await activeDiscordBridge.destroy();
+        activeDiscordBridge = null;
       }
 
       // 3. Flush & close SQLite databases

@@ -68,6 +68,10 @@ const PIPELINE_DEFS: Record<string, PipelineDef> = {
   whatsappMaxLength: { type: 'int', key: 'FETCH_WA_MAX_LENGTH', fallback: 4000 },
   whatsappLineWidth: { type: 'int', key: 'FETCH_WA_LINE_WIDTH', fallback: 40 },
 
+  // ─── Discord Formatting ───────────────────────────────────
+  discordMaxLength: { type: 'int', key: 'FETCH_DISCORD_MAX_LENGTH', fallback: 2000 },
+  discordLineWidth: { type: 'int', key: 'FETCH_DISCORD_LINE_WIDTH', fallback: 80 },
+
   // ─── Rate Limiting ────────────────────────────────────────
   rateLimitMax: { type: 'int', key: 'FETCH_RATE_LIMIT_MAX', fallback: 30 },
   rateLimitWindow: { type: 'int', key: 'FETCH_RATE_LIMIT_WINDOW', fallback: 60_000 },
@@ -181,6 +185,8 @@ interface PipelineConfig {
   taskMaxRetries: number;
   whatsappMaxLength: number;
   whatsappLineWidth: number;
+  discordMaxLength: number;
+  discordLineWidth: number;
   rateLimitMax: number;
   rateLimitWindow: number;
   maxReconnectAttempts: number;

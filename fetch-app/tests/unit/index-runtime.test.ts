@@ -19,10 +19,17 @@ describe('index runtime', () => {
       startStatusServer,
       setLogoutCallback: vi.fn(),
       setWhatsAppControlCallbacks: vi.fn(),
+      setDiscordControlCallbacks: vi.fn(),
       updateStatus,
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
       Bridge: class {
+        async initialize() { return; }
+        async destroy() { return; }
+      },
+    }));
+    vi.doMock('../../src/bridge/discord-client.js', () => ({
+      DiscordBridge: class {
         async initialize() { return; }
         async destroy() { return; }
       },
@@ -76,12 +83,19 @@ describe('index runtime', () => {
       startStatusServer: vi.fn(),
       setLogoutCallback: vi.fn(),
       setWhatsAppControlCallbacks: vi.fn(),
+      setDiscordControlCallbacks: vi.fn(),
       updateStatus: vi.fn(),
     }));
     vi.doMock('../../src/bridge/client.js', () => ({
       Bridge: class {
         async initialize() { return; }
         async destroy() { await destroyMock(); }
+      },
+    }));
+    vi.doMock('../../src/bridge/discord-client.js', () => ({
+      DiscordBridge: class {
+        async initialize() { return; }
+        async destroy() { return; }
       },
     }));
     vi.doMock('../../src/harness/pool.js', () => ({

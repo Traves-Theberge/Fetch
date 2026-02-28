@@ -93,6 +93,11 @@ vi.mock('../../src/agent/whatsapp-format.js', () => ({
   formatAndChunkForWhatsApp: vi.fn((text: string) => [text]),
 }));
 
+vi.mock('../../src/agent/discord-format.js', () => ({
+  formatForDiscord: vi.fn((text: string) => text),
+  formatAndChunkForDiscord: vi.fn((text: string) => [text]),
+}));
+
 vi.mock('../../src/task/manager.js', () => ({
   getTaskManager: vi.fn().mockResolvedValue(mockTaskManager),
 }));

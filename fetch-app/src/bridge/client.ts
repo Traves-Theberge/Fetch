@@ -110,41 +110,7 @@ function cleanupChromeLocks(authPath: string): void {
 // MESSAGE DEDUPLICATION
 // =============================================================================
 
-/**
- * Deduplicate inbound `message_create` events by message id with TTL eviction.
- */
-class MessageDeduplicator {
-  private processedMessages = new Map<string, number>();
-  private readonly TTL_MS = pipeline.deduplicationTtl;
-  private cleanupTimer: ReturnType<typeof setInterval>;
-
-  constructor() {
-    // Sweep every TTL interval instead of per-message
-    this.cleanupTimer = setInterval(() => this.evict(), this.TTL_MS);
-    this.cleanupTimer.unref();
-  }
-
-  /**
-   * Mark and check message id.
-   *
-   * @returns `true` if message id was not seen in the current TTL window
-   */
-  isNew(messageId: string): boolean {
-    if (this.processedMessages.has(messageId)) {
-      return false;
-    }
-    this.processedMessages.set(messageId, Date.now());
-    return true;
-  }
-
-  /** Remove cached ids older than TTL. */
-  private evict(): void {
-    const cutoff = Date.now() - this.TTL_MS;
-    for (const [id, ts] of this.processedMessages) {
-      if (ts <= cutoff) this.processedMessages.delete(id);
-    }
-  }
-}
+import { MessageDeduplicator } from './deduplicator.js';
 
 // =============================================================================
 // BRIDGE CLASS

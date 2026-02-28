@@ -38,6 +38,7 @@ import { getSessionManager } from '../session/manager.js';
 import { validateRuntimeEnvUpdates } from '../config/env.js';
 import { getNotificationMetrics, type NotificationMetrics } from '../agent/notifications.js';
 import { getWhatsAppFormatMetrics, type WhatsAppFormatMetrics } from '../agent/whatsapp-format.js';
+import { getDiscordFormatMetrics, type DiscordFormatMetrics } from '../agent/discord-format.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -61,6 +62,8 @@ const SESSION_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
 export interface BridgeStatus {
   /** Current connection state */
   state: 'initializing' | 'qr_pending' | 'authenticated' | 'disconnected' | 'error';
+  /** Active bridge mode */
+  bridgeMode: 'whatsapp' | 'discord';
   /** QR code data (when state is qr_pending) */
   qrCode: string | null;
   /** URL to view QR code in browser */
@@ -77,6 +80,8 @@ export interface BridgeStatus {
   notificationMetrics: NotificationMetrics;
   /** WhatsApp response formatting and chunking counters */
   responseFormattingMetrics: WhatsAppFormatMetrics;
+  /** Discord response formatting and chunking counters */
+  discordFormattingMetrics: DiscordFormatMetrics;
 }
 
 // =============================================================================
@@ -86,6 +91,7 @@ export interface BridgeStatus {
 /** Global status (updated by bridge events) */
 let status: BridgeStatus = {
   state: 'initializing',
+  bridgeMode: (process.env.BRIDGE_MODE as 'whatsapp' | 'discord') || 'whatsapp',
   qrCode: null,
   qrUrl: null,
   uptime: 0,
@@ -94,6 +100,7 @@ let status: BridgeStatus = {
   version: getVersion(),
   notificationMetrics: getNotificationMetrics(),
   responseFormattingMetrics: getWhatsAppFormatMetrics(),
+  discordFormattingMetrics: getDiscordFormatMetrics(),
 };
 
 /** Server start time for uptime calculation */
@@ -103,6 +110,8 @@ const startTime = Date.now();
 let logoutCallback: (() => Promise<void>) | null = null;
 let startCallback: (() => Promise<void>) | null = null;
 let restartCallback: (() => Promise<void>) | null = null;
+let discordStartCallback: (() => Promise<void>) | null = null;
+let discordRestartCallback: (() => Promise<void>) | null = null;
 let envWatcherInitialized = false;
 
 /** Optional admin token for protected endpoints (logout/config/session APIs). */
@@ -173,6 +182,39 @@ export async function triggerWhatsAppRestart(): Promise<boolean> {
   }
 }
 
+/** Register callbacks used by Discord start/restart control endpoints. */
+export function setDiscordControlCallbacks(callbacks: {
+  start?: () => Promise<void>;
+  restart?: () => Promise<void>;
+}): void {
+  discordStartCallback = callbacks.start ?? null;
+  discordRestartCallback = callbacks.restart ?? null;
+}
+
+/** Execute the registered Discord start callback, if available. */
+export async function triggerDiscordStart(): Promise<boolean> {
+  if (!discordStartCallback) return false;
+  try {
+    await discordStartCallback();
+    return true;
+  } catch (error) {
+    logger.error('Discord start failed:', error);
+    return false;
+  }
+}
+
+/** Execute the registered Discord restart callback, if available. */
+export async function triggerDiscordRestart(): Promise<boolean> {
+  if (!discordRestartCallback) return false;
+  try {
+    await discordRestartCallback();
+    return true;
+  } catch (error) {
+    logger.error('Discord restart failed:', error);
+    return false;
+  }
+}
+
 // =============================================================================
 // STATUS FUNCTIONS
 // =============================================================================
@@ -205,6 +247,7 @@ export function getStatus(): BridgeStatus {
     uptime: Math.floor((Date.now() - startTime) / 1000),
     notificationMetrics: getNotificationMetrics(),
     responseFormattingMetrics: getWhatsAppFormatMetrics(),
+    discordFormattingMetrics: getDiscordFormatMetrics(),
   };
 }
 
@@ -339,6 +382,42 @@ export function startStatusServer(): void {
       } else {
         res.writeHead(500);
         res.end(JSON.stringify({ success: false, message: 'WhatsApp restart unavailable or failed' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/discord/start') {
+      res.setHeader('Content-Type', 'application/json');
+      if (!isAdminAuthorized(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+      const success = await triggerDiscordStart();
+      if (success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: 'Discord startup requested' }));
+      } else {
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Discord start unavailable or failed' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST' && url === '/api/discord/restart') {
+      res.setHeader('Content-Type', 'application/json');
+      if (!isAdminAuthorized(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+      }
+      const success = await triggerDiscordRestart();
+      if (success) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, message: 'Discord restart requested' }));
+      } else {
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: 'Discord restart unavailable or failed' }));
       }
       return;
     }
