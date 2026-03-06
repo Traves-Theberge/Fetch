@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- API entrypoints: `fetch-app/src/index.ts`, `fetch-app/src/api/status.ts`.
-- Tool endpoints/handlers: `fetch-app/src/tools/*`, `fetch-app/src/validation/tools.ts`.
-- Supporting runtime services: `fetch-app/src/security/*`, `fetch-app/src/utils/logger.ts`, `fetch-app/src/utils/version.ts`.
-- Validation tests: `fetch-app/tests/unit/status-api.test.ts`, `fetch-app/tests/unit/*-tools.test.ts`.
+- API entrypoints: `apps/bridge/src/index.ts`, `apps/bridge/src/api/status.ts`.
+- Tool endpoints/handlers: `apps/bridge/src/tools/*`, `apps/bridge/src/validation/tools.ts`.
+- Supporting runtime services: `apps/bridge/src/security/*`, `apps/bridge/src/utils/logger.ts`, `apps/bridge/src/utils/version.ts`.
+- Validation tests: `apps/bridge/tests/unit/status-api.test.ts`, `apps/bridge/tests/unit/*-tools.test.ts`.
 
 
 ```mermaid
@@ -218,36 +218,36 @@ Use this table when updating behavior so docs stay aligned with the implementati
 
 | Tool Category | Source Module |
 |---------------|---------------|
-| Workspace (`workspace_*`, `file_delete`, `folder_delete`) | `fetch-app/src/tools/workspace.ts` |
-| Task (`task_*`) | `fetch-app/src/tools/task.ts` |
-| Interaction (`ask_user`, `report_progress`) | `fetch-app/src/tools/interaction.ts` |
-| GitHub (`github_*`) | `fetch-app/src/tools/github.ts` |
-| Web (`web_fetch`, `web_search`) | `fetch-app/src/tools/web.ts` |
-| Browser (`browser_*`) | `fetch-app/src/tools/browser.ts` |
-| Workflow/Cron/Runtime (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`) | `fetch-app/src/tools/workflow.ts` |
+| Workspace (`workspace_*`, `file_delete`, `folder_delete`) | `apps/bridge/src/tools/workspace.ts` |
+| Task (`task_*`) | `apps/bridge/src/tools/task.ts` |
+| Interaction (`ask_user`, `report_progress`) | `apps/bridge/src/tools/interaction.ts` |
+| GitHub (`github_*`) | `apps/bridge/src/tools/github.ts` |
+| Web (`web_fetch`, `web_search`) | `apps/bridge/src/tools/web.ts` |
+| Browser (`browser_*`) | `apps/bridge/src/tools/browser.ts` |
+| Workflow/Cron/Runtime (`workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test`) | `apps/bridge/src/tools/workflow.ts` |
 
-The registry entry point is `fetch-app/src/tools/registry.ts`, and input schemas are defined in `fetch-app/src/validation/tools.ts`.
+The registry entry point is `apps/bridge/src/tools/registry.ts`, and input schemas are defined in `apps/bridge/src/validation/tools.ts`.
 
 ### Supporting Module Ownership
 
 | Responsibility | Source Module |
 |---------------|---------------|
-| Shared validation primitives (ids, paths, limits) | `fetch-app/src/validation/common.ts` |
-| Tool input schemas (canonical tool-name/arg contract) | `fetch-app/src/validation/tools.ts` |
-| Kennel Docker command execution | `fetch-app/src/utils/docker.ts` |
-| Runtime version lookup | `fetch-app/src/utils/version.ts` |
-| Task/progress id generation | `fetch-app/src/utils/id.ts` |
-| Bridge logging + log-level filtering | `fetch-app/src/utils/logger.ts` |
-| Envelope response contract + renderer | `fetch-app/src/agent/envelope.ts`, `fetch-app/src/agent/composer.ts` |
-| Proactive task message composition | `fetch-app/src/bridge/progress-message.ts` |
-| Voice-note transcription (`whisper-cpp`) | `fetch-app/src/transcription/index.ts` |
-| Image analysis (vision model calls) | `fetch-app/src/vision/index.ts` |
-| Workspace lifecycle + git/GitHub operations | `fetch-app/src/workspace/manager.ts` |
-| Project profile detection (framework/package manager/test runner) | `fetch-app/src/workspace/profiler.ts` |
-| Repository map generation (context summary) | `fetch-app/src/workspace/repo-map.ts` |
-| Language symbol extraction for repo-map | `fetch-app/src/workspace/symbols.ts` |
-| Workspace domain contracts | `fetch-app/src/workspace/types.ts` |
-| Bridge bootstrap/shutdown orchestration | `fetch-app/src/index.ts` |
+| Shared validation primitives (ids, paths, limits) | `apps/bridge/src/validation/common.ts` |
+| Tool input schemas (canonical tool-name/arg contract) | `apps/bridge/src/validation/tools.ts` |
+| Kennel Docker command execution | `apps/bridge/src/utils/docker.ts` |
+| Runtime version lookup | `apps/bridge/src/utils/version.ts` |
+| Task/progress id generation | `apps/bridge/src/utils/id.ts` |
+| Bridge logging + log-level filtering | `apps/bridge/src/utils/logger.ts` |
+| Envelope response contract + renderer | `apps/bridge/src/agent/envelope.ts`, `apps/bridge/src/agent/composer.ts` |
+| Proactive task message composition | `apps/bridge/src/bridge/progress-message.ts` |
+| Voice-note transcription (`whisper-cpp`) | `apps/bridge/src/transcription/index.ts` |
+| Image analysis (vision model calls) | `apps/bridge/src/vision/index.ts` |
+| Workspace lifecycle + git/GitHub operations | `apps/bridge/src/workspace/manager.ts` |
+| Project profile detection (framework/package manager/test runner) | `apps/bridge/src/workspace/profiler.ts` |
+| Repository map generation (context summary) | `apps/bridge/src/workspace/repo-map.ts` |
+| Language symbol extraction for repo-map | `apps/bridge/src/workspace/symbols.ts` |
+| Workspace domain contracts | `apps/bridge/src/workspace/types.ts` |
+| Bridge bootstrap/shutdown orchestration | `apps/bridge/src/index.ts` |
 
 ### Workspace Tools (9)
 

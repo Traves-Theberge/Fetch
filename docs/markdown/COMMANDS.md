@@ -2,9 +2,9 @@
 
 ## Implementation References
 
-- Command parsing/dispatch: `fetch-app/src/commands/parser.ts`, `fetch-app/src/commands/index.ts`, `fetch-app/src/commands/task.ts`, `fetch-app/src/commands/trust.ts`.
-- Tool catalog source: `fetch-app/src/tools/registry.ts`, `fetch-app/src/validation/tools.ts`.
-- Validation tests: `fetch-app/tests/unit/command-parser.test.ts`, `fetch-app/tests/unit/tool-validation-contracts.test.ts`.
+- Command parsing/dispatch: `apps/bridge/src/commands/parser.ts`, `apps/bridge/src/commands/index.ts`, `apps/bridge/src/commands/task.ts`, `apps/bridge/src/commands/trust.ts`.
+- Tool catalog source: `apps/bridge/src/tools/registry.ts`, `apps/bridge/src/validation/tools.ts`.
+- Validation tests: `apps/bridge/tests/unit/command-parser.test.ts`, `apps/bridge/tests/unit/tool-validation-contracts.test.ts`.
 
 
 ## Trigger

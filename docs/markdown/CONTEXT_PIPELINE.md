@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Context assembly: `fetch-app/src/session/manager.ts`, `fetch-app/src/session/store.ts`.
-- Repo/project context: `fetch-app/src/workspace/profiler.ts`, `fetch-app/src/workspace/repo-map.ts`, `fetch-app/src/workspace/symbols.ts`.
-- Pipeline tuning source: `fetch-app/src/config/pipeline.ts`.
-- Validation tests: `fetch-app/tests/unit/context-pipeline.test.ts`, `fetch-app/tests/unit/project-profiler.test.ts`, `fetch-app/tests/unit/repo-map.test.ts`.
+- Context assembly: `apps/bridge/src/session/manager.ts`, `apps/bridge/src/session/store.ts`.
+- Repo/project context: `apps/bridge/src/workspace/profiler.ts`, `apps/bridge/src/workspace/repo-map.ts`, `apps/bridge/src/workspace/symbols.ts`.
+- Pipeline tuning source: `apps/bridge/src/config/pipeline.ts`.
+- Validation tests: `apps/bridge/tests/unit/context-pipeline.test.ts`, `apps/bridge/tests/unit/project-profiler.test.ts`, `apps/bridge/tests/unit/repo-map.test.ts`.
 
 > Fetch's memory system — how conversations persist across turns, how old context is compressed, and how tool call history stays visible to the LLM without leaking raw data to WhatsApp.
 

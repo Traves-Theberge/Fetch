@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Session persistence: `fetch-app/src/session/types.ts`, `fetch-app/src/session/store.ts`, `fetch-app/src/session/manager.ts`.
-- Task persistence: `fetch-app/src/task/types.ts`, `fetch-app/src/task/store.ts`, `fetch-app/src/task/manager.ts`, `fetch-app/src/task/integration.ts`.
+- Session persistence: `apps/bridge/src/session/types.ts`, `apps/bridge/src/session/store.ts`, `apps/bridge/src/session/manager.ts`.
+- Task persistence: `apps/bridge/src/task/types.ts`, `apps/bridge/src/task/store.ts`, `apps/bridge/src/task/manager.ts`, `apps/bridge/src/task/integration.ts`.
 - Runtime state dirs: `data/`, `workspace/`.
-- Validation tests: `fetch-app/tests/unit/session-store.test.ts`, `fetch-app/tests/unit/task-store.test.ts`, `fetch-app/tests/unit/task-integration.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/session-store.test.ts`, `apps/bridge/tests/unit/task-store.test.ts`, `apps/bridge/tests/unit/task-integration.test.ts`.
 
 > Fetch persists state across three layers: **Session** (Message History), **Workspace** (Git/File Context), and **Task** (Active Jobs). All state is backed by SQLite (WAL mode) for crash-safety and zero-config deployment.
 

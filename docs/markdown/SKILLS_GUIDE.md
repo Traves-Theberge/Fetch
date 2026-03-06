@@ -2,11 +2,11 @@
 
 ## Implementation References
 
-- Skill lifecycle: `fetch-app/src/skills/index.ts`, `fetch-app/src/skills/loader.ts`, `fetch-app/src/skills/manager.ts`, `fetch-app/src/skills/types.ts`.
-- Built-in skills: `fetch-app/src/skills/builtin/**/SKILL.md`.
-- Tool contract source: `fetch-app/src/validation/tools.ts`, `fetch-app/src/tools/registry.ts`.
+- Skill lifecycle: `apps/bridge/src/skills/index.ts`, `apps/bridge/src/skills/loader.ts`, `apps/bridge/src/skills/manager.ts`, `apps/bridge/src/skills/types.ts`.
+- Built-in skills: `apps/bridge/src/skills/builtin/**/SKILL.md`.
+- Tool contract source: `apps/bridge/src/validation/tools.ts`, `apps/bridge/src/tools/registry.ts`.
 - User skill storage: `data/skills/`.
-- Validation tests: `fetch-app/tests/unit/skills-manager.test.ts`, `fetch-app/tests/unit/tool-validation-contracts.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/skills-manager.test.ts`, `apps/bridge/tests/unit/tool-validation-contracts.test.ts`.
 
 
 Skills are **hot-loadable instruction modules** that guide Fetch's tool usage for specific workflows. When your message matches a skill's triggers, that skill's instructions are injected into the system prompt to steer tool selection and call order.
@@ -42,7 +42,7 @@ Skills **don't execute anything directly**. They guide the orchestrator LLM's de
 
 ## Built-in Skills (Current Set)
 
-Fetch ships with built-in skills under `fetch-app/src/skills/builtin/` aligned to the current tool categories.
+Fetch ships with built-in skills under `apps/bridge/src/skills/builtin/` aligned to the current tool categories.
 Treat that folder as canonical for the live built-in set.
 
 | Skill | Triggers | What It Guides |
@@ -72,7 +72,7 @@ Use these standard sequences when writing or reviewing skill instructions:
 
 Use these rules to keep skills aligned with the live tool surface and avoid drift:
 
-1. Treat `fetch-app/src/validation/tools.ts` as the canonical source for valid tool names and parameters.
+1. Treat `apps/bridge/src/validation/tools.ts` as the canonical source for valid tool names and parameters.
 2. Do not hardcode category counts in skill text; counts can change as tools are added.
 3. Prefer tool names in backticks and verify each name exists before merging skill changes.
 4. If tool behavior changes, update both the relevant `SKILL.md` and this guide in the same PR.
@@ -83,11 +83,11 @@ Use these rules to keep skills aligned with the live tool surface and avoid drif
 
 When updating skills, always verify against:
 
-- `fetch-app/src/skills/builtin/**/SKILL.md` (built-in skill content)
-- `fetch-app/src/skills/manager.ts` (matching + injection behavior)
-- `fetch-app/src/skills/loader.ts` (frontmatter validation + requirements handling)
-- `fetch-app/src/validation/tools.ts` (valid tool names and parameters)
-- `fetch-app/src/tools/registry.ts` (registered handlers and danger policy)
+- `apps/bridge/src/skills/builtin/**/SKILL.md` (built-in skill content)
+- `apps/bridge/src/skills/manager.ts` (matching + injection behavior)
+- `apps/bridge/src/skills/loader.ts` (frontmatter validation + requirements handling)
+- `apps/bridge/src/validation/tools.ts` (valid tool names and parameters)
+- `apps/bridge/src/tools/registry.ts` (registered handlers and danger policy)
 
 ### Skill-to-Tool Module Map
 
@@ -95,14 +95,14 @@ Use this map to keep skill instructions tied to concrete handlers.
 
 | Skill | Primary Tool Family | Source Module |
 |-------|----------------------|---------------|
-| Workspace Operations | `workspace_*`, `file_delete`, `folder_delete` | `fetch-app/src/tools/workspace.ts` |
-| Task Orchestration | `task_*` | `fetch-app/src/tools/task.ts` |
-| Interaction Control | `ask_user`, `report_progress` | `fetch-app/src/tools/interaction.ts` |
-| GitHub Operations | `github_*` | `fetch-app/src/tools/github.ts` |
-| Web Research | `web_fetch`, `web_search` | `fetch-app/src/tools/web.ts` |
-| Browser Automation | `browser_*` | `fetch-app/src/tools/browser.ts` |
-| Workflow Automation | `workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test` | `fetch-app/src/tools/workflow.ts` |
-| Fetch Meta | Status/capability queries (prompt guidance, minimal direct tool usage) | `fetch-app/src/agent/prompts.ts` and `fetch-app/src/agent/core.ts` |
+| Workspace Operations | `workspace_*`, `file_delete`, `folder_delete` | `apps/bridge/src/tools/workspace.ts` |
+| Task Orchestration | `task_*` | `apps/bridge/src/tools/task.ts` |
+| Interaction Control | `ask_user`, `report_progress` | `apps/bridge/src/tools/interaction.ts` |
+| GitHub Operations | `github_*` | `apps/bridge/src/tools/github.ts` |
+| Web Research | `web_fetch`, `web_search` | `apps/bridge/src/tools/web.ts` |
+| Browser Automation | `browser_*` | `apps/bridge/src/tools/browser.ts` |
+| Workflow Automation | `workflow_*`, `cron_*`, `app_run`, `app_test`, `browser_test` | `apps/bridge/src/tools/workflow.ts` |
+| Fetch Meta | Status/capability queries (prompt guidance, minimal direct tool usage) | `apps/bridge/src/agent/prompts.ts` and `apps/bridge/src/agent/core.ts` |
 
 ### Skill Anatomy
 

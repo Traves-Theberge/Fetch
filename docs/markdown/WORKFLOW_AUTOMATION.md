@@ -2,9 +2,9 @@
 
 ## Implementation References
 
-- Workflow runtime: `fetch-app/src/tools/workflow.ts`, `fetch-app/src/workflow/manager.ts`, `fetch-app/src/workflow/types.ts`.
+- Workflow runtime: `apps/bridge/src/tools/workflow.ts`, `apps/bridge/src/workflow/manager.ts`, `apps/bridge/src/workflow/types.ts`.
 - Persistence: `data/workflows.json`.
-- Validation tests: `fetch-app/tests/unit/workflow-tools.test.ts`, `fetch-app/tests/unit/workflow-manager.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/workflow-tools.test.ts`, `apps/bridge/tests/unit/workflow-manager.test.ts`.
 
 
 This guide explains exactly how users trigger and manage **workflows, cron jobs, and deterministic runtime checks** from WhatsApp.

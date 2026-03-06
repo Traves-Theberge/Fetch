@@ -4,8 +4,8 @@ import { IdentityLoader } from '../../src/identity/loader.js';
 
 describe('IdentityLoader', () => {
   // Point to the REAL data directory for integration testing
-  // tests/unit -> tests -> fetch-app -> Fetch -> data
-  const realDataDir = path.resolve(__dirname, '../../../data/identity');
+  // tests/unit -> tests -> apps/bridge -> apps -> Fetch -> data
+  const realDataDir = path.resolve(__dirname, '../../../../data/identity');
 
   it('should load COLLAR.md correctly', async () => {
     const loader = new IdentityLoader(realDataDir);

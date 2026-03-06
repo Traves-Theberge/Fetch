@@ -3,7 +3,7 @@
 ## Implementation References
 
 - Canonical terms source: cross-check all pages in `docs/markdown/`.
-- Type contracts for terminology: `fetch-app/src/tools/types.ts`, `fetch-app/src/harness/types.ts`, `fetch-app/src/workflow/types.ts`.
+- Type contracts for terminology: `apps/bridge/src/tools/types.ts`, `apps/bridge/src/harness/types.ts`, `apps/bridge/src/workflow/types.ts`.
 
 
 ## Platform

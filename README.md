@@ -281,9 +281,9 @@ These preferences affect conversational capability/tool-inventory responses and 
 
 Fetch now uses a shared structured-response pipeline before sending WhatsApp text:
 
-- `ResponseEnvelope` contract (`fetch-app/src/agent/envelope.ts`) for normalized response shape
-- `composeWhatsAppResponse` renderer (`fetch-app/src/agent/composer.ts`) for final user-facing copy
-- shared formatting/chunking (`fetch-app/src/agent/whatsapp-format.ts`) for mobile-safe delivery
+- `ResponseEnvelope` contract (`apps/bridge/src/agent/envelope.ts`) for normalized response shape
+- `composeWhatsAppResponse` renderer (`apps/bridge/src/agent/composer.ts`) for final user-facing copy
+- shared formatting/chunking (`apps/bridge/src/agent/whatsapp-format.ts`) for mobile-safe delivery
 
 This same path is used for:
 
@@ -332,7 +332,7 @@ Fetch runs as a three-container stack plus a host manager:
 
 ## Project Structure
 
-- `fetch-app/`: bridge service (TypeScript)
+- `apps/bridge/`: bridge service (TypeScript)
 - `manager/`: Go manager/TUI
 - `kennel/`: Docker sandbox image
 - `scripts/`: installer, setup, and host management scripts

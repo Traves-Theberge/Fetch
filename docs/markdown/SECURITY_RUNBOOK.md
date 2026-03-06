@@ -2,9 +2,9 @@
 
 ## Implementation References
 
-- Security runtime: `fetch-app/src/security/gate.ts`, `fetch-app/src/security/rateLimiter.ts`, `fetch-app/src/security/validator.ts`, `fetch-app/src/security/whitelist.ts`.
-- Auth/config: `fetch-app/src/config/env.ts`, `.env.example`.
-- Validation tests: `fetch-app/tests/unit/security.test.ts`, `fetch-app/tests/unit/whitelist.test.ts`.
+- Security runtime: `apps/bridge/src/security/gate.ts`, `apps/bridge/src/security/rateLimiter.ts`, `apps/bridge/src/security/validator.ts`, `apps/bridge/src/security/whitelist.ts`.
+- Auth/config: `apps/bridge/src/config/env.ts`, `.env.example`.
+- Validation tests: `apps/bridge/tests/unit/security.test.ts`, `apps/bridge/tests/unit/whitelist.test.ts`.
 
 
 Operational checklist for running Fetch in production-like environments.

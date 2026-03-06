@@ -4,7 +4,7 @@
 
 - Lifecycle scripts: `scripts/install.sh`, `scripts/fetch-cli.sh`, `scripts/uninstall.sh`, `scripts/build_manager.sh`.
 - Release metadata: `release-manifest.json`, `VERSION`.
-- Validation tests: `fetch-app/tests/unit/index-runtime.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/index-runtime.test.ts`.
 
 
 ```mermaid

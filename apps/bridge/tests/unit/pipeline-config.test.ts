@@ -60,7 +60,7 @@ describe('Pipeline Configuration', () => {
       // Web / Browser
       expect(pipeline.searxngUrl).toBe('http://searxng:8080');
       expect(pipeline.webFetchMaxLength).toBe(50_000);
-      expect(pipeline.browserTimeout).toBe(30_000);
+      expect(pipeline.browserTimeout).toBe(60_000);
 
       // Circuit breaker reset
       expect(pipeline.circuitBreakerResetMs).toBe(300_000);

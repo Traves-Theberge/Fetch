@@ -5,7 +5,7 @@
 - Setup/install scripts: `scripts/install.sh`, `scripts/fetch-cli.sh`, `scripts/install_prereqs.sh`, `scripts/install_gh_cli.sh`.
 - Runtime orchestration: `manager/main.go`, `manager/internal/status/client.go`.
 - Infra/config: `docker-compose.yml`, `config/searxng/settings.yml`, `.env.example`.
-- Validation tests: `fetch-app/tests/unit/env-runtime-validation.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/env-runtime-validation.test.ts`.
 
 
 ## Prerequisites
@@ -219,7 +219,7 @@ This starts three containers:
 
 | Container | Image | Ports | Volumes |
 |-----------|-------|-------|---------|
-| `fetch-bridge` | `fetch-app/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `./docs` (ro), `./.env` (ro), `/var/run/docker.sock` (ro) |
+| `fetch-bridge` | `apps/bridge/Dockerfile` | 8765 (status API) | `./data`, `./workspace`, `./docs` (ro), `./.env` (ro), `/var/run/docker.sock` (ro) |
 | `fetch-kennel` | `kennel/Dockerfile` | — | `./workspace`, `~/.config/gh` (ro), `~/.config/claude-code` (ro), `~/.claude` (ro), `~/.gemini` (ro), `~/.config/opencode` (ro), `~/.codex` (ro) |
 | `fetch-searxng` | `searxng/searxng:latest` | 8888 (search API) | `./config/searxng` |
 

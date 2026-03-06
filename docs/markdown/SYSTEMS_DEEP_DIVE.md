@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Identity/session/task systems: `fetch-app/src/identity/*`, `fetch-app/src/session/*`, `fetch-app/src/task/*`.
-- Agent runtime: `fetch-app/src/agent/*`.
-- Skills/runtime context: `fetch-app/src/skills/*`, `data/identity/*`, `data/skills/*`, `data/cli-configs/*`.
-- Validation tests: `fetch-app/tests/unit/identity-manager.test.ts`, `fetch-app/tests/unit/session-manager.test.ts`, `fetch-app/tests/unit/task-manager.test.ts`.
+- Identity/session/task systems: `apps/bridge/src/identity/*`, `apps/bridge/src/session/*`, `apps/bridge/src/task/*`.
+- Agent runtime: `apps/bridge/src/agent/*`.
+- Skills/runtime context: `apps/bridge/src/skills/*`, `data/identity/*`, `data/skills/*`, `data/cli-configs/*`.
+- Validation tests: `apps/bridge/tests/unit/identity-manager.test.ts`, `apps/bridge/tests/unit/session-manager.test.ts`, `apps/bridge/tests/unit/task-manager.test.ts`.
 
 
 Every WhatsApp message follows **one path** through these systems. There's no router or classifier - the LLM sees everything and decides what to do.

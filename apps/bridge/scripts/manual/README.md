@@ -10,7 +10,7 @@ These scripts are manual smoke/integration checks. They are not part of the Vite
 
 ## Run
 
-From `fetch-app/`:
+From `apps/bridge/`:
 
 ```bash
 npx ts-node --esm scripts/manual/manual-tool-test.ts

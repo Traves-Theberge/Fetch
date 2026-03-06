@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Runtime: `fetch-app/src/index.ts`, `fetch-app/src/handler/index.ts`, `fetch-app/src/tools/registry.ts`.
+- Runtime: `apps/bridge/src/index.ts`, `apps/bridge/src/handler/index.ts`, `apps/bridge/src/tools/registry.ts`.
 - Operations: `scripts/fetch-cli.sh`, `manager/main.go`.
 - Infra/versioning: `docker-compose.yml`, `.env.example`, `VERSION`, `release-manifest.json`.
-- Validation tests: `fetch-app/tests/unit/index-runtime.test.ts`, `fetch-app/tests/integration/agent-loop.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/index-runtime.test.ts`, `apps/bridge/tests/integration/agent-loop.test.ts`.
 
 
 Fetch is a self-hosted coding orchestrator controlled from WhatsApp.

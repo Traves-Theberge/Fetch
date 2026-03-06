@@ -2,9 +2,9 @@
 
 ## Implementation References
 
-- Config runtime: `fetch-app/src/config/env.ts`, `fetch-app/src/config/pipeline.ts`, `fetch-app/src/config/paths.ts`.
+- Config runtime: `apps/bridge/src/config/env.ts`, `apps/bridge/src/config/pipeline.ts`, `apps/bridge/src/config/paths.ts`.
 - Supporting files: `.env.example`, `docker-compose.yml`, `config/searxng/settings.yml`, `config/github/README.md`.
-- Validation tests: `fetch-app/tests/unit/env-runtime-validation.test.ts`, `fetch-app/tests/unit/pipeline-config.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/env-runtime-validation.test.ts`, `apps/bridge/tests/unit/pipeline-config.test.ts`.
 
 
 ```mermaid

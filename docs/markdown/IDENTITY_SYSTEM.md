@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Identity composition: `fetch-app/src/identity/loader.ts`, `fetch-app/src/identity/manager.ts`, `fetch-app/src/identity/types.ts`.
-- Prompt integration: `fetch-app/src/agent/prompts.ts`.
+- Identity composition: `apps/bridge/src/identity/loader.ts`, `apps/bridge/src/identity/manager.ts`, `apps/bridge/src/identity/types.ts`.
+- Prompt integration: `apps/bridge/src/agent/prompts.ts`.
 - Identity data files: `data/identity/COLLAR.md`, `data/identity/ALPHA.md`, `data/cli-configs/*`.
-- Validation tests: `fetch-app/tests/unit/identity-loader.test.ts`, `fetch-app/tests/unit/identity-manager.test.ts`.
+- Validation tests: `apps/bridge/tests/unit/identity-loader.test.ts`, `apps/bridge/tests/unit/identity-manager.test.ts`.
 
 
 Fetch's personality, directives, and user context are dynamically assembled from two Markdown files on disk. Edit a file, save — changes apply immediately via hot-reload.

@@ -2,10 +2,10 @@
 
 ## Implementation References
 
-- Agent + handler core: `fetch-app/src/agent/core.ts`, `fetch-app/src/handler/index.ts`, `fetch-app/src/tools/registry.ts`.
-- Execution plumbing: `fetch-app/src/harness/spawner.ts`, `fetch-app/src/harness/executor.ts`, `fetch-app/src/utils/docker.ts`.
+- Agent + handler core: `apps/bridge/src/agent/core.ts`, `apps/bridge/src/handler/index.ts`, `apps/bridge/src/tools/registry.ts`.
+- Execution plumbing: `apps/bridge/src/harness/spawner.ts`, `apps/bridge/src/harness/executor.ts`, `apps/bridge/src/utils/docker.ts`.
 - Infra topology: `docker-compose.yml`, `kennel/Dockerfile`, `kennel/browser-agent.mjs`.
-- Validation tests: `fetch-app/tests/integration/agent-loop.test.ts`, `fetch-app/tests/unit/tool-registry.test.ts`.
+- Validation tests: `apps/bridge/tests/integration/agent-loop.test.ts`, `apps/bridge/tests/unit/tool-registry.test.ts`.
 
 ## System Overview
 

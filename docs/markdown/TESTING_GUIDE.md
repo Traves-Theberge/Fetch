@@ -2,9 +2,9 @@
 
 ## Implementation References
 
-- Unit suites: `fetch-app/tests/unit/*`.
-- Integration suites: `fetch-app/tests/integration/*`.
-- Test framework config: `fetch-app/vitest.config.ts`, `fetch-app/package.json` test scripts.
+- Unit suites: `apps/bridge/tests/unit/*`.
+- Integration suites: `apps/bridge/tests/integration/*`.
+- Test framework config: `apps/bridge/vitest.config.ts`, `apps/bridge/package.json` test scripts.
 - Manager baseline tests: `manager/internal/paths/paths_test.go`.
 
 
@@ -89,7 +89,7 @@ Send via WhatsApp:
 
 - [ ] Bridge logs show `--- Project Context ---` with language/framework/commands
 - [ ] Harness chooses the correct test command for the project
-  - Example for this repo’s bridge (`fetch-app/`): `npm run test:run` or `npx vitest run`
+  - Example for this repo’s bridge (`apps/bridge/`): `npm run test:run` or `npx vitest run`
 
 ### 1.4 Multi-Project Spot Checks (Optional)
 

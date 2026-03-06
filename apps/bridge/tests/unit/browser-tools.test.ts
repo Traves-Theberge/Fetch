@@ -198,11 +198,18 @@ describe('Browser Tools', () => {
   // ─── browser_screenshot ───────────────────────────────────────
 
   describe('browser_screenshot', () => {
-    it('should return base64 screenshot data', async () => {
-      const base64Data = 'iVBORw0KGgoAAAANSUhEUg==';
+    it('should return screenshot metadata from JSON response', async () => {
+      const screenshotJson = JSON.stringify({
+        url: 'https://example.com',
+        title: 'Example Domain',
+        format: 'png',
+        size: 12345,
+        base64: 'iVBORw0KGgoAAAANSUhEUg==',
+        description: 'A simple example page',
+      });
       mockDockerExec.mockResolvedValue({
         exitCode: 0,
-        stdout: base64Data,
+        stdout: screenshotJson,
         stderr: '',
         timedOut: false,
       });
@@ -210,7 +217,7 @@ describe('Browser Tools', () => {
       const result = await handleBrowserScreenshot({});
 
       expect(result.success).toBe(true);
-      expect(result.output).toBe(base64Data);
+      expect(result.output).toContain('https://example.com');
       expect(result.metadata?.tool).toBe('browser_screenshot');
       expect(result.duration).toBeGreaterThanOrEqual(0);
 
