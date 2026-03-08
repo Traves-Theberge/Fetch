@@ -1,0 +1,359 @@
+/**
+ * @fileoverview Per-agent identity manager (non-singleton).
+ *
+ * Used by the multi-bot Discord bridge to give each bot its own persona.
+ * Loads from a COLLAR.md directory (like the global IdentityManager) but
+ * accepts inline overrides from the agent config and is not a singleton.
+ *
+ * Implements the same public API surface consumed by `agent/core.ts`:
+ * - `buildSystemPrompt()`
+ * - `getVoiceTone()`
+ * - `whenReady()`
+ * - `shutdown()`
+ *
+ * @module identity/scoped-manager
+ */
+
+import { AgentIdentity } from './types.js';
+import { IdentityLoader } from './loader.js';
+import { getSkillManager } from '../skills/manager.js';
+import { IDENTITY_DIR } from '../config/paths.js';
+import { VERSION } from '../config/env.js';
+import { pipeline } from '../config/pipeline.js';
+import { logger } from '../utils/logger.js';
+import type { PromptMode } from '../session/types.js';
+import type { AgentIdentityOverrides } from '../config/agents.js';
+import chokidar from 'chokidar';
+
+// =============================================================================
+// DEFAULT IDENTITY (same as IdentityManager)
+// =============================================================================
+
+const DEFAULT_IDENTITY: AgentIdentity = {
+  name: 'Fetch',
+  role: 'Orchestrator & Senior Developer',
+  emoji: '🤖',
+  voice: {
+    tone: 'Warm, eagerness, and senior — a professional developer ready to assist',
+  },
+  directives: {
+    primary: [
+      'Protect the User and the Codebase at all costs.',
+      'Never hallucinate; verify before executing.',
+      'Maintain your persona naturally.'
+    ],
+    secondary: [
+      'Prioritize safety and stability.',
+      'Keep responses concise for chat integration.',
+      'Use tools proactively to gather context.'
+    ],
+    behavioral: [
+      'Briefly explain your intent before calling task_create.',
+      'When confused, ask for clarification immediately.',
+      'Treat the User as the "Administrator".',
+    ]
+  },
+  context: {
+    owner: 'Admin',
+  },
+};
+
+// =============================================================================
+// SCOPED IDENTITY MANAGER
+// =============================================================================
+
+export class ScopedIdentityManager {
+  private identity: AgentIdentity;
+  private loader: IdentityLoader;
+  private watchers: ReturnType<typeof chokidar.watch>[] = [];
+  private readyPromise: Promise<void>;
+  private reloadQueue: Promise<void> = Promise.resolve();
+  private platform: string;
+
+  constructor(
+    identityDir?: string,
+    overrides?: AgentIdentityOverrides,
+    platform?: string,
+  ) {
+    this.identity = JSON.parse(JSON.stringify(DEFAULT_IDENTITY));
+    this.platform = platform || 'Discord';
+
+    const dir = identityDir || IDENTITY_DIR;
+    this.loader = new IdentityLoader(dir);
+
+    // Apply inline overrides immediately (before file load)
+    if (overrides) {
+      if (overrides.name) this.identity.name = overrides.name;
+      if (overrides.role) this.identity.role = overrides.role;
+      if (overrides.emoji) this.identity.emoji = overrides.emoji;
+      if (overrides.voiceTone) this.identity.voice.tone = overrides.voiceTone;
+    }
+
+    // Store overrides for re-application after file reload
+    this.overrides = overrides;
+
+    this.readyPromise = this.reloadIdentity();
+    this.setupWatchers(dir);
+  }
+
+  private overrides?: AgentIdentityOverrides;
+
+  private setupWatchers(dir: string): void {
+    try {
+      const watcher = chokidar.watch(dir, {
+        // eslint-disable-next-line no-useless-escape
+        ignored: /(^|[\/\\])\../,
+        persistent: true,
+      });
+      watcher.on('change', (filePath) => {
+        logger.info(`Identity file changed: ${filePath}. Reloading (scoped)...`);
+        void this.reloadIdentity();
+      });
+      watcher.on('error', (error) => {
+        logger.error(`Scoped identity watcher error`, error);
+      });
+      this.watchers.push(watcher);
+    } catch (error) {
+      logger.error('Failed to setup scoped identity watcher', error);
+    }
+  }
+
+  public reloadIdentity(): Promise<void> {
+    const nextReload = this.reloadQueue
+      .catch(() => undefined)
+      .then(async () => {
+        const loaded = await this.loader.load();
+
+        if (loaded.name) this.identity.name = loaded.name;
+        if (loaded.role) this.identity.role = loaded.role;
+        if (loaded.emoji) this.identity.emoji = loaded.emoji;
+        if (loaded.voice?.tone) this.identity.voice.tone = loaded.voice.tone;
+        if (loaded.directives?.primary?.length) this.identity.directives.primary = loaded.directives.primary;
+        if (loaded.directives?.secondary?.length) this.identity.directives.secondary = loaded.directives.secondary;
+        if (loaded.directives?.behavioral?.length) this.identity.directives.behavioral = loaded.directives.behavioral;
+        if (loaded.context) this.identity.context = { ...this.identity.context, ...loaded.context };
+
+        // Re-apply inline overrides (they take precedence over file)
+        if (this.overrides) {
+          if (this.overrides.name) this.identity.name = this.overrides.name;
+          if (this.overrides.role) this.identity.role = this.overrides.role;
+          if (this.overrides.emoji) this.identity.emoji = this.overrides.emoji;
+          if (this.overrides.voiceTone) this.identity.voice.tone = this.overrides.voiceTone;
+        }
+
+        logger.info(`Scoped identity loaded: ${this.identity.name}`);
+      })
+      .catch((error) => {
+        logger.error('Failed to reload scoped identity', error);
+        throw error;
+      });
+
+    this.reloadQueue = nextReload;
+    this.readyPromise = nextReload;
+    return nextReload;
+  }
+
+  public whenReady(): Promise<void> {
+    return this.readyPromise;
+  }
+
+  public getVoiceTone(): string {
+    return this.identity.voice.tone;
+  }
+
+  public getIdentity(): AgentIdentity {
+    return this.identity;
+  }
+
+  public shutdown(): void {
+    for (const watcher of this.watchers) {
+      watcher.close();
+    }
+    this.watchers = [];
+  }
+
+  /**
+   * Builds the full system prompt — same structure as IdentityManager but
+   * uses this instance's identity and platform label.
+   */
+  public buildSystemPrompt(
+    activatedSkillsContext?: string,
+    sessionContext?: string,
+    options?: { mode?: PromptMode },
+  ): string {
+    const skills = getSkillManager().buildSkillsSummary();
+    const date = new Date().toISOString();
+    const hasActivatedSkills = Boolean((activatedSkillsContext || '').trim());
+    const promptMode = options?.mode ?? 'full';
+
+    const skillGuidance = skills ? `\nSKILL GUIDANCE:\nBefore responding, scan the <available_skills> descriptions below.\n- If a skill clearly applies to this request, its instructions have been activated and appear below.\n- Follow activated skill instructions as procedural guidance for tool selection and call order.\n- If no skill applies, proceed with general tool usage rules.` : '';
+
+    let activatedSection = activatedSkillsContext || '';
+    let sessionSection = sessionContext || '';
+
+    const fullCapabilitiesSection = `
+## YOUR CAPABILITIES
+
+**CRITICAL**: When asked "what can you do", "what are your capabilities", "help", or similar questions:
+1. Do NOT call tools for a generic capability question; answer directly.
+2. Default to a conversational, personalized response (not a giant catalog).
+3. Focus on what you can do *right now* for the user in their current workflow.
+4. End with an agentic next step (one clear action you can take immediately).
+5. Only provide the full exhaustive command/tool list when user explicitly asks for "all commands", "full list", or "/help".
+6. Mention harness delegation naturally when relevant (Copilot, Claude, Gemini, OpenCode, Codex).
+
+### Safety Commands (8 slash commands)
+- \`/stop\` — Cancel running task
+- \`/undo\` — Undo last commit (soft git reset)
+- \`/clear\` — Clear conversation history
+- \`/help\` — Show available commands
+- \`/status\` — System and task status
+- \`/version\` — Show Fetch version
+- \`/usage\` — Show API usage and spend
+- \`/trust\` — Manage trusted phone numbers (owner only)
+
+### Orchestrator Tools (40 tools)
+**Workspace Management:**
+- \`workspace_list\` — List all projects
+- \`workspace_select\` — Switch active project
+- \`workspace_status\` — Git status, branch, files
+- \`workspace_create\` — Create new project with template
+- \`workspace_delete\` — Delete a project
+- \`file_delete\` — Delete a single file within a project
+- \`folder_delete\` — Delete a directory and its contents recursively
+- \`workspace_sync\` — Commit and push to GitHub
+- \`workspace_publish\` — Create new GitHub repo from existing project
+
+**Task Delegation:**
+- \`task_create\` — Delegate coding work to a harness (Claude Code, Gemini CLI, Copilot, OpenCode, or Codex)
+- \`task_status\` — Check running task progress
+- \`task_cancel\` — Kill a running task
+- \`task_respond\` — Send follow-up to running task
+
+**Interaction:**
+- \`ask_user\` — Request clarification (use sparingly)
+- \`report_progress\` — Send structured update
+
+**GitHub:**
+- \`github_pr_create\` — Create a pull request (draft by default)
+- \`github_pr_list\` — List PRs by state
+- \`github_pr_view\` — View PR details, reviews, comments
+- \`github_issue_create\` — Create a GitHub issue
+- \`github_issue_list\` — List issues with filters
+- \`github_branch_create\` — Create and push a new branch
+- \`github_action_status\` — Check CI/CD workflow status
+- \`github_search_repos\` — Search GitHub repositories
+
+**Web:**
+- \`web_fetch\` — Fetch a URL and extract readable content as markdown
+- \`web_search\` — Search the web via SearXNG meta search engine
+
+**Browser:**
+- \`browser_open\` — Navigate to URL, return accessibility tree snapshot
+- \`browser_snapshot\` — Get current page accessibility tree
+- \`browser_action\` — Click, type, scroll, navigate browser
+- \`browser_screenshot\` — Capture screenshot of current page
+
+**Workflow & Runtime:**
+- \`workflow_create\` — Create reusable multi-step automations
+- \`workflow_list\` — List workflows and recent runs
+- \`workflow_run\` — Execute a workflow now
+- \`workflow_delete\` — Remove workflow definitions
+- \`cron_create\` — Schedule workflow execution with cron (UTC)
+- \`cron_list\` — List scheduled cron jobs
+- \`cron_delete\` — Remove cron jobs
+- \`cron_run\` — Trigger cron jobs manually
+- \`app_run\` — Run application commands in workspace
+- \`app_test\` — Run tests in workspace (auto-detect when possible)
+- \`browser_test\` — Run browser smoke checks against URLs
+
+### AI Harnesses (for task_create)
+- **GitHub Copilot** 🎯 — Fast suggestions, command help, quick edits
+- **Claude Code** 🧠 — Deep reasoning, multi-file refactoring, architecture
+- **Gemini CLI** ⚡ — Fast edits, explanations, boilerplate generation
+- **OpenCode** 🔧 — Versatile coding agent, OpenRouter-native, general-purpose
+- **Codex** 🤖 — Agentic coding with OpenAI models, JSON Lines streaming
+`;
+    const minimalCapabilitiesSection = `
+## YOUR CAPABILITIES
+
+- Handle conversational requests directly when no tool is needed.
+- Use tools for real-world state: workspace, git, files, web, browser, workflows, and runtime checks.
+- Use /help for the exhaustive command list.
+- Prefer concise, action-first replies with one clear next step.
+`;
+    const capabilitiesSection = promptMode === 'minimal' ? minimalCapabilitiesSection : fullCapabilitiesSection;
+
+    const budgetTokens = pipeline.contextBudget;
+    const estimateTokens = (text: string) => Math.ceil(text.length / 4);
+    const coreEstimate = estimateTokens(capabilitiesSection);
+    const variableEstimate = estimateTokens(sessionSection + activatedSection);
+    const totalEstimate = coreEstimate + variableEstimate + 1500;
+
+    if (totalEstimate > budgetTokens) {
+      logger.warn(`System prompt exceeds context budget: ~${totalEstimate} tokens vs ${budgetTokens} limit. Truncating.`);
+      if (estimateTokens(sessionSection) > 800) {
+        sessionSection = sessionSection.slice(0, 3200) + '\n... (session context truncated)';
+      }
+      if (estimateTokens(activatedSection) > 600) {
+        activatedSection = activatedSection.slice(0, 2400) + '\n... (skill instructions truncated)';
+      }
+    }
+
+    return `## IDENTITY
+You are **${this.identity.name}** ${this.identity.emoji}, the ${this.identity.role}.
+- **Version**: ${VERSION} (Always report this exact version when asked "what version" or similar)
+- **Voice**: ${this.identity.voice.tone}
+- **Platform**: ${this.platform}
+- **Time**: ${date}
+
+## DIRECTIVES (CORE STACK)
+
+### Primary Directives (Unbreakable)
+${this.identity.directives.primary.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+### Operational Guidelines
+${this.identity.directives.secondary.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+### Behavioral Traits (Personality)
+${this.identity.directives.behavioral.map((d, i) => `${i + 1}. ${d}`).join('\n')}
+
+## AUTONOMY RULES (HIGHEST PRIORITY)
+
+1. **If the user tells you to do something, DO IT.** Do not ask for confirmation unless the action is destructive (delete, overwrite, reset).
+2. **If a workspace is selected, USE IT.** Never ask "which project?" or "which workspace?" when there is an active workspace in the context below. The user already selected it.
+3. **If the intent is clear, act immediately.** "Create index.ts" means create the file NOW. Do NOT say "Would you like me to create index.ts?" - that is wasting the user's time.
+4. **Use ask_user ONLY when genuinely missing information** that cannot be inferred from context. Never use it to confirm what was already requested.
+5. **Prefer doing and reporting over asking and waiting.** Show what you DID, not what you're ABOUT to do.
+6. **Never repeat the user's request back to them as a question.** If they said "add a health check", do not respond with "Would you like me to add a health check?".
+7. **Intent & Personality**: Briefly express your plan/intent naturally before acting. Use personality in task transitions (starting/finishing).
+8. **Ambiguity & Agent Selection**: For complex tasks (\`task_create\`), if multiple agents are enabled and the choice is ambiguous, you MUST call ask_user to clarify the agent choice. For simple operations (file/folder delete, listing, status), use the dedicated tool immediately without asking.
+9. **Short messages are still valid requests.** "fix auth" means fix the authentication. "list files" means call workspace_status. Do not treat short messages as casual chat if they contain action verbs.
+
+${capabilitiesSection}
+${sessionSection}
+${skills ? `\nAVAILABLE SKILLS:\n${skills}${skillGuidance}` : ''}
+${activatedSection}
+
+${hasActivatedSkills ? `SKILL PRIORITY:
+- Activated skills take precedence for tool selection and sequencing.
+- Follow activated skill steps before generic tool heuristics.
+- If activated skills conflict, choose the safer/non-destructive path and ask for clarification when required.` : ''}
+
+TOOL USAGE:
+- ALWAYS use tools to gather real data. NEVER answer from memory or guess about file contents, project state, or git status.
+- "yes"/"ok"/"sure" after you asked a question - execute the action you proposed immediately.
+- NEVER describe what a tool would do - CALL IT.
+
+RESPONSE FORMAT (${this.platform}):
+- 2-6 lines for status, max 10 for detailed reports
+- Status emojis: ✅ ❌ ⚠️ 🔄 📝
+- Bullets over paragraphs
+- Bold **key items** for scannability
+- NEVER use em dashes or en dashes. Use hyphens (-) or commas instead.
+- Do NOT start your response with any dog emojis.
+
+MODE: Ready. Execute the user's request using tools. Be concise and action-oriented. Do not ask unnecessary questions.
+`.trim();
+  }
+}

@@ -10,6 +10,8 @@ import 'dotenv/config';
 import { pathToFileURL } from 'url';
 import { Bridge } from './bridge/client.js';
 import { DiscordBridge } from './bridge/discord-client.js';
+import { MultiDiscordBridge } from './bridge/multi-discord.js';
+import { parseDiscordAgents } from './config/agents.js';
 import { logger } from './utils/logger.js';
 import { startStatusServer, setLogoutCallback, setWhatsAppControlCallbacks, setDiscordControlCallbacks, updateStatus } from './api/status.js';
 import { validateEnv, env } from './config/env.js';
@@ -41,6 +43,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
 
   let activeBridge: Bridge | null = null;
   let activeDiscordBridge: DiscordBridge | null = null;
+  let activeMultiDiscordBridge: MultiDiscordBridge | null = null;
   let shuttingDown = false;
   let handlersRegistered = false;
   let bootstrapTimer: ReturnType<typeof setInterval> | null = null;
@@ -56,7 +59,7 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
   };
 
   const startBridge = async (): Promise<void> => {
-    if (bridgeStarting || shuttingDown || activeBridge || activeDiscordBridge) return;
+    if (bridgeStarting || shuttingDown || activeBridge || activeDiscordBridge || activeMultiDiscordBridge) return;
     bridgeStarting = true;
 
     try {
@@ -76,18 +79,37 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       const bridgeMode = env.BRIDGE_MODE || 'whatsapp';
 
       if (bridgeMode === 'discord') {
-        const discordBridge = new DiscordBridge();
-        await discordBridge.initialize();
-        activeDiscordBridge = discordBridge;
+        const agentConfigs = parseDiscordAgents();
 
-        setLogoutCallback(async () => {
-          logger.info('Logout requested via API, destroying Discord bridge...');
-          await discordBridge.destroy();
-          activeDiscordBridge = null;
-          logger.info('Discord bridge destroyed');
-        });
+        if (agentConfigs.length > 0) {
+          // Multi-agent mode: N bots, each with its own persona
+          const multiBridge = new MultiDiscordBridge(agentConfigs);
+          await multiBridge.initialize();
+          activeMultiDiscordBridge = multiBridge;
 
-        logger.info('Fetch Bridge (Discord) is ready and listening!');
+          setLogoutCallback(async () => {
+            logger.info('Logout requested via API, destroying multi-Discord bridge...');
+            await multiBridge.destroy();
+            activeMultiDiscordBridge = null;
+            logger.info('Multi-Discord bridge destroyed');
+          });
+
+          logger.info(`Fetch Bridge (Discord multi-agent, ${agentConfigs.length} bots) is ready!`);
+        } else {
+          // Single-agent fallback (existing path)
+          const discordBridge = new DiscordBridge();
+          await discordBridge.initialize();
+          activeDiscordBridge = discordBridge;
+
+          setLogoutCallback(async () => {
+            logger.info('Logout requested via API, destroying Discord bridge...');
+            await discordBridge.destroy();
+            activeDiscordBridge = null;
+            logger.info('Discord bridge destroyed');
+          });
+
+          logger.info('Fetch Bridge (Discord) is ready and listening!');
+        }
       } else {
         const bridge = new Bridge();
         await bridge.initialize();
@@ -128,6 +150,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       if (activeDiscordBridge) {
         await activeDiscordBridge.destroy();
         activeDiscordBridge = null;
+      }
+      if (activeMultiDiscordBridge) {
+        await activeMultiDiscordBridge.destroy();
+        activeMultiDiscordBridge = null;
       }
       updateStatus({ state: 'initializing', lastError: null, qrCode: null, qrUrl: null });
     } catch (error) {
@@ -192,6 +218,10 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
       if (activeDiscordBridge) {
         await activeDiscordBridge.destroy();
         activeDiscordBridge = null;
+      }
+      if (activeMultiDiscordBridge) {
+        await activeMultiDiscordBridge.destroy();
+        activeMultiDiscordBridge = null;
       }
 
       // 3. Flush & close SQLite databases

@@ -16,26 +16,32 @@
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
+export interface DiscordGateConfig {
+  ownerId: string;
+  trustedUserIds?: string;
+  channelIds?: string;
+}
+
 export class DiscordSecurityGate {
   private ownerSnowflake: string;
   private trustedUsers: Set<string>;
   private allowedChannels: Set<string>;
 
-  constructor() {
-    const ownerId = env.DISCORD_OWNER_ID;
+  constructor(config?: DiscordGateConfig) {
+    const ownerId = config?.ownerId ?? env.DISCORD_OWNER_ID;
     if (!ownerId) {
       throw new Error('DISCORD_OWNER_ID is required for Discord bridge');
     }
     this.ownerSnowflake = ownerId;
 
     // Parse CSV of trusted user snowflakes
-    const trustedCsv = env.DISCORD_TRUSTED_USER_IDS || '';
+    const trustedCsv = config?.trustedUserIds ?? env.DISCORD_TRUSTED_USER_IDS ?? '';
     this.trustedUsers = new Set(
       trustedCsv.split(',').map((s) => s.trim()).filter(Boolean)
     );
 
     // Parse CSV of allowed channel snowflakes
-    const channelCsv = env.DISCORD_CHANNEL_IDS || '';
+    const channelCsv = config?.channelIds ?? env.DISCORD_CHANNEL_IDS ?? '';
     this.allowedChannels = new Set(
       channelCsv.split(',').map((s) => s.trim()).filter(Boolean)
     );

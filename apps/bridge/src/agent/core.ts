@@ -74,11 +74,24 @@ export interface ToolCallRecord {
   result: unknown;
 }
 
+/** Duck-typed identity provider consumed by handleWithTools. */
+export interface IdentityProvider {
+  buildSystemPrompt(
+    activatedSkillsContext?: string,
+    sessionContext?: string,
+    options?: { mode?: PromptMode },
+  ): string;
+  getVoiceTone(): string;
+  whenReady(): Promise<void>;
+}
+
 /** Optional controls and hooks for one processMessage turn. */
 export interface AgentProcessOptions {
   promptMode?: PromptMode;
   runId?: string;
   abortSignal?: AbortSignal;
+  /** Per-agent identity provider. Falls back to global singleton when unset. */
+  identityProvider?: IdentityProvider;
   onLifecycle?: (
     phase: AgentRunPhase,
     details?: { toolName?: string; toolCallCount?: number; promptMode?: PromptMode; error?: string }
@@ -673,7 +686,7 @@ async function handleWithTools(
   });
   const toolCalls: ToolCallRecord[] = [];
   const toolTelemetry: ToolTelemetry[] = [];
-  const identityManager = getIdentityManager();
+  const identityManager = options?.identityProvider ?? getIdentityManager();
   await identityManager.whenReady();
   const promptMode = options?.promptMode ?? selectPromptMode(message);
 

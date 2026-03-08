@@ -26,6 +26,7 @@ const EnvSchema = z.object({
   DISCORD_OWNER_ID: z.string().optional(),
   DISCORD_TRUSTED_USER_IDS: z.string().optional(),
   DISCORD_CHANNEL_IDS: z.string().optional(),
+  DISCORD_AGENTS: z.string().optional(),
 
   // Models
   AGENT_MODEL: z.string().default('openai/gpt-4o-mini'),
@@ -154,8 +155,11 @@ export function validateEnv(): { valid: boolean; missing: string[] } {
   if (mode === 'whatsapp') {
     if (!envVars.OWNER_PHONE_NUMBER) missing.push('OWNER_PHONE_NUMBER');
   } else if (mode === 'discord') {
-    if (!envVars.DISCORD_BOT_TOKEN) missing.push('DISCORD_BOT_TOKEN');
-    if (!envVars.DISCORD_OWNER_ID) missing.push('DISCORD_OWNER_ID');
+    // Multi-agent mode: DISCORD_AGENTS provides per-bot tokens/owners
+    if (!envVars.DISCORD_AGENTS) {
+      if (!envVars.DISCORD_BOT_TOKEN) missing.push('DISCORD_BOT_TOKEN');
+      if (!envVars.DISCORD_OWNER_ID) missing.push('DISCORD_OWNER_ID');
+    }
   }
 
   if (missing.length > 0) {

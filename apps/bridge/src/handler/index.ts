@@ -12,7 +12,7 @@
  */
 
 import { SessionManager, getSessionManager } from '../session/manager.js';
-import { processMessage, selectPromptMode, type AgentResponse } from '../agent/core.js';
+import { processMessage, selectPromptMode, type AgentResponse, type IdentityProvider } from '../agent/core.js';
 import { type TaskManager, getTaskManager as getPersistentTaskManager } from '../task/manager.js';
 import type { TaskId } from '../task/types.js';
 import { formatAndChunkForWhatsApp, formatForWhatsApp } from '../agent/whatsapp-format.js';
@@ -23,6 +23,17 @@ import type { ResponseEnvelope } from '../agent/envelope.js';
 import { logger } from '../utils/logger.js';
 
 export type BridgeType = 'whatsapp' | 'discord';
+
+/**
+ * Optional per-request context used by multi-bot mode.
+ * When provided, overrides the module-level singleton state.
+ */
+export interface HandlerContext {
+  /** Identity provider for this bot agent. */
+  identityProvider?: IdentityProvider;
+  /** Bridge type override (defaults to module-level activeBridgeType). */
+  bridgeType?: BridgeType;
+}
 
 // =============================================================================
 // SINGLETON STATE
@@ -74,12 +85,6 @@ function composeForActiveBridge(envelope: ResponseEnvelope): string {
   return activeBridgeType === 'discord'
     ? composeDiscordResponse(envelope)
     : composeWhatsAppResponse(envelope);
-}
-
-function formatForActiveBridge(text: string): string {
-  return activeBridgeType === 'discord'
-    ? formatForDiscord(text)
-    : formatForWhatsApp(text);
 }
 
 function formatAndChunkForActiveBridge(text: string, intent?: AgentResponse['intent']): string[] {
@@ -276,7 +281,8 @@ export async function initializeHandler(): Promise<void> {
 export async function handleMessage(
   userId: string,
   message: string,
-  onProgress?: (text: string) => Promise<void>
+  onProgress?: (text: string) => Promise<void>,
+  context?: HandlerContext,
 ): Promise<string[]> {
   // Ensure initialized
   if (!initialized) {
@@ -308,6 +314,15 @@ export async function handleMessage(
       await sManager.cancelAgentRun(session, 'Cancelled by /stop');
     }
 
+    // Resolve bridge type: per-request context overrides module-level default
+    const effectiveBridge = context?.bridgeType ?? activeBridgeType;
+    const compose = effectiveBridge === 'discord' ? composeDiscordResponse : composeWhatsAppResponse;
+    const format = effectiveBridge === 'discord' ? formatForDiscord : formatForWhatsApp;
+    const formatAndChunk = effectiveBridge === 'discord' ? formatAndChunkForDiscord : formatAndChunkForWhatsApp;
+    const renderChunks = (envelope: ResponseEnvelope, intent?: AgentResponse['intent']): string[] => {
+      return formatAndChunk(compose(envelope), intent);
+    };
+
     // Check for commands (slash commands AND natural language triggers like "what can you do")
     const { parseCommand } = await import('../commands/parser.js');
     const result = await parseCommand(message, session, sManager);
@@ -315,18 +330,18 @@ export async function handleMessage(
       if (result.envelopes?.length) {
         const rendered: string[] = [];
         for (const envelope of result.envelopes) {
-          rendered.push(...renderEnvelopeChunks(envelope));
+          rendered.push(...renderChunks(envelope));
         }
         return rendered;
       }
       // Format command responses for active bridge
-      return (result.responses || []).map(r => formatForActiveBridge(r));
+      return (result.responses || []).map(r => format(r));
     }
 
     const promptMode = selectPromptMode(message);
     const runAcquire = await sManager.acquireAgentRun(session, message, promptMode);
     if (!runAcquire.acquired) {
-      return [formatForActiveBridge('I am still working on your previous request. Send /stop to interrupt it first.')];
+      return [format('I am still working on your previous request. Send /stop to interrupt it first.')];
     }
 
     const runId = runAcquire.run.runId;
@@ -363,6 +378,7 @@ export async function handleMessage(
         runId,
         promptMode,
         abortSignal: runAcquire.signal,
+        identityProvider: context?.identityProvider,
         onLifecycle: async (phase, details) => {
           await sManager.updateAgentRunPhase(session, runId, phase, {
             ...(details?.error ? { lastError: details.error } : {}),
@@ -377,7 +393,7 @@ export async function handleMessage(
     // Build response array
     // If a task was started, suppress the LLM's conversational response —
     // the task:started and task:completed event listeners handle all notifications.
-    const responses = response.taskStarted ? [] : buildResponses(response);
+    const responses = response.taskStarted ? [] : buildResponses(response, renderChunks, formatAndChunk);
 
     const duration = Date.now() - startTime;
     logger.success(
@@ -420,15 +436,19 @@ export async function handleMessage(
 /**
  * Converts an agent response into one or more WhatsApp messages.
  */
-function buildResponses(response: AgentResponse): string[] {
+function buildResponses(
+  response: AgentResponse,
+  renderChunksFn: (envelope: ResponseEnvelope, intent?: AgentResponse['intent']) => string[],
+  formatAndChunkFn: (text: string, intent?: AgentResponse['intent']) => string[],
+): string[] {
   const responses: string[] = [];
 
   if (response.envelope) {
-    responses.push(...renderEnvelopeChunks(response.envelope, response.intent));
+    responses.push(...renderChunksFn(response.envelope, response.intent));
     return responses;
   }
 
-  // Main text response — format for WhatsApp (single formatting point)
+  // Main text response
   if (response.text) {
     // Strip leading 🐕 from LLM response to avoid duplication (legacy safety)
     let cleanText = response.text.replace(/^🐕\s*/, '').trim();
@@ -438,7 +458,7 @@ function buildResponses(response: AgentResponse): string[] {
     // Safeguard: detect repetition loops
     cleanText = deduplicateResponse(cleanText);
 
-    const chunks = formatAndChunkForActiveBridge(cleanText, response.intent);
+    const chunks = formatAndChunkFn(cleanText, response.intent);
     for (const chunk of chunks) {
       responses.push(chunk);
     }
