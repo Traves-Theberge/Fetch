@@ -109,6 +109,8 @@ Rules:
 - If the message is about a topic that clearly matches one agent's role, route to that agent.
 - If the message asks the "team", "everyone", "all", or is a general announcement, route to ALL agents.
 - If the message is a follow-up that references another agent's work (e.g. "check what mya said"), route to the agent being ASKED, not the one being referenced.
+- If a message is from one agent asking another to collaborate (e.g. "Let's work with Nova on this"), route to the agent(s) being invited to collaborate.
+- If a message contains deliverables, updates, or questions directed at the team, route to agents whose expertise is relevant.
 - If ambiguous, route to the single most relevant agent based on topic.
 - Never route to zero agents — always pick at least one.
 

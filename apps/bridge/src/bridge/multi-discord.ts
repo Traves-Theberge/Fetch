@@ -35,6 +35,17 @@ import {
 
 const DISCORD_MAX_LENGTH = 2000;
 
+/**
+ * Max consecutive bot-to-bot messages per channel before requiring a human
+ * message to reset the chain. Prevents infinite conversation loops.
+ */
+const MAX_BOT_CHAIN_DEPTH = 4;
+
+/**
+ * Default check-in interval (6 hours in ms).
+ */
+const CHECK_IN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
 // =============================================================================
 // PER-BOT INSTANCE
 // =============================================================================
@@ -144,9 +155,20 @@ class DiscordBotInstance {
 
     this.client.on('messageCreate', async (message: Message) => {
       if (this.destroyed) return;
-      if (message.author.bot) return;
+
+      // Ignore own messages (prevent self-loops)
+      if (message.author.id === this.client.user?.id) return;
 
       const isDM = message.channel.type === ChannelType.DM;
+
+      if (message.author.bot) {
+        // Bot messages only go through the centralized guild router
+        // (sibling detection + chain limiting happens there)
+        if (!isDM && this.onGuildMessage) {
+          this.onGuildMessage(message);
+        }
+        return;
+      }
 
       if (isDM) {
         // DMs are handled directly by this bot (no routing needed)
@@ -309,8 +331,11 @@ class DiscordBotInstance {
   /**
    * Process a message that has been routed to this bot by the intent router.
    * Handles validation, image analysis, and agent pipeline invocation.
+   *
+   * @param message - The Discord message
+   * @param skipAuth - Skip authorization check (for pre-authorized sibling bot messages)
    */
-  async processMessage(message: Message): Promise<void> {
+  async processMessage(message: Message, skipAuth = false): Promise<void> {
     if (this.destroyed) return;
     if (!this.deduplicator.isNew(message.id)) return;
 
@@ -328,7 +353,7 @@ class DiscordBotInstance {
       return;
     }
 
-    if (!this.securityGate.isAuthorized(userId, channelId, isDM)) return;
+    if (!skipAuth && !this.securityGate.isAuthorized(userId, channelId, isDM)) return;
 
     if (!this.rateLimiter.isAllowed(userId)) {
       await message.reply('Slow down! You\'re sending too many requests. Please wait a moment.');
@@ -391,6 +416,18 @@ class DiscordBotInstance {
     }
   }
 
+  /** Send a proactive message to a channel (for check-ins, announcements, etc.) */
+  async sendToChannel(channelId: string, text: string): Promise<void> {
+    try {
+      const channel = await this.client.channels.fetch(channelId);
+      if (channel && 'send' in channel) {
+        await this.sendLongMessage(channel as { send: (content: string) => Promise<unknown> }, text);
+      }
+    } catch (err) {
+      logger.error(`[${this.agentId}] Failed to send to channel ${channelId}`, err);
+    }
+  }
+
   getBotTag(): string | null {
     return this.client.user?.tag ?? null;
   }
@@ -416,6 +453,12 @@ export class MultiDiscordBridge {
   private bots = new Map<string, DiscordBotInstance>();
   /** Deduplicator shared across all bots — ensures one routing decision per message */
   private routingDedup = new MessageDeduplicator();
+  /** Tracks consecutive bot-to-bot message depth per channel */
+  private chainDepth = new Map<string, number>();
+  /** Set of Discord user IDs belonging to our sibling bots */
+  private siblingBotUserIds = new Set<string>();
+  /** Check-in timer handle */
+  private checkInTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private configs: DiscordAgentConfig[]) {}
 
@@ -466,6 +509,12 @@ export class MultiDiscordBridge {
       throw new Error(`All ${failed} Discord bot(s) failed to initialize`);
     }
 
+    // Collect sibling bot user IDs (needed for inter-bot message routing)
+    for (const bot of this.bots.values()) {
+      const uid = bot.getBotUserId();
+      if (uid) this.siblingBotUserIds.add(uid);
+    }
+
     updateStatus({ state: 'authenticated' });
     logger.section('🐕 Fetch is Ready! (Multi-Agent Mode)');
     if (failed > 0) {
@@ -475,35 +524,71 @@ export class MultiDiscordBridge {
       logger.success(`  Agent "${id}" logged in as ${bot.getBotTag()}`);
     }
     logger.divider();
+
+    // Start scheduled check-ins (PM bot posts to all configured channels)
+    this.startScheduledCheckIns();
   }
 
   /**
    * Centralized guild message handler. Called by whichever bot's client
    * receives the message first. Uses the AI intent router to decide which
    * bot(s) should respond, then dispatches to them.
+   *
+   * Supports inter-bot communication: sibling bot messages are routed through
+   * the same intent router, with chain depth limiting to prevent infinite loops.
    */
   private async handleGuildMessage(message: Message): Promise<void> {
-    if (message.author.bot) return;
-
     // Deduplicate: multiple bot clients see the same guild message
     if (!this.routingDedup.isNew(message.id)) return;
 
-    const userId = message.author.id;
+    const authorId = message.author.id;
     const channelId = message.channelId;
+    const isFromSiblingBot = this.siblingBotUserIds.has(authorId);
+
+    // Ignore external bots (not our agents)
+    if (message.author.bot && !isFromSiblingBot) return;
 
     // Skip empty messages
     if (!message.content?.trim() && message.attachments.size === 0) return;
 
-    // Check if at least one bot authorizes this user/channel
-    const authorizedBots = Array.from(this.bots.values()).filter(
-      bot => bot.isAuthorized(userId, channelId, false),
-    );
-    if (authorizedBots.length === 0) return;
+    // --- Conversation chain tracking (loop prevention) ---
+    if (isFromSiblingBot) {
+      const depth = this.chainDepth.get(channelId) || 0;
+      if (depth >= MAX_BOT_CHAIN_DEPTH) {
+        logger.info(`[router] Chain depth ${depth} reached in channel, waiting for human input`);
+        return;
+      }
+      this.chainDepth.set(channelId, depth + 1);
+    } else {
+      // Human message resets the chain
+      this.chainDepth.set(channelId, 0);
+    }
+
+    // Find which bot sent this (if sibling), so we exclude them from routing
+    let senderAgentId: string | null = null;
+    if (isFromSiblingBot) {
+      for (const [id, bot] of this.bots) {
+        if (bot.getBotUserId() === authorId) {
+          senderAgentId = id;
+          break;
+        }
+      }
+    }
+
+    // For human messages: check authorization. For sibling bots: already trusted.
+    const candidateBots = Array.from(this.bots.values()).filter(bot => {
+      // Don't route back to the sender bot
+      if (bot.agentId === senderAgentId) return false;
+      // Sibling bot messages skip auth (they're internal)
+      if (isFromSiblingBot) return true;
+      return bot.isAuthorized(authorId, channelId, false);
+    });
+    if (candidateBots.length === 0) return;
 
     // Build agent profiles and detect @mentions
-    const agents = authorizedBots.map(bot => bot.getProfile());
+    const agents = candidateBots.map(bot => bot.getProfile());
     const mentionedAgentIds: string[] = [];
-    for (const bot of authorizedBots) {
+    for (const bot of candidateBots) {
       const botUserId = bot.getBotUserId();
       if (botUserId && message.mentions.has(botUserId)) {
         mentionedAgentIds.push(bot.agentId);
@@ -515,20 +600,68 @@ export class MultiDiscordBridge {
 
     if (routing.respondents.length === 0) return;
 
-    logger.info(`[router] ${message.content?.substring(0, 50)}... → [${routing.respondents.join(', ')}] (${routing.reasoning})`);
+    const senderLabel = isFromSiblingBot ? `[bot:${senderAgentId}]` : `[user:${authorId}]`;
+    logger.info(`[router] ${senderLabel} "${message.content?.substring(0, 50)}..." → [${routing.respondents.join(', ')}] (${routing.reasoning})`);
 
     // Dispatch to selected bot(s) concurrently
     await Promise.allSettled(
       routing.respondents.map(async (agentId) => {
         const bot = this.bots.get(agentId);
         if (bot) {
-          await bot.processMessage(message);
+          await bot.processMessage(message, isFromSiblingBot);
         }
       }),
     );
   }
 
+  /**
+   * Start periodic check-ins from the project manager bot.
+   * The PM bot posts a status request; other bots see it and respond
+   * through the normal intent routing pipeline.
+   */
+  private startScheduledCheckIns(): void {
+    // Find the PM/coordinator bot by role keywords
+    const pmBot = Array.from(this.bots.entries()).find(([id]) => {
+      const config = this.configs.find(c => c.id === id);
+      const role = config?.identity?.role?.toLowerCase() || '';
+      return role.includes('project manager') || role.includes('coordinator') || role.includes('team lead');
+    });
+
+    if (!pmBot) {
+      logger.info('[scheduler] No project manager bot found — skipping check-ins');
+      return;
+    }
+
+    const [pmId, pmBotInstance] = pmBot;
+    const channelIds = this.configs.find(c => c.id === pmId)?.channelIds?.split(',').map(s => s.trim()) || [];
+
+    if (channelIds.length === 0) {
+      logger.info('[scheduler] PM bot has no channels configured — skipping check-ins');
+      return;
+    }
+
+    logger.info(`[scheduler] ${pmId} will post check-ins every ${CHECK_IN_INTERVAL_MS / 3600000}h`);
+
+    this.checkInTimer = setInterval(async () => {
+      const checkInMessage = `📋 **Team Check-In** — What's everyone working on? Any blockers or updates to share?`;
+      for (const channelId of channelIds) {
+        try {
+          await pmBotInstance.sendToChannel(channelId, checkInMessage);
+          logger.info(`[scheduler] ${pmId} posted check-in to channel ${channelId}`);
+        } catch (err) {
+          logger.error(`[scheduler] Failed to post check-in`, err);
+        }
+      }
+    }, CHECK_IN_INTERVAL_MS);
+
+    this.checkInTimer.unref();
+  }
+
   async destroy(): Promise<void> {
+    if (this.checkInTimer) {
+      clearInterval(this.checkInTimer);
+      this.checkInTimer = null;
+    }
     await Promise.all(
       Array.from(this.bots.values()).map(bot => bot.destroy()),
     );
