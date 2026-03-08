@@ -165,7 +165,7 @@ export function selectPromptMode(message: string): PromptMode {
     return 'minimal';
   }
 
-  const actionWords = /\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app)\b/i;
+  const actionWords = /\b(create|build|fix|run|test|deploy|commit|push|open|search|workflow|cron|task|file|folder|workspace|browser|app|read|code|codebase|repo|audit|review|check|analyze|suggest|write|update|delete|install|debug|refactor)\b/i;
   if (text.length <= 80 && !actionWords.test(text)) {
     return 'minimal';
   }

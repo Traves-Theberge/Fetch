@@ -55,6 +55,7 @@ tui_output.txt
 test_tool.js
 data/whitelist.json
 data/workflows.json
+data/discord-agents.json
 .claude/settings.json
 .entire/.gitignore
 .entire/settings.json

@@ -8,6 +8,8 @@
  * @module config/agents
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { logger } from '../utils/logger.js';
 
 // =============================================================================
@@ -71,7 +73,17 @@ export interface DiscordAgentConfig {
  * @returns Array of agent configs (empty when env var is unset → single-bot mode).
  */
 export function parseDiscordAgents(): DiscordAgentConfig[] {
-  const raw = process.env.DISCORD_AGENTS;
+  // Try env var first, then fall back to data/discord-agents.json file
+  let raw = process.env.DISCORD_AGENTS;
+  if (!raw || raw.trim() === '') {
+    const filePath = resolve(process.cwd(), 'data/discord-agents.json');
+    try {
+      raw = readFileSync(filePath, 'utf-8');
+      logger.info(`Loaded Discord agents config from ${filePath}`);
+    } catch {
+      return []; // No env var and no file → single-bot mode
+    }
+  }
   if (!raw || raw.trim() === '') return [];
 
   let parsed: unknown;
