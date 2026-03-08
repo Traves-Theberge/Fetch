@@ -120,14 +120,16 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 WORKDIR /app
 
-# Copy package.json for production dependency install
-COPY --from=builder /app/apps/bridge/package.json ./package.json
+# Copy the pruned monorepo workspace structure for production install.
+# npm ci needs the root package.json + lockfile + workspace package.json files.
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/package-lock.json ./package-lock.json
 
 # Install production dependencies only (fresh, no dev deps)
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --workspace=apps/bridge
 
 # Copy compiled application from builder
-COPY --from=builder /app/apps/bridge/dist ./dist
+COPY --from=builder /app/apps/bridge/dist ./apps/bridge/dist
 
 # Copy documentation (served by status API)
 COPY docs ./docs

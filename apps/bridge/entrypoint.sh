@@ -24,4 +24,4 @@ if [ -d "$AUTH_DIR" ]; then
 fi
 
 # Hand off to the main application
-exec node dist/index.js
+exec node apps/bridge/dist/index.js

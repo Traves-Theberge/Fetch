@@ -22,6 +22,7 @@ import { getTaskIntegration } from '../task/integration.js';
 import { getTaskManager } from '../task/manager.js';
 import { updateStatus, incrementMessageCount } from '../api/status.js';
 import { MessageDeduplicator } from './deduplicator.js';
+import { analyzeImage, isVisionAvailable } from '../vision/index.js';
 import {
   composeDiscordTaskProgressMessages,
   composeDiscordTaskFileOpMessages,
@@ -190,14 +191,19 @@ export class DiscordBridge {
         return;
       }
 
-      // Skip empty messages
-      if (!message.content || message.content.trim() === '') {
-        return;
-      }
-
       const isDM = message.channel.type === ChannelType.DM;
       const userId = message.author.id;
       const channelId = message.channelId;
+
+      // Extract image attachments
+      const imageAttachments = message.attachments.filter(
+        (a) => a.contentType?.startsWith('image/') ?? false,
+      );
+
+      // Skip messages with no text and no images
+      if ((!message.content || message.content.trim() === '') && imageAttachments.size === 0) {
+        return;
+      }
 
       // Security gate: authorization + channel check
       if (!this.securityGate.isAuthorized(userId, channelId, isDM)) {
@@ -211,23 +217,50 @@ export class DiscordBridge {
         return;
       }
 
-      // Input validation
-      const validation = validateInput(message.content);
+      // Input validation (on text portion; images handled separately)
+      const textContent = message.content || '';
+      const validation = validateInput(textContent || ' '); // space fallback for image-only
       if (!validation.valid) {
         logger.warn(`Invalid input from Discord user ${userId}: ${validation.error}`);
         await message.reply(`${validation.error}`);
         return;
       }
 
+      // Analyze image attachments via vision model
+      let imageContext = '';
+      if (imageAttachments.size > 0 && isVisionAvailable()) {
+        for (const [, attachment] of imageAttachments) {
+          try {
+            logger.info(`🖼️ Processing Discord image attachment (${attachment.name})`);
+            const response = await fetch(attachment.url);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            const base64Data = buffer.toString('base64');
+            const mimeType = attachment.contentType || 'image/png';
+            const analysis = await analyzeImage(base64Data, mimeType, textContent);
+            if (analysis) {
+              imageContext += `\n\n[CONTEXT: Image Analysis]\n${analysis}`;
+            }
+            logger.success('🖼️ Image analysis added to message context');
+          } catch (error) {
+            logger.error('Failed to analyze Discord image attachment', error);
+          }
+        }
+      } else if (imageAttachments.size > 0) {
+        logger.warn('Image received but vision is not configured (missing API key)');
+      }
+
+      const fullMessage = `${validation.sanitized}${imageContext}`.trim();
+      if (!fullMessage) return;
+
       incrementMessageCount();
-      logger.message(`Discord: "${validation.sanitized.substring(0, 60)}${validation.sanitized.length > 60 ? '...' : ''}"`);
+      logger.message(`Discord: "${fullMessage.substring(0, 60)}${fullMessage.length > 60 ? '...' : ''}"`);
 
       try {
         const sessionUserId = `discord:${userId}`;
 
         const responses = await handleMessage(
           sessionUserId,
-          validation.sanitized,
+          fullMessage,
           async (text) => {
             await message.reply(text);
           },
