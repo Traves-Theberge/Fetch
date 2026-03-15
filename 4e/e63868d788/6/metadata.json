@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "4ee63868d788",
+  "session_id": "f9e307a0-73fa-4085-a726-349fd65fcfcc",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T21:23:15.109109852Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/src/security/index.ts",
+    "fetch-app/src/security/permissions.ts",
+    "fetch-app/src/tools/index.ts",
+    "fetch-app/src/tools/manager.ts",
+    "fetch-app/src/tools/types.ts",
+    "fetch-app/tests/unit/permissions.test.ts",
+    "fetch-app/tests/unit/tool-manager.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 30,
+    "cache_creation_tokens": 43325,
+    "cache_read_tokens": 1312530,
+    "output_tokens": 12526,
+    "api_call_count": 28
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T21:23:14.864809523Z",
+    "agent_lines": 756,
+    "human_added": 2953,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3709,
+    "agent_percentage": 20.38285252089512
+  }
+}
