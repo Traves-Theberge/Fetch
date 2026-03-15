@@ -3,7 +3,7 @@
   "checkpoint_id": "4ee63868d788",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 4,
+  "checkpoints_count": 5,
   "files_touched": [
     ".env.example",
     "config/messaging.json",
@@ -22,7 +22,9 @@
     "fetch-app/src/index.ts",
     "fetch-app/src/security/index.ts",
     "fetch-app/src/security/sandbox.ts",
+    "fetch-app/src/tools/index.ts",
     "fetch-app/src/tools/pm.ts",
+    "fetch-app/src/tools/registry.ts",
     "fetch-app/src/types/messaging-channels.d.ts",
     "fetch-app/tests/unit/bridge-interface.test.ts",
     "fetch-app/tests/unit/bridge-manager.test.ts",
@@ -60,13 +62,20 @@
       "context": "/4e/e63868d788/3/context.md",
       "content_hash": "/4e/e63868d788/3/content_hash.txt",
       "prompt": "/4e/e63868d788/3/prompt.txt"
+    },
+    {
+      "metadata": "/4e/e63868d788/4/metadata.json",
+      "transcript": "/4e/e63868d788/4/full.jsonl",
+      "context": "/4e/e63868d788/4/context.md",
+      "content_hash": "/4e/e63868d788/4/content_hash.txt",
+      "prompt": "/4e/e63868d788/4/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 198,
-    "cache_creation_tokens": 241305,
-    "cache_read_tokens": 7677531,
-    "output_tokens": 57727,
-    "api_call_count": 133
+    "input_tokens": 213,
+    "cache_creation_tokens": 277729,
+    "cache_read_tokens": 8092744,
+    "output_tokens": 60414,
+    "api_call_count": 144
   }
 }

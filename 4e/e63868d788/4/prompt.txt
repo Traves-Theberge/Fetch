@@ -1,0 +1,35 @@
+You are an autonomous coding agent working on issue **FETCH-1**.
+
+## Task
+**🛠️ Tool Manager & Local-Only Execution**
+
+## Description
+Create a dedicated Tool Manager to handle the lifecycle, security, and execution context of agent tools, specifically focusing on "Local Only" capabilities.
+
+## Plan
+1.  **Tool Manager Class**:
+    *   Register, enable, disable tools.
+    *   Track tool usage and error rates.
+2.  **Local-Only Policy**:
+    *   Flag distinct tools as `local_only` (e.g., filesystem, terminal).
+    *   Prevent these tools from being executed if the session is in "Cloud/Remote" mode (future proofing).
+    *   Ensure strict permissions (read-only vs write) for local tools.
+3.  **Tool Discovery**:
+    *   Scan `src/tools/` for local custom tools.
+
+## Associated Files
+*   `src/tools/manager.ts`
+*   `src/tools/registry.ts`
+*   `src/security/permissions.ts`
+
+## Instructions
+
+1. First, write an **Operational Plan** using markdown checkboxes to show progress. Example: `- [ ] task` for pending, `- [x] task` for complete.
+
+2. Work through each step. After completing a step, restate the full plan with updated checkboxes.
+
+3. Use the tools available to you (file read/write, shell commands, search) to implement the changes.
+
+4. When all steps are complete, verify your work compiles/passes and restate the final plan with all items checked.
+
+5. Do NOT stop until all plan items are checked off. If you encounter an error, fix it and continue.
