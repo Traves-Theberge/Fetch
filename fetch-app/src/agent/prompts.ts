@@ -24,13 +24,14 @@ import type { Session } from '../session/types.js';
 export function buildTaskFramePrompt(session: Session, userRequest: string): string {
   const workspace = session.currentProject?.name ?? 'unknown';
   const branch = session.currentProject?.gitBranch ?? 'main';
+  const pmTask = session.metadata?.activePMTask;
 
   return `You are converting a user request into a clear coding task goal.
 
 ## Context
 - Workspace: ${workspace}
 - Branch: ${branch}
-- User Request: "${userRequest}"
+${pmTask ? `- PM Task: ${pmTask.title} [${pmTask.id}] (${pmTask.url})\n` : ''}- User Request: "${userRequest}"
 
 ## Your Job
 
@@ -132,6 +133,13 @@ export async function buildContextSection(session: Session, userMessage?: string
       parts.push(`🎯 **Active task**: ${goalPreview}`);
       parts.push(`📊 **Status**: ${task.status}`);
     }
+  }
+
+  // Project Management Task
+  if (session.metadata?.activePMTask) {
+    const pmTask = session.metadata.activePMTask;
+    parts.push(`📋 **PM Task**: ${pmTask.title} [${pmTask.id}]`);
+    parts.push(`🔗 **URL**: ${pmTask.url} (Provider: ${pmTask.provider})`);
   }
 
   const runtime = session.metadata?.agentRuntime as Record<string, unknown> | undefined;

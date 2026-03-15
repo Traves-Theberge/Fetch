@@ -1584,12 +1584,12 @@ export class WorkspaceManager extends EventEmitter {
     state = 'open',
     assignee?: string,
     labels?: string[]
-  ): Promise<Array<{ number: number; title: string; state: string; labels: string[]; url: string }>> {
+  ): Promise<Array<{ number: number; title: string; body: string; state: string; labels: string[]; url: string; assignee: { login: string } | null }>> {
     if (!await this.isGitHubAvailable()) {
       throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
     }
 
-    const args = ['issue', 'list', '--state', state, '--json', 'number,title,state,labels,url', '--limit', '10'];
+    const args = ['issue', 'list', '--state', state, '--json', 'number,title,body,state,labels,url,assignee', '--limit', '10'];
     if (assignee) args.push('--assignee', assignee);
     if (labels && labels.length > 0) {
       args.push('--label', labels.join(','));
@@ -1608,7 +1608,99 @@ export class WorkspaceManager extends EventEmitter {
     }
   }
 
-  // ============================================================================
+  /**
+   * View a specific GitHub issue.
+   */
+  async viewIssue(
+    wsPath: string,
+    number: number,
+    repo?: string
+  ): Promise<any> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['issue', 'view', number.toString(), '--json', 'number,title,body,state,url,author,createdAt,updatedAt,labels,assignee'];
+    if (repo) {
+      args.push('--repo', repo);
+    }
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error("Failed to view issue #" + number + ": " + (result.stderr || result.stdout));
+    }
+
+    try {
+      return JSON.parse(result.stdout);
+    } catch {
+      return { raw: result.stdout };
+    }
+  }
+
+  /**
+   * Add a comment to a GitHub issue.
+   */
+  async createComment(
+    wsPath: string,
+    number: number,
+    body: string
+  ): Promise<void> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['issue', 'comment', number.toString(), '--body', body];
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error("Failed to create comment on issue #" + number + ": " + (result.stderr || result.stdout));
+    }
+  }
+
+  /**
+   * Update a GitHub issue (close/reopen).
+   */
+  async updateIssue(
+    wsPath: string,
+    number: number,
+    state: 'open' | 'closed'
+  ): Promise<void> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const command = state === 'closed' ? 'close' : 'reopen';
+    const args = ['issue', command, number.toString()];
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error("Failed to " + command + " issue #" + number + ": " + (result.stderr || result.stdout));
+    }
+  }
+
+  /**
+   * Edit a GitHub issue (title, body, assignee).
+   */
+  async editIssue(
+    wsPath: string,
+    number: number,
+    options: { title?: string; body?: string; assignee?: string }
+  ): Promise<void> {
+    if (!await this.isGitHubAvailable()) {
+      throw new Error('GitHub integration is not available. Ensure GH_TOKEN is set.');
+    }
+
+    const args = ['issue', 'edit', number.toString()];
+    if (options.title) args.push('--title', options.title);
+    if (options.body) args.push('--body', options.body);
+    if (options.assignee) args.push('--assignee', options.assignee);
+
+    const result = await dockerExec('gh', args, { cwd: wsPath, timeoutMs: 15000 });
+
+    if (result.exitCode !== 0) {
+      throw new Error("Failed to edit issue #" + number + ": " + (result.stderr || result.stdout));
+    }
+  }
   // GitHub: Branches
   // ============================================================================
 

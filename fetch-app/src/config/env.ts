@@ -65,6 +65,10 @@ const EnvSchema = z.object({
   CODEX_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   GH_TOKEN: z.string().optional(),
+  LINEAR_API_KEY: z.string().optional(),
+  JIRA_API_KEY: z.string().optional(),
+  JIRA_DOMAIN: z.string().optional(),
+  JIRA_EMAIL: z.string().optional(),
 });
 
 // ============================================================================

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { processMessage } from '../../src/agent/core.js';
-import { createMockSession } from '../helpers/mock-session.js';
+import { createMockSession, mockSessionManager } from '../helpers/index.js';
 
 vi.mock('openai', () => {
   return {
@@ -19,16 +19,10 @@ vi.mock('openai', () => {
   };
 });
 
-const mockSessionManager = {
-  updateSession: vi.fn(),
-  updateRepoMap: vi.fn(),
-  isRepoMapStale: vi.fn().mockReturnValue(false),
-  recordMemoryTiers: vi.fn(),
-  addMemory: vi.fn(),
-};
 
+// Mock Session Manager
 vi.mock('../../src/session/manager.js', () => ({
-  getSessionManager: async () => mockSessionManager,
+  getSessionManager: async () => mockSessionManager
 }));
 
 describe('conversation contracts', () => {

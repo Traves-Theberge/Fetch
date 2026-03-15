@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mockSessionManager } from '../helpers/index.js';
 
 // =============================================================================
 // MOCKS — must be declared before importing the handler
@@ -35,32 +36,6 @@ const mockSession = {
   lastActivityAt: new Date().toISOString(),
 };
 
-const mockSessionManager = {
-  getOrCreateSession: vi.fn().mockResolvedValue(mockSession),
-  getSessionById: vi.fn().mockResolvedValue(mockSession),
-  addUserMessage: vi.fn().mockResolvedValue({
-    id: 'msg_1',
-    role: 'user',
-    content: '',
-    timestamp: new Date().toISOString(),
-  }),
-  addAssistantMessage: vi.fn().mockResolvedValue({
-    id: 'msg_2',
-    role: 'assistant',
-    content: '',
-    timestamp: new Date().toISOString(),
-  }),
-  updateSession: vi.fn(),
-  cancelAgentRun: vi.fn().mockResolvedValue({ cancelled: false }),
-  acquireAgentRun: vi.fn().mockResolvedValue({
-    acquired: true,
-    run: { runId: 'run_1', phase: 'queued', promptMode: 'full' },
-    signal: new AbortController().signal,
-  }),
-  updateAgentRunPhase: vi.fn().mockResolvedValue(undefined),
-  completeAgentRun: vi.fn().mockResolvedValue(undefined),
-  getActiveAgentRun: vi.fn().mockReturnValue(undefined),
-};
 
 const mockTaskManager = {
   on: vi.fn(),
@@ -137,6 +112,15 @@ const { formatNotification } = await import('../../src/agent/notifications.js');
 describe('Handler — Message Flow', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    vi.mocked(mockSessionManager.getOrCreateSession).mockResolvedValue(mockSession as any);
+    vi.mocked(mockSessionManager.getSessionById).mockResolvedValue(mockSession as any);
+    vi.mocked(mockSessionManager.addUserMessage).mockResolvedValue({ id: 'msg_1', role: 'user', content: '', timestamp: new Date().toISOString() });
+    vi.mocked(mockSessionManager.addAssistantMessage).mockResolvedValue({ id: 'msg_2', role: 'assistant', content: '', timestamp: new Date().toISOString() });
+    vi.mocked(mockSessionManager.acquireAgentRun).mockResolvedValue({
+      acquired: true,
+      run: { runId: 'run_1', phase: 'queued', promptMode: 'full' },
+      signal: new AbortController().signal,
+    });
     await shutdown();
 
     // Reset default mock behaviors

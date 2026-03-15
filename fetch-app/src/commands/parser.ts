@@ -29,6 +29,7 @@ import { formatHelp, formatStatus, formatUsage } from '../agent/format.js';
 import { envelopeFromToolResult } from '../agent/envelope.js';
 import { handleStop, handleUndo, handleUndoAll } from './task.js';
 import { handleTrust } from './trust.js';
+import { handlePM } from './pm.js';
 import { handleWorkspaceList, handleWorkspaceStatus, handleWorkspaceSync } from '../tools/workspace.js';
 import { VERSION } from '../config/env.js';
 import type { CommandResult } from './types.js';
@@ -169,6 +170,10 @@ export async function parseCommand(
     // ─── Whitelist Management (owner only) ──────────────────────────────
     case 'trust':
       return handleTrust(argString, session);
+
+    // ─── Project Management ───────────────────────────────────────────
+    case 'pm':
+      return handlePM(args, session);
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processMessage } from '../../src/agent/core.js';
-import { createMockSession } from '../helpers/mock-session.js';
+import { createMockSession, mockSessionManager } from '../helpers/index.js';
 // import { TaskStatus } from '../../src/task/types.js';
 
 // Mock OpenAI
@@ -90,24 +90,10 @@ vi.mock('../../src/tools/registry.js', () => ({
 }));
 
 
-// Mock Session Manager
-const mockSessionManager = {
-  init: vi.fn(),
-  getSession: vi.fn(),
-  updateSession: vi.fn(),
-  isRepoMapStale: vi.fn().mockReturnValue(false),
-  saveMessage: vi.fn(),
-  getRecentMessages: vi.fn().mockResolvedValue([]),
-  addUserMessage: vi.fn().mockResolvedValue({ id: 'msg_1', role: 'user', content: '', timestamp: '' }),
-  addAssistantMessage: vi.fn().mockResolvedValue({ id: 'msg_2', role: 'assistant', content: '', timestamp: '' }),
-  addAssistantToolCallMessage: vi.fn().mockResolvedValue({ id: 'msg_3', role: 'assistant', content: '', timestamp: '' }),
-  addToolMessage: vi.fn().mockResolvedValue({ id: 'msg_4', role: 'tool', content: '', timestamp: '' }),
-  recordMemoryTiers: vi.fn().mockResolvedValue(undefined),
-  addMemory: vi.fn(),
-};
 
+// Mock Session Manager
 vi.mock('../../src/session/manager.js', () => ({
-  getSessionManager: () => mockSessionManager
+  getSessionManager: async () => mockSessionManager
 }));
 
 // Mock Identity Manager

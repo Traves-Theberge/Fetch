@@ -53,6 +53,14 @@ import {
 } from './github.js';
 
 import {
+  handlePMList,
+  handlePMView,
+  handlePMComment,
+  handlePMUpdate,
+  pmTools,
+} from './pm.js';
+
+import {
   handleWebFetch,
   handleWebSearch,
   webTools,
@@ -413,6 +421,12 @@ export class ToolRegistry {
       github_action_status: { h: handleGitHubActionStatus, s: ToolInputSchemas.github_action_status, d: DangerLevel.SAFE },
       github_search_repos: { h: handleGitHubSearchRepos, s: ToolInputSchemas.github_search_repos, d: DangerLevel.SAFE },
 
+      // PM
+      pm_list: { h: handlePMList, s: ToolInputSchemas.pm_list, d: DangerLevel.SAFE },
+      pm_view: { h: handlePMView, s: ToolInputSchemas.pm_view, d: DangerLevel.SAFE },
+      pm_comment: { h: handlePMComment, s: ToolInputSchemas.pm_comment, d: DangerLevel.MODERATE },
+      pm_update: { h: handlePMUpdate, s: ToolInputSchemas.pm_update, d: DangerLevel.MODERATE },
+
       // WEB
       web_fetch: { h: handleWebFetch, s: ToolInputSchemas.web_fetch, d: DangerLevel.SAFE },
       web_search: { h: handleWebSearch, s: ToolInputSchemas.web_search, d: DangerLevel.SAFE },
@@ -441,11 +455,12 @@ export class ToolRegistry {
       const tTools = taskTools as Record<string, { description: string }>;
       const iTools = interactionTools as Record<string, { description: string }>;
       const gTools = githubTools as Record<string, { description: string }>;
+      const pTools = pmTools as Record<string, { description: string }>;
       const webT = webTools as Record<string, { description: string }>;
       const brT = browserTools as Record<string, { description: string }>;
       const wfT = workflowTools as Record<string, { description: string }>;
 
-      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name] || webT[name] || brT[name] || wfT[name])?.description || 'No description';
+      const description = (wTools[name] || tTools[name] || iTools[name] || gTools[name] || pTools[name] || webT[name] || brT[name] || wfT[name])?.description || 'No description';
       logger.info(`Registering builtin tool: ${name}`, { hasHandler: !!meta.h });
 
       this.register({

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { processMessage } from '../../src/agent/core.js';
-import { createMockSession } from '../helpers/mock-session.js';
+import { createMockSession, mockSessionManager } from '../helpers/index.js';
+
+// Mock Session Manager
+vi.mock('../../src/session/manager.js', () => ({
+  getSessionManager: async () => mockSessionManager
+}));
 
 // Mock OpenAI
 const mockOpenResponse = {
@@ -23,17 +28,6 @@ vi.mock('openai', () => {
   }
 });
 
-// Mock Session Manager
-const mockSessionManager = {
-  updateSession: vi.fn(),
-  updateRepoMap: vi.fn(),
-  isRepoMapStale: vi.fn().mockReturnValue(false),
-  getSession: vi.fn()
-};
-
-vi.mock('../../src/session/manager.js', () => ({
-  getSessionManager: async () => mockSessionManager
-}));
 
 describe('E2E: Agent Core Loop', () => {
   beforeEach(() => {

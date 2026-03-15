@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMockSession } from '../helpers/mock-session.js';
+import { createMockSession, createMockSessionManager } from '../helpers/index.js';
 import type { Session } from '../../src/session/types.js';
 
 // ---------- stubs for heavy dependencies that shouldn't run in unit tests ----------
@@ -39,28 +39,16 @@ const { parseCommand } = await import('../../src/commands/parser.js');
 
 // ---------- helpers ----------
 
-function mockSessionManager() {
-  return {
-    updateSession: vi.fn(),
-    getSession: vi.fn(),
-    createSession: vi.fn(),
-    getAllSessions: vi.fn(() => []),
-    setAutonomyLevel: vi.fn(),
-    setPreference: vi.fn(),
-    updatePreferences: vi.fn(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
-}
 
 // ---------- tests ----------
 
 describe('Command Parser — Safety Gate', () => {
   let session: Session;
-  let sm: ReturnType<typeof mockSessionManager>;
+  let sm: any;
 
   beforeEach(() => {
     session = createMockSession();
-    sm = mockSessionManager();
+    sm = createMockSessionManager();
     mockHandleWorkspaceList.mockReset();
     mockHandleWorkspaceStatus.mockReset();
     mockHandleWorkspaceSync.mockReset();

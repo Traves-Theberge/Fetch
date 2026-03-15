@@ -513,6 +513,81 @@ export const GitHubSearchReposInputSchema = z
   .describe('Search GitHub repositories');
 
 // ============================================================================
+// PM Tool Schemas
+// ============================================================================
+
+/** Input schema for `pm_list`. */
+export const PMListInputSchema = z
+  .object({
+    /** Provider (linear, jira, github) */
+    provider: z.enum(['linear', 'jira', 'github'])
+      .describe('Project management provider to use'),
+    
+    /** Optional team filter (Linear only) */
+    team: z.string().optional().describe('Filter by team name (Linear only)'),
+
+    /** Optional cycle filter (Linear only) */
+    cycle: z.string().optional().describe('Filter by cycle ID (Linear only)'),
+
+    /** Optional assignee filter */
+    assignee: z.string().optional().describe('Filter by assignee name/username'),
+
+    /** Optional state filter */
+    state: z.string().optional().describe('Filter by state (e.g. open, closed)'),
+
+    /** Optional JQL filter (Jira only) */
+    jql: z.string().optional().describe('Custom JQL query (Jira only)'),
+
+    /** Optional labels filter (GitHub only) */
+    labels: z.array(z.string().max(50, 'Label too long'))
+      .max(10, 'Maximum 10 labels')
+      .optional()
+      .describe('Filter by labels (GitHub only)'),
+  })
+  .strict()
+  .describe('List tasks from a project management provider');
+
+/** Input schema for `pm_view`. */
+export const PMViewInputSchema = z
+  .object({
+    /** Provider (linear, jira, github) */
+    provider: z.enum(['linear', 'jira', 'github'])
+      .describe('Project management provider to use'),
+    /** Task ID */
+    taskId: z.string().describe('ID of the task to view'),
+  })
+  .strict()
+  .describe('View details of a specific task from a project management provider');
+
+/** Input schema for `pm_comment`. */
+export const PMCommentInputSchema = z
+  .object({
+    /** Provider (linear, jira, github) */
+    provider: z.enum(['linear', 'jira', 'github'])
+      .describe('Project management provider to use'),
+    /** Task ID */
+    taskId: z.string().describe('ID of the task to comment on'),
+    /** Comment body */
+    body: z.string().describe('Content of the comment'),
+  })
+  .strict()
+  .describe('Add a comment to a task in a project management provider');
+
+/** Input schema for `pm_update`. */
+export const PMUpdateInputSchema = z
+  .object({
+    /** Provider (linear, jira, github) */
+    provider: z.enum(['linear', 'jira', 'github'])
+      .describe('Project management provider to use'),
+    /** Task ID */
+    taskId: z.string().describe('ID of the task to update'),
+    /** New status */
+    status: z.string().describe('New status for the task'),
+  })
+  .strict()
+  .describe('Update the status of a task in a project management provider');
+
+// ============================================================================
 // Web Tool Schemas
 // ============================================================================
 
@@ -939,6 +1014,11 @@ export const ToolInputSchemas = {
   github_branch_create: GitHubBranchCreateInputSchema,
   github_action_status: GitHubActionStatusInputSchema,
   github_search_repos: GitHubSearchReposInputSchema,
+  // PM tools (4)
+  pm_list: PMListInputSchema,
+  pm_view: PMViewInputSchema,
+  pm_comment: PMCommentInputSchema,
+  pm_update: PMUpdateInputSchema,
   // Web tools (2)
   web_fetch: WebFetchInputSchema,
   web_search: WebSearchInputSchema,
@@ -988,6 +1068,10 @@ export type GitHubIssueListInput = z.infer<typeof GitHubIssueListInputSchema>;
 export type GitHubBranchCreateInput = z.infer<typeof GitHubBranchCreateInputSchema>;
 export type GitHubActionStatusInput = z.infer<typeof GitHubActionStatusInputSchema>;
 export type GitHubSearchReposInput = z.infer<typeof GitHubSearchReposInputSchema>;
+export type PMListInput = z.infer<typeof PMListInputSchema>;
+export type PMViewInput = z.infer<typeof PMViewInputSchema>;
+export type PMCommentInput = z.infer<typeof PMCommentInputSchema>;
+export type PMUpdateInput = z.infer<typeof PMUpdateInputSchema>;
 export type WebFetchInput = z.infer<typeof WebFetchInputSchema>;
 export type WebSearchInput = z.infer<typeof WebSearchInputSchema>;
 export type BrowserOpenInput = z.infer<typeof BrowserOpenInputSchema>;
