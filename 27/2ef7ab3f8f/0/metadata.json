@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "272ef7ab3f8f",
+  "session_id": "5b321dfe-2905-4914-a2f4-4e266331007d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T22:06:06.73955642Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/package.json",
+    "fetch-app/src/bridge/discord/index.ts",
+    "fetch-app/src/bridge/slack/index.ts",
+    "fetch-app/src/bridge/telegram/index.ts",
+    "fetch-app/tests/unit/discord-bridge.test.ts",
+    "fetch-app/tests/unit/slack-bridge.test.ts",
+    "fetch-app/tests/unit/telegram-bridge.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 92,
+    "cache_creation_tokens": 81414,
+    "cache_read_tokens": 2648322,
+    "output_tokens": 15849,
+    "api_call_count": 37
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T22:06:05.986384258Z",
+    "agent_lines": 438,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 438,
+    "agent_percentage": 100
+  }
+}

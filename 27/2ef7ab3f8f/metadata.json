@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "272ef7ab3f8f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/package.json",
+    "fetch-app/src/bridge/discord/index.ts",
+    "fetch-app/src/bridge/slack/index.ts",
+    "fetch-app/src/bridge/telegram/index.ts",
+    "fetch-app/tests/unit/discord-bridge.test.ts",
+    "fetch-app/tests/unit/slack-bridge.test.ts",
+    "fetch-app/tests/unit/telegram-bridge.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/27/2ef7ab3f8f/0/metadata.json",
+      "transcript": "/27/2ef7ab3f8f/0/full.jsonl",
+      "context": "/27/2ef7ab3f8f/0/context.md",
+      "content_hash": "/27/2ef7ab3f8f/0/content_hash.txt",
+      "prompt": "/27/2ef7ab3f8f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 92,
+    "cache_creation_tokens": 81414,
+    "cache_read_tokens": 2648322,
+    "output_tokens": 15849,
+    "api_call_count": 37
+  }
+}
