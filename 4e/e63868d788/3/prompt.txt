@@ -1,0 +1,90 @@
+You are an autonomous coding agent working on issue **FETCH-1**.
+
+## Task
+**🛠️ Tool Manager & Local-Only Execution**
+
+## Description
+Create a dedicated Tool Manager to handle the lifecycle, security, and execution context of agent tools, specifically focusing on "Local Only" capabilities.
+
+## Plan
+1.  **Tool Manager Class**:
+    *   Register, enable, disable tools.
+    *   Track tool usage and error rates.
+2.  **Local-Only Policy**:
+    *   Flag distinct tools as `local_only` (e.g., filesystem, terminal).
+    *   Prevent these tools from being executed if the session is in "Cloud/Remote" mode (future proofing).
+    *   Ensure strict permissions (read-only vs write) for local tools.
+3.  **Tool Discovery**:
+    *   Scan `src/tools/` for local custom tools.
+
+## Associated Files
+*   `src/tools/manager.ts`
+*   `src/tools/registry.ts`
+*   `src/security/permissions.ts`
+
+## Instructions
+
+1. First, write an **Operational Plan** using markdown checkboxes to show progress. Example: `- [ ] task` for pending, `- [x] task` for complete.
+
+2. Work through each step. After completing a step, restate the full plan with updated checkboxes.
+
+3. Use the tools available to you (file read/write, shell commands, search) to implement the changes.
+
+4. When all steps are complete, verify your work compiles/passes and restate the final plan with all items checked.
+
+5. Do NOT stop until all plan items are checked off. If you encounter an error, fix it and continue.
+
+## Prior Turn Context
+
+You have already worked on this task in previous turns. Here is what you reported:
+
+> /**
+>  * @fileoverview Zod schemas for all orchestrator tool inputs.
+>  *
+>  * This file is the canonical source for accepted tool names and arguments.
+>  *
+>  * @module validation/tools
+>  */
+> 
+> import { z } from 'zod';
+> import {
+>   WorkspaceNameSchema,
+>   TaskIdSchema,
+>   TimeoutSchema,
+>   GoalSchema,
+>   QuestionSchema,
+>   ResponseSchema,
+>   ProgressMessageSchema,
+>   PercentageSchema,
+>   SafePathSchema,
+>   DEFAULT_TIMEOUT_MS,
+> } from './common.js';
+> 
+> // ===================================================================...
+
+> **Verifying existing implementation and repo state**
+
+> M fetch-app/src/security/index.ts
+>  M fetch-app/src/tools/index.ts
+>  M fetch-app/src/tools/loader.ts
+>  M fetch-app/src/tools/registry.ts
+>  M fetch-app/src/tools/types.ts
+>  M fetch-app/tests/integration/task-execution.test.ts
+>  M fetch-app/tests/unit/tool-registry.test.ts
+> ?? fetch-app/src/commands/pm.ts
+> ?? fetch-app/src/security/permissions.ts
+> ?? fetch-app/src/tools/manager.ts
+> ?? fetch-app/src/tools/pm.ts
+> ?? fetch-app/tests/helpers/mock-session-manager.ts
+> ?? fetch-app/tests/unit/permissions.test.ts
+> ?? ...
+
+> **Requesting user guidance due to unexpected changes**
+
+> I found the repository is already in a dirty state with many pre-existing modifications, including the exact FETCH-1 files (`fetch-app/src/tools/manager.ts`, `fetch-app/src/tools/registry.ts`, `fetch-app/src/security/permissions.ts`) and related tests.
+> 
+> Per your agent safety rules, I need your direction before continuing so I don’t overwrite or conflict with existing uncommitted work. How do you want to proceed?
+> 
+> 1. Continue on top of current changes and only add/fix what’s missing for FETCH...
+
+**Continue from where you left off. Do NOT restart from scratch. Check what files already exist before creating new ones.**
