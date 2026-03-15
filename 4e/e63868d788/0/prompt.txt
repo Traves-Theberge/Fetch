@@ -1,0 +1,41 @@
+You are an autonomous coding agent working on issue **FETCH-2**.
+
+## Task
+**📦 Containerization & Sandboxing**
+
+## Description
+Improve the security and isolation of task execution environments.
+
+## Plan
+1.  **Kennel Enhancements**:
+    *   Ensure the `fetch-kennel` Docker container allows no network egress (except whitelist).
+    *   Ephemeral containers for high-risk tasks.
+2.  **Sandboxing**:
+    *   Use `vm2` or similar for executing JS code snippets internally if not using Docker.
+3.  **Resource Limits**:
+    *   CPU/RAM limits for the executor container.
+
+## Associated Files
+*   `fetch-app/src/executor/docker.ts`
+*   `kennel/Dockerfile`
+*   `src/security/sandbox.ts`
+
+## Instructions
+
+1. First, write an **Operational Plan** using markdown checkboxes. The orchestrator UI parses these to show progress:
+   ```
+   - [ ] step one
+   - [ ] step two
+   - [ ] step three
+   ```
+
+2. Work through each step. After completing a step, restate the plan with that item checked:
+   ```
+   - [x] step one
+   - [ ] step two
+   - [ ] step three
+   ```
+
+3. Use the tools available to you (file read/write, shell commands, search) to implement the changes.
+
+4. When all steps are complete, verify your work compiles/passes and restate the final plan with all items checked.
