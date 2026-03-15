@@ -1,0 +1,44 @@
+You are an autonomous coding agent working on issue **FETCH-4**.
+
+## Task
+**📨 Expanded Messaging Channels (Slack, Telegram, Discord)**
+
+## Description
+Expand Fetch's communication capabilities beyond WhatsApp to support professional chat platforms. This allows teams to use Fetch in their existing workflows.
+
+## Plan
+1.  **Abstract Bridge Layer**: Refactor `src/bridge/` to support multiple providers (currently tightly coupled to `whatsapp-web.js`).
+2.  **Slack Integration**:
+    *   Use `@slack/bolt` SDK.
+    *   Support threads, mentions, and file uploads.
+3.  **Telegram Integration**:
+    *   Use `telegraf` or similar.
+    *   Support voice notes and groups.
+4.  **Discord Integration**:
+    *   Use `discord.js`.
+    *   Support channel-based context and role-based access.
+
+## configuration
+Create `config/messaging.json` or maintain via `.env`:
+*   `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`
+*   `TELEGRAM_BOT_TOKEN`
+*   `DISCORD_TOKEN`
+
+## Associated Files
+*   `src/bridge/interface.ts` (New abstract interface)
+*   `src/bridge/slack/`
+*   `src/bridge/telegram/`
+*   `src/bridge/discord/`
+*   `src/index.ts` (Update startup logic)
+
+## Instructions
+
+1. Write an **Operational Plan** using markdown checkboxes (`- [ ]` pending, `- [x]` done).
+
+2. Work through each step. After completing a step, restate the plan with updated checkboxes.
+
+3. Use all available tools to implement changes.
+
+4. Verify your work compiles/passes. Do NOT stop until all items are checked off.
+
+Attempt: 2

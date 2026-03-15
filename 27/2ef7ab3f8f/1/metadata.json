@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "272ef7ab3f8f",
+  "session_id": "f774bc0a-68cd-4b8f-9ac9-5dfbd8a50aae",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T22:06:07.293957695Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/helpers/mock-session-manager.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 65236,
+    "cache_read_tokens": 1457323,
+    "output_tokens": 7935,
+    "api_call_count": 30
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T22:06:06.869067309Z",
+    "agent_lines": 0,
+    "human_added": 438,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 438,
+    "agent_percentage": 0
+  }
+}
