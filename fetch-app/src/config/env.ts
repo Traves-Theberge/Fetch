@@ -69,6 +69,16 @@ const EnvSchema = z.object({
   JIRA_API_KEY: z.string().optional(),
   JIRA_DOMAIN: z.string().optional(),
   JIRA_EMAIL: z.string().optional(),
+
+  // Messaging Channels
+  SLACK_BOT_TOKEN: z.string().optional(),
+  SLACK_APP_TOKEN: z.string().optional(),
+  SLACK_SIGNING_SECRET: z.string().optional(),
+  TELEGRAM_BOT_TOKEN: z.string().optional(),
+  TELEGRAM_ALLOWED_CHAT_IDS: z.string().optional(),
+  DISCORD_TOKEN: z.string().optional(),
+  DISCORD_ALLOWED_ROLES: z.string().optional(),
+  DISCORD_ALLOWED_CHANNELS: z.string().optional(),
 });
 
 // ============================================================================

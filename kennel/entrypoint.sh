@@ -28,6 +28,11 @@ cleanup_broken_codex_skill_links() {
 
 cleanup_broken_codex_skill_links
 
+# Apply network egress firewall if enabled
+if [ -x /usr/local/bin/network-firewall.sh ]; then
+  /usr/local/bin/network-firewall.sh || true
+fi
+
 if [ -n "$GH_TOKEN" ]; then
   # Configure gh CLI to use the token (overrides mounted hosts.yml)
   gh auth setup-git 2>/dev/null || true

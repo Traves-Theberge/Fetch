@@ -10,3 +10,7 @@ export { SecurityGate } from './gate.js';
 export { WhitelistStore, getWhitelistStore, getWhitelistStoreSync } from './whitelist.js';
 export { RateLimiter } from './rateLimiter.js';
 export { validateInput, sanitizePath, type ValidationResult } from './validator.js';
+export { checkToolPermission } from './permissions.js';
+export type { PermissionCheckInput, PermissionCheckResult } from './permissions.js';
+export { executeSandbox } from './sandbox.js';
+export type { SandboxConfig, SandboxResult } from './sandbox.js';

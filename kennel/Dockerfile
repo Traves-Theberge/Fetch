@@ -4,10 +4,17 @@
 
 FROM node:20-slim
 
+# Security metadata
+LABEL org.opencontainers.image.title="fetch-kennel" \
+      org.opencontainers.image.description="Sandboxed AI CLI execution environment" \
+      org.opencontainers.image.vendor="Fetch" \
+      security.sandbox="true" \
+      security.network-firewall="iptables"
+
 # Prevent interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install base dependencies
+# Install base dependencies (includes iptables for network egress control)
 RUN apt-get update && apt-get install -y \
     curl \
     wget \
@@ -25,6 +32,7 @@ RUN apt-get update && apt-get install -y \
     jq \
     tree \
     build-essential \
+    iptables \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -84,8 +92,26 @@ RUN mkdir -p /root/.config/gh \
     && mkdir -p /root/.config/opencode \
     && mkdir -p /root/.codex
 
+# ============================================
+# Network egress firewall script
+# Blocks all outbound traffic except whitelisted destinations.
+# Applied at container start via entrypoint.
+# ============================================
+COPY network-firewall.sh /usr/local/bin/network-firewall.sh
+RUN chmod +x /usr/local/bin/network-firewall.sh
+
+# ============================================
+# Default environment for firewall control
+# ============================================
+ENV FIREWALL_ENABLED=false
+ENV FIREWALL_WHITELIST=""
+
 # Set working directory
 WORKDIR /workspace
+
+# Healthcheck: verify workspace is accessible and node works
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
+  CMD command -v git >/dev/null && command -v node >/dev/null && test -d /workspace
 
 # Default command (keep container running)
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

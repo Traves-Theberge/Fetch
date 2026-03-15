@@ -24,6 +24,13 @@ export { webTools, handleWebFetch, handleWebSearch } from './web.js';
 // Browser tools
 export { browserTools, handleBrowserOpen, handleBrowserSnapshot, handleBrowserAction, handleBrowserScreenshot } from './browser.js';
 
+// Tool Manager
+export { ToolManager, getToolManager } from './manager.js';
+
+// Permission policy
+export { checkToolPermission } from '../security/permissions.js';
+export type { PermissionCheckInput, PermissionCheckResult } from '../security/permissions.js';
+
 // Custom tool loader
 export { loadToolDefinition, buildToolSchema } from './loader.js';
 export type { CustomToolDefinition } from './loader.js';

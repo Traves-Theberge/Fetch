@@ -86,6 +86,9 @@ services:
       - CODEX_API_KEY=${CODEX_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      # ─── Network Firewall ──────────────────────────────────
+      - FIREWALL_ENABLED=${FIREWALL_ENABLED:-false}
+      - FIREWALL_WHITELIST=${FIREWALL_WHITELIST:-}
     volumes:
       # Shared workspace for code operations
       - ./workspace:/workspace
@@ -107,7 +110,21 @@ services:
         max-file: "3"
     networks:
       - fetch-network
-    # Security: Limit resources
+    # ─── Security ─────────────────────────────────────────────
+    # NET_ADMIN required for iptables-based egress firewall
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - SYS_ADMIN
+      - SYS_PTRACE
+      - NET_RAW
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+      - /root:size=128m
+    pids_limit: 512
     deploy:
       resources:
         limits:

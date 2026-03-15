@@ -51,3 +51,41 @@ export enum DangerLevel {
   /** High risk — destructive or irreversible */
   DANGEROUS = 'dangerous',
 }
+
+// ============================================================================
+// Tool Permission & Execution Mode
+// ============================================================================
+
+/** Permission level controlling what a tool can do locally. */
+export enum ToolPermission {
+  /** Can only read state (filesystem reads, listing, status queries) */
+  READ = 'read',
+  /** Can read and modify state (file writes, creates, deletes) */
+  WRITE = 'write',
+  /** Full access including process execution (shell, docker, browser) */
+  EXECUTE = 'execute',
+}
+
+/** Execution environment the session is running in. */
+export enum ExecutionMode {
+  /** Running on the local host — all tools available */
+  LOCAL = 'local',
+  /** Running in a cloud/remote context — local-only tools blocked */
+  CLOUD = 'cloud',
+}
+
+// ============================================================================
+// Tool Usage Statistics
+// ============================================================================
+
+/** Per-tool usage and error tracking counters. */
+export interface ToolUsageStats {
+  /** Total number of successful executions */
+  successCount: number;
+  /** Total number of failed executions */
+  errorCount: number;
+  /** Cumulative execution time in ms */
+  totalDuration: number;
+  /** Timestamp of last execution (epoch ms) */
+  lastUsed: number;
+}

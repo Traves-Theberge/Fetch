@@ -20,6 +20,7 @@ import { composeWhatsAppResponse } from '../agent/composer.js';
 import { formatNotification } from '../agent/notifications.js';
 import type { ResponseEnvelope } from '../agent/envelope.js';
 import { logger } from '../utils/logger.js';
+import type { ChannelType } from '../bridge/interface.js';
 
 // =============================================================================
 // SINGLETON STATE
@@ -37,6 +38,9 @@ let initialized = false;
 /** Optional sender used for proactive task notifications. */
 let sendWhatsApp: ((userId: string, text: string) => Promise<void>) | null = null;
 
+/** Channel-specific senders keyed by channel type. */
+const channelSenders = new Map<ChannelType, (userId: string, text: string) => Promise<void>>();
+
 const BROKEN_CODEX_SKILL_LINK_PATTERN =
   /failed to stat skills entry .*\/root\/\.codex\/skills\/|missing symlink.*\/root\/\.codex\/skills\//i;
 
@@ -45,7 +49,30 @@ const BROKEN_CODEX_SKILL_LINK_PATTERN =
  */
 export function registerWhatsAppSender(fn: (userId: string, text: string) => Promise<void>): void {
   sendWhatsApp = fn;
+  channelSenders.set('whatsapp', fn);
   logger.info('WhatsApp sender registered for proactive messages');
+}
+
+/**
+ * Registers a sender callback for a specific messaging channel.
+ */
+export function registerChannelSender(
+  channel: ChannelType,
+  fn: (userId: string, text: string) => Promise<void>,
+): void {
+  channelSenders.set(channel, fn);
+  // Keep backward compat: if WhatsApp, also set the legacy sender
+  if (channel === 'whatsapp') {
+    sendWhatsApp = fn;
+  }
+  logger.info(`${channel} sender registered for proactive messages`);
+}
+
+/**
+ * Returns the sender for a given channel, falling back to the legacy WhatsApp sender.
+ */
+export function getChannelSender(channel: ChannelType): ((userId: string, text: string) => Promise<void>) | null {
+  return channelSenders.get(channel) ?? null;
 }
 
 function renderEnvelopeChunks(envelope: ResponseEnvelope, intent?: AgentResponse['intent']): string[] {

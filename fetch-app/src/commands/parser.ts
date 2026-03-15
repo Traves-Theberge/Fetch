@@ -173,7 +173,7 @@ export async function parseCommand(
 
     // ─── Project Management ───────────────────────────────────────────
     case 'pm':
-      return handlePM(args, session);
+      return handlePM(argString, session);
 
     // ─── Everything else → LLM ─────────────────────────────────────────
     default:

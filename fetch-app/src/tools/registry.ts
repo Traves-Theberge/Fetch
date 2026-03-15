@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod';
-import { ToolResult, ToolContext, DangerLevel } from './types.js';
+import { ToolResult, ToolContext, DangerLevel, ToolPermission } from './types.js';
 import { logger } from '../utils/logger.js';
 import { ToolInputSchemas, type ToolName } from '../validation/tools.js';
 
@@ -115,6 +115,10 @@ export interface OrchestratorTool {
   danger?: DangerLevel;
   /** Is this a custom tool? */
   isCustom?: boolean;
+  /** When true, tool can only run in local execution mode */
+  localOnly?: boolean;
+  /** Permission level required to execute this tool */
+  permission?: ToolPermission;
 }
 
 /** Async tool handler signature used by built-in and custom tools. */
@@ -389,65 +393,67 @@ export class ToolRegistry {
   }
 
   private registerBuiltins(): void {
-    const builtins: Record<string, { h: ToolHandler; s: z.ZodSchema; d: DangerLevel }> = {
-      // WORKSPACE
-      workspace_list: { h: handleWorkspaceList, s: ToolInputSchemas.workspace_list, d: DangerLevel.SAFE },
-      workspace_select: { h: handleWorkspaceSelect, s: ToolInputSchemas.workspace_select, d: DangerLevel.SAFE },
-      workspace_status: { h: handleWorkspaceStatus, s: ToolInputSchemas.workspace_status, d: DangerLevel.SAFE },
-      workspace_create: { h: handleWorkspaceCreate, s: ToolInputSchemas.workspace_create, d: DangerLevel.MODERATE },
-      workspace_delete: { h: handleWorkspaceDelete, s: ToolInputSchemas.workspace_delete, d: DangerLevel.DANGEROUS },
-      file_delete: { h: handleFileDelete, s: ToolInputSchemas.file_delete, d: DangerLevel.DANGEROUS },
-      folder_delete: { h: handleFolderDelete, s: ToolInputSchemas.folder_delete, d: DangerLevel.DANGEROUS },
-      workspace_sync: { h: handleWorkspaceSync, s: ToolInputSchemas.workspace_sync, d: DangerLevel.MODERATE },
-      workspace_publish: { h: handleWorkspacePublish, s: ToolInputSchemas.workspace_publish, d: DangerLevel.MODERATE },
+    const P = ToolPermission;
+    const builtins: Record<string, { h: ToolHandler; s: z.ZodSchema; d: DangerLevel; lo?: boolean; p?: ToolPermission }> = {
+      // WORKSPACE — filesystem tools are local-only
+      workspace_list:    { h: handleWorkspaceList,    s: ToolInputSchemas.workspace_list,    d: DangerLevel.SAFE,      lo: true, p: P.READ },
+      workspace_select:  { h: handleWorkspaceSelect,  s: ToolInputSchemas.workspace_select,  d: DangerLevel.SAFE,      lo: true, p: P.READ },
+      workspace_status:  { h: handleWorkspaceStatus,  s: ToolInputSchemas.workspace_status,  d: DangerLevel.SAFE,      lo: true, p: P.READ },
+      workspace_create:  { h: handleWorkspaceCreate,  s: ToolInputSchemas.workspace_create,  d: DangerLevel.MODERATE,  lo: true, p: P.WRITE },
+      workspace_delete:  { h: handleWorkspaceDelete,  s: ToolInputSchemas.workspace_delete,  d: DangerLevel.DANGEROUS, lo: true, p: P.WRITE },
+      file_delete:       { h: handleFileDelete,       s: ToolInputSchemas.file_delete,       d: DangerLevel.DANGEROUS, lo: true, p: P.WRITE },
+      folder_delete:     { h: handleFolderDelete,     s: ToolInputSchemas.folder_delete,     d: DangerLevel.DANGEROUS, lo: true, p: P.WRITE },
+      workspace_sync:    { h: handleWorkspaceSync,    s: ToolInputSchemas.workspace_sync,    d: DangerLevel.MODERATE,  lo: true, p: P.WRITE },
+      workspace_publish: { h: handleWorkspacePublish, s: ToolInputSchemas.workspace_publish, d: DangerLevel.MODERATE,  lo: true, p: P.WRITE },
 
-      // TASK
-      task_create: { h: handleTaskCreate, s: ToolInputSchemas.task_create, d: DangerLevel.MODERATE },
-      task_status: { h: handleTaskStatus, s: ToolInputSchemas.task_status, d: DangerLevel.SAFE },
-      task_cancel: { h: handleTaskCancel, s: ToolInputSchemas.task_cancel, d: DangerLevel.MODERATE },
-      task_respond: { h: handleTaskRespond, s: ToolInputSchemas.task_respond, d: DangerLevel.SAFE },
+      // TASK — not local-only (metadata operations)
+      task_create:  { h: handleTaskCreate,  s: ToolInputSchemas.task_create,  d: DangerLevel.MODERATE, p: P.WRITE },
+      task_status:  { h: handleTaskStatus,  s: ToolInputSchemas.task_status,  d: DangerLevel.SAFE,     p: P.READ },
+      task_cancel:  { h: handleTaskCancel,  s: ToolInputSchemas.task_cancel,  d: DangerLevel.MODERATE, p: P.WRITE },
+      task_respond: { h: handleTaskRespond, s: ToolInputSchemas.task_respond, d: DangerLevel.SAFE,     p: P.WRITE },
 
-      // INTERACTION
-      ask_user: { h: handleAskUser, s: ToolInputSchemas.ask_user, d: DangerLevel.SAFE },
-      report_progress: { h: handleReportProgress, s: ToolInputSchemas.report_progress, d: DangerLevel.SAFE },
+      // INTERACTION — not local-only
+      ask_user:        { h: handleAskUser,        s: ToolInputSchemas.ask_user,        d: DangerLevel.SAFE, p: P.READ },
+      report_progress: { h: handleReportProgress, s: ToolInputSchemas.report_progress, d: DangerLevel.SAFE, p: P.READ },
 
-      // GITHUB
-      github_pr_create: { h: handleGitHubPRCreate, s: ToolInputSchemas.github_pr_create, d: DangerLevel.MODERATE },
-      github_pr_list: { h: handleGitHubPRList, s: ToolInputSchemas.github_pr_list, d: DangerLevel.SAFE },
-      github_pr_view: { h: handleGitHubPRView, s: ToolInputSchemas.github_pr_view, d: DangerLevel.SAFE },
-      github_issue_create: { h: handleGitHubIssueCreate, s: ToolInputSchemas.github_issue_create, d: DangerLevel.MODERATE },
-      github_issue_list: { h: handleGitHubIssueList, s: ToolInputSchemas.github_issue_list, d: DangerLevel.SAFE },
-      github_branch_create: { h: handleGitHubBranchCreate, s: ToolInputSchemas.github_branch_create, d: DangerLevel.MODERATE },
-      github_action_status: { h: handleGitHubActionStatus, s: ToolInputSchemas.github_action_status, d: DangerLevel.SAFE },
-      github_search_repos: { h: handleGitHubSearchRepos, s: ToolInputSchemas.github_search_repos, d: DangerLevel.SAFE },
+      // GITHUB — remote API, not local-only
+      github_pr_create:     { h: handleGitHubPRCreate,     s: ToolInputSchemas.github_pr_create,     d: DangerLevel.MODERATE, p: P.WRITE },
+      github_pr_list:       { h: handleGitHubPRList,       s: ToolInputSchemas.github_pr_list,       d: DangerLevel.SAFE,     p: P.READ },
+      github_pr_view:       { h: handleGitHubPRView,       s: ToolInputSchemas.github_pr_view,       d: DangerLevel.SAFE,     p: P.READ },
+      github_issue_create:  { h: handleGitHubIssueCreate,  s: ToolInputSchemas.github_issue_create,  d: DangerLevel.MODERATE, p: P.WRITE },
+      github_issue_list:    { h: handleGitHubIssueList,    s: ToolInputSchemas.github_issue_list,    d: DangerLevel.SAFE,     p: P.READ },
+      github_branch_create: { h: handleGitHubBranchCreate, s: ToolInputSchemas.github_branch_create, d: DangerLevel.MODERATE, p: P.WRITE },
+      github_action_status: { h: handleGitHubActionStatus, s: ToolInputSchemas.github_action_status, d: DangerLevel.SAFE,     p: P.READ },
+      github_search_repos:  { h: handleGitHubSearchRepos,  s: ToolInputSchemas.github_search_repos,  d: DangerLevel.SAFE,     p: P.READ },
 
-      // PM
-      pm_list: { h: handlePMList, s: ToolInputSchemas.pm_list, d: DangerLevel.SAFE },
-      pm_view: { h: handlePMView, s: ToolInputSchemas.pm_view, d: DangerLevel.SAFE },
-      pm_comment: { h: handlePMComment, s: ToolInputSchemas.pm_comment, d: DangerLevel.MODERATE },
-      pm_update: { h: handlePMUpdate, s: ToolInputSchemas.pm_update, d: DangerLevel.MODERATE },
+      // PM — remote API, not local-only
+      pm_list:    { h: handlePMList,    s: ToolInputSchemas.pm_list,    d: DangerLevel.SAFE,     p: P.READ },
+      pm_view:    { h: handlePMView,    s: ToolInputSchemas.pm_view,    d: DangerLevel.SAFE,     p: P.READ },
+      pm_comment: { h: handlePMComment, s: ToolInputSchemas.pm_comment, d: DangerLevel.MODERATE, p: P.WRITE },
+      pm_update:  { h: handlePMUpdate,  s: ToolInputSchemas.pm_update,  d: DangerLevel.MODERATE, p: P.WRITE },
 
-      // WEB
-      web_fetch: { h: handleWebFetch, s: ToolInputSchemas.web_fetch, d: DangerLevel.SAFE },
-      web_search: { h: handleWebSearch, s: ToolInputSchemas.web_search, d: DangerLevel.SAFE },
+      // WEB — not local-only
+      web_fetch:  { h: handleWebFetch,  s: ToolInputSchemas.web_fetch,  d: DangerLevel.SAFE, p: P.READ },
+      web_search: { h: handleWebSearch, s: ToolInputSchemas.web_search, d: DangerLevel.SAFE, p: P.READ },
 
-      // BROWSER
-      browser_open: { h: handleBrowserOpen, s: ToolInputSchemas.browser_open, d: DangerLevel.MODERATE },
-      browser_snapshot: { h: handleBrowserSnapshot, s: ToolInputSchemas.browser_snapshot, d: DangerLevel.SAFE },
-      browser_action: { h: handleBrowserAction, s: ToolInputSchemas.browser_action, d: DangerLevel.MODERATE },
-      browser_screenshot: { h: handleBrowserScreenshot, s: ToolInputSchemas.browser_screenshot, d: DangerLevel.SAFE },
-      // WORKFLOW / CRON / RUNTIME
-      workflow_create: { h: handleWorkflowCreate, s: ToolInputSchemas.workflow_create, d: DangerLevel.MODERATE },
-      workflow_list: { h: handleWorkflowList, s: ToolInputSchemas.workflow_list, d: DangerLevel.SAFE },
-      workflow_run: { h: handleWorkflowRun, s: ToolInputSchemas.workflow_run, d: DangerLevel.MODERATE },
-      workflow_delete: { h: handleWorkflowDelete, s: ToolInputSchemas.workflow_delete, d: DangerLevel.MODERATE },
-      cron_create: { h: handleCronCreate, s: ToolInputSchemas.cron_create, d: DangerLevel.MODERATE },
-      cron_list: { h: handleCronList, s: ToolInputSchemas.cron_list, d: DangerLevel.SAFE },
-      cron_delete: { h: handleCronDelete, s: ToolInputSchemas.cron_delete, d: DangerLevel.MODERATE },
-      cron_run: { h: handleCronRun, s: ToolInputSchemas.cron_run, d: DangerLevel.MODERATE },
-      app_run: { h: handleAppRun, s: ToolInputSchemas.app_run, d: DangerLevel.MODERATE },
-      app_test: { h: handleAppTest, s: ToolInputSchemas.app_test, d: DangerLevel.MODERATE },
-      browser_test: { h: handleBrowserTest, s: ToolInputSchemas.browser_test, d: DangerLevel.MODERATE },
+      // BROWSER — local-only (Playwright runs on host)
+      browser_open:       { h: handleBrowserOpen,       s: ToolInputSchemas.browser_open,       d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      browser_snapshot:   { h: handleBrowserSnapshot,   s: ToolInputSchemas.browser_snapshot,   d: DangerLevel.SAFE,     lo: true, p: P.READ },
+      browser_action:     { h: handleBrowserAction,     s: ToolInputSchemas.browser_action,     d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      browser_screenshot: { h: handleBrowserScreenshot, s: ToolInputSchemas.browser_screenshot, d: DangerLevel.SAFE,     lo: true, p: P.READ },
+
+      // WORKFLOW / CRON / RUNTIME — local-only (shell/process execution)
+      workflow_create: { h: handleWorkflowCreate, s: ToolInputSchemas.workflow_create, d: DangerLevel.MODERATE, lo: true, p: P.WRITE },
+      workflow_list:   { h: handleWorkflowList,   s: ToolInputSchemas.workflow_list,   d: DangerLevel.SAFE,     lo: true, p: P.READ },
+      workflow_run:    { h: handleWorkflowRun,    s: ToolInputSchemas.workflow_run,    d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      workflow_delete: { h: handleWorkflowDelete, s: ToolInputSchemas.workflow_delete, d: DangerLevel.MODERATE, lo: true, p: P.WRITE },
+      cron_create:     { h: handleCronCreate,     s: ToolInputSchemas.cron_create,     d: DangerLevel.MODERATE, lo: true, p: P.WRITE },
+      cron_list:       { h: handleCronList,        s: ToolInputSchemas.cron_list,       d: DangerLevel.SAFE,     lo: true, p: P.READ },
+      cron_delete:     { h: handleCronDelete,     s: ToolInputSchemas.cron_delete,     d: DangerLevel.MODERATE, lo: true, p: P.WRITE },
+      cron_run:        { h: handleCronRun,         s: ToolInputSchemas.cron_run,        d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      app_run:         { h: handleAppRun,          s: ToolInputSchemas.app_run,         d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      app_test:        { h: handleAppTest,         s: ToolInputSchemas.app_test,        d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
+      browser_test:    { h: handleBrowserTest,     s: ToolInputSchemas.browser_test,    d: DangerLevel.MODERATE, lo: true, p: P.EXECUTE },
     };
 
     for (const [name, meta] of Object.entries(builtins)) {
@@ -468,7 +474,9 @@ export class ToolRegistry {
         description,
         handler: meta.h,
         schema: meta.s,
-        danger: meta.d
+        danger: meta.d,
+        localOnly: meta.lo,
+        permission: meta.p,
       });
     }
   }

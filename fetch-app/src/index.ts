@@ -19,6 +19,7 @@ import { getIdentityManager } from './identity/manager.js';
 import { getToolRegistry } from './tools/registry.js';
 import { getVersion } from './utils/version.js';
 import { getWorkflowManager, shutdownWorkflowManager } from './workflow/manager.js';
+import { getBridgeManager } from './bridge/manager.js';
 
 type ExitFn = (code: number) => void;
 
@@ -82,6 +83,15 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
         activeBridge = null;
         logger.info('✅ Bridge destroyed, WhatsApp disconnected');
       });
+
+      // Start additional messaging channel bridges (Slack, Telegram, Discord)
+      try {
+        const manager = getBridgeManager();
+        await manager.initializeConfiguredBridges();
+      } catch (channelError) {
+        const channelMsg = channelError instanceof Error ? channelError.message : String(channelError);
+        logger.warn(`Some messaging channels failed to initialize: ${channelMsg}`);
+      }
 
       logger.info('✅ Fetch Bridge is ready and listening!');
     } catch (error) {
@@ -158,17 +168,20 @@ export function createRuntime(options: RuntimeOptions = {}): Runtime {
         pool.getSpawner().killAll();
       } catch { /* pool may never have been created */ }
 
-      // 2. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
+      // 2. Destroy all messaging bridges
+      try { await getBridgeManager().destroyAll(); } catch { /* may not be initialized */ }
+
+      // 3. Destroy WhatsApp bridge (closes Puppeteer + WebSocket)
       if (activeBridge) {
         await activeBridge.destroy();
         activeBridge = null;
       }
 
-      // 3. Flush & close SQLite databases
+      // 4. Flush & close SQLite databases
       try { getSessionStore().close(); } catch { /* may not be initialized */ }
       try { getTaskStore().close(); } catch { /* may not be initialized */ }
 
-      // 4. Shutdown file watchers and manager-owned resources
+      // 5. Shutdown file watchers and manager-owned resources
       try { await getSkillManager().shutdown(); } catch { /* may not be initialized */ }
       try { getIdentityManager().shutdown(); } catch { /* may not be initialized */ }
       try { await getToolRegistry().shutdown(); } catch { /* may not be initialized */ }
