@@ -16,6 +16,7 @@ import { RateLimiter, validateInput } from '../../security/index.js';
 import { handleMessage, registerChannelSender } from '../../handler/index.js';
 import { pipeline } from '../../config/pipeline.js';
 import { formatTextForChannel } from '../../agent/channel-format.js';
+import { transcribeAudio, isTranscriptionAvailable } from '../../transcription/index.js';
 
 // =============================================================================
 // TYPES
@@ -34,6 +35,7 @@ interface TelegramContext {
   reply: (text: string, extra?: { parse_mode?: string; reply_to_message_id?: number }) => Promise<{ message_id: number }>;
   telegram: {
     sendMessage: (chatId: number | string, text: string, extra?: { parse_mode?: string; reply_to_message_id?: number }) => Promise<{ message_id: number }>;
+    getFileLink: (fileId: string) => Promise<{ href: string } | string>;
   };
 }
 
@@ -45,6 +47,7 @@ interface TelegrafBot {
   telegram: {
     sendMessage: (chatId: number | string, text: string, extra?: { parse_mode?: string; reply_to_message_id?: number }) => Promise<{ message_id: number }>;
     getMe: () => Promise<{ id: number; username: string }>;
+    getFileLink: (fileId: string) => Promise<{ href: string } | string>;
   };
   botInfo?: { id: number; username: string };
 }
@@ -178,12 +181,38 @@ export class TelegramBridge implements MessageBridge {
 
     // Handle voice messages
     if (message.voice) {
-      // Voice transcription would require downloading the file and processing
-      // For now, inform the user
-      await ctx.reply('Voice note received. Voice transcription for Telegram is coming soon!', {
-        reply_to_message_id: message.message_id,
-      });
-      return;
+      if (!isTranscriptionAvailable()) {
+        await ctx.reply('Voice note received but transcription is not configured on this server.', {
+          reply_to_message_id: message.message_id,
+        });
+        return;
+      }
+
+      try {
+        const fileLink = await ctx.telegram.getFileLink(message.voice.file_id);
+        const url = typeof fileLink === 'string' ? fileLink : fileLink.href;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to download voice file: ${response.status}`);
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const result = await transcribeAudio(buffer, `telegram-voice-${message.message_id}.ogg`);
+
+        if (result.text?.trim()) {
+          messageText = result.text.trim();
+          logger.success(`Telegram voice transcribed (${result.language || 'unknown'}): "${messageText.substring(0, 50)}..."`);
+        } else {
+          await ctx.reply('Could not transcribe the voice note. Please try sending a text message.', {
+            reply_to_message_id: message.message_id,
+          });
+          return;
+        }
+      } catch (error) {
+        logger.error('Failed to transcribe Telegram voice note', error);
+        await ctx.reply('Failed to process voice note. Please try again.', {
+          reply_to_message_id: message.message_id,
+        });
+        return;
+      }
     }
 
     // Strip bot trigger prefixes

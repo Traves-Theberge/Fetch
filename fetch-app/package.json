@@ -44,6 +44,11 @@
   "overrides": {
     "minimatch": "10.2.1"
   },
+  "optionalDependencies": {
+    "@slack/bolt": "^4.1.0",
+    "telegraf": "^4.16.0",
+    "discord.js": "^14.16.0"
+  },
   "engines": {
     "node": ">=20.0.0"
   },

@@ -119,6 +119,18 @@ export class DiscordBridge implements MessageBridge {
       const formatted = formatTextForChannel(text, 'discord');
       const channel = await this.client.channels.fetch(target);
       if (!channel) return null;
+
+      // Discord has a 2000 char limit — chunk if needed
+      if (formatted.length > 2000) {
+        const chunks = chunkText(formatted, 2000);
+        let lastId: string | null = null;
+        for (const chunk of chunks) {
+          const result = await channel.send(chunk);
+          lastId = result.id;
+        }
+        return lastId;
+      }
+
       const result = await channel.send(formatted);
       return result.id;
     } catch (error) {

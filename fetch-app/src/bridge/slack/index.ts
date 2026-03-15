@@ -134,6 +134,23 @@ export class SlackBridge implements MessageBridge {
     }
   }
 
+  /**
+   * Upload a file to a Slack channel, optionally in a thread.
+   */
+  async sendFile(channel: string, content: string, filename: string, threadTs?: string): Promise<void> {
+    if (!this.app) return;
+    try {
+      await this.app.client.files.uploadV2({
+        channel_id: channel,
+        content,
+        filename,
+        thread_ts: threadTs,
+      });
+    } catch (error) {
+      logger.error('Failed to upload Slack file', error);
+    }
+  }
+
   isReady(): boolean {
     return this.ready;
   }
@@ -186,10 +203,17 @@ export class SlackBridge implements MessageBridge {
 
     const threadTs = event.thread_ts || event.ts;
 
+    // Pass file metadata through for context
+    let fileContext = '';
+    if (event.files && event.files.length > 0) {
+      const fileNames = event.files.map((f) => f.name).join(', ');
+      fileContext = `\n\n[Attached files: ${fileNames}]`;
+    }
+
     try {
       const responses = await handleMessage(
         `slack:${senderId}`,
-        validation.sanitized,
+        validation.sanitized + fileContext,
         async (text) => {
           const formatted = formatTextForChannel(text, 'slack');
           await say({ text: formatted, thread_ts: threadTs });
