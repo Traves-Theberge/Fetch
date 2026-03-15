@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "4ee63868d788",
+  "session_id": "6f103028-e522-4559-aa36-32896f5261b0",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-15T21:23:14.10421934Z",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    "config/messaging.json",
+    "fetch-app/src/agent/channel-format.ts",
+    "fetch-app/src/bridge/discord/index.ts",
+    "fetch-app/src/bridge/interface.ts",
+    "fetch-app/src/bridge/manager.ts",
+    "fetch-app/src/bridge/slack/index.ts",
+    "fetch-app/src/bridge/telegram/index.ts",
+    "fetch-app/src/config/env.ts",
+    "fetch-app/src/handler/index.ts",
+    "fetch-app/src/index.ts",
+    "fetch-app/src/types/messaging-channels.d.ts",
+    "fetch-app/tests/unit/bridge-interface.test.ts",
+    "fetch-app/tests/unit/bridge-manager.test.ts",
+    "fetch-app/tests/unit/channel-format.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 100,
+    "cache_creation_tokens": 88154,
+    "cache_read_tokens": 3401425,
+    "output_tokens": 27145,
+    "api_call_count": 45
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-15T21:23:13.317335854Z",
+    "agent_lines": 1584,
+    "human_added": 2125,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 3709,
+    "agent_percentage": 42.706929091399296
+  }
+}
