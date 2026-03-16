@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "e3f316fa51bb",
+  "session_id": "3e90e43d-8c17-4b4e-ac76-2ecb8962ba1d",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T03:41:03.001682157Z",
+  "branch": "fetch-5",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/env-config.test.ts",
+    "fetch-app/tests/unit/envelope.test.ts",
+    "fetch-app/tests/unit/format.test.ts",
+    "fetch-app/tests/unit/validation-common.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 46032,
+    "cache_read_tokens": 657554,
+    "output_tokens": 10309,
+    "api_call_count": 16
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T03:41:02.782358989Z",
+    "agent_lines": 539,
+    "human_added": 3,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 542,
+    "agent_percentage": 99.44649446494465
+  }
+}

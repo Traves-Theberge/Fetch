@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "e3f316fa51bb",
+  "strategy": "manual-commit",
+  "branch": "fetch-5",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/env-config.test.ts",
+    "fetch-app/tests/unit/envelope.test.ts",
+    "fetch-app/tests/unit/format.test.ts",
+    "fetch-app/tests/unit/validation-common.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e3/f316fa51bb/0/metadata.json",
+      "transcript": "/e3/f316fa51bb/0/full.jsonl",
+      "context": "/e3/f316fa51bb/0/context.md",
+      "content_hash": "/e3/f316fa51bb/0/content_hash.txt",
+      "prompt": "/e3/f316fa51bb/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 46032,
+    "cache_read_tokens": 657554,
+    "output_tokens": 10309,
+    "api_call_count": 16
+  }
+}
