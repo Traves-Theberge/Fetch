@@ -1,0 +1,37 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "15a953dfceb0",
+  "session_id": "048bf5bd-5b49-47f1-aa44-8f537f32038e",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T02:31:10.547834771Z",
+  "branch": "fetch-3",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "data/fetch.config.json",
+    "fetch-app/src/agent/capability-cards.ts",
+    "fetch-app/src/config/paths.ts",
+    "fetch-app/src/tools/registry.ts",
+    "fetch-app/src/tools/tpmjs_client.ts",
+    "fetch-app/src/tools/tpmjs_loader.ts",
+    "fetch-app/tests/unit/capability-cards.test.ts",
+    "fetch-app/tests/unit/tpmjs-client.test.ts",
+    "fetch-app/tests/unit/tpmjs-loader.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 70708,
+    "cache_read_tokens": 2710528,
+    "output_tokens": 18426,
+    "api_call_count": 46
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T02:31:10.116260018Z",
+    "agent_lines": 813,
+    "human_added": 144,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 957,
+    "agent_percentage": 84.95297805642633
+  }
+}

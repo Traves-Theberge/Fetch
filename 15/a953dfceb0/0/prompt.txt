@@ -1,0 +1,34 @@
+You are an autonomous coding agent working on issue **FETCH-3**.
+
+## Task
+**📦 TPMJS Integration (The NPM for AI Tools)**
+
+## Description
+Integrate [TPMJS.com](https://tpmjs.com) (The NPM for AI Tools) to allow dynamic discovery and installation of MCP (Model Context Protocol) tools.
+
+## Plan
+1.  **TPMJS Client**:
+    *   Implement a client to search and fetch tool manifests from `tpmjs.com`.
+2.  **Tool Loader**:
+    *   Dynamically load tools into the agent's context at runtime or startup.
+    *   Support `mcp` protocol configuration.
+3.  **Configuration**:
+    *   Allow users to define a list of required tools in `fetch.config.json`.
+    *   Example: `{"tools": ["@tpmjs/discord-read", "bash-tool"]}`.
+
+## Associated Files
+*   `src/tools/tpmjs_client.ts`
+*   `src/tools/loader.ts`
+*   `src/agent/core.ts` (Update tool injection)
+
+## Instructions
+
+1. Write an **Operational Plan** using markdown checkboxes (`- [ ]` pending, `- [x]` done).
+
+2. Work through each step. After completing a step, restate the plan with updated checkboxes.
+
+3. Use all available tools to implement changes.
+
+4. Verify your work compiles/passes. Do NOT stop until all items are checked off.
+
+Attempt: 1
