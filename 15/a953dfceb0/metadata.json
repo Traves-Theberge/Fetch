@@ -3,15 +3,27 @@
   "checkpoint_id": "15a953dfceb0",
   "strategy": "manual-commit",
   "branch": "fetch-3",
-  "checkpoints_count": 2,
+  "checkpoints_count": 3,
   "files_touched": [
+    ".env.example",
     "data/fetch.config.json",
     "fetch-app/src/agent/capability-cards.ts",
+    "fetch-app/src/bridge/client.ts",
+    "fetch-app/src/bridge/discord/index.ts",
+    "fetch-app/src/bridge/format.ts",
+    "fetch-app/src/bridge/interface.ts",
+    "fetch-app/src/bridge/orchestrator.ts",
+    "fetch-app/src/bridge/slack/index.ts",
+    "fetch-app/src/bridge/telegram/index.ts",
+    "fetch-app/src/config/env.ts",
     "fetch-app/src/config/paths.ts",
+    "fetch-app/src/index.ts",
     "fetch-app/src/tools/registry.ts",
     "fetch-app/src/tools/tpmjs_client.ts",
     "fetch-app/src/tools/tpmjs_loader.ts",
     "fetch-app/tests/helpers/mock-session-manager.ts",
+    "fetch-app/tests/unit/bridge-format.test.ts",
+    "fetch-app/tests/unit/bridge-interface.test.ts",
     "fetch-app/tests/unit/capability-cards.test.ts",
     "fetch-app/tests/unit/tpmjs-client.test.ts",
     "fetch-app/tests/unit/tpmjs-loader.test.ts"
@@ -30,13 +42,20 @@
       "context": "/15/a953dfceb0/1/context.md",
       "content_hash": "/15/a953dfceb0/1/content_hash.txt",
       "prompt": "/15/a953dfceb0/1/prompt.txt"
+    },
+    {
+      "metadata": "/15/a953dfceb0/2/metadata.json",
+      "transcript": "/15/a953dfceb0/2/full.jsonl",
+      "context": "/15/a953dfceb0/2/context.md",
+      "content_hash": "/15/a953dfceb0/2/content_hash.txt",
+      "prompt": "/15/a953dfceb0/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 63,
-    "cache_creation_tokens": 96433,
-    "cache_read_tokens": 3008949,
-    "output_tokens": 21486,
-    "api_call_count": 57
+    "input_tokens": 131,
+    "cache_creation_tokens": 200058,
+    "cache_read_tokens": 8532617,
+    "output_tokens": 51974,
+    "api_call_count": 121
   }
 }
