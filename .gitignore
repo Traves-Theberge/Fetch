@@ -34,6 +34,9 @@ logs/
 # Build artifacts
 *.tgz
 
+# Test coverage
+coverage/
+
 # Go binaries
 manager/fetch-manager
 manager/fetch-manager-arm64

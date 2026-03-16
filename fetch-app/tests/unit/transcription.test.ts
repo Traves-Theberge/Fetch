@@ -73,4 +73,24 @@ describe('transcription', () => {
 
     await expect(transcribeAudio(Buffer.from('abc'), 'voice.ogg')).rejects.toThrow('Transcription failed. Please try again.');
   });
+
+  it('reports transcription available when binary and model exist', async () => {
+    existsSyncMock.mockImplementation((path: string) =>
+      path === '/usr/local/bin/whisper-cpp' || path === '/models/my model.bin'
+    );
+    const { isTranscriptionAvailable } = await import('../../src/transcription/index.js');
+    expect(isTranscriptionAvailable()).toBe(true);
+  });
+
+  it('reports transcription unavailable when binary is missing', async () => {
+    existsSyncMock.mockImplementation(() => false);
+    const { isTranscriptionAvailable } = await import('../../src/transcription/index.js');
+    expect(isTranscriptionAvailable()).toBe(false);
+  });
+
+  it('reports transcription unavailable when model is missing', async () => {
+    existsSyncMock.mockImplementation((path: string) => path === '/usr/local/bin/whisper-cpp');
+    const { isTranscriptionAvailable } = await import('../../src/transcription/index.js');
+    expect(isTranscriptionAvailable()).toBe(false);
+  });
 });
