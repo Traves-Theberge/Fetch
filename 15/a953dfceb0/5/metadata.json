@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "15a953dfceb0",
+  "session_id": "b38139f6-8d2f-40ef-a00c-0fb9ee9b3f22",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T02:31:13.096716976Z",
+  "branch": "fetch-3",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/src/commands/pm.ts",
+    "fetch-app/src/tools/pm.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 32,
+    "cache_creation_tokens": 50779,
+    "cache_read_tokens": 1425878,
+    "output_tokens": 5030,
+    "api_call_count": 28
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T02:31:12.83722579Z",
+    "agent_lines": 60,
+    "human_added": 897,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 957,
+    "agent_percentage": 6.269592476489027
+  }
+}

@@ -3,7 +3,7 @@
   "checkpoint_id": "15a953dfceb0",
   "strategy": "manual-commit",
   "branch": "fetch-3",
-  "checkpoints_count": 5,
+  "checkpoints_count": 6,
   "files_touched": [
     ".env.example",
     "data/fetch.config.json",
@@ -15,10 +15,12 @@
     "fetch-app/src/bridge/orchestrator.ts",
     "fetch-app/src/bridge/slack/index.ts",
     "fetch-app/src/bridge/telegram/index.ts",
+    "fetch-app/src/commands/pm.ts",
     "fetch-app/src/config/env.ts",
     "fetch-app/src/config/paths.ts",
     "fetch-app/src/index.ts",
     "fetch-app/src/tools/index.ts",
+    "fetch-app/src/tools/pm.ts",
     "fetch-app/src/tools/registry.ts",
     "fetch-app/src/tools/tpmjs_client.ts",
     "fetch-app/src/tools/tpmjs_loader.ts",
@@ -65,13 +67,20 @@
       "context": "/15/a953dfceb0/4/context.md",
       "content_hash": "/15/a953dfceb0/4/content_hash.txt",
       "prompt": "/15/a953dfceb0/4/prompt.txt"
+    },
+    {
+      "metadata": "/15/a953dfceb0/5/metadata.json",
+      "transcript": "/15/a953dfceb0/5/full.jsonl",
+      "context": "/15/a953dfceb0/5/context.md",
+      "content_hash": "/15/a953dfceb0/5/content_hash.txt",
+      "prompt": "/15/a953dfceb0/5/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 182,
-    "cache_creation_tokens": 313263,
-    "cache_read_tokens": 10799309,
-    "output_tokens": 69492,
-    "api_call_count": 164
+    "input_tokens": 214,
+    "cache_creation_tokens": 364042,
+    "cache_read_tokens": 12225187,
+    "output_tokens": 74522,
+    "api_call_count": 192
   }
 }
