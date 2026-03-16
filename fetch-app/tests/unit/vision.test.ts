@@ -55,11 +55,58 @@ describe('vision input validation', () => {
     expect(createMock).not.toHaveBeenCalled();
   });
 
+  it('rejects empty base64 payload', async () => {
+    const { analyzeImage } = await loadVision();
+    await expect(analyzeImage('', 'image/png')).rejects.toThrow('empty image payload');
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only base64 payload', async () => {
+    const { analyzeImage } = await loadVision();
+    await expect(analyzeImage('   \n  ', 'image/png')).rejects.toThrow('empty image payload');
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   it('accepts allowed image inputs and returns provider response', async () => {
     const { analyzeImage } = await loadVision();
     const result = await analyzeImage('aGVsbG8=', 'image/png', 'debug this screenshot');
 
     expect(result).toBe('looks good');
     expect(createMock).toHaveBeenCalledOnce();
+  });
+
+  it('accepts all four allowed mime types', async () => {
+    const { analyzeImage } = await loadVision();
+    for (const mime of ['image/jpeg', 'image/png', 'image/webp', 'image/gif']) {
+      createMock.mockResolvedValueOnce({
+        choices: [{ message: { content: 'ok' } }],
+      });
+      const result = await analyzeImage('aGVsbG8=', mime);
+      expect(result).toBe('ok');
+    }
+  });
+
+  it('returns fallback text when API response has no content', async () => {
+    const { analyzeImage } = await loadVision();
+    createMock.mockResolvedValueOnce({
+      choices: [{ message: { content: '' } }],
+    });
+    const result = await analyzeImage('aGVsbG8=', 'image/png');
+    expect(result).toBe('No analysis available.');
+  });
+
+  it('wraps unexpected API errors in a user-friendly message', async () => {
+    const { analyzeImage } = await loadVision();
+    createMock.mockRejectedValueOnce(new Error('network timeout'));
+    await expect(analyzeImage('aGVsbG8=', 'image/png')).rejects.toThrow(
+      'Image analysis failed. Please try again or describe the problem in text.'
+    );
+  });
+});
+
+describe('vision availability', () => {
+  it('reports vision available when API key is set', async () => {
+    const { isVisionAvailable } = await loadVision();
+    expect(isVisionAvailable()).toBe(true);
   });
 });
