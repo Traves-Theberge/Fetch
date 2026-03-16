@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "55fa9b85282a",
+  "session_id": "286d9c67-0000-4719-a0c4-645325d62246",
+  "strategy": "manual-commit",
+  "created_at": "2026-03-16T03:47:35.773843276Z",
+  "branch": "fetch-5",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/docker-executor.test.ts",
+    "fetch-app/tests/unit/status-api.test.ts",
+    "fetch-app/tests/unit/transcription.test.ts",
+    "fetch-app/tests/unit/vision.test.ts"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 45473,
+    "cache_read_tokens": 663224,
+    "output_tokens": 9457,
+    "api_call_count": 17
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-03-16T03:47:35.499776496Z",
+    "agent_lines": 343,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 343,
+    "agent_percentage": 100
+  }
+}

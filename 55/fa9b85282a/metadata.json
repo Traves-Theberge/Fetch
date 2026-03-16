@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "55fa9b85282a",
+  "strategy": "manual-commit",
+  "branch": "fetch-5",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/docker-executor.test.ts",
+    "fetch-app/tests/unit/status-api.test.ts",
+    "fetch-app/tests/unit/transcription.test.ts",
+    "fetch-app/tests/unit/vision.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/55/fa9b85282a/0/metadata.json",
+      "transcript": "/55/fa9b85282a/0/full.jsonl",
+      "context": "/55/fa9b85282a/0/context.md",
+      "content_hash": "/55/fa9b85282a/0/content_hash.txt",
+      "prompt": "/55/fa9b85282a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 19,
+    "cache_creation_tokens": 45473,
+    "cache_read_tokens": 663224,
+    "output_tokens": 9457,
+    "api_call_count": 17
+  }
+}
