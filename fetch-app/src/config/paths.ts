@@ -69,3 +69,6 @@ export const TASKS_DB = env.TASKS_DB_PATH || path.join(DATA_DIR, 'tasks.db');
 
 /** Absolute path to workflow/cron state file. */
 export const WORKFLOWS_JSON = path.join(DATA_DIR, 'workflows.json');
+
+/** Absolute path to the fetch.config.json file for TPMJS tool configuration. */
+export const FETCH_CONFIG = path.join(DATA_DIR, 'fetch.config.json');

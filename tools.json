@@ -1,0 +1,84 @@
+[
+  {
+    "description": "Query issue tracker state for candidate dispatch and state refresh operations.",
+    "inputSchema": {
+      "properties": {
+        "active_states": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "issue_ids": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "states": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "name": "tracker_query"
+  },
+  {
+    "description": "Update an issue's state, priority, or assignee. Use this to transition an issue through the workflow or hand off to another agent.",
+    "inputSchema": {
+      "properties": {
+        "assignee_id": {
+          "description": "The ID of the agent or user to assign (e.g. agent-claude, agent-codex)",
+          "type": "string"
+        },
+        "identifier": {
+          "description": "The issue identifier (e.g. OPS-123)",
+          "type": "string"
+        },
+        "priority": {
+          "description": "The priority level (0-4)",
+          "type": "integer"
+        },
+        "state": {
+          "description": "The new state (e.g. In Progress, In Review, Done)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "identifier"
+      ],
+      "type": "object"
+    },
+    "name": "update_issue"
+  },
+  {
+    "description": "Explicitly request to hand off the current task to another agent provider. Use this if the task requires a model with different capabilities (e.g. larger context, better reasoning).",
+    "inputSchema": {
+      "properties": {
+        "provider": {
+          "description": "The target agent provider (e.g. claude, gemini, codex, opencode)",
+          "type": "string"
+        },
+        "reason": {
+          "description": "The reason for the handoff request",
+          "type": "string"
+        }
+      },
+      "required": [
+        "provider",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "name": "request_handoff"
+  }
+]

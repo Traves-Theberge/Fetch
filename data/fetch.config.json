@@ -1,0 +1,10 @@
+{
+  "tools": [
+    "@tpmjs/discord-read",
+    "bash-tool"
+  ],
+  "tpmjs": {
+    "baseUrl": "https://tpmjs.com/api",
+    "timeoutMs": 15000
+  }
+}

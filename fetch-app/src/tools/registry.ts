@@ -90,12 +90,13 @@ import {
 } from './workflow.js';
 
 import { loadToolDefinition, buildToolSchema, CustomToolDefinition } from './loader.js';
+import { loadTpmjsTools } from './tpmjs_loader.js';
 import { exec } from 'child_process';
 import util from 'util';
 const execPromise = util.promisify(exec);
 import chokidar from 'chokidar';
 import fs from 'fs';
-import { TOOLS_DIR } from '../config/paths.js';
+import { TOOLS_DIR, FETCH_CONFIG } from '../config/paths.js';
 
 // ============================================================================
 // Internal Types
@@ -131,21 +132,63 @@ export class ToolRegistry {
   private customToolsDir: string;
   private watchers: ReturnType<typeof chokidar.watch>[] = [];
 
+  private tpmjsToolNames: Set<string> = new Set();
+
   private constructor() {
     this.customToolsDir = TOOLS_DIR;
     this.registerBuiltins();
     this.initCustomTools();
+    this.initTpmjsTools();
   }
 
   private initCustomTools() {
     // Ensure dir exists (or try to)
     if (!fs.existsSync(this.customToolsDir)) {
-      // Ideally we create it, but constructor sync content... 
+      // Ideally we create it, but constructor sync content...
       // Async init pattern better, but singleton is sync accessed usually.
       // We'll set up watcher and let it fire on existing files if configured right.
     }
 
     this.setupWatcher();
+  }
+
+  /**
+   * Asynchronously load TPMJS tools from fetch.config.json.
+   * Runs in background — tools become available once fetched.
+   */
+  private initTpmjsTools() {
+    loadTpmjsTools(FETCH_CONFIG).then((result) => {
+      for (const { definition, schema } of result.tools) {
+        const handler = this.createShellHandler(definition);
+        this.register({
+          name: definition.name,
+          description: `[TPMJS] ${definition.description}`,
+          handler,
+          schema,
+          danger: definition.danger,
+          isCustom: true,
+        });
+        this.tpmjsToolNames.add(definition.name);
+      }
+
+      if (result.tools.length > 0) {
+        logger.info(`Loaded ${result.tools.length} TPMJS tools`, {
+          tools: result.tools.map((t) => t.definition.name),
+        });
+      }
+      if (result.failed.length > 0) {
+        logger.warn(`${result.failed.length} TPMJS tools failed to load`, {
+          failed: result.failed,
+        });
+      }
+    }).catch((error) => {
+      logger.error('Failed to initialize TPMJS tools', error);
+    });
+  }
+
+  /** Returns names of all currently loaded TPMJS tools. */
+  public getTpmjsToolNames(): string[] {
+    return Array.from(this.tpmjsToolNames);
   }
 
   private setupWatcher() {

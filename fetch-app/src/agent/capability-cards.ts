@@ -5,6 +5,7 @@
  */
 
 import { ToolInputSchemas } from '../validation/tools.js';
+import { getToolRegistry } from '../tools/registry.js';
 import type { ResponsePreferences } from './response-policy.js';
 
 type InventoryOptions = {
@@ -15,6 +16,7 @@ const SLASH_COMMANDS = ['/stop', '/undo', '/clear', '/help', '/status', '/versio
 
 function collectToolGroups(): Record<string, string[]> {
   const allTools = Object.keys(ToolInputSchemas);
+  const tpmjsTools = getToolRegistry().getTpmjsToolNames();
   return {
     Workspace: allTools.filter((name) => name.startsWith('workspace_') || name === 'file_delete' || name === 'folder_delete'),
     Task: allTools.filter((name) => name.startsWith('task_')),
@@ -23,6 +25,7 @@ function collectToolGroups(): Record<string, string[]> {
     Web: allTools.filter((name) => name.startsWith('web_')),
     Browser: allTools.filter((name) => name.startsWith('browser_') && name !== 'browser_test'),
     WorkflowRuntime: allTools.filter((name) => name.startsWith('workflow_') || name.startsWith('cron_') || name === 'app_run' || name === 'app_test' || name === 'browser_test'),
+    TPMJS: tpmjsTools,
   };
 }
 
@@ -69,6 +72,7 @@ export function buildToolInventory(options: InventoryOptions = {}, preferences?:
     ['Web', groups.Web],
     ['Browser', groups.Browser],
     ['Workflow & Runtime', groups.WorkflowRuntime],
+    ['TPMJS', groups.TPMJS],
   ] as const;
 
   const totalTools = ordered.reduce((sum, [, tools]) => sum + tools.length, 0);

@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../src/tools/registry.js', () => ({
+  getToolRegistry: () => ({
+    getTpmjsToolNames: () => [],
+  }),
+}));
 
 import { buildCapabilitySummary, buildToolInventory } from '../../src/agent/capability-cards.js';
 
