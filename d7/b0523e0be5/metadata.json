@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "d7b0523e0be5",
+  "strategy": "manual-commit",
+  "branch": "fetch-5",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/harness-registry.test.ts",
+    "fetch-app/tests/unit/logger.test.ts",
+    "fetch-app/tests/unit/output-parser.test.ts",
+    "fetch-app/tests/unit/paths-config.test.ts",
+    "fetch-app/tests/unit/rate-limiter.test.ts",
+    "fetch-app/tests/unit/security-gate.test.ts",
+    "fetch-app/tests/unit/trust-command.test.ts",
+    "fetch-app/tests/unit/validation-tools.test.ts",
+    "fetch-app/tests/unit/validator.test.ts",
+    "fetch-app/tests/unit/version.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d7/b0523e0be5/0/metadata.json",
+      "transcript": "/d7/b0523e0be5/0/full.jsonl",
+      "context": "/d7/b0523e0be5/0/context.md",
+      "content_hash": "/d7/b0523e0be5/0/content_hash.txt",
+      "prompt": "/d7/b0523e0be5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 25,
+    "cache_creation_tokens": 79478,
+    "cache_read_tokens": 1120612,
+    "output_tokens": 17098,
+    "api_call_count": 19
+  }
+}
