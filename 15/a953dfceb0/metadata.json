@@ -3,7 +3,7 @@
   "checkpoint_id": "15a953dfceb0",
   "strategy": "manual-commit",
   "branch": "fetch-3",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "data/fetch.config.json",
     "fetch-app/src/agent/capability-cards.ts",
@@ -11,6 +11,7 @@
     "fetch-app/src/tools/registry.ts",
     "fetch-app/src/tools/tpmjs_client.ts",
     "fetch-app/src/tools/tpmjs_loader.ts",
+    "fetch-app/tests/helpers/mock-session-manager.ts",
     "fetch-app/tests/unit/capability-cards.test.ts",
     "fetch-app/tests/unit/tpmjs-client.test.ts",
     "fetch-app/tests/unit/tpmjs-loader.test.ts"
@@ -22,13 +23,20 @@
       "context": "/15/a953dfceb0/0/context.md",
       "content_hash": "/15/a953dfceb0/0/content_hash.txt",
       "prompt": "/15/a953dfceb0/0/prompt.txt"
+    },
+    {
+      "metadata": "/15/a953dfceb0/1/metadata.json",
+      "transcript": "/15/a953dfceb0/1/full.jsonl",
+      "context": "/15/a953dfceb0/1/context.md",
+      "content_hash": "/15/a953dfceb0/1/content_hash.txt",
+      "prompt": "/15/a953dfceb0/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 50,
-    "cache_creation_tokens": 70708,
-    "cache_read_tokens": 2710528,
-    "output_tokens": 18426,
-    "api_call_count": 46
+    "input_tokens": 63,
+    "cache_creation_tokens": 96433,
+    "cache_read_tokens": 3008949,
+    "output_tokens": 21486,
+    "api_call_count": 57
   }
 }
