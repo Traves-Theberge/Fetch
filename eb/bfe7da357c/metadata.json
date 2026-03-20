@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.3",
+  "checkpoint_id": "ebbfe7da357c",
+  "strategy": "manual-commit",
+  "branch": "fetch-1",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "fetch-app/tests/unit/pool.test.ts",
+    "fetch-app/tests/unit/prompts.test.ts",
+    "fetch-app/tests/unit/skill-loader.test.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/eb/bfe7da357c/0/metadata.json",
+      "transcript": "/eb/bfe7da357c/0/full.jsonl",
+      "context": "/eb/bfe7da357c/0/context.md",
+      "content_hash": "/eb/bfe7da357c/0/content_hash.txt",
+      "prompt": "/eb/bfe7da357c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 67,
+    "cache_creation_tokens": 38282,
+    "cache_read_tokens": 443207,
+    "output_tokens": 7786,
+    "api_call_count": 14
+  }
+}
