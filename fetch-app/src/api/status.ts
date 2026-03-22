@@ -31,6 +31,7 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { z } from 'zod';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import { getVersion } from '../utils/version.js';
@@ -38,6 +39,18 @@ import { getSessionManager } from '../session/manager.js';
 import { validateRuntimeEnvUpdates } from '../config/env.js';
 import { getNotificationMetrics, type NotificationMetrics } from '../agent/notifications.js';
 import { getWhatsAppFormatMetrics, type WhatsAppFormatMetrics } from '../agent/whatsapp-format.js';
+import {
+  MAX_BODY_SIZE,
+  SessionIdSchema,
+  SessionListQuerySchema,
+  ConfigReloadBodySchema,
+  LogoutBodySchema,
+  WhatsAppStartBodySchema,
+  WhatsAppRestartBodySchema,
+  SessionClearBodySchema,
+  formatZodErrors,
+  parseQueryString,
+} from '../validation/api.js';
 
 // =============================================================================
 // CONFIGURATION
@@ -113,6 +126,165 @@ function isAdminAuthorized(req: http.IncomingMessage): boolean {
   // If ADMIN_TOKEN is unset, allow local TUI/admin workflows without token wiring.
   if (!ADMIN_TOKEN) return true;
   return req.headers.authorization === `Bearer ${ADMIN_TOKEN}`;
+}
+
+// =============================================================================
+// REQUEST PARSING & VALIDATION HELPERS
+// =============================================================================
+
+/**
+ * Read and parse a JSON request body with size limits.
+ *
+ * Returns `undefined` when the request has no body (Content-Length 0 or missing).
+ * Throws on oversized payloads or malformed JSON.
+ */
+export function readJsonBody(req: http.IncomingMessage): Promise<unknown | undefined> {
+  return new Promise((resolve, reject) => {
+    const contentLength = parseInt(req.headers['content-length'] || '0', 10);
+    if (contentLength > MAX_BODY_SIZE) {
+      reject(new BodyTooLargeError());
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    let totalSize = 0;
+
+    req.on('data', (chunk: Buffer) => {
+      totalSize += chunk.length;
+      if (totalSize > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new BodyTooLargeError());
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      if (totalSize === 0) {
+        resolve(undefined);
+        return;
+      }
+
+      const raw = Buffer.concat(chunks).toString('utf-8');
+
+      const contentType = req.headers['content-type'] || '';
+      if (!contentType.includes('application/json')) {
+        reject(new InvalidContentTypeError(contentType));
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(raw));
+      } catch {
+        reject(new MalformedJsonError());
+      }
+    });
+
+    req.on('error', reject);
+  });
+}
+
+/** Error subclass for oversized request bodies. */
+export class BodyTooLargeError extends Error {
+  constructor() {
+    super(`Request body too large (max ${MAX_BODY_SIZE} bytes)`);
+    this.name = 'BodyTooLargeError';
+  }
+}
+
+/** Error subclass for invalid Content-Type headers. */
+export class InvalidContentTypeError extends Error {
+  constructor(contentType: string) {
+    super(
+      contentType
+        ? `Unsupported Content-Type "${contentType}"; expected application/json`
+        : 'Missing Content-Type header; expected application/json',
+    );
+    this.name = 'InvalidContentTypeError';
+  }
+}
+
+/** Error subclass for malformed JSON bodies. */
+export class MalformedJsonError extends Error {
+  constructor() {
+    super('Malformed JSON in request body');
+    this.name = 'MalformedJsonError';
+  }
+}
+
+/**
+ * Validate a parsed body against a Zod schema and send 400 on failure.
+ *
+ * @returns The validated data, or `null` if validation failed (response already sent).
+ */
+export function validateBody<T>(
+  body: unknown,
+  schema: z.ZodType<T>,
+  res: http.ServerResponse,
+): T | null {
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    res.writeHead(400);
+    res.end(
+      JSON.stringify({
+        success: false,
+        message: `Validation error: ${formatZodErrors(result.error)}`,
+      }),
+    );
+    return null;
+  }
+  return result.data;
+}
+
+/**
+ * Validate a session ID from the URL path and send 400 on failure.
+ *
+ * @returns The validated session ID, or `null` if invalid (response already sent).
+ */
+export function validateSessionId(
+  sessionId: string | undefined,
+  res: http.ServerResponse,
+): string | null {
+  if (!sessionId) {
+    res.writeHead(400);
+    res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
+    return null;
+  }
+  const result = SessionIdSchema.safeParse(sessionId);
+  if (!result.success) {
+    res.writeHead(400);
+    res.end(
+      JSON.stringify({
+        success: false,
+        message: `Invalid session ID: ${formatZodErrors(result.error)}`,
+      }),
+    );
+    return null;
+  }
+  return result.data;
+}
+
+/**
+ * Send a 400 response for body-parsing errors (size, content-type, JSON).
+ *
+ * @returns `true` if the error was handled; `false` for unknown errors.
+ */
+function handleBodyError(err: unknown, res: http.ServerResponse): boolean {
+  if (
+    err instanceof BodyTooLargeError ||
+    err instanceof InvalidContentTypeError ||
+    err instanceof MalformedJsonError
+  ) {
+    res.writeHead(400);
+    res.end(
+      JSON.stringify({
+        success: false,
+        message: (err as Error).message,
+      }),
+    );
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -296,6 +468,14 @@ export function startStatusServer(): void {
         return;
       }
 
+      try {
+        const body = await readJsonBody(req);
+        if (body !== undefined && validateBody(body, LogoutBodySchema, res) === null) return;
+      } catch (err) {
+        if (handleBodyError(err, res)) return;
+        throw err;
+      }
+
       const success = await triggerLogout();
       if (success) {
         res.writeHead(200);
@@ -314,6 +494,15 @@ export function startStatusServer(): void {
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
       }
+
+      try {
+        const body = await readJsonBody(req);
+        if (body !== undefined && validateBody(body, WhatsAppStartBodySchema, res) === null) return;
+      } catch (err) {
+        if (handleBodyError(err, res)) return;
+        throw err;
+      }
+
       const success = await triggerWhatsAppStart();
       if (success) {
         res.writeHead(200);
@@ -332,6 +521,15 @@ export function startStatusServer(): void {
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
       }
+
+      try {
+        const body = await readJsonBody(req);
+        if (body !== undefined && validateBody(body, WhatsAppRestartBodySchema, res) === null) return;
+      } catch (err) {
+        if (handleBodyError(err, res)) return;
+        throw err;
+      }
+
       const success = await triggerWhatsAppRestart();
       if (success) {
         res.writeHead(200);
@@ -351,6 +549,14 @@ export function startStatusServer(): void {
         res.writeHead(401);
         res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
         return;
+      }
+
+      try {
+        const body = await readJsonBody(req);
+        if (body !== undefined && validateBody(body, ConfigReloadBodySchema, res) === null) return;
+      } catch (err) {
+        if (handleBodyError(err, res)) return;
+        throw err;
       }
 
       try {
@@ -411,7 +617,7 @@ export function startStatusServer(): void {
 
 
     // GET /api/sessions
-    if (req.method === 'GET' && url === '/api/sessions') {
+    if (req.method === 'GET' && (url === '/api/sessions' || url.startsWith('/api/sessions?'))) {
       res.setHeader('Content-Type', 'application/json');
 
       if (!isAdminAuthorized(req)) {
@@ -420,9 +626,23 @@ export function startStatusServer(): void {
         return;
       }
 
+      const queryParams = parseQueryString(url);
+      const queryResult = SessionListQuerySchema.safeParse(queryParams);
+      if (!queryResult.success) {
+        res.writeHead(400);
+        res.end(
+          JSON.stringify({
+            success: false,
+            message: `Invalid query parameters: ${formatZodErrors(queryResult.error)}`,
+          }),
+        );
+        return;
+      }
+      const listLimit = queryResult.data.limit ?? 100;
+
       try {
         const manager = await getSessionManager();
-        const sessions = await manager.listSessions(100); // Limit to 100 for now
+        const sessions = await manager.listSessions(listLimit);
 
         // Return simplified list
         const summary = sessions.map(s => ({
@@ -455,17 +675,13 @@ export function startStatusServer(): void {
       }
 
       const parts = url.split('/');
-      const sessionId = parts[3];
-      if (!sessionId) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
-        return;
-      }
-      if (parts.length !== 4 || !isValidSessionId(sessionId)) {
+      if (parts.length !== 4) {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
         return;
       }
+      const sessionId = validateSessionId(parts[3], res);
+      if (sessionId === null) return;
 
       try {
         const manager = await getSessionManager();
@@ -497,17 +713,13 @@ export function startStatusServer(): void {
       }
 
       const parts = url.split('/');
-      const sessionId = parts[3];
-      if (!sessionId) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ success: false, message: 'Missing session ID' }));
-        return;
-      }
-      if (parts.length !== 4 || !isValidSessionId(sessionId)) {
+      if (parts.length !== 4) {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
         return;
       }
+      const sessionId = validateSessionId(parts[3], res);
+      if (sessionId === null) return;
 
       try {
         const manager = await getSessionManager();
@@ -539,11 +751,20 @@ export function startStatusServer(): void {
       }
 
       const parts = url.split('/');
-      const sessionId = parts[3]; // /api/sessions/:id/clear
-      if (parts.length !== 5 || parts[4] !== 'clear' || !sessionId || !isValidSessionId(sessionId)) {
+      if (parts.length !== 5 || parts[4] !== 'clear') {
         res.writeHead(400);
         res.end(JSON.stringify({ success: false, message: 'Invalid session ID' }));
         return;
+      }
+      const sessionId = validateSessionId(parts[3], res);
+      if (sessionId === null) return;
+
+      try {
+        const body = await readJsonBody(req);
+        if (body !== undefined && validateBody(body, SessionClearBodySchema, res) === null) return;
+      } catch (err) {
+        if (handleBodyError(err, res)) return;
+        throw err;
       }
 
       try {
