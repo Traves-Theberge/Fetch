@@ -13,5 +13,12 @@ jobs:
     runs-on: [self-hosted, pideploy]
     steps:
       - uses: actions/checkout@v4
+      - name: Provision .env from secret
+        env:
+          DOTENV: ${{ secrets.PIDEPLOY_DOTENV }}
+        run: printf '%s' "$DOTENV" > .env
       - run: docker compose up -d --build --remove-orphans
       - run: docker image prune -f
+      - name: Remove provisioned .env
+        if: always()
+        run: rm -f .env
