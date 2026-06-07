@@ -124,12 +124,12 @@ services:
     tmpfs:
       - /tmp:size=256m,noexec,nosuid
       - /root:size=128m
-    pids_limit: 512
     deploy:
       resources:
         limits:
           memory: 2G
           cpus: '2'
+          pids: 512
 
   # SearXNG - Self-hosted meta search engine (free, private)
   searxng:
