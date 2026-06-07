@@ -2,9 +2,12 @@ name: deploy
 # SAFETY: only push to your branch + manual dispatch. Do NOT add pull_request —
 # on a public repo that lets a fork run code on your self-hosted runner.
 on:
-  push: { branches: [main] }
+  push:
+    branches: [main]
   workflow_dispatch:
-concurrency: { group: deploy-${{ github.ref }}, cancel-in-progress: true }
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   deploy:
     runs-on: [self-hosted, pideploy]
